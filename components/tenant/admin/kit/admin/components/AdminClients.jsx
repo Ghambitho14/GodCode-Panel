@@ -25,6 +25,14 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         setKebabMenuPos(null);
     }, []);
 
+    const setCurrentPageWithMenuClose = useCallback(
+        (valueOrUpdater) => {
+            closeKebabMenu();
+            setCurrentPage(valueOrUpdater);
+        },
+        [closeKebabMenu],
+    );
+
     const updateKebabMenuPosFromButton = useCallback((buttonEl) => {
         if (!buttonEl || typeof buttonEl.getBoundingClientRect !== 'function') return;
         const r = buttonEl.getBoundingClientRect();
@@ -199,12 +207,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
     );
 
     useEffect(() => {
-        if (menuOpenClientId && !kebabOpenClient) closeKebabMenu();
+        if (!menuOpenClientId || kebabOpenClient) return undefined;
+        const frameId = window.requestAnimationFrame(() => {
+            closeKebabMenu();
+        });
+        return () => window.cancelAnimationFrame(frameId);
     }, [menuOpenClientId, kebabOpenClient, closeKebabMenu]);
-
-    useEffect(() => {
-        closeKebabMenu();
-    }, [currentPage, closeKebabMenu]);
 
     const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
 
@@ -294,7 +302,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                             type="text" 
                             placeholder="Buscar cliente..." 
                             value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageWithMenuClose(1); }}
                         />
                     </div>
                     
@@ -321,19 +329,19 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'elite' ? 'active' : ''}`}
-                    onClick={() => { setActiveFilter('elite'); setCurrentPage(1); }}
+                    onClick={() => { setActiveFilter('elite'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Élite
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'top' ? 'active' : ''}`}
-                    onClick={() => { setActiveFilter('top'); setCurrentPage(1); }}
+                    onClick={() => { setActiveFilter('top'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Top
                 </button>
                 <button 
                     className={`filter-chip ${activeFilter === 'frequent' ? 'active' : ''}`}
-                    onClick={() => { setActiveFilter('frequent'); setCurrentPage(1); }}
+                    onClick={() => { setActiveFilter('frequent'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Frecuente
                 </button>
@@ -467,10 +475,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                         Página {currentPage} de {totalPages}
                     </span>
                     <div className="pagination-buttons">
-                        <button className="btn-icon-sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                        <button className="btn-icon-sm" onClick={() => setCurrentPageWithMenuClose((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
                             <ChevronLeft size={18} />
                         </button>
-                        <button className="btn-icon-sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                        <button className="btn-icon-sm" onClick={() => setCurrentPageWithMenuClose((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
                             <ChevronRight size={18} />
                         </button>
                     </div>

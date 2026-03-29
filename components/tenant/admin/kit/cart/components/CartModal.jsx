@@ -117,13 +117,22 @@ const CartModal = React.memo(() => {
   const deliverySettings = selectedBranch?.deliverySettings ?? null;
   const deliveryOffered = Boolean(deliverySettings && deliverySettings.enabled !== false);
 
+  /** Si la sucursal no ofrece delivery, no tratar el pedido como envío aunque el estado local diga delivery */
+  const fulfillmentEffective = useMemo(
+    () =>
+      !deliveryOffered && orderFulfillment === 'delivery'
+        ? 'pickup'
+        : orderFulfillment,
+    [deliveryOffered, orderFulfillment],
+  );
+
   const parsedDeliveryKm = (() => {
     const n = Number(String(deliveryKmInput).replace(',', '.'));
     return Number.isFinite(n) && n >= 0 ? n : NaN;
   })();
 
   const deliveryCalc = useMemo(() => {
-    if (!deliveryOffered || orderFulfillment !== 'delivery') {
+    if (!deliveryOffered || fulfillmentEffective !== 'delivery') {
       return { fee: 0, waivedFreeShipping: false, code: 0 };
     }
     if (!Number.isFinite(parsedDeliveryKm)) {
@@ -134,18 +143,12 @@ const CartModal = React.memo(() => {
       return { fee: r.fee, waivedFreeShipping: false, code: r.fee };
     }
     return { fee: r.fee, waivedFreeShipping: r.waivedFreeShipping, code: 0 };
-  }, [deliveryOffered, orderFulfillment, deliverySettings, parsedDeliveryKm, cartTotal]);
+  }, [deliveryOffered, fulfillmentEffective, deliverySettings, parsedDeliveryKm, cartTotal]);
 
-  const deliveryFee = orderFulfillment === 'delivery' && deliveryCalc.code === 0
+  const deliveryFee = fulfillmentEffective === 'delivery' && deliveryCalc.code === 0
     ? deliveryCalc.fee
     : 0;
   const checkoutTotal = Math.round((cartTotal + deliveryFee) * 100) / 100;
-
-  useEffect(() => {
-    if (!deliveryOffered && orderFulfillment === 'delivery') {
-      setOrderFulfillment('pickup');
-    }
-  }, [deliveryOffered, orderFulfillment]);
 
   // [NUEVO] Lógica de Cascada: Sucursal > Global
   // Determina qué datos mostrar (banco, dirección, teléfono) según el contexto
@@ -291,7 +294,7 @@ const CartModal = React.memo(() => {
       return;
     }
 
-    if (orderFulfillment === 'delivery') {
+    if (fulfillmentEffective === 'delivery') {
       if (!Number.isFinite(parsedDeliveryKm) || parsedDeliveryKm <= 0) {
         setViewState(v => ({ ...v, error: 'Indica la distancia en km para el envío.' }));
         return;
@@ -548,7 +551,7 @@ const CartModal = React.memo(() => {
                           : `$${cartTotal.toLocaleString('es-CL')}`}
                       </span>
                     </div>
-                    {orderFulfillment === 'delivery' && deliveryFee > 0 ? (
+                    {fulfillmentEffective === 'delivery' && deliveryFee > 0 ? (
                       <div className="total-row" style={{ fontSize: '0.95rem', opacity: 0.9 }}>
                         <span>Envío</span>
                         <span className="total-price">
@@ -575,7 +578,7 @@ const CartModal = React.memo(() => {
                     ) : canCheckout ? (
                       <button
                         onClick={() => {
-                          if (orderFulfillment === 'delivery') {
+                          if (fulfillmentEffective === 'delivery') {
                             if (!Number.isFinite(parsedDeliveryKm) || parsedDeliveryKm <= 0) {
                               setViewState(v => ({ ...v, error: 'Indica la distancia aproximada en km para calcular el envío.' }));
                               return;
