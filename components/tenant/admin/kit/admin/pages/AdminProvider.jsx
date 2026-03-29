@@ -51,6 +51,15 @@ export const useAdmin = () => {
 	return context;
 };
 
+/**
+ * @param {Object} props
+ * @param {import('react').ReactNode} props.children
+ * @param {string} props.companyId
+ * @param {string | null | undefined} [props.initialUserRole]
+ * @param {Record<string, string[]> | null | undefined} [props.roleNavPermissions]
+ * @param {string[] | null | undefined} [props.userAllowedTabs]
+ * @param {any[]} [props.dynamicModules]
+ */
 export const AdminProvider = ({
 	children,
 	companyId,
