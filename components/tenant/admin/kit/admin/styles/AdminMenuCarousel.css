@@ -1,0 +1,695 @@
+.menu-carousel-panel {
+	max-width: 100%;
+	margin: 0 auto;
+}
+
+.menu-carousel-panel-inner {
+	padding: 0;
+	border-radius: 16px;
+	overflow: hidden;
+}
+
+@media (max-width: 768px) {
+	.menu-carousel-panel-inner {
+		overflow: visible;
+		border-radius: 12px;
+	}
+}
+
+.menu-carousel-header {
+	padding: 22px 24px 20px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	background: linear-gradient(
+		165deg,
+		rgba(255, 255, 255, 0.06) 0%,
+		rgba(255, 255, 255, 0.02) 100%
+	);
+}
+
+.menu-carousel-eyebrow {
+	margin: 0;
+	font-size: 11px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	opacity: 0.55;
+	font-weight: 600;
+}
+
+.menu-carousel-title {
+	margin: 6px 0 0;
+	font-size: 1.45rem;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
+}
+
+.menu-carousel-sub {
+	margin: 10px 0 0;
+	font-size: 13px;
+	line-height: 1.55;
+	opacity: 0.78;
+	max-width: 52rem;
+}
+
+.menu-carousel-folder-pill {
+	display: inline-block;
+	margin-top: 10px;
+	font-size: 11px;
+	font-family: ui-monospace, monospace;
+	padding: 6px 10px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.35);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.88);
+	word-break: break-all;
+}
+
+.menu-carousel-settings-block {
+	padding: 20px 24px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-carousel-settings-block h3 {
+	margin: 0 0 14px;
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	opacity: 0.75;
+}
+
+.menu-carousel-settings {
+	display: grid;
+	grid-template-columns: 1fr 1fr auto;
+	gap: 18px 20px;
+	align-items: end;
+}
+
+@media (max-width: 640px) {
+	.menu-carousel-settings {
+		grid-template-columns: 1fr;
+	}
+}
+
+.menu-carousel-settings .form-group {
+	margin: 0;
+}
+
+.menu-carousel-settings label {
+	display: block;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	opacity: 0.65;
+	margin-bottom: 6px;
+	font-weight: 600;
+}
+
+.menu-carousel-settings input.form-input {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.menu-carousel-settings .menu-carousel-save-wrap {
+	display: flex;
+	align-items: flex-end;
+}
+
+.menu-carousel-switch {
+	position: relative;
+	flex-shrink: 0;
+	width: 52px;
+	height: 30px;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgba(255, 255, 255, 0.12);
+	cursor: pointer;
+	padding: 0;
+	transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.menu-carousel-switch:focus-visible {
+	outline: 2px solid var(--accent-primary, #e63946);
+	outline-offset: 2px;
+}
+
+.menu-carousel-switch.is-on {
+	background: rgba(34, 197, 94, 0.35);
+	border-color: rgba(34, 197, 94, 0.55);
+}
+
+.menu-carousel-switch-knob {
+	position: absolute;
+	top: 3px;
+	left: 4px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: #f9fafb;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+	transition: transform 0.2s ease;
+}
+
+.menu-carousel-switch.is-on .menu-carousel-switch-knob {
+	transform: translateX(20px);
+}
+
+.menu-carousel-switch--sm {
+	width: 44px;
+	height: 26px;
+}
+
+.menu-carousel-switch--sm .menu-carousel-switch-knob {
+	width: 18px;
+	height: 18px;
+	top: 3px;
+	left: 3px;
+}
+
+.menu-carousel-switch--sm.is-on .menu-carousel-switch-knob {
+	transform: translateX(18px);
+}
+
+.admin-layout .menu-carousel-promo-th {
+	font-size: 0.68rem;
+	white-space: nowrap;
+}
+
+.menu-carousel-row-promo {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.menu-carousel-promo-days-input {
+	width: 100%;
+	max-width: 72px;
+	min-height: 40px;
+	padding: 6px 8px;
+	font-size: 0.875rem;
+	text-align: center;
+	box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+	.menu-carousel-row-promo {
+		align-items: flex-end;
+		width: 100%;
+	}
+
+	.menu-carousel-promo-days-input {
+		max-width: 100px;
+	}
+}
+
+.menu-carousel-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	padding: 16px 24px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	background: rgba(0, 0, 0, 0.12);
+}
+
+.menu-carousel-toolbar h3 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	opacity: 0.8;
+}
+
+.menu-carousel-count {
+	font-size: 12px;
+	font-weight: 600;
+	opacity: 0.5;
+	margin-left: 8px;
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+.menu-carousel-upload-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.menu-carousel-upload-hint {
+	font-size: 12px;
+	opacity: 0.55;
+}
+
+/* Tabla estilo Clientes (clients-table + container) */
+.menu-carousel-table-outer {
+	padding: 0 16px 20px;
+}
+
+.admin-layout .menu-carousel-clients-table {
+	min-width: 960px;
+}
+
+.menu-carousel-slide-cell {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-width: 0;
+}
+
+.menu-carousel-slide-thumb-wrap {
+	flex-shrink: 0;
+	width: 48px;
+	height: 48px;
+	border-radius: 10px;
+	overflow: hidden;
+	background: rgba(0, 0, 0, 0.45);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menu-carousel-slide-thumb {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.menu-carousel-slide-text {
+	min-width: 0;
+}
+
+.menu-carousel-slide-text h4 {
+	margin: 0;
+	font-size: 0.95rem;
+	color: white;
+}
+
+.menu-carousel-url-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.menu-carousel-url-row span:first-child {
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.8rem;
+	color: var(--text-secondary, #9ca3af);
+}
+
+.menu-carousel-img-dot {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.menu-carousel-points-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.admin-layout .menu-carousel-tr-muted td {
+	opacity: 0.9;
+}
+
+.admin-layout .menu-carousel-actions-th {
+	font-size: 0.7rem;
+	white-space: nowrap;
+}
+
+.admin-layout .menu-carousel-actions-td {
+	position: relative;
+	vertical-align: middle;
+	width: 1%;
+	min-width: 140px;
+}
+
+.menu-carousel-action-btns {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.menu-carousel-kebab-wrap {
+	position: relative;
+	flex-shrink: 0;
+}
+
+.menu-carousel-kebab-trigger {
+	min-width: 44px;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.menu-carousel-btn-delete {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0 14px;
+	border-radius: 10px;
+	border: 1px solid rgba(248, 113, 113, 0.4);
+	background: rgba(248, 113, 113, 0.12);
+	color: #fecaca;
+	font-size: 0.8rem;
+	font-weight: 700;
+	cursor: pointer;
+	font-family: inherit;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.menu-carousel-btn-delete:hover {
+	background: rgba(248, 113, 113, 0.22);
+	border-color: rgba(248, 113, 113, 0.55);
+}
+
+.menu-carousel-btn-delete:active {
+	transform: scale(0.98);
+}
+
+.menu-carousel-delete-label {
+	display: none;
+}
+
+@media (min-width: 1100px) {
+	.menu-carousel-btn-delete {
+		padding: 0 16px;
+	}
+
+	.menu-carousel-delete-label {
+		display: inline;
+	}
+
+	.admin-layout .menu-carousel-actions-td {
+		min-width: 200px;
+	}
+}
+
+.menu-carousel-kebab-menu {
+	position: absolute;
+	right: 0;
+	top: calc(100% - 6px);
+	z-index: 40;
+	min-width: 176px;
+	padding: 6px 0;
+	background: #141414;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 10px;
+	box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+.menu-carousel-kebab-menu button {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 10px 14px;
+	border: none;
+	background: transparent;
+	color: #e5e7eb;
+	font-size: 0.875rem;
+	text-align: left;
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.menu-carousel-kebab-menu button:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.menu-carousel-kebab-menu button:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.menu-carousel-kebab-danger {
+	color: #fca5a5 !important;
+}
+
+.menu-carousel-empty {
+	margin: 32px 24px 40px;
+	padding: 36px 24px;
+	text-align: center;
+	border-radius: 12px;
+	border: 1px dashed rgba(255, 255, 255, 0.15);
+	background: rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+	.menu-carousel-empty {
+		margin: 20px 12px 28px;
+		padding: 24px 16px;
+	}
+}
+
+.menu-carousel-empty p {
+	margin: 0;
+	font-size: 14px;
+	opacity: 0.8;
+	line-height: 1.55;
+}
+
+.menu-carousel-empty .btn {
+	margin-top: 18px;
+}
+
+.menu-carousel-hint {
+	font-size: 13px;
+	opacity: 0.8;
+	line-height: 1.5;
+	margin: 0;
+}
+
+.menu-carousel-branch-hint,
+.menu-carousel-loading {
+	padding: 28px 24px;
+	text-align: center;
+}
+
+.menu-carousel-loading {
+	display: flex;
+	justify-content: center;
+	padding: 48px 24px;
+}
+
+/* Toolbar: apilar en móvil */
+@media (max-width: 560px) {
+	.menu-carousel-toolbar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.menu-carousel-toolbar > div:last-child {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	.menu-carousel-toolbar .menu-carousel-upload-inline {
+		width: 100%;
+		justify-content: center;
+		min-height: 48px;
+	}
+
+	.menu-carousel-upload-hint {
+		text-align: center;
+		font-size: 11px;
+	}
+}
+
+/* ——— Móvil / tablet: tarjetas (Clientes) sin romper el carrusel ——— */
+@media (max-width: 768px) {
+	.menu-carousel-header,
+	.menu-carousel-settings-block,
+	.menu-carousel-toolbar {
+		padding-left: max(14px, env(safe-area-inset-left, 0px));
+		padding-right: max(14px, env(safe-area-inset-right, 0px));
+	}
+
+	.menu-carousel-title {
+		font-size: 1.2rem;
+		line-height: 1.25;
+	}
+
+	.menu-carousel-folder-pill {
+		font-size: 10px;
+		padding: 8px 10px;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+
+	.menu-carousel-table-outer {
+		padding-left: max(10px, env(safe-area-inset-left, 0px));
+		padding-right: max(10px, env(safe-area-inset-right, 0px));
+		padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+	}
+
+	/* Evita scroll horizontal: la tabla en bloque heredaba min-width 960px */
+	.admin-layout .menu-carousel-clients-table {
+		min-width: 0 !important;
+		width: 100% !important;
+		max-width: 100% !important;
+		table-layout: auto !important;
+	}
+
+	/* El menú ⋮ no queda recortado (Clientes pone overflow:hidden en tr) */
+	.admin-layout .menu-carousel-clients-table tr {
+		overflow: visible !important;
+	}
+
+	/* Miniatura + texto en fila (Clientes fuerza .client-info-cell en columna) */
+	.admin-layout .client-info-cell.menu-carousel-slide-cell {
+		flex-direction: row !important;
+		align-items: center !important;
+		gap: 12px !important;
+		padding-right: 0 !important;
+		width: 100% !important;
+	}
+
+	.admin-layout .menu-carousel-slide-text {
+		flex: 1;
+		min-width: 0;
+		text-align: left;
+	}
+
+	.admin-layout .menu-carousel-slide-text h4 {
+		text-align: left;
+	}
+
+	/* .client-info-cell span { display:block } no debe partir la fila URL */
+	.admin-layout .menu-carousel-url-row {
+		display: flex !important;
+		flex-direction: row !important;
+		flex-wrap: wrap !important;
+		align-items: center !important;
+		gap: 6px !important;
+		text-align: left;
+	}
+
+	.admin-layout .menu-carousel-url-row span {
+		display: inline !important;
+	}
+
+	.menu-carousel-url-row span:first-child {
+		max-width: 100%;
+		white-space: normal !important;
+		word-break: break-word;
+		overflow: visible;
+		text-overflow: unset;
+	}
+
+	.admin-layout .menu-carousel-first-td {
+		text-align: left !important;
+	}
+
+	.admin-layout .menu-carousel-first-td .client-info-cell.menu-carousel-slide-cell {
+		padding-right: 0 !important;
+	}
+
+	/* Acciones: debajo del bloque, ancho completo (gana a .actions-cell absoluto de Clientes) */
+	.admin-layout .menu-carousel-actions-td.actions-cell {
+		position: static !important;
+		top: auto !important;
+		right: auto !important;
+		width: 100% !important;
+		max-width: 100% !important;
+		padding: 14px 15px !important;
+		border-bottom: none !important;
+		border-top: 1px solid rgba(255, 255, 255, 0.12);
+		justify-content: flex-start !important;
+		align-items: stretch !important;
+		flex-direction: column !important;
+		gap: 10px;
+		background: rgba(0, 0, 0, 0.25) !important;
+	}
+
+	.admin-layout .menu-carousel-actions-td.actions-cell::before {
+		display: block !important;
+		content: attr(data-label);
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		font-weight: 700;
+		color: #9ca3af;
+		margin-right: 0 !important;
+		margin-bottom: 0;
+		text-align: left;
+		width: 100%;
+	}
+
+	.menu-carousel-action-btns {
+		flex: none;
+		width: 100%;
+		justify-content: space-between;
+		gap: 10px;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		align-items: center;
+	}
+
+	.menu-carousel-btn-delete {
+		flex: 1;
+		min-width: 0;
+		max-width: none;
+		min-height: 48px;
+	}
+
+	.menu-carousel-delete-label {
+		display: inline;
+	}
+
+	.menu-carousel-kebab-wrap {
+		flex-shrink: 0;
+	}
+
+	.menu-carousel-kebab-menu {
+		top: auto;
+		bottom: calc(100% + 8px);
+		right: 0;
+		left: auto;
+		z-index: 60;
+	}
+
+	/* Celdas de datos: alineación legible en tarjeta */
+	.admin-layout .menu-carousel-clients-table td:not(.menu-carousel-first-td):not(.menu-carousel-actions-td) {
+		align-items: center;
+	}
+
+	.admin-layout .menu-carousel-clients-table td.text-center {
+		justify-content: space-between;
+	}
+}
+
+/* Tarjeta más compacta: menos filas en pantallas muy estrechas */
+@media (max-width: 480px) {
+	.admin-layout .menu-carousel-clients-table td[data-label="Orden"],
+	.admin-layout .menu-carousel-clients-table td[data-label="Origen"] {
+		display: none !important;
+	}
+
+	.menu-carousel-action-btns {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.menu-carousel-kebab-wrap {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.menu-carousel-btn-delete {
+		width: 100%;
+	}
+}

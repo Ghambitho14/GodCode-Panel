@@ -1,0 +1,378 @@
+/* =========================================
+   ADMIN KANBAN BOARD (PREMIUM)
+   ========================================= */
+
+/* Conmutador vista escritorio: 3 columnas vs 1 columna ancha */
+.admin-layout .kanban-view-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-layout .kanban-view-toolbar-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.admin-layout .kanban-view-toggle {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    justify-content: flex-end;
+    min-width: min(100%, 320px);
+}
+
+.admin-layout .kanban-view-toggle button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.admin-layout .kanban-view-toggle button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.admin-layout .kanban-view-toggle button.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 768px) {
+    .admin-layout .kanban-view-toolbar {
+        display: none;
+    }
+}
+
+/* Columna oculta (móvil o escritorio vista una columna) */
+.admin-layout .kanban-column.kanban-column--hidden {
+    display: none !important;
+}
+
+/* Contenedor Principal */
+.admin-layout .kanban-board {
+    display: grid;
+    /* Grid flexible que se adapta al ancho disponible */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    
+    /* Lógica de altura robusta: Llenar el contenedor padre */
+    height: calc(100dvh - 230px);
+    min-height: 560px;
+    
+    /* Prevenir overflow horizontal */
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    
+    /* Animación de entrada */
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Una sola columna en escritorio: ocupa todo el ancho del tablero */
+.admin-layout .kanban-board.kanban-board--focus-desktop {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Columnas (Glass Effect) */
+.admin-layout .kanban-column {
+    background: linear-gradient(180deg, rgba(8, 8, 8, 0.96) 0%, rgba(14, 14, 14, 0.94) 100%);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Para que el header respete el borde */
+    height: 100%;
+    min-height: 0;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Hover sutil en la columna para foco */
+.admin-layout .kanban-column:hover {
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.6);
+}
+
+/* Cabecera de Columna */
+.admin-layout .column-header {
+    padding: 18px 20px;
+    background: rgba(0, 0, 0, 0.36);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-size: 0.95rem;
+    color: var(--text-primary, #fff);
+    text-transform: uppercase;
+}
+
+/* Puntos de Estado (Glowing Dots) */
+.admin-layout .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    position: relative;
+}
+
+/* Efecto de "respiración" para indicar actividad */
+.admin-layout .dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    opacity: 0.4;
+    filter: blur(4px);
+}
+
+.admin-layout .dot-orange { background: #f4a261; box-shadow: 0 0 8px rgba(244, 162, 97, 0.6); }
+.admin-layout .dot-orange::after { background: #f4a261; }
+
+.admin-layout .dot-red { background: #e63946; box-shadow: 0 0 8px rgba(230, 57, 70, 0.6); }
+.admin-layout .dot-red::after { background: #e63946; }
+
+.admin-layout .dot-green { background: #25d366; box-shadow: 0 0 8px rgba(37, 211, 102, 0.6); }
+.admin-layout .dot-green::after { background: #25d366; }
+
+/* Contador (Badge) */
+.admin-layout .count {
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/*
+ * Cuerpo de columna:
+ * - Vista 3 columnas (split escritorio): lista vertical, tarjetas a ancho útil.
+ * - Vista 1 columna (focus): cuadrícula de fichas cuadradas.
+ */
+.admin-layout .column-body {
+    padding: 10px 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+/* Vista una columna: cuadrícula de tarjetas cuadradas (varias por fila) */
+.admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    gap: 8px;
+    align-content: start;
+    align-items: start;
+    padding: 8px;
+}
+
+@media (max-width: 1400px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1000px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Scrollbar Estilizado (Chrome/Safari) */
+.admin-layout .column-body::-webkit-scrollbar {
+    width: 8px;
+}
+.admin-layout .column-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+}
+.admin-layout .column-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.admin-layout .column-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
+    background-clip: padding-box;
+}
+
+/* Estado vacío: en cuadrícula (vista una columna) ocupa todo el ancho */
+.admin-layout .kanban-board.kanban-board--focus-desktop .empty-zone {
+    grid-column: 1 / -1;
+}
+
+.admin-layout .kanban-board.kanban-board--split-desktop .empty-zone {
+    flex: 1;
+    min-height: 180px;
+}
+
+.admin-layout .empty-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+    height: auto;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-style: italic;
+    font-size: 0.9rem;
+    gap: 10px;
+    padding: 40px 0;
+}
+
+/* Icono fantasma opcional si quieres agregar uno en el HTML */
+.admin-layout .empty-zone svg {
+    opacity: 0.3;
+}
+
+/* Pestañas de etapa: ocultas en escritorio salvo vista "una columna" */
+.admin-layout .mobile-tabs {
+    display: none;
+    grid-template-columns: 1fr 1fr 1fr;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+}
+
+.admin-layout .mobile-tabs button {
+    padding: 10px 5px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #a0a0a0);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+}
+
+.admin-layout .mobile-tabs button.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.admin-layout .mobile-tabs button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+}
+
+.admin-layout .mobile-tabs button:nth-child(1).active::after { background: #f4a261; }
+.admin-layout .mobile-tabs button:nth-child(2).active::after { background: #e63946; }
+.admin-layout .mobile-tabs button:nth-child(3).active::after { background: #25d366; }
+
+/* Escritorio: mostrar pestañas cuando vista = una columna */
+.admin-layout .mobile-tabs.kanban-tabs-desktop {
+    display: grid;
+}
+
+/* =========================================
+   RESPONSIVE TABLET
+   ========================================= */
+@media (max-width: 1200px) {
+    .admin-layout .kanban-board {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+    }
+}
+
+/* =========================================
+   RESPONSIVE MÓVIL (SEGMENTED CONTROL)
+   ========================================= */
+@media (max-width: 768px) {
+    .admin-layout .kanban-board {
+        display: flex;
+        flex-direction: column;
+        height: calc(100dvh - 190px);
+        min-height: 520px;
+        gap: 0;
+        overflow-x: visible;
+        overflow-y: hidden;
+    }
+
+    .admin-layout .mobile-tabs {
+        display: grid;
+    }
+
+    .admin-layout .kanban-column {
+        height: 100%;
+        min-height: 0;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, rgba(8, 8, 8, 0.96) 0%, rgba(14, 14, 14, 0.94) 100%);
+        box-shadow: 0 10px 28px -18px rgba(0, 0, 0, 0.8);
+        overflow: hidden;
+    }
+    
+    .admin-layout .column-header {
+        background: rgba(0, 0, 0, 0.36);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 12px 14px;
+        margin-bottom: 0;
+    }
+
+    /* Móvil: lista vertical como antes (sin cuadrícula de cuadrados) */
+    .admin-layout .column-body {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .admin-layout .empty-zone {
+        grid-column: auto;
+        flex: 1;
+        min-height: 0;
+    }
+}

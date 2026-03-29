@@ -1,0 +1,483 @@
+/* =========================================
+   KANBAN ORDER CARD - UI/UX PREMIUM EDITION
+   ========================================= */
+
+.admin-layout {
+    /* Tarjetas cuadradas en cuadrícula Kanban */
+    --card-radius: 8px;
+    --inner-radius: 6px;
+    --shadow-soft: 0 6px 16px -4px rgba(0, 0, 0, 0.45);
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Altura natural por defecto; fichas cuadradas solo en vista «Una columna» (focus) */
+.admin-layout .kanban-card {
+    background: linear-gradient(145deg, #1e1e1e, #161616);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--card-radius);
+    padding: 8px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    transition: var(--transition-bounce);
+    position: relative;
+    box-shadow: var(--shadow-soft);
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-height: 0;
+    aspect-ratio: auto;
+    overflow: visible;
+}
+
+.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+}
+
+/* Escritorio + vista una columna: cabecera y pie fijos; scroll solo en el centro */
+@media (min-width: 769px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-top {
+        flex-shrink: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-scroll {
+        flex: 1 1 0;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-top: 2px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-foot {
+        flex-shrink: 0;
+        padding-top: 4px;
+        margin-top: auto;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-client h4.card-client-name {
+        font-size: 0.8rem;
+        line-height: 1.2;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        word-break: break-word;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .client-phone {
+        font-size: 0.65rem;
+        margin-top: 2px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-divider {
+        margin: 3px 0 !important;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-items {
+        padding: 6px 7px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .item-name {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        font-size: 0.72rem;
+        min-width: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .order-item-detail {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+        font-size: 0.62rem !important;
+        margin-left: 26px !important;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-note {
+        font-size: 0.62rem;
+        padding: 5px 7px;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .receipt-container .receipt-link {
+        padding: 5px 6px;
+        font-size: 0.62rem;
+    }
+}
+
+/* Escritorio + tres columnas: tarjeta a ancho de columna, tipografía legible, sin miniatura */
+@media (min-width: 769px) {
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card {
+        padding: 12px 14px;
+        border-radius: 12px;
+        gap: 8px;
+        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-top {
+        flex-shrink: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-scroll {
+        flex: 0 0 auto;
+        overflow: visible;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-foot {
+        flex-shrink: 0;
+        margin-top: 0;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-header-row {
+        font-size: 0.68rem;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-client h4.card-client-name {
+        font-size: 1.02rem;
+        line-height: 1.25;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .client-phone {
+        font-size: 0.78rem;
+        margin-top: 4px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-items {
+        padding: 9px 11px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .item-name {
+        font-size: 0.82rem;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .order-item-detail {
+        font-size: 0.72rem !important;
+        margin-left: 28px !important;
+        display: block !important;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-note {
+        font-size: 0.78rem;
+        padding: 8px 10px;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+}
+
+/* Efecto al presionar (Mobile Haptics) */
+.admin-layout .kanban-card:active {
+    transform: scale(0.97);
+}
+
+/* Indicador de urgencia tipo "Glow" sutil */
+.admin-layout .urgent-pulse {
+    border-color: rgba(255, 68, 68, 0.5);
+    animation: urgent-glow 2s infinite alternate;
+}
+
+@keyframes urgent-glow {
+    from {
+        box-shadow: 0 0 5px rgba(255, 68, 68, 0.2);
+    }
+
+    to {
+        box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    }
+}
+
+/* --- CABECERA ESTILO DASHBOARD --- */
+.admin-layout .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.admin-layout .order-queue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 5px;
+    margin-right: 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.admin-layout .order-time {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: #888;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 999px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.admin-layout .payment-badge {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    font-size: 0.65rem;
+}
+
+/* --- CLIENTE --- */
+.admin-layout .card-client {
+    margin-top: 5px;
+}
+
+.admin-layout .card-client h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #fff;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.admin-layout .client-phone {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    opacity: 0.9;
+    font-weight: 600;
+}
+
+/* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
+.admin-layout .card-items {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 8px 10px;
+    border-radius: var(--inner-radius);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    position: relative;
+}
+
+/* Decoración de ticket */
+.admin-layout .card-items::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 20px;
+    right: 20px;
+    height: 10px;
+}
+
+.admin-layout .order-item-row {
+    display: flex;
+    gap: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+    align-items: center;
+}
+
+.admin-layout .order-item-row:last-child {
+    margin-bottom: 0;
+}
+
+.admin-layout .qty-circle {
+    background: #fff;
+    color: #000;
+    font-weight: 900;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.admin-layout .item-name {
+    color: #e0e0e0;
+    font-weight: 500;
+}
+
+/* --- NOTAS Y ADJUNTOS --- */
+.admin-layout .card-note {
+    font-size: 0.75rem;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+    padding: 8px 10px;
+    border-radius: var(--inner-radius);
+    border-left: 3px solid #fbbf24;
+    font-style: italic;
+}
+
+.admin-layout .receipt-link {
+    font-size: 0.75rem;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.05);
+    padding: 8px;
+    border-radius: var(--inner-radius);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.1);
+    font-weight: 600;
+}
+
+/* --- TOTAL SECCION --- */
+.admin-layout .card-total {
+    font-size: 1.1rem;
+    font-weight: 900;
+    text-align: right;
+    color: #fff;
+    margin-top: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* --- ACCIONES (GRID SYSTEM) --- */
+.admin-layout .card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+/* Para órdenes muy pequeñas, que no se vea vacío */
+@media (max-width: 350px) {
+    .admin-layout .card-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .admin-layout .btn-icon-action {
+        grid-column: span 2;
+        width: 100% !important;
+    }
+}
+
+.admin-layout .btn-action {
+    border: none;
+    padding: 9px 8px;
+    border-radius: var(--inner-radius);
+    cursor: pointer;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgb(0, 56, 88);
+    transition: var(--transition-bounce);
+}
+
+.admin-layout .btn-action.primary {
+    background: var(--accent-primary);
+    box-shadow: 0 4px 15px var(--accent-shadow, rgba(255, 71, 87, 0.3));
+}
+
+.admin-layout .btn-action.success {
+    background: #10b981;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.admin-layout .btn-icon-action {
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--inner-radius);
+    color: #666;
+    transition: all 0.2s;
+}
+
+.admin-layout .btn-icon-action.cancel:hover,
+.admin-layout .btn-icon-action.cancel:active {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+/* Animación de entrada fluida */
+.admin-layout .animate-slide-up {
+    animation: slideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Móvil: tarjetas a ancho completo, altura natural (sin cuadrado ni scroll interno forzado) */
+@media (max-width: 768px) {
+    .admin-layout .kanban-card {
+        aspect-ratio: auto;
+        overflow-y: visible;
+        overflow-x: hidden;
+        gap: 6px;
+    }
+
+    .admin-layout .kanban-card-scroll {
+        flex: none;
+        overflow: visible;
+        min-height: 0;
+    }
+}
