@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck, Copy } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck, Copy, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '../../shared/utils/formatters';
 import { buildOrderWhatsAppShareText, getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
@@ -9,16 +9,41 @@ import OrderDetailModal from './OrderDetailModal';
 
 const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients, logoUrl, showNotify }) => {
     const [detailOpen, setDetailOpen] = useState(false);
+    const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
+    const ticketMenuRef = useRef(null);
     const isDelivery = isOrderDelivery(order);
+    const ticketPrintOpts = (variant) => ({
+        variant,
+        branchAddress: branch?.address ?? null,
+    });
+
+    useEffect(() => {
+        if (!ticketMenuOpen) return;
+        const onDown = (ev) => {
+            const el = ticketMenuRef.current;
+            if (el && !el.contains(ev.target)) setTicketMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [ticketMenuOpen]);
+
+    /** Ticket cocina: al pasar a cocina (también reimprimir desde el menú si falló la impresora). */
     const handleMoveToKitchen = (e) => {
         e.stopPropagation();
-        printOrderTicket(order, branch?.name, logoUrl ?? null);
+        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
         moveOrder(order.id, 'active');
     };
 
-    const handleReprint = (e) => {
+    const printKitchenAgain = (e) => {
         e.stopPropagation();
-        printOrderTicket(order, branch?.name, logoUrl ?? null);
+        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
+        setTicketMenuOpen(false);
+    };
+
+    const printTicketCaja = (e) => {
+        e.stopPropagation();
+        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
+        setTicketMenuOpen(false);
     };
 
     const handleCopyShare = async (e) => {
@@ -54,9 +79,34 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     <button type="button" onClick={handleCopyShare} className="admin-icon-btn admin-icon-btn--sm" title="Copiar resumen para WhatsApp">
                         <Copy size={17} aria-hidden />
                     </button>
-                    <button type="button" onClick={handleReprint} className="admin-icon-btn admin-icon-btn--sm" title="Imprimir comanda">
-                        <Printer size={17} aria-hidden />
-                    </button>
+                    <div className="order-ticket-menu" ref={ticketMenuRef}>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setTicketMenuOpen((v) => !v);
+                            }}
+                            className="admin-icon-btn admin-icon-btn--sm"
+                            title="Imprimir tickets (cocina o caja; reimprimir si falló la impresora)"
+                            aria-expanded={ticketMenuOpen}
+                            aria-haspopup="menu"
+                            aria-label="Menú imprimir tickets"
+                        >
+                            <Printer size={17} aria-hidden />
+                        </button>
+                        {ticketMenuOpen ? (
+                            <div className="order-ticket-menu-panel" role="menu" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchenAgain}>
+                                    <ChefHat size={16} aria-hidden />
+                                    Ticket cocina
+                                </button>
+                                <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printTicketCaja}>
+                                    <Banknote size={16} aria-hidden />
+                                    Ticket caja
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
                 <span className={`payment-badge ${order.payment_type === 'online' ? 'online' : ''}`}>
                     {getPaymentLabel(order)}
                 </span>
@@ -190,6 +240,8 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                 <OrderDetailModal
                     order={order}
                     branchName={branch?.name}
+                    branchAddress={branch?.address ?? null}
+                    logoUrl={logoUrl ?? null}
                     onClose={() => setDetailOpen(false)}
                 />
             ) : null}

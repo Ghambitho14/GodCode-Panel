@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     X, Search, Plus, User, ShoppingBag, Minus, Trash2,
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle, Printer,
-    Upload, FileText
+    Upload, FileText, ChefHat, Banknote
 } from 'lucide-react';
 import { formatCurrency } from '../../shared/utils/formatters';
 const logo = '/tenant/logo-placeholder.svg';
@@ -22,6 +22,18 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale, branch);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [printMenuOpen, setPrintMenuOpen] = useState(false);
+    const printMenuRef = useRef(null);
+
+    useEffect(() => {
+        if (!printMenuOpen) return;
+        const onDown = (ev) => {
+            const el = printMenuRef.current;
+            if (el && !el.contains(ev.target)) setPrintMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [printMenuOpen]);
 
     const getEffectivePrice = (product) => {
         const basePrice = Number(product?.price || 0);
@@ -49,8 +61,20 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 		return text.replace(/[<>]/g, '');
 	};
 
-    const handlePrintPreCheck = () => {
-        printOrderTicket(manualOrder, branch?.name, logoUrl ?? null);
+    const ticketOpts = (variant) => ({
+        variant,
+        branchAddress: branch?.address ?? null,
+        orderChannel: 'PDV',
+    });
+
+    const printManualKitchen = () => {
+        printOrderTicket(manualOrder, branch?.name, logoUrl ?? null, ticketOpts('kitchen'));
+        setPrintMenuOpen(false);
+    };
+
+    const printManualCaja = () => {
+        printOrderTicket(manualOrder, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
+        setPrintMenuOpen(false);
     };
 
     // --- EFFECT: ESCAPE KEY ---
@@ -413,15 +437,41 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                         RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
                                     </div>
                                     {manualOrder.items.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={handlePrintPreCheck}
-                                            className="manual-order-summary-print"
-                                            title="Imprimir Pre-cuenta"
-                                            aria-label="Imprimir Pre-cuenta"
-                                        >
-                                            <Printer size={14} aria-hidden />
-                                        </button>
+                                        <div className="manual-order-print-menu" ref={printMenuRef}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPrintMenuOpen((v) => !v)}
+                                                className="manual-order-summary-print"
+                                                title="Imprimir tickets"
+                                                aria-expanded={printMenuOpen}
+                                                aria-haspopup="menu"
+                                                aria-label="Imprimir tickets"
+                                            >
+                                                <Printer size={14} aria-hidden />
+                                            </button>
+                                            {printMenuOpen ? (
+                                                <div className="manual-order-print-panel" role="menu">
+                                                    <button
+                                                        type="button"
+                                                        className="manual-order-print-item"
+                                                        role="menuitem"
+                                                        onClick={printManualKitchen}
+                                                    >
+                                                        <ChefHat size={16} aria-hidden />
+                                                        Ticket cocina
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="manual-order-print-item"
+                                                        role="menuitem"
+                                                        onClick={printManualCaja}
+                                                    >
+                                                        <Banknote size={16} aria-hidden />
+                                                        Ticket caja
+                                                    </button>
+                                                </div>
+                                            ) : null}
+                                        </div>
                                     )}
                                 </div>
                             </div>

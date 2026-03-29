@@ -2,14 +2,15 @@
 
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { X, Truck, Store, KeyRound } from "lucide-react";
+import { X, Truck, Store, KeyRound, ChefHat, Banknote } from "lucide-react";
 import {
 	deliveryAddressLines,
 	getPaymentLabel,
 	isOrderDelivery,
 } from "../../shared/utils/orderUtils";
+import { printOrderTicket } from "../utils/receiptPrinting";
 
-export default function OrderDetailModal({ order, onClose, branchName }) {
+export default function OrderDetailModal({ order, onClose, branchName, branchAddress = null, logoUrl = null }) {
 	useEffect(() => {
 		const onKey = (e) => {
 			if (e.key === "Escape") onClose();
@@ -155,6 +156,38 @@ export default function OrderDetailModal({ order, onClose, branchName }) {
 						<span className="order-detail-total">
 							${Number(order.total || 0).toLocaleString("es-CL")}
 						</span>
+					</div>
+
+					<div className="order-detail-section">
+						<span className="order-detail-label">Imprimir</span>
+						<div className="order-detail-ticket-actions">
+							<button
+								type="button"
+								className="btn order-detail-ticket-btn"
+								onClick={() =>
+									printOrderTicket(order, branchName || "NOMBRE DEL LOCAL", logoUrl, {
+										variant: "kitchen",
+										branchAddress,
+									})
+								}
+							>
+								<ChefHat size={18} aria-hidden />
+								Ticket cocina
+							</button>
+							<button
+								type="button"
+								className="btn order-detail-ticket-btn order-detail-ticket-btn--primary"
+								onClick={() =>
+									printOrderTicket(order, branchName || "NOMBRE DEL LOCAL", logoUrl, {
+										variant: "cashier",
+										branchAddress,
+									})
+								}
+							>
+								<Banknote size={18} aria-hidden />
+								Ticket caja
+							</button>
+						</div>
 					</div>
 
 					{order.created_at ? (
