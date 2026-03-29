@@ -4,7 +4,9 @@
  * Contrato con Supabase (`public.companies.theme_config`):
  * - `roleNavPermissions`: objeto por rol con arrays de ids de pestaña.
  *
- * Delivery en menú público (panel → Opciones de menú): `public.branches.delivery_settings.enabled` (JSONB por sucursal).
+ * Delivery (panel → Opciones de menú): `public.branches.delivery_settings` (JSONB por sucursal): `enabled`,
+ * `pricePerKm`, `baseFee`, `minFee`, `maxFee`, `maxDeliveryKm`, `freeDeliveryFromSubtotal`, `minOrderSubtotal`, `customerNotes`.
+ * El menú público recibe el mismo objeto vía RPC `get_public_branches` (columna `delivery_settings` en el SELECT).
  * - Claves de rol habituales: `admin`, `ceo`, `cashier`, `owner` (si falta un rol, se usan los defaults de código).
  * - Cada string del array debe ser un id de `TENANT_ADMIN_TAB_IDS`. El SaaS y esta app deben usar **los mismos ids**.
  *
@@ -69,4 +71,25 @@ export function normalizeStoredNavTabId(tabId: string): string {
 	const t = String(tabId ?? "").trim();
 	if (!t) return t;
 	return STORED_TAB_ID_ALIASES[t] ?? t;
+}
+
+/** Labels base (español) por id + overrides desde `theme_config.tabLabels`. */
+export function buildResolvedTabLabels(tabLabelsFromTheme?: Record<string, string> | null): Record<string, string> {
+	const base: Record<string, string> = {};
+	for (const t of TENANT_ADMIN_TAB_OPTIONS) {
+		base[t.id] = t.label;
+	}
+	if (tabLabelsFromTheme && typeof tabLabelsFromTheme === "object") {
+		for (const [k, v] of Object.entries(tabLabelsFromTheme)) {
+			if (typeof v === "string" && v.trim()) {
+				base[String(k).trim()] = v.trim();
+			}
+		}
+	}
+	return base;
+}
+
+/** Pestañas por defecto para formulario de cajero (misma fuente que permisos por defecto). */
+export function getCashierDefaultAllowedTabIds(): string[] {
+	return [...DEFAULT_ROLE_NAV_PERMISSIONS.cashier];
 }

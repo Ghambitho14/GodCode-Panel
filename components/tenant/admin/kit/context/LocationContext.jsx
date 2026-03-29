@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useState, useEffect } from 'react';
+import { normalizeDeliverySettings } from '@/lib/delivery-settings';
 import { supabase } from '../lib/supabase';
 
 export const LocationContext = createContext(null);
@@ -47,12 +48,16 @@ export const LocationProvider = ({ children }) => {
 
                 if (error) throw error;
 
-                const mappedBranches = (data || []).map((b) => ({
-                    ...b,
-                    whatsappUrl: b.whatsapp_url,
-                    instagramUrl: b.instagram_url,
-                    mapUrl: b.map_url
-                }));
+                const mappedBranches = (data || []).map((b) => {
+                    const rawDel = b.delivery_settings ?? b.deliverySettings;
+                    return {
+                        ...b,
+                        whatsappUrl: b.whatsapp_url,
+                        instagramUrl: b.instagram_url,
+                        mapUrl: b.map_url,
+                        deliverySettings: normalizeDeliverySettings(rawDel),
+                    };
+                });
 
                 setAllBranches(mappedBranches);
 

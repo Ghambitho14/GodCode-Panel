@@ -6,7 +6,7 @@ import OrderCard from './OrderCard';
 
 const KANBAN_VIEW_STORAGE_KEY = 'tenant-admin-kanban-view';
 
-const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, setReceiptModalOrder, branch, clients, logoUrl }) => {
+const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, setReceiptModalOrder, branch, clients, logoUrl, showNotify }) => {
 
     const [mounted, setMounted] = useState(false);
     /** 'split' = tres columnas; 'single' = una etapa a pantalla completa (solo escritorio; móvil sigue en pestañas) */
@@ -155,6 +155,7 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                                             branch={branch}
                                             clients={clients}
                                             logoUrl={logoUrl}
+                                            showNotify={showNotify}
                                         />
                                     ))
                                 )}

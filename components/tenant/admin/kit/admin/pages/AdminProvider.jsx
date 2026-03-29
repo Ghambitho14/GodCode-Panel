@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { TABLES } from '../../lib/supabaseTables';
@@ -60,6 +60,17 @@ export const useAdmin = () => {
  * @param {string[] | null | undefined} [props.userAllowedTabs]
  * @param {any[]} [props.dynamicModules]
  */
+/**
+ * @param {object} root0
+ * @param {React.ReactNode} root0.children
+ * @param {string} root0.companyId
+ * @param {string | null} [root0.initialUserRole]
+ * @param {Record<string, string[]> | null | undefined} [root0.roleNavPermissions]
+ * @param {string[] | null | undefined} [root0.userAllowedTabs]
+ * @param {any[]} [root0.dynamicModules]
+ * @param {Record<string, string>} [root0.resolvedTabLabels]
+ * @param {boolean} [root0.adminShortcutsEnabled]
+ */
 export const AdminProvider = ({
 	children,
 	companyId,
@@ -67,6 +78,8 @@ export const AdminProvider = ({
 	roleNavPermissions,
 	userAllowedTabs,
 	dynamicModules = /** @type {any[]} */ ([]),
+	resolvedTabLabels = /** @type {Record<string, string>} */ ({}),
+	adminShortcutsEnabled = true,
 }) => {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -88,6 +101,8 @@ export const AdminProvider = ({
 	const [sortOrder, setSortOrder] = useState('name-asc');
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
+	const [lastDataRefreshAt, setLastDataRefreshAt] = useState(/** @type {number | null} */ (null));
+	const sessionRestoredRef = useRef(false);
 	const [isMobile, setIsMobile] = useState(() => (
 		typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
 	));
@@ -178,6 +193,53 @@ export const AdminProvider = ({
 		allowedTabs.has(tabId) || dynamicModuleTabs.has(tabId)
 	), [allowedTabs, dynamicModuleTabs]);
 	const isBranchLocked = Boolean(assignedBranchId);
+
+	useEffect(() => {
+		sessionRestoredRef.current = false;
+	}, [companyId]);
+
+	useEffect(() => {
+		if (!userRole || typeof window === 'undefined') return;
+		if (sessionRestoredRef.current) return;
+		if (branches.length === 0) return;
+		try {
+			const storedTab = localStorage.getItem(`tenant-admin:${companyId}:activeTab`);
+			if (storedTab && canAccessTab(storedTab)) {
+				setActiveTab(storedTab);
+			}
+			if (!isBranchLocked) {
+				const bid = localStorage.getItem(`tenant-admin:${companyId}:branchId`);
+				if (bid) {
+					const b = branches.find((branch) => branch.id === bid);
+					if (b) {
+						setSelectedBranch(b);
+					}
+				}
+			}
+		} catch {
+			/* ignore */
+		}
+		sessionRestoredRef.current = true;
+	}, [userRole, branches, companyId, canAccessTab, isBranchLocked]);
+
+	useEffect(() => {
+		if (!userRole || typeof window === 'undefined') return;
+		try {
+			localStorage.setItem(`tenant-admin:${companyId}:activeTab`, activeTab);
+		} catch {
+			/* ignore */
+		}
+	}, [activeTab, companyId, userRole]);
+
+	useEffect(() => {
+		if (!userRole || typeof window === 'undefined') return;
+		if (!selectedBranch?.id || selectedBranch.id === 'all') return;
+		try {
+			localStorage.setItem(`tenant-admin:${companyId}:branchId`, selectedBranch.id);
+		} catch {
+			/* ignore */
+		}
+	}, [selectedBranch?.id, companyId, userRole]);
 
 	useEffect(() => {
 		const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -440,6 +502,7 @@ export const AdminProvider = ({
 			setProducts(mergedProducts);
 			setOrders(cleanOrders);
 			setClients(filteredClients);
+			setLastDataRefreshAt(Date.now());
 		} catch {
 			showNotify("Error de conexión", 'error');
 		} finally {
@@ -896,6 +959,9 @@ export const AdminProvider = ({
 		processedProducts,
 		productStats,
 		dynamicModules: normalizedDynamicModules,
+		resolvedTabLabels,
+		adminShortcutsEnabled,
+		lastDataRefreshAt,
 		userEmail,
 		productToDelete,
 		setProductToDelete,
@@ -909,7 +975,8 @@ export const AdminProvider = ({
 		loadData, refreshBranches, handleSelectClient, moveOrder, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
-		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, canAccessTab, resolvedRolePermissions, kanbanColumns, processedProducts, productStats, normalizedDynamicModules, userEmail, productToDelete, confirmDeleteProduct,
+		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, resolvedRolePermissions, kanbanColumns, processedProducts, productStats, normalizedDynamicModules,
+		resolvedTabLabels, adminShortcutsEnabled, lastDataRefreshAt, userEmail, productToDelete, confirmDeleteProduct,
 	]);
 
 	return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

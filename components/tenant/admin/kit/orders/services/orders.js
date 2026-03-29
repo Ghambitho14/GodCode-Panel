@@ -1,5 +1,24 @@
 import { supabase } from '../../lib/supabase';
 import { uploadImage } from '../../shared/utils/cloudinary';
+import {
+    computeDeliveryFee,
+    normalizeDeliverySettings,
+} from '@/lib/delivery-settings';
+
+function extractOrderId(newOrder) {
+    if (newOrder == null) return null;
+    if (typeof newOrder === 'string') return newOrder;
+    if (typeof newOrder === 'object') {
+        const id = newOrder.id ?? newOrder.order_id;
+        return id != null ? String(id) : null;
+    }
+    return null;
+}
+
+function isDeliveryOrderType(raw) {
+    const t = String(raw ?? 'pickup').trim().toLowerCase();
+    return t === 'delivery' || t === 'envio' || t === 'envío' || t === 'despacho';
+}
 
 /**
  * Servicio Senior de Órdenes
@@ -110,21 +129,48 @@ export const ordersService = {
                 throw new Error("El local no está recibiendo pedidos en este momento (Caja Cerrada). Por favor verifique el horario de atención.");
             }
 
-            // [MEJORA DE SEGURIDAD] Recalcular total para evitar manipulación de precios
-            const calculatedTotal = normalizedItems.reduce((sum, item) => {
-                // Priorizar precio de descuento si existe y es válido
+            const calculatedItemsTotal = normalizedItems.reduce((sum, item) => {
                 const price = (item.has_discount && item.discount_price && Number(item.discount_price) > 0) 
                     ? Number(item.discount_price) 
                     : Number(item.price || 0);
                 
-                const qty = Math.max(1, Number(item.quantity) || 1); // Asegurar cantidad positiva
+                const qty = Math.max(1, Number(item.quantity) || 1);
                 
                 return sum + (price * qty);
             }, 0);
 
-            const totalToUse = Math.abs(calculatedTotal - orderData.total) > 50
-                ? calculatedTotal
-                : orderData.total;
+            const { data: branchCfg, error: branchCfgError } = await supabase
+                .from('branches')
+                .select('delivery_settings')
+                .eq('id', orderData.branch_id)
+                .maybeSingle();
+
+            if (branchCfgError) {
+                throw new Error('No se pudo validar la configuración de la sucursal. Intenta nuevamente.');
+            }
+
+            const deliverySettings = normalizeDeliverySettings(branchCfg?.delivery_settings);
+            const deliveryMode = isDeliveryOrderType(orderData.order_type);
+
+            let deliveryFee = 0;
+            if (deliveryMode) {
+                if (!deliverySettings.enabled) {
+                    throw new Error('El delivery no está habilitado para esta sucursal.');
+                }
+                const km = Number(orderData.delivery_km);
+                const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
+                const r = computeDeliveryFee(deliverySettings, safeKm, calculatedItemsTotal);
+                if (r.fee === -1) {
+                    throw new Error('La distancia indicada supera el máximo permitido para delivery en esta sucursal.');
+                }
+                if (r.fee === -2) {
+                    throw new Error('El subtotal del pedido no alcanza el mínimo requerido para delivery.');
+                }
+                deliveryFee = r.fee;
+            }
+
+            const grandTotal = Math.round((calculatedItemsTotal + deliveryFee) * 100) / 100;
+            const totalToUse = grandTotal;
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -147,13 +193,17 @@ export const ordersService = {
             if (orderData.branch_name) {
                 finalNote = `[Sucursal: ${orderData.branch_name}] \n${finalNote}`.trim();
             }
+            if (deliveryMode && deliveryFee > 0) {
+                finalNote = `${finalNote}\n[Envío: $${Math.round(deliveryFee).toLocaleString('es-CL')}]`.trim();
+            }
+
+            const clientRut = String(orderData.client_rut ?? orderData.client_document ?? '').trim();
 
             // 3. EJECUTAR TRANSACCIÓN ATÓMICA (RPC)
-            // Esto crea el cliente (o lo actualiza), crea el pedido y suma estadísticas en UN solo paso.
             const { data: newOrder, error: orderError } = await supabase.rpc('create_order_transaction', {
                 p_client_name: orderData.client_name,
                 p_client_phone: orderData.client_phone,
-                p_client_rut: orderData.client_rut || '',
+                p_client_rut: clientRut,
                 p_items: normalizedItems,
                 p_total: totalToUse,
                 p_payment_type: orderData.payment_type,
@@ -176,6 +226,25 @@ export const ordersService = {
                 throw orderError;
             }
 
+            const orderId = extractOrderId(newOrder);
+            if (orderId && deliveryMode && typeof window !== 'undefined') {
+                const patchRes = await fetch(`${window.location.origin}/api/public-order-delivery`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId,
+                        orderType: 'delivery',
+                        deliveryKm: Number(orderData.delivery_km),
+                        deliveryFee,
+                        deliveryAddress: orderData.delivery_address ?? null,
+                    }),
+                });
+                if (!patchRes.ok) {
+                    const j = await patchRes.json().catch(() => ({}));
+                    throw new Error(j.error || 'No se pudo registrar los datos de envío del pedido.');
+                }
+            }
+
             return { order: newOrder, receiptUploadFailed };
         } catch (error) {
             throw error;
@@ -183,5 +252,4 @@ export const ordersService = {
     }
 };
 
-// Mantener compatibilidad con exportación antigua si se requiere
 export const createManualOrder = (orderData, receiptFile) => ordersService.createOrder(orderData, receiptFile);

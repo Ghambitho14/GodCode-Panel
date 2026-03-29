@@ -43,6 +43,33 @@ export function isOnlineOrder(order) {
 }
 
 /**
+ * Texto plano para pegar en WhatsApp o compartir el pedido.
+ * @param {Record<string, unknown>} order
+ * @param {string | null | undefined} branchName
+ * @returns {string}
+ */
+export function buildOrderWhatsAppShareText(order, branchName) {
+	if (!order) return '';
+	const idPart = order.display_id ?? order.order_number ?? order.id;
+	const header = idPart != null && idPart !== '' ? `Pedido ${idPart}` : 'Pedido';
+	const lines = [String(header)];
+	if (branchName) lines.push(`Local: ${branchName}`);
+	lines.push(`Cliente: ${order.client_name || '—'}`);
+	if (order.client_phone) lines.push(`Tel: ${order.client_phone}`);
+	lines.push(`Pago: ${getPaymentLabel(order)}`);
+	const items = order.items;
+	if (Array.isArray(items) && items.length > 0) {
+		lines.push('Productos:');
+		for (const it of items) {
+			const qty = it.quantity ?? 1;
+			const name = it.name ?? 'Ítem';
+			lines.push(`• ${qty}x ${name}`);
+		}
+	}
+	return lines.join('\n');
+}
+
+/**
  * Slug de método de pago para CSS y desglose: 'cash' | 'card' | 'transfer'.
  * @param {{ payment_type?: string; payment_method_specific?: string | null }} order
  * @returns {'cash' | 'card' | 'transfer'}

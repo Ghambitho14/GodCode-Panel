@@ -34,7 +34,7 @@ const CategoryIcon = ({ size }) => (
     />
 );
 
-const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, userEmail, branchName, logoUrl, canAccessTab, onDeniedAccess, dynamicModules = [], storefrontMenuUrl = null }) => {
+const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, userEmail, branchName, logoUrl, canAccessTab, onDeniedAccess, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
     // Estado para evitar SSR mismatch en logo y brand-info
         // SSR mismatch guard removed: logo and brand-info always rendered
     const router = useRouter();
@@ -81,11 +81,12 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         const rootModules = visibleModules.filter((module) => module.navGroup === 'root');
         const salesModules = visibleModules.filter((module) => module.navGroup === 'sales');
         const menuModules = visibleModules.filter((module) => module.navGroup === 'menu');
+		const L = tabLabelsById || {};
 
 		const items = [
 			{ 
 				id: 'orders', 
-				label: 'Pedidos', 
+				label: L.orders || 'Pedidos', 
 				icon: ChefHat, 
 				badge: pendingCount > 0 ? pendingCount : null 
 			},
@@ -95,11 +96,11 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 				icon: DollarSign,
 				isGroup: true,
 				children: [
-					{ id: 'caja', label: 'Caja', icon: CashIcon },
-					{ id: 'analytics', label: 'Reportes', icon: BarChart3 },
+					{ id: 'caja', label: L.caja || 'Caja', icon: CashIcon },
+					{ id: 'analytics', label: L.analytics || 'Reportes', icon: BarChart3 },
 					...salesModules.map((module) => ({
 						id: module.tabId,
-						label: module.label,
+						label: L[module.tabId] || module.label,
 						description: module.description,
 						icon: Blocks,
 					})),
@@ -111,35 +112,35 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 				icon: List,
 				isGroup: true,
 				children: [
-					{ id: 'categories', label: 'Categorías', icon: CategoryIcon },
-					{ id: 'products', label: 'Productos', icon: ShoppingBag },
-					{ id: 'inventory', label: 'Inventario', icon: ClipboardList },
-					{ id: 'menu_options', label: 'Opciones de menú', icon: SlidersHorizontal },
+					{ id: 'categories', label: L.categories || 'Categorías', icon: CategoryIcon },
+					{ id: 'products', label: L.products || 'Productos', icon: ShoppingBag },
+					{ id: 'inventory', label: L.inventory || 'Inventario', icon: ClipboardList },
+					{ id: 'menu_options', label: L.menu_options || 'Opciones de menú', icon: SlidersHorizontal },
 					...menuModules.map((module) => ({
 						id: module.tabId,
-						label: module.label,
+						label: L[module.tabId] || module.label,
 						description: module.description,
 						icon: Blocks,
 					})),
 				]
 			},
-			{ id: 'clients', label: 'Clientes', icon: Users },
-			{ id: 'users', label: 'Equipo', icon: UserPlus },
-			{ id: 'payment_methods', label: 'Métodos de pago', icon: CreditCard }
+			{ id: 'clients', label: L.clients || 'Clientes', icon: Users },
+			{ id: 'users', label: L.users || 'Equipo', icon: UserPlus },
+			{ id: 'payment_methods', label: L.payment_methods || 'Métodos de pago', icon: CreditCard }
 		];
 
         if (rootModules.length > 0) {
             rootModules.forEach((module) => {
                 items.push({
                     id: module.tabId,
-                    label: module.label,
+                    label: L[module.tabId] || module.label,
                     description: module.description,
                     icon: Blocks,
                 });
             });
         }
         return items;
-    }, [dynamicModules, pendingCount, userRole]);
+    }, [dynamicModules, pendingCount, userRole, tabLabelsById]);
 
     const hasRestrictedItems = useMemo(() => (
         menuItems.some((item) => {

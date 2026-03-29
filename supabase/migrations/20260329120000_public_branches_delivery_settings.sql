@@ -1,0 +1,17 @@
+-- Exponer `delivery_settings` en el menú público
+-- =================================================
+-- Tu función `public.get_public_branches(p_company_slug text)` debe incluir en su resultado
+-- la columna JSONB `delivery_settings` de `public.branches` (misma fila que el resto de datos
+-- de la sucursal). Sin esto, el cliente no recibirá tarifas ni el interruptor `enabled`.
+--
+-- Pasos típicos en el SQL Editor de Supabase:
+-- 1. Abre la definición actual de `get_public_branches`.
+-- 2. En la cláusula SELECT que arma cada sucursal, añade por ejemplo:
+--        b.delivery_settings
+--    (donde `b` es el alias de `branches`).
+-- 3. Si la función usa `RETURNS TABLE (...)`, agrega el tipo correspondiente:
+--        delivery_settings jsonb
+--
+-- No es necesario duplicar datos sensibles: `delivery_settings` ya está pensado solo para
+-- reglas de envío visibles al comensal; el panel admin sigue usando la API Next
+-- `tenant-branch-delivery-enabled` para edición.

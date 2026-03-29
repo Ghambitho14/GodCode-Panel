@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+	mergeDeliverySettingsJson,
+	normalizeDeliverySettings,
+} from "../../../lib/delivery-settings";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { createSupabaseServerClient } from "../../../utils/supabase/server";
 
@@ -37,26 +41,40 @@ async function getTenantCompanyContext(): Promise<
 	return { companyId: row.company_id };
 }
 
-function deliveryEnabledFromRow(raw: unknown): boolean {
-	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-		return true;
-	}
-	const e = (raw as Record<string, unknown>).enabled;
-	if (typeof e === "boolean") {
-		return e;
-	}
-	return true;
+function settingsResponse(deliverySettingsRaw: unknown) {
+	const n = normalizeDeliverySettings(deliverySettingsRaw);
+	return {
+		enabled: n.enabled,
+		pricePerKm: n.pricePerKm,
+		baseFee: n.baseFee,
+		minFee: n.minFee,
+		maxFee: n.maxFee,
+		maxDeliveryKm: n.maxDeliveryKm,
+		freeDeliveryFromSubtotal: n.freeDeliveryFromSubtotal,
+		minOrderSubtotal: n.minOrderSubtotal,
+		customerNotes: n.customerNotes,
+	};
 }
 
-function mergeDeliverySettings(
-	prev: unknown,
-	enabled: boolean,
-): Record<string, unknown> {
-	const base =
-		prev && typeof prev === "object" && !Array.isArray(prev)
-			? { ...(prev as Record<string, unknown>) }
-			: {};
-	return { ...base, enabled };
+function buildPatchFromBody(body: Record<string, unknown>): Record<string, unknown> {
+	const patch: Record<string, unknown> = {};
+	const keys = [
+		"enabled",
+		"pricePerKm",
+		"baseFee",
+		"minFee",
+		"maxFee",
+		"maxDeliveryKm",
+		"freeDeliveryFromSubtotal",
+		"minOrderSubtotal",
+		"customerNotes",
+	] as const;
+	for (const k of keys) {
+		if (k in body) {
+			patch[k] = body[k];
+		}
+	}
+	return patch;
 }
 
 export async function GET(req: NextRequest) {
@@ -85,8 +103,7 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		const enabled = deliveryEnabledFromRow(data.delivery_settings);
-		return NextResponse.json({ enabled });
+		return NextResponse.json(settingsResponse(data.delivery_settings));
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });
@@ -100,18 +117,17 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: ctx.error }, { status: 403 });
 		}
 
-		const body = (await req.json().catch(() => ({}))) as {
-			branchId?: unknown;
-			enabled?: unknown;
-		};
+		const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
 		const branchId = typeof body.branchId === "string" ? body.branchId.trim() : "";
 		if (!branchId) {
 			return NextResponse.json({ error: "branchId es obligatorio" }, { status: 400 });
 		}
-		if (typeof body.enabled !== "boolean") {
+
+		const patch = buildPatchFromBody(body);
+		if (Object.keys(patch).length === 0) {
 			return NextResponse.json(
-				{ error: "enabled (boolean) es obligatorio" },
+				{ error: "Nada que actualizar: envía al menos un campo de delivery" },
 				{ status: 400 },
 			);
 		}
@@ -130,7 +146,7 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		const nextSettings = mergeDeliverySettings(row.delivery_settings, body.enabled);
+		const nextSettings = mergeDeliverySettingsJson(row.delivery_settings, patch);
 
 		const { error: upError } = await supabaseAdmin
 			.from("branches")
@@ -142,7 +158,7 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: upError.message }, { status: 400 });
 		}
 
-		return NextResponse.json({ enabled: body.enabled });
+		return NextResponse.json(settingsResponse(nextSettings));
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });

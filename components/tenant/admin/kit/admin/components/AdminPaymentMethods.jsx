@@ -53,7 +53,7 @@ function buildInitialMethodValues(branch, methodKey) {
 	return raw;
 }
 
-function BranchMethodForm({ label, fields, initialValues, saving, onSave }) {
+function BranchMethodFormBody({ label, fields, initialValues, saving, onSave }) {
 	const [values, setValues] = useState(() => {
 		const o = {};
 		fields.forEach((f) => {
@@ -61,16 +61,6 @@ function BranchMethodForm({ label, fields, initialValues, saving, onSave }) {
 		});
 		return o;
 	});
-
-	const initKey = JSON.stringify(fields.map((f) => [f.key, initialValues[f.key] ?? '']));
-	useEffect(() => {
-		const o = {};
-		fields.forEach((f) => {
-			o[f.key] = initialValues[f.key] ?? '';
-		});
-		setValues(o);
-		// initKey resume el contenido de initialValues (evita reset al escribir si el padre re-renderiza).
-	}, [initKey]);
 	const handleSave = () => {
 		const out = {};
 		Object.keys(values).forEach((k) => { if (values[k] != null && String(values[k]).trim() !== '') out[k] = String(values[k]).trim(); });
@@ -106,6 +96,11 @@ function BranchMethodForm({ label, fields, initialValues, saving, onSave }) {
 			</button>
 		</div>
 	);
+}
+
+function BranchMethodForm(props) {
+	const initKey = JSON.stringify(props.fields.map((f) => [f.key, props.initialValues[f.key] ?? '']));
+	return <BranchMethodFormBody key={initKey} {...props} />;
 }
 
 export default function AdminPaymentMethods({ showNotify, branches: branchesProp }) {

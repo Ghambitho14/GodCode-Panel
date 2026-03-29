@@ -28,6 +28,9 @@ interface AdminAppProps {
 	primaryColor?: string;
 	/** URL absoluta al menú público en el monolito (slug.dominio/menu). */
 	storefrontMenuUrl?: string | null;
+	/** Labels por id de pestaña (base + theme_config.tabLabels). */
+	resolvedTabLabels?: Record<string, string>;
+	adminShortcutsEnabled?: boolean;
 }
 
 export function AdminApp({
@@ -41,6 +44,8 @@ export function AdminApp({
 	dynamicModules = [],
 	primaryColor,
 	storefrontMenuUrl = null,
+	resolvedTabLabels = {},
+	adminShortcutsEnabled = true,
 }: AdminAppProps) {
 	return (
 		<LocationProvider>
@@ -52,6 +57,8 @@ export function AdminApp({
 						roleNavPermissions={roleNavPermissions}
 						userAllowedTabs={userAllowedTabs}
 						dynamicModules={dynamicModules}
+						resolvedTabLabels={resolvedTabLabels}
+						adminShortcutsEnabled={adminShortcutsEnabled}
 					>
 						<AdminPage
 							companyName={companyName}

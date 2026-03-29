@@ -7,7 +7,15 @@ import { TenantShell } from "../../components/tenant/tenant-shell";
 import { buildTenantThemeCss } from "../../lib/panel-theme-css";
 import { getStorefrontMenuUrl } from "../../lib/storefront-url";
 import { createSupabaseServerClient } from "../../utils/supabase/server";
-import { normalizeTenantPanelUserRole } from "../../lib/tenant-admin-tabs";
+import {
+	buildResolvedTabLabels,
+	normalizeTenantPanelUserRole,
+} from "../../lib/tenant-admin-tabs";
+import {
+	filterDynamicAdminModules,
+	parseAdminPanelThemeExtensions,
+} from "../../lib/admin-theme-config";
+import type { DatabaseCompanyTheme } from "../../lib/company-theme-types";
 
 interface DynamicAdminModule {
 	id: string;
@@ -75,9 +83,11 @@ export default async function TenantAdminPage() {
 		"GodCode";
 	const logoUrl =
 		(company.theme_config as { logoUrl?: string | null } | null)?.logoUrl ?? null;
-	const roleNavPermissions =
-		(company.theme_config as Record<string, unknown> | null)?.roleNavPermissions ??
-		null;
+	const themeConfig = company.theme_config as DatabaseCompanyTheme | null | undefined;
+	const roleNavPermissions = themeConfig?.roleNavPermissions ?? null;
+
+	const adminThemeExt = parseAdminPanelThemeExtensions(themeConfig ?? null);
+	const resolvedTabLabels = buildResolvedTabLabels(adminThemeExt.tabLabels ?? null);
 
 	const userAllowedTabs = Array.isArray(staffRow.allowed_tabs)
 		? staffRow.allowed_tabs
@@ -91,7 +101,7 @@ export default async function TenantAdminPage() {
 		.order("nav_order", { ascending: true })
 		.order("label", { ascending: true });
 
-	const dynamicModules = ((dynamicModulesData ?? []) as DynamicAdminModule[]).map(
+	let dynamicModules = ((dynamicModulesData ?? []) as DynamicAdminModule[]).map(
 		(module) => ({
 			id: module.id,
 			tabId: module.tab_id,
@@ -106,10 +116,15 @@ export default async function TenantAdminPage() {
 		}),
 	);
 
+	dynamicModules = filterDynamicAdminModules(
+		dynamicModules,
+		adminThemeExt.enabledAdminModuleTabIds ?? null,
+	);
+
 	const hasTicketsModule = dynamicModules.some(
 		(module) => module.tabId === "module:tickets",
 	);
-	if (!hasTicketsModule) {
+	if (!hasTicketsModule && adminThemeExt.injectTicketsModuleIfMissing !== false) {
 		dynamicModules.push({
 			id: "system-module-tickets",
 			tabId: "module:tickets",
@@ -141,6 +156,8 @@ export default async function TenantAdminPage() {
 						userAllowedTabs={userAllowedTabs}
 						dynamicModules={dynamicModules}
 						storefrontMenuUrl={storefrontMenuUrl}
+						resolvedTabLabels={resolvedTabLabels}
+						adminShortcutsEnabled={adminThemeExt.adminShortcutsEnabled}
 					/>
 				</TenantShell>
 			</div>

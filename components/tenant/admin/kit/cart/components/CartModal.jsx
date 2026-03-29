@@ -17,16 +17,27 @@ import { formatRut } from '../../../shared/utils/formatters';
 import rut from 'rut.js';
 import validator from 'validator';
 import { validateImageFile } from '../../../shared/utils/cloudinary';
+import { computeDeliveryFee } from '@/lib/delivery-settings';
 
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
 
-const generateWSMessage = (formData, cart, total, paymentType, note, businessName) => {
+const generateWSMessage = (formData, cart, total, paymentType, note, businessName, fulfillmentMeta) => {
   let msg = `*NUEVO PEDIDO WEB - ${businessName || 'RESTAURANTE'}*\n`;
   msg += '================================\n\n';
   msg += `Cliente: ${formData.name}\n`;
-  msg += `RUT: ${formData.rut}\n`;
+  msg += `Doc: ${formData.document || formData.rut || '—'}\n`;
   msg += `Fono: ${formData.phone}\n\n`;
+  if (fulfillmentMeta?.mode === 'delivery') {
+    msg += `*ENVÍO A DOMICILIO*\n`;
+    if (fulfillmentMeta.km != null) msg += `Distancia aprox.: ${fulfillmentMeta.km} km\n`;
+    if (fulfillmentMeta.address) msg += `Dirección: ${fulfillmentMeta.address}\n`;
+    if (fulfillmentMeta.reference) msg += `Referencia: ${fulfillmentMeta.reference}\n`;
+    if (Number(fulfillmentMeta.deliveryFee) > 0) {
+      msg += `Cargo envío: $${Number(fulfillmentMeta.deliveryFee).toLocaleString('es-CL')}\n`;
+    }
+    msg += '\n';
+  }
   msg += 'DETALLE:\n';
   cart.forEach(item => {
     msg += `+ ${item.quantity} x ${(item.name ?? '').toUpperCase()}\n`;
@@ -96,8 +107,45 @@ const CartModal = React.memo(() => {
   const [showFieldErrors, setShowFieldErrors] = useState(false);
 
   const [paymentType, setPaymentType] = useState(null);
+  const [orderFulfillment, setOrderFulfillment] = useState('pickup');
+  const [deliveryKmInput, setDeliveryKmInput] = useState('');
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState('');
+  const [deliveryReference, setDeliveryReference] = useState('');
   
   const currentBranch = selectedBranch;
+
+  const deliverySettings = selectedBranch?.deliverySettings ?? null;
+  const deliveryOffered = Boolean(deliverySettings && deliverySettings.enabled !== false);
+
+  const parsedDeliveryKm = (() => {
+    const n = Number(String(deliveryKmInput).replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : NaN;
+  })();
+
+  const deliveryCalc = useMemo(() => {
+    if (!deliveryOffered || orderFulfillment !== 'delivery') {
+      return { fee: 0, waivedFreeShipping: false, code: 0 };
+    }
+    if (!Number.isFinite(parsedDeliveryKm)) {
+      return { fee: 0, waivedFreeShipping: false, code: 'need_km' };
+    }
+    const r = computeDeliveryFee(deliverySettings, parsedDeliveryKm, cartTotal);
+    if (r.fee < 0) {
+      return { fee: r.fee, waivedFreeShipping: false, code: r.fee };
+    }
+    return { fee: r.fee, waivedFreeShipping: r.waivedFreeShipping, code: 0 };
+  }, [deliveryOffered, orderFulfillment, deliverySettings, parsedDeliveryKm, cartTotal]);
+
+  const deliveryFee = orderFulfillment === 'delivery' && deliveryCalc.code === 0
+    ? deliveryCalc.fee
+    : 0;
+  const checkoutTotal = Math.round((cartTotal + deliveryFee) * 100) / 100;
+
+  useEffect(() => {
+    if (!deliveryOffered && orderFulfillment === 'delivery') {
+      setOrderFulfillment('pickup');
+    }
+  }, [deliveryOffered, orderFulfillment]);
 
   // [NUEVO] Lógica de Cascada: Sucursal > Global
   // Determina qué datos mostrar (banco, dirección, teléfono) según el contexto
@@ -201,6 +249,10 @@ const CartModal = React.memo(() => {
   const resetFlow = useCallback(() => {
     setViewState({ showPaymentInfo: false, showForm: false, showSuccess: false, isSaving: false, error: null, receiptUploadFailed: false });
     setPaymentType(null);
+    setOrderFulfillment('pickup');
+    setDeliveryKmInput('');
+    setDeliveryAddressLine('');
+    setDeliveryReference('');
     setFormData({ name: "", phone: "+56 9 ", document: "", receiptFile: null, receiptPreview: null });
     setShowFieldErrors(false);
   }, []);
@@ -239,6 +291,21 @@ const CartModal = React.memo(() => {
       return;
     }
 
+    if (orderFulfillment === 'delivery') {
+      if (!Number.isFinite(parsedDeliveryKm) || parsedDeliveryKm <= 0) {
+        setViewState(v => ({ ...v, error: 'Indica la distancia en km para el envío.' }));
+        return;
+      }
+      if (deliveryCalc.code === -1 || deliveryCalc.code === -2) {
+        setViewState(v => ({ ...v, error: 'No se puede completar el envío con las reglas actuales del local.' }));
+        return;
+      }
+      if (deliveryAddressLine.trim().length < 8) {
+        setViewState(v => ({ ...v, error: 'Completa la dirección de entrega.' }));
+        return;
+      }
+    }
+
     setViewState(v => ({ ...v, isSaving: true, error: null }));
 
     try {
@@ -255,19 +322,29 @@ const CartModal = React.memo(() => {
         description: item.description ? String(item.description) : null
       }));
 
+      const isDel = orderFulfillment === 'delivery';
       const orderPayload = {
         client_name: sanitizeInput(formData.name),
         client_phone: String(formData.phone ?? '').trim(),
         client_document: String(formData.document ?? '').trim(),
+        client_rut: String(formData.document ?? '').trim(),
         payment_type: paymentType,
-        total: Number(cartTotal) || 0,
+        total: Number(checkoutTotal) || 0,
         items: itemsForOrder,
         note: sanitizeInput(orderNote),
         status: 'pending',
         receiptFile: formData.receiptFile,
         branch_id: currentBranch.id,
         branch_name: currentBranch?.name || 'Desconocido',
-        company_id: currentBranch?.company_id || null
+        company_id: currentBranch?.company_id || null,
+        order_type: isDel ? 'delivery' : 'pickup',
+        delivery_km: isDel ? parsedDeliveryKm : 0,
+        delivery_fee: isDel ? deliveryFee : 0,
+        delivery_address: isDel ? {
+          address: sanitizeInput(deliveryAddressLine),
+          reference: sanitizeInput(deliveryReference),
+          km: parsedDeliveryKm,
+        } : null,
       };
 
       const { receiptUploadFailed } = await ordersService.createOrder(orderPayload, formData.receiptFile);
@@ -276,7 +353,23 @@ const CartModal = React.memo(() => {
       setShowFieldErrors(false);
 
       setTimeout(() => {
-        const message = generateWSMessage(formData, cart, cartTotal, paymentType, orderNote, activeInfo.name);
+        const message = generateWSMessage(
+          formData,
+          cart,
+          checkoutTotal,
+          paymentType,
+          orderNote,
+          activeInfo.name,
+          isDel
+            ? {
+                mode: 'delivery',
+                km: parsedDeliveryKm,
+                address: deliveryAddressLine.trim(),
+                reference: deliveryReference.trim(),
+                deliveryFee,
+              }
+            : { mode: 'pickup' },
+        );
         
         // Usar teléfono de la sucursal activa (o global si no hay)
         let targetPhone = "56976645547"; // Default
@@ -355,6 +448,89 @@ const CartModal = React.memo(() => {
                       rows="2"
                     />
                   </div>
+                  {deliveryOffered ? (
+                    <div className="cart-notes">
+                      <label>Entrega</label>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                        <button
+                          type="button"
+                          className={`btn btn-secondary ${orderFulfillment === 'pickup' ? 'is-active' : ''}`}
+                          style={{ opacity: orderFulfillment === 'pickup' ? 1 : 0.75 }}
+                          onClick={() => setOrderFulfillment('pickup')}
+                        >
+                          Retiro en local
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-secondary ${orderFulfillment === 'delivery' ? 'is-active' : ''}`}
+                          style={{ opacity: orderFulfillment === 'delivery' ? 1 : 0.75 }}
+                          onClick={() => setOrderFulfillment('delivery')}
+                        >
+                          Envío a domicilio
+                        </button>
+                      </div>
+                      {deliverySettings?.customerNotes ? (
+                        <p style={{ fontSize: '0.85rem', opacity: 0.75, margin: '0 0 10px' }}>
+                          {deliverySettings.customerNotes}
+                        </p>
+                      ) : null}
+                      {orderFulfillment === 'delivery' ? (
+                        <>
+                          <label style={{ display: 'block', marginTop: 8 }}>Distancia aproximada (km)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="any"
+                            className="form-input"
+                            placeholder="Ej: 3.5"
+                            value={deliveryKmInput}
+                            onChange={(e) => setDeliveryKmInput(e.target.value)}
+                          />
+                          <label style={{ display: 'block', marginTop: 10 }}>Dirección</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Calle, número, comuna"
+                            value={deliveryAddressLine}
+                            onChange={(e) => setDeliveryAddressLine(e.target.value)}
+                          />
+                          <label style={{ display: 'block', marginTop: 10 }}>Referencia / indicaciones</label>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Torre, depto, punto de referencia"
+                            value={deliveryReference}
+                            onChange={(e) => setDeliveryReference(e.target.value)}
+                          />
+                          {deliveryCalc.code === -1 ? (
+                            <p className="field-error" style={{ marginTop: 8 }}>
+                              Distancia mayor al máximo permitido para esta sucursal.
+                            </p>
+                          ) : null}
+                          {deliveryCalc.code === -2 ? (
+                            <p className="field-error" style={{ marginTop: 8 }}>
+                              El total del pedido no alcanza el mínimo para delivery.
+                            </p>
+                          ) : null}
+                          {deliveryCalc.code === 'need_km' && deliveryKmInput.trim() !== '' && !Number.isFinite(parsedDeliveryKm) ? (
+                            <p className="field-error" style={{ marginTop: 8 }}>
+                              Indica una distancia válida en kilómetros.
+                            </p>
+                          ) : null}
+                          {orderFulfillment === 'delivery' && deliveryCalc.code === 0 && deliveryFee > 0 ? (
+                            <p style={{ marginTop: 10, fontWeight: 600 }}>
+                              Cargo por envío: ${deliveryFee.toLocaleString('es-CL')}
+                            </p>
+                          ) : null}
+                          {orderFulfillment === 'delivery' && deliveryCalc.code === 0 && deliveryCalc.waivedFreeShipping ? (
+                            <p style={{ marginTop: 10, fontWeight: 600, color: '#25d366' }}>
+                              ¡Envío sin costo en este pedido!
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>
@@ -365,21 +541,59 @@ const CartModal = React.memo(() => {
                 {!viewState.showPaymentInfo ? (
                   <>
                     <div className="total-row">
-                      <span>Total</span>
+                      <span>Subtotal</span>
                       <span className="total-price">
                         {activeInfo.country === 'VE'
                           ? `$${cartTotal.toLocaleString('en-US')} USD`
                           : `$${cartTotal.toLocaleString('es-CL')}`}
                       </span>
                     </div>
+                    {orderFulfillment === 'delivery' && deliveryFee > 0 ? (
+                      <div className="total-row" style={{ fontSize: '0.95rem', opacity: 0.9 }}>
+                        <span>Envío</span>
+                        <span className="total-price">
+                          {activeInfo.country === 'VE'
+                            ? `$${deliveryFee.toLocaleString('en-US')} USD`
+                            : `$${deliveryFee.toLocaleString('es-CL')}`}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="total-row">
+                      <span>Total</span>
+                      <span className="total-price">
+                        {activeInfo.country === 'VE'
+                          ? `$${checkoutTotal.toLocaleString('en-US')} USD`
+                          : `$${checkoutTotal.toLocaleString('es-CL')}`}
+                      </span>
+                    </div>
                     {activeInfo.country === 'VE' && (
-                      <BCVRow cartTotal={cartTotal} paymentType={paymentType} />
+                      <BCVRow cartTotal={checkoutTotal} paymentType={paymentType} />
                     )}
 
                     {isShiftLoading ? (
                       <button className="btn btn-primary btn-block btn-lg" disabled>Cargando...</button>
                     ) : canCheckout ? (
-                      <button onClick={() => setViewState(v => ({ ...v, showPaymentInfo: true }))} className="btn btn-primary btn-block btn-lg">
+                      <button
+                        onClick={() => {
+                          if (orderFulfillment === 'delivery') {
+                            if (!Number.isFinite(parsedDeliveryKm) || parsedDeliveryKm <= 0) {
+                              setViewState(v => ({ ...v, error: 'Indica la distancia aproximada en km para calcular el envío.' }));
+                              return;
+                            }
+                            if (deliveryCalc.code === -1 || deliveryCalc.code === -2) {
+                              setViewState(v => ({ ...v, error: 'Revisa la dirección o el monto: no podemos confirmar este envío con las reglas del local.' }));
+                              return;
+                            }
+                            const addr = deliveryAddressLine.trim();
+                            if (addr.length < 8) {
+                              setViewState(v => ({ ...v, error: 'Indica una dirección de entrega más completa.' }));
+                              return;
+                            }
+                          }
+                          setViewState(v => ({ ...v, showPaymentInfo: true, error: null }));
+                        }}
+                        className="btn btn-primary btn-block btn-lg"
+                      >
                         Ir a Pagar
                       </button>
                     ) : (
@@ -406,7 +620,9 @@ const CartModal = React.memo(() => {
                     isSaving={viewState.isSaving}
                     validation={validation}
                     showFieldErrors={showFieldErrors}
-                    cartTotal={cartTotal}
+                    cartSubtotal={cartTotal}
+                    deliveryFee={deliveryFee}
+                    checkoutTotal={checkoutTotal}
                     onBack={() => setViewState(v => ({ ...v, showPaymentInfo: false }))}
                     activeInfo={activeInfo}
                   />
@@ -426,7 +642,7 @@ const CartModal = React.memo(() => {
 const PaymentFlow = ({
   paymentType, setPaymentType, showForm, setShowForm,
   formData, onInputChange, onFileChange, onSubmit,
-  isSaving, validation, showFieldErrors, cartTotal, onBack, activeInfo
+  isSaving, validation, showFieldErrors, cartSubtotal, deliveryFee, checkoutTotal, onBack, activeInfo
 }) => {
   const showNameError = showFieldErrors && !validation.name;
   const showDocumentError = showFieldErrors && !validation.document;
@@ -537,7 +753,7 @@ const PaymentFlow = ({
     return (
       <div className="payment-details animate-fade">
         {paymentType === 'online' ? (
-          <BankInfo cartTotal={cartTotal} activeInfo={activeInfo} />
+          <BankInfo cartSubtotal={cartSubtotal} deliveryFee={deliveryFee} checkoutTotal={checkoutTotal} activeInfo={activeInfo} />
         ) : (
           <div className="store-pay-info glass mb-20">
             <Store size={32} className="text-accent" />
@@ -545,7 +761,7 @@ const PaymentFlow = ({
               <h4>Pagar en Local</h4>
               <p className="text-muted">Pagas en efectivo o tarjeta al retirar.</p>
             </div>
-            <div className="pay-total">Total: ${cartTotal.toLocaleString('es-CL')}</div>
+            <div className="pay-total">Total: ${checkoutTotal.toLocaleString('es-CL')}</div>
           </div>
         )}
 
@@ -575,7 +791,7 @@ const PaymentFlow = ({
   );
 };
 
-const BankInfo = ({ cartTotal, activeInfo }) => {
+const BankInfo = ({ cartSubtotal, deliveryFee, checkoutTotal, activeInfo }) => {
   const info = activeInfo || {}; // Usar la info fusionada
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -629,7 +845,12 @@ const BankInfo = ({ cartTotal, activeInfo }) => {
               Contacta al administrador.
           </p>
       )}
-      <div className="pay-total">Total: ${cartTotal.toLocaleString('es-CL')}</div>
+      {deliveryFee > 0 ? (
+        <div className="pay-total" style={{ fontSize: '0.95rem', marginBottom: 8 }}>
+          Subtotal: ${cartSubtotal.toLocaleString('es-CL')} · Envío: ${deliveryFee.toLocaleString('es-CL')}
+        </div>
+      ) : null}
+      <div className="pay-total">Total: ${checkoutTotal.toLocaleString('es-CL')}</div>
     </div>
   );
 };

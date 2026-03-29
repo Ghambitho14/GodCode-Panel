@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
-  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin, Upload
+  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin, Upload, Keyboard,
 } from 'lucide-react';
 import ProductModal from '../../products/components/ProductModal';
 import CategoryModal from '../../products/components/CategoryModal';
@@ -14,6 +14,14 @@ import InventoryCard from '../components/InventoryCard';
 import ClientDetailsPanel from '../components/ClientDetailsPanel';
 import ScopeSelectionModal from '../components/ScopeSelectionModal';
 import TenantTicketsPanel from '../components/TenantTicketsPanel';
+import AdminErrorBoundary from '../components/AdminErrorBoundary';
+import AdminCommandPalette from '../components/AdminCommandPalette';
+import AdminShortcutsModal from '../components/AdminShortcutsModal';
+import AdminTabFallback from '../components/AdminTabFallback';
+import AdminBroadcastsBanner from '../components/AdminBroadcastsBanner';
+import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
+import { TENANT_ADMIN_TAB_IDS, getCashierDefaultAllowedTabIds } from '../../../../../../lib/tenant-admin-tabs';
+import { fetchJsonWithRetry } from '../../../../../../utils/fetch-json';
 
 const AdminAnalytics = React.lazy(() => import('../components/AdminAnalytics'));
 const AdminClients = React.lazy(() => import('../components/AdminClients'));
@@ -23,7 +31,6 @@ const CashManager = React.lazy(() => import('../components/caja/CashManager'));
 const AdminPaymentMethods = React.lazy(() => import('../components/AdminPaymentMethods'));
 const AdminMenuOptions = React.lazy(() => import('../components/AdminMenuOptions'));
 
-const TabFallback = () => <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><Loader2 size={32} /></div>;
 import { supabase } from '../../lib/supabase';
 import { AdminProvider, useAdmin } from './AdminProvider';
 
@@ -91,7 +98,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     confirmDeleteProduct,
     reorderCategories,
     toggleCategoryActive,
+    resolvedTabLabels,
+    adminShortcutsEnabled,
+    lastDataRefreshAt,
   } = useAdmin();
+
+  const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
+  const ASSIGNABLE_TAB_IDS = React.useMemo(
+    () => TENANT_ADMIN_TAB_IDS.filter((id) => id !== 'users'),
+    [],
+  );
 
   const nextCategoryOrder = React.useMemo(() => {
     const maxOrder = categories.reduce((maxValue, cat) => {
@@ -122,13 +138,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   const [teamLoading, setTeamLoading] = React.useState(false);
   const [teamModalOpen, setTeamModalOpen] = React.useState(false);
   const [teamUserToEdit, setTeamUserToEdit] = React.useState(null);
-  const [teamForm, setTeamForm] = React.useState({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: ['orders', 'caja'] });
+  const [teamForm, setTeamForm] = React.useState(() => ({
+    email: '',
+    password: '',
+    role: 'cashier',
+    branch_id: '',
+    allowed_tabs: [...getCashierDefaultAllowedTabIds()],
+  }));
   const [teamSubmitting, setTeamSubmitting] = React.useState(false);
   const [teamUserToDelete, setTeamUserToDelete] = React.useState(null);
   const [teamDeleting, setTeamDeleting] = React.useState(false);
   const [broadcasts, setBroadcasts] = React.useState([]);
   const [broadcastsLoading, setBroadcastsLoading] = React.useState(false);
   const [ackingId, setAckingId] = React.useState(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = React.useState(false);
 
   const dynamicModuleByTab = React.useMemo(() => {
     const map = new Map();
@@ -142,13 +166,86 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const activeDynamicModule = dynamicModuleByTab.get(activeTab) || null;
 
-  const TAB_LABELS = { orders: 'Pedidos', caja: 'Caja', analytics: 'Reportes', categories: 'Categorías', products: 'Productos', inventory: 'Inventario', menu_options: 'Opciones de menú', clients: 'Clientes', payment_methods: 'Métodos de pago' };
-  const ALL_TABS = ['orders', 'caja', 'analytics', 'categories', 'products', 'inventory', 'menu_options', 'clients', 'payment_methods'];
+  const pageTitle = React.useMemo(() => {
+    if (activeTab === 'orders') return isHistoryView ? 'Historial' : 'Cocina en Vivo';
+    if (activeTab === 'caja') {
+      const c = tabLabels.caja || 'Caja';
+      return `${c} y Turnos`;
+    }
+    if (activeTab === 'analytics') return tabLabels.analytics || 'Reportes';
+    if (activeDynamicModule) return tabLabels[activeTab] || activeDynamicModule.label;
+    return tabLabels[activeTab] || activeTab;
+  }, [activeTab, activeDynamicModule, isHistoryView, tabLabels]);
+
+  const lastSyncLabel = React.useMemo(() => {
+    if (!lastDataRefreshAt) return null;
+    try {
+      return new Date(lastDataRefreshAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'medium' });
+    } catch {
+      return null;
+    }
+  }, [lastDataRefreshAt]);
+
+  const paletteItems = React.useMemo(() => {
+    const core = TENANT_ADMIN_TAB_IDS.filter((id) => canAccessTab(id)).map((id) => ({
+      id,
+      label: tabLabels[id] || id,
+      group: 'Panel',
+    }));
+    const mods = (dynamicModules || [])
+      .filter((m) => canAccessTab(m.tabId))
+      .map((m) => ({
+        id: m.tabId,
+        label: tabLabels[m.tabId] || m.label,
+        group: 'Módulos',
+      }));
+    return [...core, ...mods];
+  }, [canAccessTab, dynamicModules, tabLabels]);
+
+  const shortcutRows = React.useMemo(() => {
+    if (!adminShortcutsEnabled) return [];
+    return [
+      { keys: 'Mod + K', description: 'Buscar sección', group: 'General' },
+      { keys: 'Mod + Shift + R', description: 'Actualizar datos del panel', group: 'General' },
+      { keys: '?', description: 'Mostrar atajos', group: 'General' },
+      { keys: 'Esc', description: 'Cerrar ventanas emergentes', group: 'General' },
+    ];
+  }, [adminShortcutsEnabled]);
+
+  React.useEffect(() => {
+    if (!adminShortcutsEnabled) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setCommandPaletteOpen(false);
+        setShortcutsHelpOpen(false);
+        return;
+      }
+      if (isTypingContext(e.target)) return;
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShortcutsHelpOpen((open) => !open);
+        setCommandPaletteOpen(false);
+        return;
+      }
+      if (isModKey(e) && String(e.key).toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((open) => !open);
+        setShortcutsHelpOpen(false);
+        return;
+      }
+      if (isModKey(e) && e.shiftKey && String(e.key).toLowerCase() === 'r') {
+        e.preventDefault();
+        void loadData(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [adminShortcutsEnabled, loadData]);
 
   const loadBroadcasts = React.useCallback(async () => {
     setBroadcastsLoading(true);
     try {
-      const res = await fetch('/api/tenant-broadcasts', { cache: 'no-store', credentials: 'include' });
+      const res = await fetchJsonWithRetry('/api/tenant-broadcasts', { cache: 'no-store', credentials: 'include' }, { retries: 1, retryDelayMs: 500 });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Error al cargar comunicados');
@@ -217,7 +314,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const openTeamCreateModal = () => {
     setTeamUserToEdit(null);
-    setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: ['orders', 'caja'] });
+    setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: [...getCashierDefaultAllowedTabIds()] });
     setTeamModalOpen(true);
   };
 
@@ -232,7 +329,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       password: '',
       role: ((u.role || 'cashier').toLowerCase() === 'staff' ? 'cashier' : (u.role || 'cashier').toLowerCase()),
       branch_id: u.branch_id || '',
-      allowed_tabs: Array.isArray(u.allowed_tabs) && u.allowed_tabs.length ? u.allowed_tabs : ['orders', 'caja'],
+      allowed_tabs: Array.isArray(u.allowed_tabs) && u.allowed_tabs.length ? u.allowed_tabs : [...getCashierDefaultAllowedTabIds()],
     });
     setTeamModalOpen(true);
   };
@@ -277,7 +374,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         showNotify(isEdit ? 'Usuario actualizado.' : 'Usuario creado. Puede iniciar sesión con su correo y contraseña.');
         setTeamModalOpen(false);
         setTeamUserToEdit(null);
-        setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: ['orders', 'caja'] });
+        setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: [...getCashierDefaultAllowedTabIds()] });
         fetchTeamUsers();
       } else {
         showNotify(data.error || (isEdit ? 'Error al actualizar usuario' : 'Error al crear usuario'), 'error');
@@ -417,6 +514,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         logoUrl={logoUrl}
         dynamicModules={dynamicModules}
         storefrontMenuUrl={storefrontMenuUrl}
+        tabLabelsById={tabLabels}
         onLogout={async () => {
           await supabase.auth.signOut();
           navigate('/');
@@ -424,81 +522,44 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       />
 
       <main className="admin-content">
-        {broadcasts.length > 0 ? (
-          <div className="glass" style={{ marginBottom: 18, padding: 12, borderRadius: 12, display: 'grid', gap: 10 }}>
-            {broadcasts.map((item) => {
-              const isCritical = item.priority === 'critical' || item.priority === 'high';
-              const isRead = Boolean(item.readAt);
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    border: isCritical ? '1px solid rgba(239,68,68,0.55)' : '1px solid rgba(255,255,255,0.12)',
-                    background: isCritical ? 'rgba(127,29,29,0.22)' : 'rgba(255,255,255,0.03)',
-                    borderRadius: 10,
-                    padding: '10px 12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    alignItems: 'flex-start',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.09em', opacity: 0.75 }}>
-                      {item.broadcastType} · prioridad {item.priority}
-                    </p>
-                    <h3 style={{ margin: '5px 0 0', fontSize: 16, fontWeight: 800 }}>{item.title}</h3>
-                    <p style={{ margin: '6px 0 0', opacity: 0.9 }}>{item.message}</p>
-                    <p style={{ margin: '7px 0 0', fontSize: 12, opacity: 0.65 }}>
-                      Desde {new Date(item.startsAt).toLocaleString('es-CL')}
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                    {isRead ? (
-                      <span style={{ fontSize: 12, color: '#86efac', fontWeight: 700 }}>Leído</span>
-                    ) : (
-                      <span style={{ fontSize: 12, color: '#facc15', fontWeight: 700 }}>Pendiente</span>
-                    )}
-                    {!isRead ? (
-                      <button
-                        type="button"
-                        className="admin-btn secondary"
-                        onClick={() => acknowledgeBroadcast(item.id)}
-                        disabled={ackingId === item.id}
-                        style={{ fontSize: 12, padding: '6px 10px' }}
-                      >
-                        {ackingId === item.id ? 'Guardando...' : 'Marcar leído'}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-
-        {broadcastsLoading ? (
-          <div className="glass" style={{ marginBottom: 18, padding: 10, borderRadius: 10, opacity: 0.8 }}>
-            Cargando comunicados...
-          </div>
-        ) : null}
+        <AdminBroadcastsBanner
+          broadcasts={broadcasts}
+          broadcastsLoading={broadcastsLoading}
+          ackingId={ackingId}
+          onAcknowledge={acknowledgeBroadcast}
+        />
 
         <header className="content-header">
-          <h1>
-            {activeTab === 'orders' ? (isHistoryView ? 'Historial' : 'Cocina en Vivo') :
-              activeTab === 'products' ? 'Inventario' :
-                activeTab === 'analytics' ? 'Rendimiento' :
-                  activeTab === 'clients' ? 'Clientes' :
-                    activeTab === 'caja' ? 'Caja y Turnos' :
-                      activeTab === 'users' ? 'Equipo' :
-                        activeTab === 'payment_methods' ? 'Métodos de pago' :
-                          activeTab === 'menu_options' ? 'Opciones de menú' :
-                            activeDynamicModule ? activeDynamicModule.label : 'Categorías'}
-          </h1>
+          <h1>{pageTitle}</h1>
 
           <div className="header-actions">
-            <button onClick={() => loadData(true)} className="btn-icon-refresh" disabled={refreshing}>
+            {lastSyncLabel ? (
+              <span
+                className="admin-last-sync"
+                title={`Última actualización de datos: ${lastSyncLabel}`}
+                style={{ fontSize: 12, opacity: 0.75, marginRight: 4, whiteSpace: 'nowrap', alignSelf: 'center' }}
+              >
+                Actualizado {lastSyncLabel}
+              </span>
+            ) : null}
+            {adminShortcutsEnabled ? (
+              <button
+                type="button"
+                className="btn-icon-refresh"
+                onClick={() => { setShortcutsHelpOpen(true); setCommandPaletteOpen(false); }}
+                title="Atajos de teclado (?)"
+                aria-label="Atajos de teclado"
+              >
+                <Keyboard size={20} />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => loadData(true)}
+              className="btn-icon-refresh"
+              disabled={refreshing}
+              title="Actualizar datos (Mod+Shift+R)"
+            >
               <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
@@ -580,21 +641,26 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
           !isHistoryView ? (
-            <AdminKanban
-              columns={kanbanColumns}
-              isMobile={isMobile}
-              mobileTab={mobileTab}
-              setMobileTab={setMobileTab}
-              moveOrder={moveOrder}
-              setReceiptModalOrder={setReceiptModalOrder}
-              branch={selectedBranch}
-              clients={clients}
-              logoUrl={logoUrl}
-            />
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'}>
+              <AdminKanban
+                columns={kanbanColumns}
+                isMobile={isMobile}
+                mobileTab={mobileTab}
+                setMobileTab={setMobileTab}
+                moveOrder={moveOrder}
+                setReceiptModalOrder={setReceiptModalOrder}
+                branch={selectedBranch}
+                clients={clients}
+                logoUrl={logoUrl}
+                showNotify={showNotify}
+              />
+            </AdminErrorBoundary>
           ) : (
-            <React.Suspense fallback={<TabFallback />}>
-              <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
-            </React.Suspense>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'}>
+              <React.Suspense fallback={<AdminTabFallback />}>
+                <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
+              </React.Suspense>
+            </AdminErrorBoundary>
           )
         )}
 
@@ -682,46 +748,54 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
         {activeTab === 'inventory' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} branches={branches} companyId={companyIdForClients} />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} branches={branches} companyId={companyIdForClients} />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {activeTab === 'menu_options' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <AdminMenuOptions
-              showNotify={showNotify}
-              selectedBranch={selectedBranch}
-              companyId={companyIdForClients}
-              onDeliverySaved={() => void refreshBranches()}
-            />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.menu_options || 'Opciones de menú'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminMenuOptions
+                showNotify={showNotify}
+                selectedBranch={selectedBranch}
+                companyId={companyIdForClients}
+                onDeliverySaved={() => void refreshBranches()}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {/* 3. REPORTES */}
         {activeTab === 'analytics' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <AdminAnalytics 
-              orders={orders} 
-              products={products} 
-              clients={clients} 
-              branches={branches.filter(b => b.id !== 'all')}
-            />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.analytics || 'Reportes'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminAnalytics 
+                orders={orders} 
+                products={products} 
+                clients={clients} 
+                branches={branches.filter(b => b.id !== 'all')}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {/* 4. CLIENTES */}
         {activeTab === 'clients' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <AdminClients
-              clients={clients}
-              orders={orders}
-              onSelectClient={handleSelectClient}
-              onClientCreated={() => loadData(true)}
-              showNotify={showNotify}
-              companyId={companyIdForClients}
-            />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.clients || 'Clientes'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminClients
+                clients={clients}
+                orders={orders}
+                onSelectClient={handleSelectClient}
+                onClientCreated={() => loadData(true)}
+                showNotify={showNotify}
+                companyId={companyIdForClients}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {/* EQUIPO (solo CEO) */}
@@ -731,13 +805,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </div>
         )}
         {activeTab === 'payment_methods' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <AdminPaymentMethods
-              showNotify={showNotify}
-              branches={branches}
-              companyId={companyIdForClients}
-            />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.payment_methods || 'Métodos de pago'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminPaymentMethods
+                showNotify={showNotify}
+                branches={branches}
+                companyId={companyIdForClients}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {activeTab === 'users' && (
@@ -766,8 +842,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       <td style={{ padding: '10px 12px' }}>{u.branch?.name ?? '—'}</td>
                       <td style={{ padding: '10px 12px', fontSize: 12 }}>
                         {(u.allowed_tabs && u.allowed_tabs.length > 0)
-                          ? u.allowed_tabs.map(t => TAB_LABELS[t] || t).join(', ')
-                          : ((u.role === 'cashier' || u.role === 'staff') ? 'Por defecto (Pedidos, Caja)' : 'Todos')}
+                          ? u.allowed_tabs.map(t => tabLabels[t] || t).join(', ')
+                          : ((u.role === 'cashier' || u.role === 'staff') ? `Por defecto (${getCashierDefaultAllowedTabIds().map((t) => tabLabels[t] || t).join(', ')})` : 'Todos')}
                       </td>
                       <td style={{ padding: '10px 12px', display: 'flex', gap: 6, alignItems: 'center' }}>
                         {isTeamUserCeo(u) ? (
@@ -1132,7 +1208,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       </p>
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {ALL_TABS.map(tabId => {
+                      {ASSIGNABLE_TAB_IDS.map(tabId => {
                         const active = teamForm.allowed_tabs?.includes(tabId) ?? false;
                         return (
                           <button
@@ -1151,7 +1227,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                               transition: 'all .18s ease',
                             }}
                           >
-                            {TAB_LABELS[tabId]}
+                            {tabLabels[tabId] || tabId}
                           </button>
                         );
                       })}
@@ -1191,7 +1267,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId === 'module:tickets' && (
-          <TenantTicketsPanel showNotify={showNotify} primaryColor={primaryColor} />
+          <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'}>
+            <TenantTicketsPanel showNotify={showNotify} primaryColor={primaryColor} />
+          </AdminErrorBoundary>
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && (
@@ -1222,9 +1300,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 4.5 CAJA */}
         {activeTab === 'caja' && (
-          <React.Suspense fallback={<TabFallback />}>
-            <CashManager showNotify={showNotify} selectedBranchId={selectedBranch?.id} orders={orders} />
-          </React.Suspense>
+          <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <CashManager showNotify={showNotify} selectedBranchId={selectedBranch?.id} orders={orders} />
+            </React.Suspense>
+          </AdminErrorBoundary>
         )}
 
         {/* 5. CATEGORÍAS */}
@@ -1391,6 +1471,17 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </div>
         )}
 
+        <AdminCommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+          items={paletteItems}
+          onSelect={(id) => setActiveTab(id)}
+        />
+        <AdminShortcutsModal
+          open={shortcutsHelpOpen}
+          onClose={() => setShortcutsHelpOpen(false)}
+          rows={shortcutRows}
+        />
       </main>
 
       {/* PANEL CLIENTE LATERAL (MODULARIZADO) */}

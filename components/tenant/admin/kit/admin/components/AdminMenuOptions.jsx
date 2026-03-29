@@ -11,7 +11,7 @@ import "../styles/AdminMenuOptions.css";
  */
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
 	return (
-		<div className="admin-menu-options">
+		<div className="admin-menu-options" data-tab="menu-options">
 			<header className="glass animate-fade admin-menu-options-intro">
 				<p className="admin-menu-options-eyebrow">Menú digital</p>
 				<h2 className="admin-menu-options-title">Opciones de menú</h2>
@@ -26,7 +26,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				onSaved={onDeliverySaved}
 			/>
 
-			<div>
+			<div className="admin-menu-options-carousel-wrap">
 				<p className="admin-menu-options-section-label">Carrusel por sucursal</p>
 				<AdminMenuCarousel
 					showNotify={showNotify}

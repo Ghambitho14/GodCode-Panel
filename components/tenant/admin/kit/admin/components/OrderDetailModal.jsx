@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Truck, Store, KeyRound } from "lucide-react";
 import {
@@ -10,12 +10,6 @@ import {
 } from "../../shared/utils/orderUtils";
 
 export default function OrderDetailModal({ order, onClose, branchName }) {
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
-
 	useEffect(() => {
 		const onKey = (e) => {
 			if (e.key === "Escape") onClose();
@@ -24,7 +18,7 @@ export default function OrderDetailModal({ order, onClose, branchName }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [onClose]);
 
-	if (!order || !mounted) return null;
+	if (!order || typeof document === "undefined") return null;
 
 	const delivery = isOrderDelivery(order);
 	const addrLines = deliveryAddressLines(order.delivery_address);

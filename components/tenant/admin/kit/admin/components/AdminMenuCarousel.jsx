@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, ImageIcon, MoreVertical,
+	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, MoreVertical,
+	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles,
 } from 'lucide-react';
 import { uploadImage } from '../../shared/utils/cloudinary';
 import '../styles/AdminMenuCarousel.css';
@@ -78,8 +79,15 @@ export default function AdminMenuCarousel({
 	useEffect(() => {
 		if (!menuOpenId) return undefined;
 		const onDoc = () => setMenuOpenId(null);
+		const onKey = (e) => {
+			if (e.key === 'Escape') setMenuOpenId(null);
+		};
 		document.addEventListener('click', onDoc);
-		return () => document.removeEventListener('click', onDoc);
+		document.addEventListener('keydown', onKey);
+		return () => {
+			document.removeEventListener('click', onDoc);
+			document.removeEventListener('keydown', onKey);
+		};
 	}, [menuOpenId]);
 
 	const persistReorder = async (nextList) => {
@@ -115,7 +123,7 @@ export default function AdminMenuCarousel({
 		setSavingSettings(true);
 		try {
 			const intervalMs = Math.min(60, Math.max(2, Number(intervalSec) || 5)) * 1000;
-			const ms = Math.min(20, Math.max(1, Number(maxSlides) || 10));
+			const clampedMaxSlides = Math.min(20, Math.max(1, Number(maxSlides) || 10));
 			const res = await fetch('/api/tenant-menu-carousel', {
 				method: 'PATCH',
 				credentials: 'include',
@@ -123,7 +131,7 @@ export default function AdminMenuCarousel({
 				body: JSON.stringify({
 					scope: 'settings',
 					intervalMs,
-					maxSlides: ms,
+					maxSlides: clampedMaxSlides,
 				}),
 			});
 			const data = await res.json();
@@ -132,7 +140,7 @@ export default function AdminMenuCarousel({
 			}
 			const out = data.settings || {};
 			setIntervalSec(Math.round((out.intervalMs ?? intervalMs) / 1000));
-			setMaxSlides(out.maxSlides ?? ms);
+			setMaxSlides(out.maxSlides ?? clampedMaxSlides);
 			showNotify('Ajustes del carrusel guardados.');
 		} catch (e) {
 			showNotify(e instanceof Error ? e.message : 'Error al guardar', 'error');
@@ -322,10 +330,9 @@ export default function AdminMenuCarousel({
 					<div className="form-group menu-carousel-save-wrap">
 						<button
 							type="button"
-							className="btn btn-primary"
+							className="btn btn-primary menu-carousel-settings-save-btn"
 							onClick={() => void saveSettings()}
 							disabled={savingSettings}
-							style={{ minWidth: 148, width: '100%' }}
 						>
 							{savingSettings ? 'Guardando…' : 'Guardar ajustes'}
 						</button>
@@ -359,86 +366,86 @@ export default function AdminMenuCarousel({
 				</div>
 			) : (
 				<div className="menu-carousel-table-outer">
-					<div className="clients-table-container">
-						<table className="clients-table menu-carousel-clients-table">
-							<thead>
-								<tr>
-									<th>DIAPOSITIVA</th>
-									<th className="hide-mobile">CANAL</th>
-									<th className="text-center">ORDEN</th>
-									<th className="text-center hide-mobile">Nº</th>
-									<th className="text-center">ORIGEN</th>
-									<th>ALTA</th>
-									<th className="text-center menu-carousel-promo-th">PROMO</th>
-									<th className="hide-mobile">SEGMENTO</th>
-									<th className="menu-carousel-actions-th text-center">ACCIONES</th>
-								</tr>
-							</thead>
-							<tbody>
-								{banners.map((b, idx) => {
-									const created = b.created_at ? new Date(b.created_at) : null;
-									const dateStr = created && Number.isFinite(created.getTime())
-										? created.toLocaleDateString('es-CL')
-										: '—';
-									return (
-										<tr key={b.id} className={b.is_active ? '' : 'menu-carousel-tr-muted'}>
-											<td data-label="Diapositiva" className="menu-carousel-first-td">
-												<div className="client-info-cell menu-carousel-slide-cell">
-													<div className="menu-carousel-slide-thumb-wrap">
-														{/* eslint-disable-next-line @next/next/no-img-element */}
-														<img src={b.image_url} alt="" className="menu-carousel-slide-thumb" loading="lazy" />
-													</div>
-													<div className="menu-carousel-slide-text">
-														<h4>Diapositiva {idx + 1}</h4>
-														<div className="client-contact-row menu-carousel-url-row">
-															<span title={b.image_url}>{shortUrlSnippet(b.image_url)}</span>
-															<span className="menu-carousel-img-dot" title="Vista previa">
-																<ImageIcon size={14} color="#4ade80" aria-hidden />
-															</span>
-														</div>
-													</div>
-												</div>
-											</td>
-											<td className="hide-mobile" data-label="Canal">
-												<span style={{ fontWeight: 500 }}>Menú digital</span>
-											</td>
-											<td className="text-center" data-label="Orden">
-												<span className="points-badge menu-carousel-points-badge">
-													<Star size={12} strokeWidth={2.4} aria-hidden />
-													{b.sort_order ?? idx}
-												</span>
-											</td>
-											<td className="text-center hide-mobile" data-label="Número">
-												<span className="text-lg font-bold">{idx + 1}</span>
-											</td>
-											<td className="text-center" data-label="Origen">
-												<span className={`font-semibold ${isCloudinaryUrl(b.image_url) ? 'text-success' : 'text-gray-400'}`}>
-													{isCloudinaryUrl(b.image_url) ? 'Cloudinary' : 'Servidor'}
-												</span>
-											</td>
-											<td data-label="Alta">
-												<div className="text-sm text-gray-400">{dateStr}</div>
-												<div className="text-xs opacity-60">
-													<div className="status-indicator">
-														<div className={`dot ${b.is_active ? 'active' : 'inactive'}`} />
-														{b.is_active ? 'Activo' : 'Oculto'}
-													</div>
-												</div>
-											</td>
-											<td className="text-center menu-carousel-promo-td" data-label="Promoción">
-												<div className="menu-carousel-row-promo">
-													<button
-														type="button"
-														className={`menu-carousel-switch menu-carousel-switch--sm ${bannerPromoOn(b) ? 'is-on' : ''}`}
-														role="switch"
-														aria-checked={bannerPromoOn(b)}
-														aria-label={bannerPromoOn(b) ? 'Quitar duración de promoción en esta imagen' : 'Activar duración de promoción en esta imagen'}
-														onClick={() => void toggleBannerPromo(b)}
-													>
-														<span className="menu-carousel-switch-knob" />
-													</button>
-													{bannerPromoOn(b) ? (
+					<ul className="menu-carousel-slide-list" aria-label="Diapositivas del carrusel">
+						{banners.map((b, idx) => {
+							const created = b.created_at ? new Date(b.created_at) : null;
+							const dateStr = created && Number.isFinite(created.getTime())
+								? created.toLocaleDateString('es-CL')
+								: '—';
+							return (
+								<li
+									key={b.id}
+									className={`menu-carousel-slide-card ${b.is_active ? 'is-active' : 'is-muted'}`}
+								>
+									<a
+										href={b.image_url}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="menu-carousel-slide-card-thumb"
+										aria-label={`Abrir imagen de la diapositiva ${idx + 1} en nueva pestaña`}
+									>
+										{/* eslint-disable-next-line @next/next/no-img-element */}
+										<img src={b.image_url} alt="" className="menu-carousel-slide-thumb" loading="lazy" />
+										<span className="menu-carousel-thumb-open">
+											<ExternalLink size={14} aria-hidden />
+										</span>
+									</a>
+									<div className="menu-carousel-slide-card-main">
+										<div className="menu-carousel-slide-card-head">
+											<div className="menu-carousel-slide-titles">
+												<p className="menu-carousel-slide-eyebrow">
+													<GripVertical size={12} className="menu-carousel-slide-eyebrow-icon" aria-hidden />
+													Diapositiva {idx + 1}
+												</p>
+												<h4 className="menu-carousel-slide-filename" title={b.image_url}>
+													{shortUrlSnippet(b.image_url)}
+												</h4>
+											</div>
+											<span
+												className={`menu-carousel-chip menu-carousel-chip--status ${b.is_active ? 'menu-carousel-chip--on' : ''}`}
+											>
+												<span className="menu-carousel-chip-dot" aria-hidden />
+												{b.is_active ? 'Visible en menú' : 'Oculta'}
+											</span>
+										</div>
+										<div className="menu-carousel-slide-meta">
+											<span className="menu-carousel-chip menu-carousel-chip--neutral">
+												<Star size={11} strokeWidth={2.5} aria-hidden />
+												Orden {b.sort_order ?? idx}
+											</span>
+											<span className={`menu-carousel-chip ${isCloudinaryUrl(b.image_url) ? 'menu-carousel-chip--accent' : 'menu-carousel-chip--neutral'}`}>
+												{isCloudinaryUrl(b.image_url) ? 'Cloudinary' : 'URL externa'}
+											</span>
+											<span className="menu-carousel-chip menu-carousel-chip--neutral">
+												<Calendar size={11} aria-hidden />
+												{dateStr}
+											</span>
+											<span className="menu-carousel-chip menu-carousel-chip--neutral menu-carousel-chip--hide-sm">
+												<MonitorSmartphone size={11} aria-hidden />
+												Menú digital
+											</span>
+										</div>
+										<div className="menu-carousel-slide-promo-block">
+											<div className="menu-carousel-slide-promo-label">
+												<Sparkles size={13} className="menu-carousel-promo-icon" aria-hidden />
+												<span>Promo con duración</span>
+											</div>
+											<div className="menu-carousel-row-promo menu-carousel-row-promo--card">
+												<button
+													type="button"
+													className={`menu-carousel-switch menu-carousel-switch--sm ${bannerPromoOn(b) ? 'is-on' : ''}`}
+													role="switch"
+													aria-checked={bannerPromoOn(b)}
+													aria-label={bannerPromoOn(b) ? 'Quitar duración de promoción en esta imagen' : 'Activar duración de promoción en esta imagen'}
+													onClick={() => void toggleBannerPromo(b)}
+												>
+													<span className="menu-carousel-switch-knob" />
+												</button>
+												{bannerPromoOn(b) ? (
+													<div className="menu-carousel-promo-days-wrap">
+														<label className="menu-carousel-promo-days-label" htmlFor={`promo-days-${b.id}`}>Días</label>
 														<input
+															id={`promo-days-${b.id}`}
 															type="number"
 															min={1}
 															max={90}
@@ -448,82 +455,79 @@ export default function AdminMenuCarousel({
 															aria-label="Días visibles en el menú"
 															onBlur={(ev) => void saveBannerPromoDays(b, ev.target.value)}
 														/>
-													) : null}
-												</div>
-											</td>
-											<td className="hide-mobile" data-label="Segmento">
-												<span className="segment-badge segment-buyer">Carrusel</span>
-											</td>
-											<td className="actions-cell menu-carousel-actions-td" data-label="Acciones">
-												<div className="menu-carousel-action-btns">
+													</div>
+												) : (
+													<span className="menu-carousel-promo-off-hint">Sin caducidad automática</span>
+												)}
+											</div>
+										</div>
+									</div>
+									<div className="menu-carousel-slide-card-actions">
+										<button
+											type="button"
+											className="menu-carousel-btn-delete"
+											aria-label="Eliminar imagen del carrusel"
+											onClick={(e) => {
+												e.stopPropagation();
+												void removeBanner(b);
+											}}
+										>
+											<Trash2 size={18} strokeWidth={2} aria-hidden />
+											<span className="menu-carousel-delete-label">Eliminar</span>
+										</button>
+										<div className="menu-carousel-kebab-wrap">
+											<button
+												type="button"
+												className="btn-icon-text menu-carousel-kebab-trigger"
+												aria-expanded={menuOpenId === b.id}
+												aria-haspopup="menu"
+												aria-label="Más opciones"
+												onClick={(e) => {
+													e.stopPropagation();
+													setMenuOpenId((prev) => (prev === b.id ? null : b.id));
+												}}
+											>
+												<MoreVertical size={18} color="#9ca3af" />
+											</button>
+											{menuOpenId === b.id ? (
+												<div
+													className="menu-carousel-kebab-menu"
+													role="menu"
+													onClick={(e) => e.stopPropagation()}
+												>
 													<button
 														type="button"
-														className="menu-carousel-btn-delete"
-														aria-label="Eliminar imagen del carrusel"
-														onClick={(e) => {
-															e.stopPropagation();
-															void removeBanner(b);
-														}}
+														role="menuitem"
+														disabled={idx === 0}
+														onClick={() => { void move(idx, -1); setMenuOpenId(null); }}
 													>
-														<Trash2 size={18} strokeWidth={2} aria-hidden />
-														<span className="menu-carousel-delete-label">Eliminar</span>
+														<ChevronUp size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
+														Subir
 													</button>
-													<div className="menu-carousel-kebab-wrap">
-														<button
-															type="button"
-															className="btn-icon-text menu-carousel-kebab-trigger"
-															aria-expanded={menuOpenId === b.id}
-															aria-haspopup="menu"
-															aria-label="Más opciones"
-															onClick={(e) => {
-																e.stopPropagation();
-																setMenuOpenId((prev) => (prev === b.id ? null : b.id));
-															}}
-														>
-															<MoreVertical size={18} color="#9ca3af" />
-														</button>
-														{menuOpenId === b.id ? (
-															<div
-																className="menu-carousel-kebab-menu"
-																role="menu"
-																onClick={(e) => e.stopPropagation()}
-															>
-																<button
-																	type="button"
-																	role="menuitem"
-																	disabled={idx === 0}
-																	onClick={() => { void move(idx, -1); setMenuOpenId(null); }}
-																>
-																	<ChevronUp size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
-																	Subir
-																</button>
-																<button
-																	type="button"
-																	role="menuitem"
-																	disabled={idx === banners.length - 1}
-																	onClick={() => { void move(idx, 1); setMenuOpenId(null); }}
-																>
-																	<ChevronDown size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
-																	Bajar
-																</button>
-																<button
-																	type="button"
-																	role="menuitem"
-																	onClick={() => { void toggleActive(b); setMenuOpenId(null); }}
-																>
-																	{b.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
-																</button>
-															</div>
-														) : null}
-													</div>
+													<button
+														type="button"
+														role="menuitem"
+														disabled={idx === banners.length - 1}
+														onClick={() => { void move(idx, 1); setMenuOpenId(null); }}
+													>
+														<ChevronDown size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
+														Bajar
+													</button>
+													<button
+														type="button"
+														role="menuitem"
+														onClick={() => { void toggleActive(b); setMenuOpenId(null); }}
+													>
+														{b.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
+													</button>
 												</div>
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
+											) : null}
+										</div>
+									</div>
+								</li>
+							);
+						})}
+					</ul>
 				</div>
 			)}
 		</div>

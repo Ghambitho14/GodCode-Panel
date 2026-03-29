@@ -1,5 +1,7 @@
 /* =========================================
    ADMIN SHARED COMPONENTS (TOOLBARS, SEARCH, ETC)
+   Tokens: preferir variables del tenant (--accent-primary, --card-border,
+   --bg-primary, --text-secondary) definidas en .tenant-theme-vars.
    ========================================= */
 
 .admin-layout .admin-toolbar {

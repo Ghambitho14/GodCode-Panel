@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck } from 'lucide-react';
+import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck, Copy } from 'lucide-react';
 import { formatTimeElapsed } from '../../shared/utils/formatters';
-import { getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
+import { buildOrderWhatsAppShareText, getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
 import OrderDetailModal from './OrderDetailModal';
 
-const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients, logoUrl }) => {
+const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients, logoUrl, showNotify }) => {
     const [detailOpen, setDetailOpen] = useState(false);
     const isDelivery = isOrderDelivery(order);
     const handleMoveToKitchen = (e) => {
@@ -19,6 +19,17 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
     const handleReprint = (e) => {
         e.stopPropagation();
         printOrderTicket(order, branch?.name, logoUrl ?? null);
+    };
+
+    const handleCopyShare = async (e) => {
+        e.stopPropagation();
+        const text = buildOrderWhatsAppShareText(order, branch?.name);
+        try {
+            await navigator.clipboard.writeText(text);
+            showNotify?.('Resumen del pedido copiado. Pégalo en WhatsApp.');
+        } catch {
+            showNotify?.('No se pudo copiar. Copia manualmente el texto del pedido.', 'error');
+        }
     };
 
     // Lógica VIP: Buscar cliente y verificar si tiene más de 5 pedidos
@@ -40,7 +51,10 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     {formatTimeElapsed(order.created_at)}
                 </span>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                    <button onClick={handleReprint} className="btn-icon-xs" title="Imprimir Comanda" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
+                    <button type="button" onClick={handleCopyShare} className="btn-icon-xs" title="Copiar resumen para WhatsApp" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
+                        <Copy size={14} />
+                    </button>
+                    <button type="button" onClick={handleReprint} className="btn-icon-xs" title="Imprimir Comanda" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
                         <Printer size={14} />
                     </button>
                 <span className={`payment-badge ${order.payment_type === 'online' ? 'online' : ''}`}>
