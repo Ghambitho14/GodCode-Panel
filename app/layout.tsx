@@ -1,5 +1,7 @@
-﻿import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { PwaServiceWorkerRegister } from "../components/PwaServiceWorkerRegister";
 
 import "./globals.css";
 
@@ -18,6 +20,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: "Panel del negocio",
 	description: "Administracion de pedidos y operacion",
+	applicationName: "Panel del negocio",
+	appleWebApp: {
+		capable: true,
+		title: "Panel del negocio",
+		statusBarStyle: "black-translucent",
+	},
+	icons: {
+		icon: [
+			{ url: "/pwa-icon-192.png", sizes: "192x192", type: "image/png" },
+			{ url: "/pwa-icon-512.png", sizes: "512x512", type: "image/png" },
+		],
+		apple: "/pwa-icon-192.png",
+	},
+};
+
+export const viewport: Viewport = {
+	themeColor: "#0a0a0a",
+	colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -43,6 +63,7 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased transition-colors duration-200`}
 			>
+				<PwaServiceWorkerRegister />
 				{children}
 			</body>
 		</html>

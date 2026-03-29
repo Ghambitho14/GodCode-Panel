@@ -134,11 +134,11 @@ export async function PUT(req: NextRequest) {
 			updates.pago_movil =
 				body.pago_movil === null
 					? null
-					: mergeJsonBranchField(existing.pago_movil, body.pago_movil);
+					: mergeJsonBranchField(existing.pago_movil, body.pago_movil ?? null);
 		}
 		if (Object.prototype.hasOwnProperty.call(body, "zelle")) {
 			updates.zelle =
-				body.zelle === null ? null : mergeJsonBranchField(existing.zelle, body.zelle);
+				body.zelle === null ? null : mergeJsonBranchField(existing.zelle, body.zelle ?? null);
 		}
 		if (Object.prototype.hasOwnProperty.call(body, "transferencia_bancaria")) {
 			const merged =
@@ -146,7 +146,7 @@ export async function PUT(req: NextRequest) {
 					? null
 					: mergeJsonBranchField(
 							existing.transferencia_bancaria,
-							body.transferencia_bancaria
+							body.transferencia_bancaria ?? null
 						);
 			updates.transferencia_bancaria = merged;
 			Object.assign(updates, transferenciaToFlatColumns(merged));
