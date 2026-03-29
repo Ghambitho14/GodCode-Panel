@@ -290,9 +290,6 @@ export default function AdminMenuCarousel({
 				<p className="menu-carousel-sub">
 					Configura el orden y la visibilidad de cada diapositiva. El intervalo entre fotos y cuántas rotan a la vez se aplican a toda la empresa en el menú público.
 				</p>
-				<div className="menu-carousel-folder-pill" title="Carpeta en Cloudinary">
-					{cloudinaryFolder}
-				</div>
 			</header>
 
 			<section className="menu-carousel-settings-block" aria-labelledby="carousel-settings-heading">

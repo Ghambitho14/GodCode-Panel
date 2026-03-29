@@ -31,12 +31,46 @@ const METHOD_FIELDS = {
 	],
 };
 
+/**
+ * Valores iniciales del formulario: JSONB en branches + columnas planas
+ * (bank_name, account_number, etc.) usadas en Configuración / carrito.
+ */
+function buildInitialMethodValues(branch, methodKey) {
+	const raw =
+		branch[methodKey] && typeof branch[methodKey] === 'object' && !Array.isArray(branch[methodKey])
+			? { ...branch[methodKey] }
+			: {};
+	if (methodKey === 'transferencia_bancaria') {
+		return {
+			banco: raw.banco ?? branch.bank_name ?? '',
+			tipo_cuenta: raw.tipo_cuenta ?? branch.account_type ?? '',
+			nro_cuenta: raw.nro_cuenta ?? branch.account_number ?? '',
+			identificacion: raw.identificacion ?? branch.account_rut ?? '',
+			titular: raw.titular ?? branch.account_holder ?? '',
+			email: raw.email ?? branch.account_email ?? '',
+		};
+	}
+	return raw;
+}
+
 function BranchMethodForm({ label, fields, initialValues, saving, onSave }) {
 	const [values, setValues] = useState(() => {
 		const o = {};
-		fields.forEach((f) => { o[f.key] = initialValues[f.key] ?? ''; });
+		fields.forEach((f) => {
+			o[f.key] = initialValues[f.key] ?? '';
+		});
 		return o;
 	});
+
+	const initKey = JSON.stringify(fields.map((f) => [f.key, initialValues[f.key] ?? '']));
+	useEffect(() => {
+		const o = {};
+		fields.forEach((f) => {
+			o[f.key] = initialValues[f.key] ?? '';
+		});
+		setValues(o);
+		// initKey resume el contenido de initialValues (evita reset al escribir si el padre re-renderiza).
+	}, [initKey]);
 	const handleSave = () => {
 		const out = {};
 		Object.keys(values).forEach((k) => { if (values[k] != null && String(values[k]).trim() !== '') out[k] = String(values[k]).trim(); });
@@ -86,6 +120,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 	const [showPayPalForm, setShowPayPalForm] = useState(false);
 	const [savingBranchConfig, setSavingBranchConfig] = useState(null);
 	const [branchConfigVersion, setBranchConfigVersion] = useState(0);
+	const [loadEpoch, setLoadEpoch] = useState(0);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -105,6 +140,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 			showNotify?.('Error de conexión', 'error');
 		} finally {
 			setLoading(false);
+			setLoadEpoch((e) => e + 1);
 		}
 	}, [showNotify]);
 
@@ -496,26 +532,46 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 					const configurable = ['pago_movil', 'zelle', 'transferencia_bancaria'].filter((m) => methods.includes(m));
 					if (configurable.length === 0) {
 						return (
-							<div key={branch.id} style={{ marginBottom: '1.25rem', padding: '0.75rem', background: 'var(--bg-muted, #f3f4f6)', borderRadius: '8px' }}>
-								<div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{branch.name || 'Sin nombre'}</div>
-								<p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: 0 }}>No hay métodos con datos por configurar en esta sucursal (efectivo y tarjeta no requieren datos; PayPal/Stripe se configuran arriba).</p>
+							<div
+								key={branch.id}
+								style={{
+									marginBottom: '1.25rem',
+									padding: '0.75rem',
+									background: 'rgba(255, 255, 255, 0.04)',
+									borderRadius: '8px',
+									border: '1px solid rgba(255, 255, 255, 0.08)',
+								}}
+							>
+								<div style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'rgba(248, 250, 252, 0.95)' }}>
+									{branch.name || 'Sin nombre'}
+								</div>
+								<p style={{ fontSize: '0.85rem', color: 'var(--muted, #94a3b8)', margin: 0 }}>
+									No hay métodos con datos por configurar en esta sucursal (efectivo y tarjeta no requieren datos; PayPal/Stripe se configuran arriba).
+								</p>
 							</div>
 						);
 					}
 					return (
-						<div key={branch.id} style={{ marginBottom: '1.5rem', border: '1px solid var(--border, #e5e7eb)', borderRadius: '12px', overflow: 'hidden' }}>
-							<div style={{ padding: '0.75rem 1rem', background: 'var(--bg-muted, #f9fafb)', fontWeight: 600 }}>
+						<div key={branch.id} style={{ marginBottom: '1.5rem', border: '1px solid var(--border, rgba(255,255,255,0.12))', borderRadius: '12px', overflow: 'hidden' }}>
+							<div
+								style={{
+									padding: '0.75rem 1rem',
+									background: 'rgba(255, 255, 255, 0.06)',
+									fontWeight: 600,
+									color: 'rgba(248, 250, 252, 0.95)',
+									borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+								}}
+							>
 								{branch.name || 'Sin nombre'}
 							</div>
 							<div style={{ padding: '1rem' }}>
 								{configurable.map((methodKey) => {
 									const fields = METHOD_FIELDS[methodKey] || [];
-									const current = branch[methodKey] && typeof branch[methodKey] === 'object' ? branch[methodKey] : {};
+									const current = buildInitialMethodValues(branch, methodKey);
 									const savingKey = `${branch.id}-${methodKey}`;
 									return (
 										<BranchMethodForm
-											key={`${branch.id}-${methodKey}-${branchConfigVersion}`}
-											methodKey={methodKey}
+											key={`${branch.id}-${methodKey}-${loadEpoch}-${branchConfigVersion}`}
 											label={METHOD_LABELS[methodKey]}
 											fields={fields}
 											initialValues={current}

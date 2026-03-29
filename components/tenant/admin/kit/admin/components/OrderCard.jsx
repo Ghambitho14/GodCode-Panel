@@ -1,12 +1,15 @@
 "use client";
 
-import React from 'react';
-import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck } from 'lucide-react';
 import { formatTimeElapsed } from '../../shared/utils/formatters';
-import { getPaymentLabel } from '../../shared/utils/orderUtils';
+import { getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
+import OrderDetailModal from './OrderDetailModal';
 
 const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients, logoUrl }) => {
+    const [detailOpen, setDetailOpen] = useState(false);
+    const isDelivery = isOrderDelivery(order);
     const handleMoveToKitchen = (e) => {
         e.stopPropagation();
         printOrderTicket(order, branch?.name, logoUrl ?? null);
@@ -44,6 +47,26 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     {getPaymentLabel(order)}
                 </span>
                 </div>
+            </div>
+
+            <div className="card-kanban-meta-row">
+                {isDelivery ? (
+                    <span className="order-fulfillment-pill order-fulfillment-pill--delivery" title="Envío a domicilio">
+                        <Truck size={12} aria-hidden />
+                        Delivery
+                    </span>
+                ) : null}
+                <button
+                    type="button"
+                    className="order-detail-trigger"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailOpen(true);
+                    }}
+                >
+                    <Eye size={14} aria-hidden />
+                    Ver detalles
+                </button>
             </div>
 
             {/* CLIENTE */}
@@ -148,6 +171,14 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                 {order.status === 'completed' && <button onClick={() => moveOrder(order.id, 'picked_up')} className="btn-action" style={{ background: 'var(--accent-primary)', color: '#fff', width: '100%', margin: 0 }}>Entregado al Cliente</button>}
             </div>
             </div>
+
+            {detailOpen ? (
+                <OrderDetailModal
+                    order={order}
+                    branchName={branch?.name}
+                    onClose={() => setDetailOpen(false)}
+                />
+            ) : null}
         </div>
     );
 };

@@ -49,6 +49,52 @@ function sanitizeObject(obj: unknown): Record<string, string> | null {
 	return out;
 }
 
+function jsonFieldStrings(prev: unknown): Record<string, string> {
+	if (!prev || typeof prev !== "object" || Array.isArray(prev)) return {};
+	const out: Record<string, string> = {};
+	for (const [k, v] of Object.entries(prev)) {
+		if (v === null || v === undefined) continue;
+		const s = String(v).trim();
+		if (s) out[k] = s;
+	}
+	return out;
+}
+
+function mergeJsonBranchField(
+	prev: unknown,
+	incoming: Record<string, unknown> | null
+): Record<string, string> | null {
+	if (incoming === null) return null;
+	const inc = sanitizeObject(incoming);
+	if (inc === null) return null;
+	const base = jsonFieldStrings(prev);
+	return { ...base, ...inc };
+}
+
+/** Alinea columnas planas de sucursal con el JSON de transferencia (mismo origen que el carrito vía bank_name, etc.). */
+function transferenciaToFlatColumns(
+	t: Record<string, string> | null
+): Record<string, string | null> {
+	if (!t) {
+		return {
+			bank_name: null,
+			account_type: null,
+			account_number: null,
+			account_rut: null,
+			account_email: null,
+			account_holder: null,
+		};
+	}
+	return {
+		bank_name: t.banco ?? null,
+		account_type: t.tipo_cuenta ?? null,
+		account_number: t.nro_cuenta ?? null,
+		account_rut: t.identificacion ?? null,
+		account_email: t.email ?? null,
+		account_holder: t.titular ?? null,
+	};
+}
+
 /** PUT: actualizar datos de pago de una sucursal (pago_movil, zelle, transferencia_bancaria) */
 export async function PUT(req: NextRequest) {
 	try {
@@ -72,32 +118,38 @@ export async function PUT(req: NextRequest) {
 			);
 		}
 
-		const { data: branch } = await supabaseAdmin
+		const { data: existing } = await supabaseAdmin
 			.from("branches")
-			.select("id")
+			.select("id,pago_movil,zelle,transferencia_bancaria")
 			.eq("id", branchId)
 			.eq("company_id", ctx.companyId)
 			.maybeSingle();
-		if (!branch) {
+		if (!existing) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		const updates: {
-			pago_movil?: Record<string, string> | null;
-			zelle?: Record<string, string> | null;
-			transferencia_bancaria?: Record<string, string> | null;
-			updated_at: string;
-		} = { updated_at: new Date().toISOString() };
+		const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
 		if (Object.prototype.hasOwnProperty.call(body, "pago_movil")) {
-			updates.pago_movil = body.pago_movil === null ? null : sanitizeObject(body.pago_movil);
+			updates.pago_movil =
+				body.pago_movil === null
+					? null
+					: mergeJsonBranchField(existing.pago_movil, body.pago_movil);
 		}
 		if (Object.prototype.hasOwnProperty.call(body, "zelle")) {
-			updates.zelle = body.zelle === null ? null : sanitizeObject(body.zelle);
+			updates.zelle =
+				body.zelle === null ? null : mergeJsonBranchField(existing.zelle, body.zelle);
 		}
 		if (Object.prototype.hasOwnProperty.call(body, "transferencia_bancaria")) {
-			updates.transferencia_bancaria =
-				body.transferencia_bancaria === null ? null : sanitizeObject(body.transferencia_bancaria);
+			const merged =
+				body.transferencia_bancaria === null
+					? null
+					: mergeJsonBranchField(
+							existing.transferencia_bancaria,
+							body.transferencia_bancaria
+						);
+			updates.transferencia_bancaria = merged;
+			Object.assign(updates, transferenciaToFlatColumns(merged));
 		}
 
 		await supabaseAdmin

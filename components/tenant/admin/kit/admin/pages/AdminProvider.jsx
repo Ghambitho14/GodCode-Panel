@@ -14,6 +14,7 @@ import {
 	normalizeTenantPanelUserRole,
 	normalizeStoredNavTabId,
 } from '../../../../../../lib/tenant-admin-tabs';
+import { playOrderNotificationSound, primeOrderNotificationAudio } from '../utils/playOrderNotificationSound';
 
 const ALL_ADMIN_TABS = TENANT_ADMIN_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
@@ -41,12 +42,6 @@ const normalizeRoleNavPermissions = (raw) => {
 
 	return normalized;
 };
-
-let notificationAudio;
-try {
-	notificationAudio = new Audio('/sounds/notification.mp3');
-	notificationAudio.preload = 'auto';
-} catch {}
 
 export const AdminContext = createContext(null);
 
@@ -474,18 +469,27 @@ export const AdminProvider = ({
 			const newOrder = sanitizeOrder(payload.new);
 			setOrders(prev => [newOrder, ...prev]);
 			showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
-			try {
-				if (typeof notificationAudio !== 'undefined') {
-					notificationAudio.currentTime = 0;
-					notificationAudio.play().catch(() => {});
-				}
-			} catch {}
+			playOrderNotificationSound();
 		} else if (payload.eventType === 'UPDATE') {
 			setOrders(prev => prev.map(o => o.id === payload.new?.id ? sanitizeOrder(payload.new) : o));
 		} else if (payload.eventType === 'DELETE') {
 			setOrders(prev => prev.filter(o => o.id !== payload.old?.id));
 		}
 	}, [showNotify]);
+
+	useEffect(() => {
+		const onFirstInteract = () => {
+			primeOrderNotificationAudio();
+			window.removeEventListener('pointerdown', onFirstInteract);
+			window.removeEventListener('keydown', onFirstInteract);
+		};
+		window.addEventListener('pointerdown', onFirstInteract, { passive: true });
+		window.addEventListener('keydown', onFirstInteract);
+		return () => {
+			window.removeEventListener('pointerdown', onFirstInteract);
+			window.removeEventListener('keydown', onFirstInteract);
+		};
+	}, []);
 
 	useEffect(() => {
 		loadData();

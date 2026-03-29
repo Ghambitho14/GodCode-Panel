@@ -47,7 +47,9 @@ export async function GET() {
 
 		const branchesRes = await supabaseAdmin
 			.from("branches")
-			.select("id,name,payment_methods,pago_movil,zelle,transferencia_bancaria,paypal,stripe")
+			.select(
+				"id,name,payment_methods,pago_movil,zelle,transferencia_bancaria,paypal,stripe,bank_name,account_type,account_number,account_rut,account_email,account_holder"
+			)
 			.eq("company_id", ctx.companyId)
 			.order("name");
 		const branches = branchesRes.data ?? [];

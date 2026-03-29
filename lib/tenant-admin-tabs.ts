@@ -3,6 +3,8 @@
  *
  * Contrato con Supabase (`public.companies.theme_config`):
  * - `roleNavPermissions`: objeto por rol con arrays de ids de pestaña.
+ *
+ * Delivery en menú público (panel → Opciones de menú): `public.branches.delivery_settings.enabled` (JSONB por sucursal).
  * - Claves de rol habituales: `admin`, `ceo`, `cashier`, `owner` (si falta un rol, se usan los defaults de código).
  * - Cada string del array debe ser un id de `TENANT_ADMIN_TAB_IDS`. El SaaS y esta app deben usar **los mismos ids**.
  *

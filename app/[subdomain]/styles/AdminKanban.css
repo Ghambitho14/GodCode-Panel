@@ -177,8 +177,8 @@
 
 /*
  * Cuerpo de columna:
- * - Vista 3 columnas (split escritorio): lista vertical, tarjetas a ancho útil.
- * - Vista 1 columna (focus): cuadrícula de fichas cuadradas.
+ * - Vista tres etapas (split escritorio): una sola columna de tarjetas por etapa (lista vertical).
+ * - Vista una etapa (focus): cuadrícula de fichas (varias por fila).
  */
 .admin-layout .column-body {
     padding: 10px 12px;
@@ -190,29 +190,51 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    align-content: flex-start;
     gap: 10px;
 }
 
-/* Vista una columna: cuadrícula de tarjetas cuadradas (varias por fila) */
+/*
+ * Tarjetas como hijos directos: no deben encogerse (flex-shrink por defecto = 1).
+ * Si la columna tiene altura fija, encoger las cards dejaba el contenido con overflow
+ * visible y se veían unas encima de otras.
+ */
+.admin-layout .column-body > .kanban-card {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-height: min-content;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Vista una etapa a pantalla completa: cuadrícula de tarjetas */
 .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: min-content;
     gap: 8px;
     align-content: start;
     align-items: start;
     padding: 8px;
 }
 
-@media (max-width: 1400px) {
+.admin-layout .kanban-board.kanban-board--focus-desktop .column-body > .kanban-card {
+    min-height: min-content;
+    width: 100%;
+    max-width: 100%;
+}
+
+@media (max-width: 1200px) {
     .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 900px) {
     .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 

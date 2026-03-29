@@ -25,97 +25,116 @@
     width: 100%;
     max-width: none;
     margin: 0;
-    min-height: 0;
+    min-height: min-content;
     aspect-ratio: auto;
     overflow: visible;
 }
 
-.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
-    aspect-ratio: 1 / 1;
-    overflow: hidden;
+/* Secciones internas: no encoger el bloque central (evita solapamiento con header/footer) */
+.admin-layout .kanban-card-top,
+.admin-layout .kanban-card-foot {
+    flex-shrink: 0;
 }
 
-/* Escritorio + vista una columna: cabecera y pie fijos; scroll solo en el centro */
+.admin-layout .kanban-card-scroll {
+    flex-shrink: 0;
+    min-height: min-content;
+}
+
+/* Vista una etapa: altura según contenido (sin ficha cuadrada ni recortes) */
+.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
+    aspect-ratio: auto;
+    overflow: visible;
+    min-height: min-content;
+}
+
+/* Escritorio + vista una columna: misma lectura que split — texto completo, sin scroll interno */
 @media (min-width: 769px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
+        padding: 12px 14px;
+        border-radius: 12px;
+        gap: 8px;
+        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+    }
+
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-top {
         flex-shrink: 0;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-scroll {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-height: 0;
-        overflow-x: hidden;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        overflow: visible;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        padding-top: 2px;
+        gap: 8px;
+        padding-top: 0;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-foot {
         flex-shrink: 0;
-        padding-top: 4px;
-        margin-top: auto;
+        margin-top: 0;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-header-row {
+        font-size: 0.68rem;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .card-client h4.card-client-name {
-        font-size: 0.8rem;
-        line-height: 1.2;
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
+        font-size: 1.02rem;
+        line-height: 1.25;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
         word-break: break-word;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .client-phone {
-        font-size: 0.65rem;
-        margin-top: 2px;
+        font-size: 0.78rem;
+        margin-top: 4px;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-divider {
-        margin: 3px 0 !important;
+        margin: 6px 0 !important;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .card-items {
-        padding: 6px 7px;
+        padding: 9px 11px;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .item-name {
-        overflow: hidden;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        font-size: 0.72rem;
+        font-size: 0.82rem;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
         min-width: 0;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .order-item-detail {
-        display: -webkit-box !important;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        overflow: hidden;
-        font-size: 0.62rem !important;
-        margin-left: 26px !important;
+        display: block !important;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        font-size: 0.72rem !important;
+        margin-left: 28px !important;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .card-note {
-        font-size: 0.62rem;
-        padding: 5px 7px;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-        line-clamp: 3;
-        overflow: hidden;
+        font-size: 0.78rem;
+        padding: 8px 10px;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .receipt-container .receipt-link {
-        padding: 5px 6px;
-        font-size: 0.62rem;
+        padding: 8px;
+        font-size: 0.75rem;
     }
 }
 
@@ -480,4 +499,273 @@
         overflow: visible;
         min-height: 0;
     }
+}
+
+/* Fila meta: badge delivery + ver detalles */
+.admin-layout .card-kanban-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.admin-layout .order-detail-trigger {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 6px 10px;
+    border-radius: var(--inner-radius);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.admin-layout .order-detail-trigger:hover {
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.admin-layout .order-fulfillment-pill--delivery {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 4px 8px;
+    border-radius: var(--inner-radius);
+}
+
+/* Modal detalle pedido (portal en body) */
+.admin-layout.order-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+}
+
+.admin-layout .order-detail-panel {
+    width: 100%;
+    max-width: 420px;
+    max-height: min(88vh, 640px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.admin-layout .order-detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.admin-layout .order-detail-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #f1f5f9;
+}
+
+.admin-layout .order-detail-close {
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: #94a3b8;
+    border-radius: var(--inner-radius);
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+}
+
+.admin-layout .order-detail-close:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #f1f5f9;
+}
+
+.admin-layout .order-detail-body {
+    padding: 12px 16px 16px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.admin-layout .order-detail-handoff-block {
+    margin-bottom: 16px;
+}
+
+.admin-layout .order-detail-handoff-code {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(148, 163, 184, 0.1), rgba(71, 85, 105, 0.12));
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.admin-layout .order-detail-handoff-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+.admin-layout .order-detail-handoff-digits {
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    font-family: ui-monospace, "Cascadia Code", monospace;
+    color: #cbd5e1;
+    user-select: all;
+}
+
+.admin-layout .order-detail-handoff-hint {
+    margin: 8px 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.admin-layout .order-detail-section {
+    margin-bottom: 14px;
+}
+
+.admin-layout .order-detail-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.admin-layout .order-detail-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.admin-layout .order-detail-value {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.admin-layout .order-detail-muted {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.admin-layout .order-detail-fulfillment {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 8px 12px;
+    border-radius: var(--inner-radius);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-layout .order-detail-fulfillment.is-delivery {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+.admin-layout .order-detail-fulfillment.is-pickup {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+    border-color: rgba(167, 139, 250, 0.25);
+}
+
+.admin-layout .order-detail-address {
+    margin: 6px 0 0;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+    color: #cbd5e1;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: var(--inner-radius);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-layout .order-detail-items {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #e2e8f0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.admin-layout .order-detail-item-desc {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.admin-layout .order-detail-note {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-total-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-layout .order-detail-total {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #fff;
+}
+
+.admin-layout .order-detail-date {
+    margin-top: 10px;
+    font-size: 0.72rem;
+}
+
+.admin-layout .order-detail-foot {
+    padding: 12px 16px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.admin-layout .order-detail-done {
+    width: 100%;
 }

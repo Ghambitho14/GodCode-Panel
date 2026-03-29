@@ -1,0 +1,132 @@
+.admin-menu-options {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	max-width: 100%;
+}
+
+.admin-menu-options-intro {
+	padding: 22px 24px;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-menu-options-eyebrow {
+	margin: 0;
+	font-size: 11px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	opacity: 0.55;
+	font-weight: 600;
+}
+
+.admin-menu-options-title {
+	margin: 8px 0 0;
+	font-size: 1.5rem;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	line-height: 1.2;
+}
+
+.admin-menu-options-lead {
+	margin: 10px 0 0;
+	font-size: 14px;
+	line-height: 1.55;
+	opacity: 0.78;
+	max-width: 40rem;
+}
+
+.admin-menu-options-section-label {
+	margin: 0 0 8px 4px;
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	opacity: 0.5;
+}
+
+.admin-menu-options-card {
+	padding: 20px 22px;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	overflow: hidden;
+}
+
+.admin-menu-options-card-head {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	margin-bottom: 18px;
+}
+
+.admin-menu-options-card-icon {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-menu-options-card-title {
+	margin: 0 0 6px;
+	font-size: 1.05rem;
+	font-weight: 700;
+}
+
+.admin-menu-options-card-desc {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+	opacity: 0.72;
+	max-width: 48rem;
+}
+
+.admin-menu-options-delivery-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-wrap: wrap;
+	margin-top: 4px;
+	padding-top: 16px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-menu-options-delivery-label {
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+.admin-menu-options-delivery-hint {
+	font-size: 12px;
+	opacity: 0.65;
+	margin-top: 4px;
+	max-width: 28rem;
+	line-height: 1.45;
+}
+
+.admin-menu-options-delivery .menu-carousel-switch:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.admin-branch-delivery-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: 1fr;
+}
+
+@media (min-width: 560px) {
+	.admin-branch-delivery-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.admin-branch-delivery-grid .form-group.full-span {
+	grid-column: 1 / -1;
+}

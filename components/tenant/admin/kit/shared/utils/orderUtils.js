@@ -55,6 +55,70 @@ export function getPaymentSlug(order) {
 }
 
 /**
+ * Pedido con envío a domicilio (tabla orders: order_type, delivery_address, delivery_fee).
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {boolean}
+ */
+export function isOrderDelivery(order) {
+	if (!order) return false;
+	const t = String(order.order_type ?? '')
+		.trim()
+		.toLowerCase();
+	if (t === 'delivery' || t === 'envio' || t === 'envío' || t === 'despacho') {
+		return true;
+	}
+	const fee = Number(order.delivery_fee);
+	if (Number.isFinite(fee) && fee > 0) {
+		return true;
+	}
+	const addr = order.delivery_address;
+	if (addr && typeof addr === 'object' && !Array.isArray(addr)) {
+		const vals = Object.values(addr).filter(
+			(v) => v != null && String(v).trim() !== '',
+		);
+		if (vals.length > 0) return true;
+	}
+	return false;
+}
+
+/**
+ * Texto legible de delivery_address (JSONB).
+ * @param {unknown} addr
+ * @returns {string[]}
+ */
+export function deliveryAddressLines(addr) {
+	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) return [];
+	const o = /** @type {Record<string, unknown>} */ (addr);
+	const prefer = [
+		'formatted_address',
+		'label',
+		'address',
+		'street',
+		'line1',
+		'line_1',
+		'description',
+		'reference',
+		'referencia',
+		'comuna',
+		'commune',
+		'city',
+		'ciudad',
+	];
+	const lines = [];
+	for (const k of prefer) {
+		if (o[k] != null && String(o[k]).trim() !== '') {
+			lines.push(`${String(o[k]).trim()}`);
+		}
+	}
+	if (lines.length > 0) return [...new Set(lines)];
+	try {
+		return [JSON.stringify(o, null, 2)];
+	} catch {
+		return [];
+	}
+}
+
+/**
  * Saneamiento de pedidos desde la BD (items JSONB, total, client_*, status, etc.)
  * Usado en Admin y en hooks que parsean órdenes.
  */

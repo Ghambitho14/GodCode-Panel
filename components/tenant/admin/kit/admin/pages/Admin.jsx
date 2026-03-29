@@ -21,7 +21,7 @@ const AdminInventory = React.lazy(() => import('../components/AdminInventory'));
 const AdminHistoryTable = React.lazy(() => import('../components/AdminHistoryTable'));
 const CashManager = React.lazy(() => import('../components/caja/CashManager'));
 const AdminPaymentMethods = React.lazy(() => import('../components/AdminPaymentMethods'));
-const AdminMenuCarousel = React.lazy(() => import('../components/AdminMenuCarousel'));
+const AdminMenuOptions = React.lazy(() => import('../components/AdminMenuOptions'));
 
 const TabFallback = () => <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}><Loader2 size={32} /></div>;
 import { supabase } from '../../lib/supabase';
@@ -63,6 +63,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     showNotify,
     cashSystem,
     loadData,
+    refreshBranches,
     handleSelectClient,
     moveOrder,
     uploadReceiptToOrder,
@@ -688,10 +689,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {activeTab === 'menu_options' && (
           <React.Suspense fallback={<TabFallback />}>
-            <AdminMenuCarousel
+            <AdminMenuOptions
               showNotify={showNotify}
               selectedBranch={selectedBranch}
               companyId={companyIdForClients}
+              onDeliverySaved={() => void refreshBranches()}
             />
           </React.Suspense>
         )}
