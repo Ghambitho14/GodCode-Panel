@@ -16,6 +16,12 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
 
   const [expandedCard, setExpandedCard] = useState(() => (isMobile ? 'report' : null));
 
+  useEffect(() => {
+    if (isMobile) {
+      setExpandedCard((prev) => (prev === null ? 'report' : prev));
+    }
+  }, [isMobile]);
+
   const [isDangerModalOpen, setIsDangerModalOpen] = useState(false);
   const [dangerAction, setDangerAction] = useState(null);
   const [dangerUserName, setDangerUserName] = useState('');

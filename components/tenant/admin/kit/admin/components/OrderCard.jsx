@@ -50,12 +50,12 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     <Clock size={12} />
                     {formatTimeElapsed(order.created_at)}
                 </span>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                    <button type="button" onClick={handleCopyShare} className="btn-icon-xs" title="Copiar resumen para WhatsApp" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
-                        <Copy size={14} />
+                <div className="order-card-header-tools">
+                    <button type="button" onClick={handleCopyShare} className="admin-icon-btn admin-icon-btn--sm" title="Copiar resumen para WhatsApp">
+                        <Copy size={17} aria-hidden />
                     </button>
-                    <button type="button" onClick={handleReprint} className="btn-icon-xs" title="Imprimir Comanda" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4, borderRadius: 4 }}>
-                        <Printer size={14} />
+                    <button type="button" onClick={handleReprint} className="admin-icon-btn admin-icon-btn--sm" title="Imprimir comanda">
+                        <Printer size={17} aria-hidden />
                     </button>
                 <span className={`payment-badge ${order.payment_type === 'online' ? 'online' : ''}`}>
                     {getPaymentLabel(order)}
@@ -106,13 +106,13 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                                 <MessageCircle size={12} /> {order.client_phone}
                             </a>
                         )}
-                        {order.client_phone && order.client_rut && <span style={{opacity: 0.3}}>|</span>}
+                        {order.client_phone && order.client_rut ? <span className="order-card-meta-sep" aria-hidden>|</span> : null}
                         {order.client_rut && <span>{order.client_rut}</span>}
                     </div>
                 )}
             </div>
 
-            <hr className="kanban-card-divider" style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.05)', margin: '4px 0' }} />
+            <hr className="kanban-card-divider" />
             </div>
 
             <div className="kanban-card-scroll">
@@ -125,7 +125,7 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     <span className="item-name">{item.name}</span>
                 </div>
                 {item.description && (
-                    <span className="order-item-detail" style={{ fontSize: '0.8rem', color: '#60a5fa', marginLeft: '28px', fontStyle: 'italic', marginBottom: '4px' }}>
+                    <span className="order-item-detail">
                         Detalle: {item.description}
                     </span>
                 )}
@@ -149,7 +149,7 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                             <a href={order.payment_ref} target="_blank" rel="noreferrer" className="receipt-link" style={{ flex: 1, textDecoration: 'none' }}>
                                 <ImageIcon size={14} /> Ver Comprobante
                             </a>
-                            <button onClick={() => setReceiptModalOrder(order)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#aaa', fontSize: '0.75rem', cursor: 'pointer', borderRadius: '8px', padding: '0 12px' }}>
+                            <button type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
                                 Cambiar
                             </button>
                         </div>
@@ -165,7 +165,7 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
             <div className="kanban-card-foot">
             {/* TOTAL */}
             <div className="card-total">
-                <span className="total-label" style={{ fontSize: '0.65rem', color: '#666', letterSpacing: '0.12em', fontWeight: 700 }}>TOTAL</span>
+                <span className="total-label">TOTAL</span>
                 <span className="total-amount" style={{ fontSize: '1.05rem' }}>${order.total.toLocaleString('es-CL')}</span>
             </div>
 

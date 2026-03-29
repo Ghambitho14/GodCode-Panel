@@ -72,7 +72,7 @@ function BranchMethodFormBody({ label, fields, initialValues, saving, onSave }) 
 			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
 				{fields.map((f) => (
 					<div key={f.key}>
-						<label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.2rem' }}>{f.label}</label>
+						<label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--admin-text-muted, #475569)', marginBottom: '0.2rem', fontWeight: 600 }}>{f.label}</label>
 						<input
 							type="text"
 							className="form-input"
@@ -86,7 +86,7 @@ function BranchMethodFormBody({ label, fields, initialValues, saving, onSave }) 
 			</div>
 			<button
 				type="button"
-				className="form-input"
+				className="form-input payment-connect-btn"
 				style={{ marginTop: '0.5rem', padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
 				disabled={saving}
 				onClick={handleSave}
@@ -218,9 +218,11 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 
 	return (
 		<div className="settings-container animate-fade">
-			<header className="settings-header">
-				<CreditCard size={24} />
-				<h1>Métodos de pago</h1>
+			<header className="settings-header settings-header--stack">
+				<div className="settings-header-title-row">
+					<CreditCard size={24} aria-hidden />
+					<h1>Métodos de pago</h1>
+				</div>
 				<p className="settings-subtitle">
 					Conecta PayPal y Stripe, activa métodos por sucursal y configura los datos de pago (Pago Móvil, Zelle, transferencia). Solo el dueño o CEO puede ver y editar esta sección.
 				</p>
@@ -233,28 +235,16 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 						const account = connectedAccounts.find((a) => a.provider === provider);
 						const connected = isConnected(provider);
 						return (
-							<div
-								key={provider}
-								style={{
-									border: '1px solid var(--border, #e5e7eb)',
-									borderRadius: '12px',
-									padding: '1rem 1.25rem',
-									minWidth: '200px',
-									display: 'flex',
-									alignItems: 'center',
-									justifyContent: 'space-between',
-									gap: '0.75rem',
-								}}
-							>
+							<div key={provider} className="payment-provider-card">
 								<div>
-									<div style={{ fontWeight: 600 }}>{PROVIDER_LABELS[provider]}</div>
+									<div className="payment-provider-title">{PROVIDER_LABELS[provider]}</div>
 									{connected ? (
-										<span style={{ fontSize: '0.8rem', color: 'var(--muted, #6b7280)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-											<CheckCircle size={14} />
+										<span className="payment-status payment-status--ok">
+											<CheckCircle size={14} aria-hidden />
 											{account?.display_name || 'Conectado'}
 										</span>
 									) : (
-										<span style={{ fontSize: '0.8rem', color: 'var(--muted, #6b7280)' }}>No conectado</span>
+										<span className="payment-status payment-status--idle">No conectado</span>
 									)}
 								</div>
 								{connected && provider === 'paypal' && showPayPalForm ? (
@@ -315,7 +305,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 								) : connected ? (
 									provider === 'paypal' ? (
 										<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-											<span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Activo</span>
+											<span style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted, #6b7280)' }}>Activo</span>
 											<button
 												type="button"
 												className="form-input"
@@ -329,7 +319,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 											</button>
 											<button
 												type="button"
-												className="form-input"
+												className="form-input payment-connect-btn"
 												style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
 												onClick={async () => {
 													if (!confirm('¿Desconectar esta cuenta PayPal?')) return;
@@ -358,12 +348,12 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 											</button>
 										</div>
 									) : (
-										<span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Activo</span>
+										<span className="payment-status payment-status--idle">Activo</span>
 									)
 								) : provider === 'stripe' ? (
 									<button
 										type="button"
-										className="form-input"
+										className="form-input payment-connect-btn"
 										style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
 										disabled={connectingStripe}
 										onClick={async () => {
@@ -457,7 +447,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 								) : provider === 'paypal' ? (
 									<button
 										type="button"
-										className="form-input"
+										className="form-input payment-connect-btn"
 										style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
 										onClick={() => setShowPayPalForm(true)}
 									>
@@ -513,7 +503,7 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 					</table>
 				</div>
 				{branches.filter((b) => b.id && b.id !== 'all').length === 0 && (
-					<p style={{ marginTop: '0.75rem', color: 'var(--muted)' }}>No hay sucursales. Crea una desde la configuración del negocio.</p>
+					<p className="payment-branch-empty__text" style={{ marginTop: '0.75rem' }}>No hay sucursales. Crea una desde la configuración del negocio.</p>
 				)}
 			</section>
 
@@ -527,39 +517,22 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 					const configurable = ['pago_movil', 'zelle', 'transferencia_bancaria'].filter((m) => methods.includes(m));
 					if (configurable.length === 0) {
 						return (
-							<div
-								key={branch.id}
-								style={{
-									marginBottom: '1.25rem',
-									padding: '0.75rem',
-									background: 'rgba(255, 255, 255, 0.04)',
-									borderRadius: '8px',
-									border: '1px solid rgba(255, 255, 255, 0.08)',
-								}}
-							>
-								<div style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'rgba(248, 250, 252, 0.95)' }}>
+							<div key={branch.id} className="payment-branch-empty">
+								<div className="payment-branch-empty__title">
 									{branch.name || 'Sin nombre'}
 								</div>
-								<p style={{ fontSize: '0.85rem', color: 'var(--muted, #94a3b8)', margin: 0 }}>
+								<p className="payment-branch-empty__text">
 									No hay métodos con datos por configurar en esta sucursal (efectivo y tarjeta no requieren datos; PayPal/Stripe se configuran arriba).
 								</p>
 							</div>
 						);
 					}
 					return (
-						<div key={branch.id} style={{ marginBottom: '1.5rem', border: '1px solid var(--border, rgba(255,255,255,0.12))', borderRadius: '12px', overflow: 'hidden' }}>
-							<div
-								style={{
-									padding: '0.75rem 1rem',
-									background: 'rgba(255, 255, 255, 0.06)',
-									fontWeight: 600,
-									color: 'rgba(248, 250, 252, 0.95)',
-									borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-								}}
-							>
+						<div key={branch.id} className="payment-branch-panel">
+							<div className="payment-branch-panel__head">
 								{branch.name || 'Sin nombre'}
 							</div>
-							<div style={{ padding: '1rem' }}>
+							<div className="payment-branch-panel__body">
 								{configurable.map((methodKey) => {
 									const fields = METHOD_FIELDS[methodKey] || [];
 									const current = buildInitialMethodValues(branch, methodKey);

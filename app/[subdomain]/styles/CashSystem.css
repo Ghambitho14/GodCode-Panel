@@ -3,18 +3,18 @@
    ========================================================================== */
 
 .admin-layout .cash-container {
-    --cash-bg: #0f0f0f;
-    --cash-surface: rgba(255, 255, 255, 0.03);
-    --cash-surface-hover: rgba(255, 255, 255, 0.06);
-    --cash-border: rgba(255, 255, 255, 0.08);
-    --c-text-primary: #ffffff;
-    --c-text-secondary: #e2e8f0;
-    --c-balance: #38bdf8;
-    --c-income: #22c55e;
-    --c-expense: #ef4444;
-    --c-text-muted: #94a3b8;
-    --glass-blur: blur(16px) saturate(180%);
-    --shadow-heavy: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+    --cash-bg: var(--admin-page-bg, #f1f5f9);
+    --cash-surface: var(--admin-card-bg, #ffffff);
+    --cash-surface-hover: var(--admin-icon-bg, #f8fafc);
+    --cash-border: color-mix(in srgb, var(--admin-border, #dde3ea) 82%, #64748b 18%);
+    --c-text-primary: var(--admin-text, #12151a);
+    --c-text-secondary: var(--admin-text-muted, #5a6169);
+    --c-balance: #0284c7;
+    --c-income: #16a34a;
+    --c-expense: #dc2626;
+    --c-text-muted: #4d5563;
+    --glass-blur: none;
+    --shadow-heavy: var(--admin-shadow-md, 0 12px 40px rgba(15, 23, 42, 0.12));
     --expo-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -69,14 +69,14 @@
 }
 
 .admin-layout .cash-container .btn-secondary {
-    background: rgba(255, 255, 255, 0.05);
-    color: #e2e8f0;
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text, #0f172a);
     border: 1px solid var(--cash-border);
 }
 
 .admin-layout .cash-container .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--admin-icon-bg, #f8fafc);
+    border-color: color-mix(in srgb, var(--accent-primary) 25%, var(--cash-border));
 }
 
 .admin-layout .cash-container .btn-danger {
@@ -127,12 +127,12 @@
 }
 
 .admin-layout .cash-container .btn-text:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--c-text-primary);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 .admin-layout .cash-container .btn-close {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--admin-icon-bg, #f0f2f6);
     border: 1px solid var(--cash-border);
     color: var(--c-text-muted);
     width: 36px;
@@ -157,7 +157,7 @@
 .admin-layout .cash-container .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.5));
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     z-index: 2000;
@@ -169,16 +169,15 @@
 }
 
 .admin-layout .cash-container .modal-content {
-    background: linear-gradient(145deg, #151515 0%, #0d0d0d 100%);
+    background: var(--admin-card-bg, #fff);
     border: 1px solid var(--cash-border);
     border-radius: 20px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
     animation: slideUp 0.3s var(--expo-out);
     padding: 0 24px 24px;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    box-shadow: var(--admin-shadow-md, 0 12px 40px rgba(15, 23, 42, 0.14));
 }
 
 .admin-layout .cash-container .modal-header {
@@ -194,7 +193,7 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--c-text-primary);
     letter-spacing: 0.01em;
     line-height: 1.15;
 }
@@ -229,7 +228,7 @@
 
 .admin-layout .cash-container .form-input {
     width: 100%;
-    background: #0a0a0a;
+    background: var(--admin-card-bg, #fff);
     border: 1px solid var(--cash-border);
     border-radius: 12px;
     padding: 14px 16px;
@@ -247,7 +246,7 @@
 }
 
 .admin-layout .cash-container .form-input::placeholder {
-    color: #555;
+    color: var(--admin-text-muted, #6b7280);
 }
 
 .admin-layout .cash-container .modal-footer {
@@ -277,7 +276,7 @@
 .admin-layout .cash-container .mini-kpi span {
     font-size: 1.1rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--c-text-primary);
 }
 
 /* Profit indicators */
@@ -348,6 +347,10 @@
     flex-shrink: 0;
 }
 
+.admin-layout .cash-section-title--with-icon::before {
+    display: none;
+}
+
 /* Info icon next to table headers */
 .admin-layout .cash-container .info-icon {
     opacity: 0.4;
@@ -362,7 +365,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--admin-icon-bg, #f0f2f6);
     padding: 12px;
     border-radius: 14px;
     border: 1px solid var(--cash-border);
@@ -371,7 +374,7 @@
 .admin-layout .filter-input-group {
     flex: 1;
     min-width: 160px;
-    background: #1a1a1a;
+    background: var(--admin-card-bg, #fff);
     border: 1px solid var(--cash-border);
     border-radius: 10px;
     padding: 10px 14px;
@@ -383,14 +386,14 @@
 
 .admin-layout .filter-input-group:focus-within {
     border-color: var(--c-balance);
-    background: #222;
+    background: var(--admin-card-bg, #fff);
 }
 
 .admin-layout .filter-input-group select,
 .admin-layout .filter-input-group input {
     background: transparent;
     border: none;
-    color: white;
+    color: var(--c-text-primary);
     width: 100%;
     outline: none;
     font-size: 0.9rem;
@@ -398,8 +401,8 @@
 }
 
 .admin-layout .filter-input-group select option {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--admin-card-bg, #fff);
+    color: var(--c-text-primary);
 }
 
 /* ===========================================
@@ -420,7 +423,7 @@
 }
 
 .admin-layout .cash-table th {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--admin-icon-bg, #f0f2f6);
     padding: 14px 16px;
     text-align: left;
     font-size: 0.68rem;
@@ -435,12 +438,12 @@
 .admin-layout .cash-table td {
     padding: 14px 16px;
     font-size: 0.9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    color: #e2e8f0;
+    border-bottom: 1px solid var(--cash-border);
+    color: var(--c-text-primary);
 }
 
 .admin-layout .cash-table tr:hover td {
-    background: rgba(255, 255, 255, 0.015);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 /* Table empty state */
@@ -460,9 +463,9 @@
     max-height: 24rem;
     overflow-x: auto;
     overflow-y: auto;
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--cash-border);
     -webkit-overflow-scrolling: touch;
 }
 
@@ -479,12 +482,12 @@
 }
 
 .admin-layout .cash-container .movement-row {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--cash-border);
     transition: background 0.15s ease;
 }
 
 .admin-layout .cash-container .movement-row:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 /* ===========================================
@@ -562,7 +565,7 @@
 
 .admin-layout .cash-kpi-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--cash-border));
     background: var(--cash-surface-hover);
 }
 
@@ -592,7 +595,7 @@
 .admin-layout .cash-kpi-value {
     font-size: clamp(1.4rem, 3vw, 2rem);
     font-weight: 900;
-    color: #fff;
+    color: var(--c-text-primary);
     font-variant-numeric: tabular-nums;
 }
 
@@ -607,11 +610,8 @@
     gap: 14px;
 }
 
-.admin-layout .cash-header-icon {
-    width: 32px;
-    height: 32px;
-    filter: brightness(0) invert(1);
-    opacity: 0.9;
+.admin-layout .cash-header-brand-icon {
+    flex-shrink: 0;
 }
 
 .admin-layout .cash-header-status {
@@ -687,7 +687,7 @@
 .admin-layout .cash-spinner {
     width: 32px;
     height: 32px;
-    border: 3px solid rgba(255, 255, 255, 0.08);
+    border: 3px solid var(--admin-border, #e8ecf1);
     border-top-color: var(--c-balance);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -707,6 +707,7 @@
 .admin-layout .cash-kpi {
     background: var(--cash-surface);
     border: 1px solid var(--cash-border);
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
     border-radius: 16px;
     padding: 18px;
     display: flex;
@@ -717,7 +718,7 @@
 }
 
 .admin-layout .cash-kpi:hover {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--cash-border));
     background: var(--cash-surface-hover);
     transform: translateY(-2px);
 }
@@ -746,9 +747,10 @@
 }
 
 .admin-layout .cash-kpi-sub {
-    font-size: 0.72rem;
-    color: var(--c-text-muted);
+    font-size: 0.74rem;
+    color: var(--c-text-secondary);
     font-weight: 600;
+    line-height: 1.35;
 }
 
 /* --- Methods Grid inside KPI --- */
@@ -764,7 +766,7 @@
     align-items: center;
     gap: 8px;
     font-size: 0.85rem;
-    color: var(--c-text-muted);
+    color: var(--c-text-secondary);
     padding: 2px 0;
 }
 
@@ -781,7 +783,7 @@
     border: 1px solid var(--cash-border);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .cash-recent-header {
@@ -790,14 +792,14 @@
     justify-content: space-between;
     padding: 13px 16px;
     border-bottom: 1px solid var(--cash-border);
-    background: rgba(255, 255, 255, 0.01);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 .admin-layout .cash-recent-header h4 {
     margin: 0;
     font-size: 0.8rem;
     font-weight: 800;
-    color: var(--c-text-secondary);
+    color: var(--c-text-primary);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -815,7 +817,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--cash-border);
     transition: background 0.15s ease;
 }
 
@@ -824,7 +826,7 @@
 }
 
 .admin-layout .cash-recent-item:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 .admin-layout .cash-recent-icon {
@@ -859,15 +861,16 @@
 .admin-layout .cash-recent-desc {
     font-size: 0.86rem;
     font-weight: 700;
-    color: var(--c-text-secondary);
+    color: var(--c-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .admin-layout .cash-recent-time {
-    font-size: 0.7rem;
-    color: var(--c-text-muted);
+    font-size: 0.75rem;
+    color: var(--c-text-secondary);
+    font-weight: 500;
 }
 
 .admin-layout .cash-recent-amount {
@@ -898,7 +901,7 @@
     width: 80px;
     height: 80px;
     border-radius: 24px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--admin-icon-bg, #f0f2f6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -909,7 +912,7 @@
     margin: 0;
     font-size: 1.2rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--c-text-primary);
 }
 
 .admin-layout .cash-empty-state p {
@@ -929,11 +932,11 @@
 }
 
 .admin-layout .cash-filters-inline select {
-    background: #1a1a1a;
+    background: var(--admin-card-bg, #fff);
     border: 1px solid var(--cash-border);
     border-radius: 10px;
     padding: 8px 14px;
-    color: #fff;
+    color: var(--c-text-primary);
     font-size: 0.85rem;
     font-family: inherit;
     font-weight: 600;
@@ -947,8 +950,8 @@
 }
 
 .admin-layout .cash-filters-inline select option {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--admin-card-bg, #fff);
+    color: var(--c-text-primary);
 }
 
 /* --- History Card List --- */
@@ -972,7 +975,7 @@
 
 .admin-layout .cash-history-card:hover {
     background: var(--cash-surface-hover);
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--cash-border));
     transform: translateX(4px);
 }
 
@@ -990,13 +993,14 @@
 }
 
 .admin-layout .cash-history-hours {
-    font-size: 0.72rem;
-    color: var(--c-text-muted);
+    font-size: 0.78rem;
+    color: var(--c-text-secondary);
+    font-weight: 500;
 }
 
 .admin-layout .cash-history-duration {
-    font-size: 0.7rem;
-    color: var(--c-text-muted);
+    font-size: 0.74rem;
+    color: var(--c-text-secondary);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1016,9 +1020,9 @@
 }
 
 .admin-layout .cash-history-col label {
-    font-size: 0.63rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    color: var(--c-text-muted);
+    color: var(--c-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.07em;
 }
@@ -1031,8 +1035,8 @@
 }
 
 .admin-layout .cash-history-arrow {
-    color: var(--c-text-muted);
-    opacity: 0.4;
+    color: var(--c-text-secondary);
+    opacity: 0.65;
     transition: opacity 0.2s ease;
     flex-shrink: 0;
 }
@@ -1302,12 +1306,12 @@
 /* Scrollbar */
 .admin-layout .cash-table-container::-webkit-scrollbar { height: 6px; }
 .admin-layout .cash-table-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--admin-text-muted) 32%, transparent);
     border-radius: 20px;
 }
 
 .admin-layout .cash-container .modal-content::-webkit-scrollbar { width: 6px; }
 .admin-layout .cash-container .modal-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--admin-text-muted) 28%, transparent);
     border-radius: 20px;
 }

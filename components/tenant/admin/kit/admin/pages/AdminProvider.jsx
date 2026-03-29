@@ -103,9 +103,9 @@ export const AdminProvider = ({
 	const [refreshing, setRefreshing] = useState(false);
 	const [lastDataRefreshAt, setLastDataRefreshAt] = useState(/** @type {number | null} */ (null));
 	const sessionRestoredRef = useRef(false);
-	const [isMobile, setIsMobile] = useState(() => (
-		typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
-	));
+	// Siempre false en el primer render (SSR = cliente) para evitar hydration mismatch;
+	// el valor real se aplica en useEffect tras montar (véase listener resize).
+	const [isMobile, setIsMobile] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingProduct, setEditingProduct] = useState(null);
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -243,6 +243,7 @@ export const AdminProvider = ({
 
 	useEffect(() => {
 		const handleResize = () => setIsMobile(window.innerWidth <= 1024);
+		handleResize();
 		window.addEventListener('resize', handleResize);
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);

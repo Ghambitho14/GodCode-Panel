@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   X, Trash2, Plus, Minus, MessageCircle, ShoppingBag,
   CreditCard, Store, Check, Upload, ArrowLeft,
-  CheckCircle2, Copy, AlertCircle
+  CheckCircle2, Copy, AlertCircle, UtensilsCrossed,
 } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { ordersService } from '../../orders/services/orders';
@@ -881,8 +881,10 @@ const SuccessView = ({ onNewOrder, onGoHome, receiptUploadFailed, activeInfo }) 
 
 const EmptyState = ({ onMenu }) => (
   <div className="empty-state">
-    <span className="empty-emoji">🍽️</span>
-    <h3>Bandeja Vacía</h3>
+    <span className="empty-state-icon-wrap" aria-hidden>
+      <UtensilsCrossed size={22} strokeWidth={1.65} />
+    </span>
+    <h3>Bandeja vacía</h3>
     <button onClick={onMenu} className="btn btn-secondary mt-20">Ir al Menú</button>
   </div>
 );

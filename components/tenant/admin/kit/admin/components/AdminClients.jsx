@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Download, Filter, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { Search, Plus, Download, Filter, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy } from 'lucide-react';
 import ClientFormModal from './ClientFormModal';
+import AdminIconSlot from './AdminIconSlot';
 import { downloadExcel } from '../../shared/utils/exportUtils';
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNotify, companyId }) => {
@@ -14,6 +16,64 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
     const [sortConfig, setSortConfig] = useState({ key: 'last_order_at', direction: 'desc' });
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [menuOpenClientId, setMenuOpenClientId] = useState(null);
+    /** Coordenadas viewport para menú fijo (evita sticky header y overflow del main) */
+    const [kebabMenuPos, setKebabMenuPos] = useState(null);
+
+    const closeKebabMenu = useCallback(() => {
+        setMenuOpenClientId(null);
+        setKebabMenuPos(null);
+    }, []);
+
+    const updateKebabMenuPosFromButton = useCallback((buttonEl) => {
+        if (!buttonEl || typeof buttonEl.getBoundingClientRect !== 'function') return;
+        const r = buttonEl.getBoundingClientRect();
+        setKebabMenuPos({
+            top: r.bottom + 6,
+            right: window.innerWidth - r.right,
+        });
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!menuOpenClientId) return undefined;
+        const reposition = () => {
+            const id = String(menuOpenClientId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const btn = document.querySelector(`[data-clients-kebab-id="${id}"]`);
+            if (btn) updateKebabMenuPosFromButton(btn);
+        };
+        reposition();
+        window.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
+        return () => {
+            window.removeEventListener('scroll', reposition, true);
+            window.removeEventListener('resize', reposition);
+        };
+    }, [menuOpenClientId, updateKebabMenuPosFromButton]);
+
+    useEffect(() => {
+        if (!menuOpenClientId) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') closeKebabMenu();
+        };
+        document.addEventListener('keydown', onKey);
+        const onDoc = (e) => {
+            if (!(e.target instanceof Element)) {
+                closeKebabMenu();
+                return;
+            }
+            if (e.target.closest('.clients-kebab-menu--portal')) return;
+            if (e.target.closest('[data-clients-kebab-id]')) return;
+            closeKebabMenu();
+        };
+        const t = window.setTimeout(() => {
+            document.addEventListener('click', onDoc);
+        }, 0);
+        return () => {
+            window.clearTimeout(t);
+            document.removeEventListener('click', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [menuOpenClientId, closeKebabMenu]);
 
     // Calcular métricas derivadas por cliente usando orders
     const enrichedClients = useMemo(() => {
@@ -133,6 +193,19 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         return sortedClients.slice(start, start + itemsPerPage);
     }, [sortedClients, currentPage]);
 
+    const kebabOpenClient = useMemo(
+        () => (menuOpenClientId ? paginatedClients.find((c) => c.id === menuOpenClientId) ?? null : null),
+        [menuOpenClientId, paginatedClients],
+    );
+
+    useEffect(() => {
+        if (menuOpenClientId && !kebabOpenClient) closeKebabMenu();
+    }, [menuOpenClientId, kebabOpenClient, closeKebabMenu]);
+
+    useEffect(() => {
+        closeKebabMenu();
+    }, [currentPage, closeKebabMenu]);
+
     const totalPages = Math.ceil(sortedClients.length / itemsPerPage);
 
     const handleSort = (key) => {
@@ -193,18 +266,30 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         window.open(`https://wa.me/${finalPhone}`, '_blank');
     };
 
+    const copyPhone = async (e, phone) => {
+        e.stopPropagation();
+        if (!phone) return;
+        try {
+            await navigator.clipboard.writeText(phone);
+            showNotify('Teléfono copiado', 'success');
+        } catch {
+            showNotify('No se pudo copiar el teléfono', 'error');
+        }
+        closeKebabMenu();
+    };
+
+    const kebabPortalTarget = typeof document !== 'undefined'
+        ? document.querySelector('.admin-layout') ?? document.body
+        : null;
+
     return (
         <div className="clients-container animate-fade">
             
             {/* HEADER */}
-            <div className="clients-header">
-                <div className="clients-title">
-                    <h1>Clientes</h1>
-                </div>
-                
+            <div className="clients-header clients-header--toolbar-only">
                 <div className="clients-actions">
                     <div className="search-box">
-                        <Search size={18} color="#9ca3af" />
+                        <Search size={18} className="clients-search-icon" aria-hidden />
                         <input 
                             type="text" 
                             placeholder="Buscar cliente..." 
@@ -257,7 +342,8 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                 </div>
             </div>
 
-            {/* TABLA */}
+            {/* TABLA (scroll horizontal fuera; contenedor interno visible para menú kebab) */}
+            <div className="clients-table-scroll">
             <div className="clients-table-container">
                 <table className="clients-table">
                     <thead>
@@ -304,13 +390,21 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                     </div>
                                 </td>
                                 <td className="hide-mobile" data-label="Canal">
-                                    <span style={{ fontWeight: '500' }}>
+                                    <span className="clients-channel-label">
                                         {client.source === 'pos' ? 'PDV' : 'Menú digital'}
                                     </span>
                                 </td>
                                 <td className="text-center" data-label="Puntos">
                                     <span className="points-badge">
-                                        ⭐ {client.fidelityPoints}
+                                        <AdminIconSlot
+                                            Icon={Star}
+                                            tone="accent"
+                                            slotSize="xxs"
+                                            className="points-badge-star"
+                                            fill="currentColor"
+                                            strokeWidth={0}
+                                        />
+                                        <span className="points-badge-value">{client.fidelityPoints}</span>
                                     </span>
                                 </td>
                                 <td className="text-center" data-label="Pedidos">
@@ -322,25 +416,48 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                     </span>
                                 </td>
                                 <td data-label="Última vez">
-                                    <div className="text-sm text-gray-400">
-                                        {client.last_order_at ? new Date(client.last_order_at).toLocaleDateString('es-CL') : '-'}
-                                    </div>
-                                    <div className="text-xs opacity-60">
-                                        {getStatusIndicator(client.status)}
+                                    <div className="client-last-visit-stack">
+                                        <div className="text-sm text-gray-400">
+                                            {client.last_order_at ? new Date(client.last_order_at).toLocaleDateString('es-CL') : '-'}
+                                        </div>
+                                        <div className="text-xs opacity-60 client-last-visit-status">
+                                            {getStatusIndicator(client.status)}
+                                        </div>
                                     </div>
                                 </td>
                                 <td data-label="Segmento">
                                     {getSegmentBadge(client.segment)}
                                 </td>
-                                <td className="actions-cell">
-                                    <button className="btn-icon-text">
-                                        <MoreVertical size={18} color="#9ca3af" />
-                                    </button>
+                                <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                                    <div className="clients-row-kebab-wrap">
+                                        <button
+                                            type="button"
+                                            className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
+                                            data-clients-kebab-id={client.id}
+                                            aria-expanded={menuOpenClientId === client.id}
+                                            aria-haspopup="menu"
+                                            aria-controls={menuOpenClientId === client.id ? 'clients-kebab-menu-popover' : undefined}
+                                            id={menuOpenClientId === client.id ? 'clients-kebab-trigger-active' : undefined}
+                                            aria-label="Más acciones"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (menuOpenClientId === client.id) {
+                                                    closeKebabMenu();
+                                                } else {
+                                                    updateKebabMenuPosFromButton(e.currentTarget);
+                                                    setMenuOpenClientId(client.id);
+                                                }
+                                            }}
+                                        >
+                                            <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+            </div>
             </div>
 
             {/* PAGINACIÓN */}
@@ -359,6 +476,58 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                     </div>
                 </div>
             )}
+
+            {menuOpenClientId && kebabOpenClient && kebabMenuPos && kebabPortalTarget
+                ? createPortal(
+                    <div
+                        id="clients-kebab-menu-popover"
+                        className="clients-kebab-menu clients-kebab-menu--portal"
+                        style={{ top: kebabMenuPos.top, right: kebabMenuPos.right }}
+                        role="menu"
+                        aria-label="Acciones del cliente"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className="clients-kebab-menu__item"
+                            onClick={() => {
+                                onSelectClient?.(kebabOpenClient);
+                                closeKebabMenu();
+                            }}
+                        >
+                            <UserCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
+                            Ver ficha
+                        </button>
+                        {kebabOpenClient.phone ? (
+                            <>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="clients-kebab-menu__item"
+                                    onClick={(e) => {
+                                        openWhatsApp(e, kebabOpenClient.phone);
+                                        closeKebabMenu();
+                                    }}
+                                >
+                                    <MessageCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
+                                    Abrir WhatsApp
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="clients-kebab-menu__item"
+                                    onClick={(e) => void copyPhone(e, kebabOpenClient.phone)}
+                                >
+                                    <Copy size={16} aria-hidden className="clients-kebab-menu__icon" />
+                                    Copiar teléfono
+                                </button>
+                            </>
+                        ) : null}
+                    </div>,
+                    kebabPortalTarget,
+                )
+                : null}
 
             <ClientFormModal 
                 isOpen={isFormOpen}

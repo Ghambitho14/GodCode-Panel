@@ -315,3 +315,74 @@
   color: rgba(255, 255, 255, 0.5);
   padding: 20px;
 }
+
+/* --- Panel admin: tema claro --- */
+.admin-layout .tenant-tickets-panel .glass {
+  background: var(--admin-card-bg, #fff);
+  border: 1px solid var(--admin-border, #e8ecf1);
+  border-top: 3px solid var(--tenant-primary);
+  box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.admin-layout .tenant-tickets-panel .tickets-list-container {
+  background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.admin-layout .create-header h3 {
+  color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .create-header p {
+  color: var(--admin-text-muted, #6b7280);
+}
+
+.admin-layout .tenant-tickets-panel .ticket-row {
+  background: var(--admin-card-bg, #fff);
+  border: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .tenant-tickets-panel .ticket-row:hover {
+  background: color-mix(in srgb, var(--admin-icon-bg, #f0f2f6) 80%, #fff);
+  border-color: color-mix(in srgb, var(--tenant-primary) 28%, var(--admin-border));
+  box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.admin-layout .tenant-tickets-panel .ticket-row.selected {
+  background: color-mix(in srgb, var(--tenant-primary) 8%, var(--admin-card-bg, #fff));
+  border-color: color-mix(in srgb, var(--tenant-primary) 35%, var(--admin-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tenant-primary) 20%, transparent) inset;
+}
+
+.admin-layout .tenant-tickets-panel .ticket-subject {
+  color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .tenant-tickets-panel .ticket-status {
+  background: var(--admin-icon-bg, #f0f2f6);
+  color: var(--admin-text-muted, #6b7280);
+  border: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .tenant-tickets-panel .ticket-thread {
+  background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.admin-layout .tenant-tickets-panel .thread-header {
+  background: var(--admin-card-bg, #fff);
+  border-bottom: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .tenant-tickets-panel .reply-box {
+  background: var(--admin-card-bg, #fff);
+  border-top: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .empty-state-centered {
+  color: var(--admin-text-muted, #6b7280);
+}
+
+.admin-layout .tenant-tickets-panel .ticket-priority {
+  background: var(--admin-icon-bg, #f0f2f6);
+  color: var(--admin-text-muted, #6b7280);
+  border: 1px solid var(--admin-border, #e8ecf1);
+}

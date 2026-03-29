@@ -6,6 +6,7 @@ import {
 	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles,
 } from 'lucide-react';
 import { uploadImage } from '../../shared/utils/cloudinary';
+import AdminIconSlot from './AdminIconSlot';
 import '../styles/AdminMenuCarousel.css';
 
 const shortUrlSnippet = (url) => {
@@ -78,13 +79,20 @@ export default function AdminMenuCarousel({
 
 	useEffect(() => {
 		if (!menuOpenId) return undefined;
-		const onDoc = () => setMenuOpenId(null);
 		const onKey = (e) => {
 			if (e.key === 'Escape') setMenuOpenId(null);
 		};
-		document.addEventListener('click', onDoc);
 		document.addEventListener('keydown', onKey);
+		/** Evita que el mismo clic que abre el menú dispare el cierre en fase burbuja. */
+		const onDoc = (e) => {
+			if (e.target instanceof Element && e.target.closest('.menu-carousel-kebab-wrap')) return;
+			setMenuOpenId(null);
+		};
+		const t = window.setTimeout(() => {
+			document.addEventListener('click', onDoc);
+		}, 0);
 		return () => {
+			window.clearTimeout(t);
 			document.removeEventListener('click', onDoc);
 			document.removeEventListener('keydown', onKey);
 		};
@@ -271,7 +279,7 @@ export default function AdminMenuCarousel({
 			<div className="glass animate-fade menu-carousel-panel menu-carousel-panel-inner">
 				<div className="menu-carousel-branch-hint">
 					<p className="menu-carousel-hint">
-						Selecciona una <strong style={{ color: 'white' }}>sucursal</strong> en el encabezado para editar el carrusel del menú (cada local tiene su propia lista de imágenes).
+						Selecciona una <strong className="text-accent">sucursal</strong> en el encabezado para editar el carrusel del menú (cada local tiene su propia lista de imágenes).
 					</p>
 				</div>
 			</div>
@@ -281,7 +289,7 @@ export default function AdminMenuCarousel({
 	if (loading) {
 		return (
 			<div className="glass animate-fade menu-carousel-panel menu-carousel-panel-inner menu-carousel-loading">
-				<Loader2 size={36} className="animate-spin" />
+				<AdminIconSlot Icon={Loader2} slotSize="lg" className="animate-spin" />
 			</div>
 		);
 	}
@@ -347,7 +355,11 @@ export default function AdminMenuCarousel({
 				</h3>
 				<div>
 					<label className="btn btn-secondary menu-carousel-upload-inline" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
-						{uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+						{uploading ? (
+							<AdminIconSlot Icon={Loader2} slotSize="sm" className="animate-spin" />
+						) : (
+							<AdminIconSlot Icon={ImagePlus} slotSize="sm" tone="accent" />
+						)}
 						{uploading ? 'Subiendo…' : 'Añadir imagen'}
 						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
 					</label>
@@ -359,7 +371,11 @@ export default function AdminMenuCarousel({
 				<div className="menu-carousel-empty">
 					<p>Aún no hay diapositivas para esta sucursal. Sube imágenes promocionales o del menú; aparecerán en el carrusel del menú público cuando estén activas.</p>
 					<label className="btn btn-primary" style={{ cursor: uploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-						{uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+						{uploading ? (
+							<Loader2 size={18} color="#fff" className="animate-spin" aria-hidden />
+						) : (
+							<ImagePlus size={18} color="#fff" aria-hidden />
+						)}
 						{uploading ? 'Subiendo…' : 'Subir primera imagen'}
 						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
 					</label>
@@ -387,14 +403,14 @@ export default function AdminMenuCarousel({
 										{/* eslint-disable-next-line @next/next/no-img-element */}
 										<img src={b.image_url} alt="" className="menu-carousel-slide-thumb" loading="lazy" />
 										<span className="menu-carousel-thumb-open">
-											<ExternalLink size={14} aria-hidden />
+											<AdminIconSlot Icon={ExternalLink} slotSize="xxs" />
 										</span>
 									</a>
 									<div className="menu-carousel-slide-card-main">
 										<div className="menu-carousel-slide-card-head">
 											<div className="menu-carousel-slide-titles">
 												<p className="menu-carousel-slide-eyebrow">
-													<GripVertical size={12} className="menu-carousel-slide-eyebrow-icon" aria-hidden />
+													<AdminIconSlot Icon={GripVertical} slotSize="xxs" className="menu-carousel-slide-eyebrow-slot" />
 													Diapositiva {idx + 1}
 												</p>
 												<h4 className="menu-carousel-slide-filename" title={b.image_url}>
@@ -410,24 +426,24 @@ export default function AdminMenuCarousel({
 										</div>
 										<div className="menu-carousel-slide-meta">
 											<span className="menu-carousel-chip menu-carousel-chip--neutral">
-												<Star size={11} strokeWidth={2.5} aria-hidden />
+												<AdminIconSlot Icon={Star} slotSize="xxs" />
 												Orden {b.sort_order ?? idx}
 											</span>
 											<span className={`menu-carousel-chip ${isCloudinaryUrl(b.image_url) ? 'menu-carousel-chip--accent' : 'menu-carousel-chip--neutral'}`}>
 												{isCloudinaryUrl(b.image_url) ? 'Cloudinary' : 'URL externa'}
 											</span>
 											<span className="menu-carousel-chip menu-carousel-chip--neutral">
-												<Calendar size={11} aria-hidden />
+												<AdminIconSlot Icon={Calendar} slotSize="xxs" />
 												{dateStr}
 											</span>
 											<span className="menu-carousel-chip menu-carousel-chip--neutral menu-carousel-chip--hide-sm">
-												<MonitorSmartphone size={11} aria-hidden />
+												<AdminIconSlot Icon={MonitorSmartphone} slotSize="xxs" />
 												Menú digital
 											</span>
 										</div>
 										<div className="menu-carousel-slide-promo-block">
 											<div className="menu-carousel-slide-promo-label">
-												<Sparkles size={13} className="menu-carousel-promo-icon" aria-hidden />
+												<AdminIconSlot Icon={Sparkles} slotSize="xs" tone="accent" className="menu-carousel-promo-icon-slot" />
 												<span>Promo con duración</span>
 											</div>
 											<div className="menu-carousel-row-promo menu-carousel-row-promo--card">
@@ -472,13 +488,13 @@ export default function AdminMenuCarousel({
 												void removeBanner(b);
 											}}
 										>
-											<Trash2 size={18} strokeWidth={2} aria-hidden />
+											<Trash2 size={18} aria-hidden />
 											<span className="menu-carousel-delete-label">Eliminar</span>
 										</button>
 										<div className="menu-carousel-kebab-wrap">
 											<button
 												type="button"
-												className="btn-icon-text menu-carousel-kebab-trigger"
+												className="admin-icon-btn admin-icon-btn--sm menu-carousel-kebab-trigger"
 												aria-expanded={menuOpenId === b.id}
 												aria-haspopup="menu"
 												aria-label="Más opciones"
@@ -487,7 +503,7 @@ export default function AdminMenuCarousel({
 													setMenuOpenId((prev) => (prev === b.id ? null : b.id));
 												}}
 											>
-												<MoreVertical size={18} color="#9ca3af" />
+												<MoreVertical size={18} aria-hidden />
 											</button>
 											{menuOpenId === b.id ? (
 												<div
@@ -501,7 +517,7 @@ export default function AdminMenuCarousel({
 														disabled={idx === 0}
 														onClick={() => { void move(idx, -1); setMenuOpenId(null); }}
 													>
-														<ChevronUp size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
+														<AdminIconSlot Icon={ChevronUp} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 														Subir
 													</button>
 													<button
@@ -510,7 +526,7 @@ export default function AdminMenuCarousel({
 														disabled={idx === banners.length - 1}
 														onClick={() => { void move(idx, 1); setMenuOpenId(null); }}
 													>
-														<ChevronDown size={16} aria-hidden style={{ marginRight: 8, verticalAlign: 'middle' }} />
+														<AdminIconSlot Icon={ChevronDown} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 														Bajar
 													</button>
 													<button

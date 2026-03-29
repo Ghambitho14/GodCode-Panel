@@ -20,14 +20,14 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid var(--admin-border, #e2e8f0);
     padding-bottom: 1.5rem;
 }
 
 .admin-layout .rpt-title {
     font-size: clamp(1.4rem, 4vw, 2rem);
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text, #0f172a);
     margin: 0;
     letter-spacing: -0.03em;
 }
@@ -35,24 +35,25 @@
 .admin-layout .rpt-subtitle {
     margin: 4px 0 0;
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #64748b);
 }
 
 .admin-layout .rpt-period-select {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #1a1a1a;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e2e8f0);
     border-radius: 10px;
     padding: 8px 14px;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #64748b);
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .rpt-period-select select {
     background: transparent;
     border: none;
-    color: #fff;
+    color: var(--admin-text, #0f172a);
     font-size: 0.85rem;
     font-weight: 600;
     font-family: inherit;
@@ -61,14 +62,14 @@
 }
 
 .admin-layout .rpt-period-select select option {
-    background: #1a1a1a;
-    color: #fff;
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text, #0f172a);
 }
 
 .admin-layout .rpt-month-label {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -76,7 +77,7 @@
 .admin-layout .rpt-month-input {
     background: transparent;
     border: none;
-    color: #fff;
+    color: var(--admin-text, #0f172a);
     font-size: 0.85rem;
     font-weight: 700;
     font-family: inherit;
@@ -85,15 +86,15 @@
 }
 
 .admin-layout .rpt-month-input::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    opacity: 0.85;
+    filter: none;
+    opacity: 0.55;
     cursor: pointer;
 }
 
 .admin-layout .rpt-month-clear {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.85);
+    background: var(--admin-icon-bg, #f0f2f6);
+    border: 1px solid var(--admin-border, #e8ecf1);
+    color: var(--admin-text-muted, #6b7280);
     width: 26px;
     height: 26px;
     border-radius: 999px;
@@ -108,9 +109,9 @@
 }
 
 .admin-layout .rpt-month-clear:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.18);
-    color: #fff;
+    background: var(--admin-card-bg, #fff);
+    border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--admin-border));
+    color: var(--admin-text, #1a1d21);
 }
 
 /* --- KPI ROW --- */
@@ -121,20 +122,22 @@
 }
 
 .admin-layout .rpt-kpi {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 16px;
     padding: 18px;
     display: flex;
     align-items: center;
     gap: 14px;
     transition: all 0.25s ease;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .rpt-kpi:hover {
-    border-color: rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.05);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
+    background: var(--admin-card-bg, #fff);
     transform: translateY(-2px);
+    box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
 }
 
 .admin-layout .rpt-kpi-icon {
@@ -163,7 +166,7 @@
 .admin-layout .rpt-kpi-label {
     font-size: 0.72rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -171,7 +174,7 @@
 .admin-layout .rpt-kpi-value {
     font-size: 1.4rem;
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
 }
@@ -189,7 +192,7 @@
 
 .admin-layout .rpt-trend.positive { color: #22c55e; background: rgba(34,197,94,0.1); }
 .admin-layout .rpt-trend.negative { color: #ef4444; background: rgba(239,68,68,0.1); }
-.admin-layout .rpt-trend.neutral { color: #94a3b8; background: rgba(148,163,184,0.1); }
+.admin-layout .rpt-trend.neutral { color: var(--admin-text-muted, #5a6169); background: rgba(148,163,184,0.1); }
 
 /* --- MAIN GRID (Chart + Sidebar) --- */
 .admin-layout .rpt-main-grid {
@@ -200,8 +203,8 @@
 
 /* Chart Card */
 .admin-layout .rpt-chart-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 16px;
     padding: 20px;
     display: flex;
@@ -209,6 +212,7 @@
     min-height: 380px;
     min-width: 0;
     overflow: hidden;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .rpt-chart-header {
@@ -224,15 +228,15 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
 }
 
 .admin-layout .rpt-chart-tabs {
     display: flex;
-    background: rgba(0,0,0,0.3);
+    background: var(--admin-icon-bg, #f0f2f6);
     padding: 3px;
     border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .rpt-tab {
@@ -240,7 +244,7 @@
     border-radius: 6px;
     font-size: 0.78rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -253,7 +257,7 @@
 }
 
 .admin-layout .rpt-tab:hover:not(.active) {
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
 }
 
 .admin-layout .rpt-chart-wrapper {
@@ -277,17 +281,18 @@
 }
 
 .admin-layout .rpt-side-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 14px;
     padding: 18px;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .rpt-side-card h4 {
     margin: 0 0 14px;
     font-size: 0.82rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -311,7 +316,7 @@
     align-items: center;
     gap: 8px;
     font-size: 0.82rem;
-    color: #e2e8f0;
+    color: var(--admin-text-muted, #6b7280);
 }
 
 .admin-layout .rpt-payment-icon {
@@ -321,7 +326,7 @@
 
 .admin-layout .rpt-payment-bar-wrap {
     height: 6px;
-    background: rgba(255,255,255,0.05);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -340,26 +345,26 @@
 }
 
 .admin-layout .rpt-payment-values strong {
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
 
 .admin-layout .rpt-payment-values span {
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
 }
 
 /* Peak Hour */
 .admin-layout .rpt-peak-value {
     font-size: 1.3rem;
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     margin-bottom: 4px;
 }
 
 .admin-layout .rpt-peak-sub {
     font-size: 0.78rem;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
 }
 
 /* Quick Stats */
@@ -377,29 +382,31 @@
 
 .admin-layout .rpt-quick-label {
     font-size: 0.82rem;
-    color: #94a3b8;
+    font-weight: 600;
+    color: var(--admin-text-muted, #5a6169);
 }
 
 .admin-layout .rpt-quick-value {
     font-size: 1rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
 }
 
 /* --- TOP PRODUCTS --- */
 .admin-layout .rpt-products-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 16px;
     padding: 20px;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .rpt-products-card h3 {
     margin: 0 0 16px;
     font-size: 1rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -416,7 +423,7 @@
     align-items: center;
     gap: 14px;
     padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .rpt-product-row:last-child {
@@ -441,7 +448,7 @@
 .admin-layout .rpt-product-name {
     font-size: 0.88rem;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--admin-text, #1a1d21);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -449,7 +456,7 @@
 
 .admin-layout .rpt-product-bar-wrap {
     height: 5px;
-    background: rgba(255,255,255,0.05);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -472,13 +479,13 @@
 .admin-layout .rpt-product-qty {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
 }
 
 .admin-layout .rpt-product-rev {
     font-size: 0.85rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
 }
 
@@ -486,7 +493,7 @@
 .admin-layout .rpt-empty {
     text-align: center;
     padding: 30px;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #5a6169);
     font-size: 0.9rem;
 }
 

@@ -23,6 +23,12 @@ const AdminSettings = ({ showNotify, isMobile, selectedBranch, onBranchUpdate })
     const [saving, setSaving] = useState(false);
     const [expandedSection, setExpandedSection] = useState(() => (isMobile ? 'basic' : null));
 
+    useEffect(() => {
+        if (isMobile) {
+            setExpandedSection((prev) => (prev === null ? 'basic' : prev));
+        }
+    }, [isMobile]);
+
     const loadSettings = useCallback(async () => {
         if (!selectedBranch || !selectedBranch.id || selectedBranch.id === 'all') {
             setLoading(false);

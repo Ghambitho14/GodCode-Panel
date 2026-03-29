@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Columns3, Maximize2 } from 'lucide-react';
+import AdminIconSlot from './AdminIconSlot';
 import OrderCard from './OrderCard';
 
 const KANBAN_VIEW_STORAGE_KEY = 'tenant-admin-kanban-view';
@@ -95,7 +96,7 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                             aria-pressed={kanbanViewMode === 'single'}
                             title="Una etapa a la vez, ancho completo"
                         >
-                            <Maximize2 size={16} strokeWidth={2.25} aria-hidden />
+                            <AdminIconSlot Icon={Maximize2} slotSize="sm" />
                             Una columna
                         </button>
                     </div>

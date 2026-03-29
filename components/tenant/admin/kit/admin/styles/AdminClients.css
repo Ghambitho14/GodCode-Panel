@@ -6,7 +6,7 @@
     flex-direction: column;
     gap: 20px;
     animation: fadeIn 0.4s ease;
-    color: white;
+    color: var(--admin-text, #1a1d21);
 }
 
 /* HEADER Y ACCIONES */
@@ -18,10 +18,22 @@
     gap: 20px;
 }
 
+/* El título de página va en AdminTopBar; aquí solo barra de acciones */
+.admin-layout .clients-header--toolbar-only {
+	justify-content: flex-end;
+}
+
 .admin-layout .clients-title h1 {
     font-size: 1.8rem;
     margin: 0;
-    font-weight: 700;
+    font-weight: 800;
+    color: var(--admin-text, #0f172a);
+    letter-spacing: -0.02em;
+}
+
+.admin-layout .clients-container .clients-search-icon {
+	color: var(--admin-text-muted, #64748b);
+	flex-shrink: 0;
 }
 
 .admin-layout .clients-actions {
@@ -97,31 +109,33 @@
     align-items: center;
     gap: 15px;
     padding-bottom: 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--admin-border, #e8ecf1);
     overflow-x: auto;
 }
 
 .admin-layout .filter-chip {
     padding: 6px 16px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    border: 1px solid var(--admin-border, #e8ecf1);
+    color: var(--admin-text, #334155);
+    font-size: 0.875rem;
+	font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
-    background: transparent;
+    background: var(--admin-card-bg, #fff);
 }
 
 .admin-layout .filter-chip:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
+    background: var(--admin-icon-bg, #f0f2f6);
+    color: var(--admin-text, #1a1d21);
+    border-color: var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .filter-chip.active {
-    background: white;
-    color: #3b82f6; /* Blue primary text */
-    border-color: white;
+    background: color-mix(in srgb, var(--accent-primary) 12%, var(--admin-card-bg, #fff));
+    color: var(--accent-primary);
+    border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--admin-border));
     font-weight: 600;
 }
 
@@ -129,7 +143,8 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    color: var(--text-secondary);
+    color: var(--admin-text, #475569);
+	font-weight: 600;
     font-size: 0.9rem;
     margin-right: 10px;
     cursor: pointer;
@@ -138,16 +153,18 @@
 .admin-layout .clients-total-count {
     margin-left: auto;
     font-size: 0.85rem;
-    color: #9ca3af;
+	font-weight: 600;
+    color: var(--admin-text, #475569);
     white-space: nowrap;
 }
 
-/* TABLE STYLES (Reusing Glass Dark Theme logic) */
+/* TABLE STYLES */
 .admin-layout .clients-table-container {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--admin-card-bg, #fff);
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--admin-border, #e8ecf1);
     overflow: hidden;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .clients-table {
@@ -166,23 +183,31 @@
     text-align: left;
     padding: 15px 20px;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
-    color: var(--text-secondary);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.02);
+    letter-spacing: 0.04em;
+    color: var(--admin-text, #475569);
+    border-bottom: 1px solid var(--admin-border, #e8ecf1);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 .admin-layout .clients-table td {
     padding: 16px 20px;
     font-size: 0.9rem;
-    color: #e5e7eb;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--admin-text, #0f172a);
+    border-bottom: 1px solid var(--admin-border, #e8ecf1);
     vertical-align: middle;
 }
 
+.admin-layout .clients-table td.actions-cell {
+	position: relative;
+	width: 3.25rem;
+	text-align: right;
+	vertical-align: middle;
+}
+
 .admin-layout .clients-table tr:hover td {
-    background: rgba(255, 255, 255, 0.02);
+    background: color-mix(in srgb, var(--admin-icon-bg, #f0f2f6) 65%, var(--admin-card-bg, #fff));
 }
 
 .admin-layout .clients-table tr:last-child td {
@@ -193,28 +218,56 @@
 .admin-layout .client-info-cell h4 {
     margin: 0;
     font-size: 0.95rem;
-    color: white;
+	font-weight: 800;
+    color: var(--admin-text, #0f172a);
 }
 
-.admin-layout .client-info-cell span {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+.admin-layout .client-info-cell .client-contact-row span {
+    font-size: 0.85rem;
+	font-weight: 600;
+    color: var(--admin-text, #334155);
 }
 
 .admin-layout .client-email {
     display: block;
     font-size: 0.75rem;
+	color: var(--admin-text-muted, #475569);
+	font-weight: 500;
 }
 
+.admin-layout .clients-channel-label {
+	font-weight: 600;
+	color: var(--admin-text, #334155);
+}
+
+/* Puntos: chip neutro + icono sólido */
 .admin-layout .points-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: #eab308; /* Gold/Yellow */
-    font-weight: 700;
-    background: rgba(234, 179, 8, 0.2);
-    padding: 4px 8px;
-    border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 10px 4px 4px;
+	border-radius: 10px;
+	background: var(--admin-icon-bg, #f1f5f9);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	line-height: 1.2;
+	box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+
+.admin-layout .points-badge-star {
+	flex-shrink: 0;
+}
+
+.admin-layout .points-badge-star.admin-lucide-slot--xxs {
+	width: 22px;
+	height: 22px;
+	border-radius: 7px;
+}
+
+.admin-layout .points-badge-value {
+	font-size: 0.875rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	color: var(--admin-text, #0f172a);
 }
 
 /* SEGMENT BADGES */
@@ -227,32 +280,33 @@
 }
 
 .admin-layout .segment-elite {
-    background: rgba(59, 130, 246, 0.15); /* Blue */
-    color: #60a5fa;
-    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.18);
+    color: #1e40af;
+    border-color: rgba(59, 130, 246, 0.45);
 }
 
 .admin-layout .segment-top {
-    background: rgba(168, 85, 247, 0.15); /* Purple */
-    color: #c084fc;
-    border-color: rgba(168, 85, 247, 0.3);
+    background: rgba(168, 85, 247, 0.18);
+    color: #6b21a8;
+    border-color: rgba(168, 85, 247, 0.45);
 }
 
 .admin-layout .segment-frequent {
-    background: rgba(34, 197, 94, 0.15); /* Green */
-    color: #4ade80;
-    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.18);
+    color: #166534;
+    border-color: rgba(34, 197, 94, 0.42);
 }
 
 .admin-layout .segment-buyer {
-    background: rgba(255, 255, 255, 0.1);
-    color: #d1d5db;
+    background: var(--admin-icon-bg, #f0f2f6);
+    color: var(--admin-text, #374151);
+	border: 1px solid var(--admin-border, #e5e7eb);
 }
 
 .admin-layout .segment-none {
     background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--admin-text-muted, #6b7280);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 /* STATUS DOTS */
@@ -261,6 +315,8 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85rem;
+	color: var(--admin-text, #1e293b);
+	font-weight: 600;
 }
 
 .admin-layout .dot {
@@ -278,9 +334,10 @@
 .admin-layout .table-footer {
     padding: 15px 20px;
     text-align: right;
-    color: var(--text-secondary);
+    color: var(--admin-text-muted, #6b7280);
     font-size: 0.85rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--admin-border, #e8ecf1);
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 /* PAGINATION CONTROLS */
@@ -313,6 +370,91 @@
 .text-gray-400 { color: #ccc; }
 .text-xs { font-size: 0.7rem; }
 .opacity-60 { opacity: 0.6; }
+
+.admin-layout .text-gray-400 {
+	color: var(--admin-text-muted, #6b7280);
+}
+
+.admin-layout .opacity-60 {
+	opacity: 0.92;
+}
+
+.admin-layout .pagination-info {
+	color: var(--admin-text-muted, #6b7280);
+}
+
+.admin-layout .clients-table .text-lg.font-bold {
+	color: var(--admin-text, #0f172a);
+	font-weight: 800;
+}
+
+/* Menú kebab por fila */
+.admin-layout .clients-row-kebab-wrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	width: fit-content;
+	max-width: 100%;
+}
+
+.admin-layout .clients-kebab-menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	left: auto;
+	z-index: 60;
+	min-width: 11.5rem;
+	max-width: min(11.5rem, calc(100vw - 2rem));
+	padding: 6px 0;
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e8ecf1);
+	border-radius: 10px;
+	box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
+}
+
+.clients-kebab-menu--portal {
+	position: fixed;
+	z-index: 12000;
+	margin: 0;
+	min-width: 11.5rem;
+	max-width: min(11.5rem, calc(100vw - 2rem));
+	padding: 6px 0;
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e8ecf1);
+	border-radius: 10px;
+	box-shadow: 0 18px 50px -12px rgba(15, 23, 42, 0.2);
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .clients-kebab-trigger svg.lucide {
+	stroke-width: 1.5;
+}
+
+.admin-layout .clients-kebab-menu__item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 10px 14px;
+	border: none;
+	background: transparent;
+	color: var(--admin-text, #0f172a);
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-align: left;
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.admin-layout .clients-kebab-menu__item:hover {
+	background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.admin-layout .clients-kebab-menu__icon {
+	flex-shrink: 0;
+	color: var(--admin-text-muted, #64748b);
+}
 
 
 @media (max-width: 1024px) {
@@ -378,6 +520,13 @@
 
     /* --- MOBILE CARD VIEW --- */
     
+    .admin-layout .clients-table-scroll {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        overflow: visible;
+    }
+
     .admin-layout .clients-table-container {
         background: transparent;
         border: none;
@@ -398,28 +547,29 @@
     }
 
     .admin-layout .clients-table tr {
-        background: rgba(30, 41, 59, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--admin-card-bg, #fff);
+        border: 1px solid var(--admin-border, #e8ecf1);
         border-radius: 12px;
         margin-bottom: 16px;
         position: relative;
         padding: 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
         overflow: hidden;
     }
 
     .admin-layout .clients-table td {
         text-align: right;
         padding: 10px 15px;
-        border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+        border-bottom: 1px dashed color-mix(in srgb, var(--admin-border, #e2e8f0) 40%, #94a3b8);
         display: flex;
         justify-content: space-between;
         align-items: center;
+        color: var(--admin-text, #0f172a);
     }
 
     .admin-layout .clients-table td:first-child {
-        background: rgba(30, 41, 59, 0.7);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: var(--admin-icon-bg, #f0f2f6);
+        border-bottom: 1px solid var(--admin-border, #e8ecf1);
         padding: 15px;
     }
 
@@ -429,12 +579,14 @@
 
     .admin-layout .clients-table td::before {
         content: attr(data-label);
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
-        font-weight: 700;
-        color: #9ca3af;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        color: var(--admin-text, #334155);
         margin-right: 15px;
         text-align: left;
+        flex-shrink: 0;
     }
 
     .admin-layout .clients-table td:first-child::before,
@@ -484,6 +636,52 @@
         border: none !important;
         width: auto !important;
         background: transparent !important;
+    }
+
+    .admin-layout .clients-table .points-badge {
+        background: color-mix(in srgb, var(--admin-icon-bg, #f1f5f9) 65%, #e2e8f0);
+        border-color: color-mix(in srgb, var(--admin-border, #e2e8f0) 35%, #64748b);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .admin-layout .clients-table .segment-badge {
+        border-width: 1px;
+    }
+
+    .admin-layout .clients-table .segment-buyer {
+        background: #e2e8f0;
+        color: #0f172a;
+        border-color: #64748b;
+    }
+
+    .admin-layout .clients-table .clients-kebab-trigger.admin-icon-btn {
+        background: color-mix(in srgb, var(--admin-card-bg, #fff) 88%, var(--admin-icon-bg, #e2e8f0));
+        border-color: #94a3b8;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    }
+
+    .admin-layout .clients-table .clients-kebab-trigger.admin-icon-btn:hover:not(:disabled) {
+        border-color: #64748b;
+        background: var(--admin-icon-bg, #f1f5f9);
+    }
+
+    .admin-layout .client-last-visit-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        min-width: 0;
+        text-align: right;
+    }
+
+    .admin-layout .client-last-visit-stack .text-sm.text-gray-400 {
+        color: var(--admin-text, #1e293b);
+        font-weight: 700;
+    }
+
+    .admin-layout .client-last-visit-status {
+        color: var(--admin-text-muted, #475569);
+        font-weight: 600;
     }
     
     .pagination-controls {

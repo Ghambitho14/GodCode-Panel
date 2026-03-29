@@ -6,14 +6,14 @@
     /* Tarjetas cuadradas en cuadrícula Kanban */
     --card-radius: 8px;
     --inner-radius: 6px;
-    --shadow-soft: 0 6px 16px -4px rgba(0, 0, 0, 0.45);
+    --shadow-soft: 0 6px 20px -8px rgba(15, 23, 42, 0.12);
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 /* Altura natural por defecto; fichas cuadradas solo en vista «Una columna» (focus) */
 .admin-layout .kanban-card {
-    background: linear-gradient(145deg, #1e1e1e, #161616);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e2e8f0);
     border-radius: var(--card-radius);
     padding: 8px 9px;
     display: flex;
@@ -21,7 +21,7 @@
     gap: 0;
     transition: var(--transition-bounce);
     position: relative;
-    box-shadow: var(--shadow-soft);
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.08));
     width: 100%;
     max-width: none;
     margin: 0;
@@ -75,7 +75,7 @@
         flex-shrink: 0;
         margin-top: 0;
         padding-top: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid var(--admin-border);
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .card-header-row {
@@ -165,7 +165,7 @@
         flex-shrink: 0;
         margin-top: 0;
         padding-top: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        border-top: 1px solid var(--admin-border);
     }
 
     .admin-layout .kanban-board.kanban-board--split-desktop .card-header-row {
@@ -260,8 +260,8 @@
     padding: 0 5px;
     margin-right: 6px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
+    background: color-mix(in srgb, var(--accent-primary) 18%, var(--admin-icon-bg));
+    color: var(--accent-primary);
     font-weight: 900;
     font-size: 0.72rem;
     line-height: 1;
@@ -271,8 +271,8 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    color: #888;
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
     padding: 2px 6px;
     border-radius: 999px;
     min-width: 0;
@@ -296,7 +296,7 @@
 .admin-layout .card-client h4 {
     margin: 0;
     font-size: 0.95rem;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-weight: 800;
     line-height: 1.15;
 }
@@ -314,10 +314,10 @@
 
 /* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
 .admin-layout .card-items {
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--admin-icon-bg);
     padding: 8px 10px;
     border-radius: var(--inner-radius);
-    border: 1px solid rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--admin-border);
     position: relative;
 }
 
@@ -358,8 +358,48 @@
 }
 
 .admin-layout .item-name {
-    color: #e0e0e0;
+    color: var(--admin-text);
     font-weight: 500;
+}
+
+.admin-layout .kanban-card-divider {
+    border: none;
+    border-top: 1px solid var(--admin-border, #e2e8f0);
+    margin: 4px 0;
+}
+
+.admin-layout .order-item-detail {
+    display: block;
+    font-size: 0.8rem;
+    margin-left: 28px;
+    margin-bottom: 4px;
+    font-style: italic;
+    color: #1d4ed8;
+}
+
+.admin-layout .order-card-meta-sep {
+    margin: 0 6px;
+    color: var(--admin-text-muted, #64748b);
+    opacity: 0.55;
+    user-select: none;
+}
+
+.admin-layout .order-card-receipt-secondary {
+    background: var(--admin-icon-bg, #f8fafc);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    color: var(--admin-text-muted, #64748b);
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 0 12px;
+    min-height: 36px;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.admin-layout .order-card-receipt-secondary:hover {
+    background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 75%, var(--admin-border));
+    color: var(--admin-text, #0f172a);
 }
 
 /* --- NOTAS Y ADJUNTOS --- */
@@ -393,11 +433,18 @@
     font-size: 1.1rem;
     font-weight: 900;
     text-align: right;
-    color: #fff;
+    color: var(--admin-text);
     margin-top: 2px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.admin-layout .card-total .total-label {
+    font-size: 0.65rem;
+    color: var(--admin-text-muted, #64748b);
+    letter-spacing: 0.12em;
+    font-weight: 700;
 }
 
 /* --- ACCIONES (GRID SYSTEM) --- */
@@ -447,17 +494,17 @@
     box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
-.admin-layout .btn-icon-action {
+.admin-layout .kanban-card .btn-icon-action {
     width: 40px;
     height: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--inner-radius);
-    color: #666;
+    color: var(--admin-text-muted);
     transition: all 0.2s;
 }
 
@@ -515,9 +562,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.06);
-    color: #94a3b8;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text-muted);
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -529,9 +576,9 @@
 }
 
 .admin-layout .order-detail-trigger:hover {
-    color: #e2e8f0;
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--admin-text);
+    background: var(--admin-card-bg);
+    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
 }
 
 .admin-layout .order-fulfillment-pill--delivery {
@@ -558,8 +605,13 @@
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.5)) !important;
+    background-image: none !important;
+    backdrop-filter: blur(6px);
+    min-height: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    flex: none !important;
 }
 
 .admin-layout .order-detail-panel {
@@ -569,8 +621,9 @@
     display: flex;
     flex-direction: column;
     border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    box-shadow: var(--admin-shadow-md);
     overflow: hidden;
 }
 
@@ -580,21 +633,22 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--admin-border);
     flex-shrink: 0;
+    background: var(--admin-icon-bg);
 }
 
 .admin-layout .order-detail-title {
     margin: 0;
     font-size: 1.05rem;
     font-weight: 800;
-    color: #f1f5f9;
+    color: var(--admin-text);
 }
 
 .admin-layout .order-detail-close {
     border: none;
-    background: rgba(255, 255, 255, 0.06);
-    color: #94a3b8;
+    background: var(--admin-card-bg);
+    color: var(--admin-text-muted);
     border-radius: var(--inner-radius);
     padding: 6px;
     cursor: pointer;
@@ -605,8 +659,8 @@
 }
 
 .admin-layout .order-detail-close:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #f1f5f9;
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
 }
 
 .admin-layout .order-detail-body {
@@ -671,7 +725,7 @@
 
 .admin-layout .order-detail-value {
     margin: 0;
-    color: #e2e8f0;
+    color: var(--admin-text);
     font-size: 0.9rem;
     font-weight: 600;
 }
@@ -690,7 +744,7 @@
     font-weight: 700;
     padding: 8px 12px;
     border-radius: var(--inner-radius);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--admin-border);
 }
 
 .admin-layout .order-detail-fulfillment.is-delivery {
@@ -710,18 +764,18 @@
     padding: 10px 12px;
     font-size: 0.78rem;
     font-family: ui-monospace, monospace;
-    color: #cbd5e1;
-    background: rgba(0, 0, 0, 0.35);
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
     border-radius: var(--inner-radius);
     white-space: pre-wrap;
     word-break: break-word;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--admin-border);
 }
 
 .admin-layout .order-detail-items {
     margin: 0;
     padding-left: 1.1rem;
-    color: #e2e8f0;
+    color: var(--admin-text);
     font-size: 0.85rem;
     line-height: 1.45;
 }
@@ -734,7 +788,7 @@
 .admin-layout .order-detail-note {
     margin: 0;
     font-size: 0.82rem;
-    color: #cbd5e1;
+    color: var(--admin-text-muted);
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
@@ -746,13 +800,13 @@
     justify-content: space-between;
     padding-top: 10px;
     margin-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--admin-border);
 }
 
 .admin-layout .order-detail-total {
     font-size: 1.15rem;
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text);
 }
 
 .admin-layout .order-detail-date {
@@ -762,8 +816,9 @@
 
 .admin-layout .order-detail-foot {
     padding: 12px 16px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--admin-border);
     flex-shrink: 0;
+    background: var(--admin-icon-bg);
 }
 
 .admin-layout .order-detail-done {

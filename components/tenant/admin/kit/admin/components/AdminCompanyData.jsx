@@ -24,6 +24,12 @@ const AdminCompanyData = ({ showNotify, isMobile, branches, onBranchUpdate }) =>
     const [companyId, setCompanyId] = useState(null);
     const [expandedSection, setExpandedSection] = useState(() => (isMobile ? 'basic' : null));
 
+    useEffect(() => {
+        if (isMobile) {
+            setExpandedSection((prev) => (prev === null ? 'basic' : prev));
+        }
+    }, [isMobile]);
+
     const companyIdFromBranches = branches?.length > 0 ? (branches[0].company_id || null) : null;
 
     const loadCompany = useCallback(async () => {

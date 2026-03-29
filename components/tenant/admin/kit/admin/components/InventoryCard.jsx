@@ -1,7 +1,8 @@
 "use client";
 
 import React, { memo } from 'react';
-import { Eye, EyeOff, Trash, Edit3 } from 'lucide-react';
+import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
+import AdminIconSlot from './AdminIconSlot';
 const logo = '/tenant/logo-placeholder.svg';
 
 // Usamos memo para que SOLO se re-renderice si cambian las props de ESTE producto
@@ -75,7 +76,12 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                 <div className="inv-header">
                     <div className="inv-title-row">
                         <h4>{product.name}</h4>
-                        {product.is_special && <span className="badge-special">⭐ Especial</span>}
+                        {product.is_special && (
+                            <span className="badge-special">
+                                <AdminIconSlot Icon={Star} slotSize="xxs" tone="accent" />
+                                Especial
+                            </span>
+                        )}
                     </div>
                     
                     <div className="price-container">

@@ -6,7 +6,7 @@ import {
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
     DollarSign, CreditCard, Smartphone, ChevronRight,
-    MapPin
+    MapPin, Wallet,
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
 import { isValidBranchId } from '../../../shared/utils/safeIds';
@@ -16,7 +16,7 @@ import CashShiftDetailModal from './CashShiftDetailModal';
 import CashOrderDetailPanel from './CashOrderDetailPanel';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { getPaymentLabel } from '../../../shared/utils/orderUtils';
-const cashIcon = '/tenant/cash.svg';
+import AdminIconSlot from '../AdminIconSlot';
 
 const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
@@ -160,8 +160,7 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
             {/* HEADER */}
             <header className="cash-header">
                 <div className="cash-header-left">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={cashIcon} alt="Cajas" className="cash-header-icon" />
+                    <AdminIconSlot Icon={Wallet} slotSize="lg" tone="accent" className="cash-header-brand-icon" />
                     <div>
                         <h1>Caja</h1>
                         {activeShift && (
@@ -199,7 +198,15 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
                     <div className="cash-kpi-grid">
                         <div className="cash-kpi balance">
                             <div className="cash-kpi-header">
-                                <DollarSign size={18} />
+                                <AdminIconSlot
+                                    Icon={DollarSign}
+                                    slotSize="sm"
+                                    style={{
+                                        color: 'var(--c-balance)',
+                                        background: 'rgba(2, 132, 199, 0.12)',
+                                        borderColor: 'rgba(2, 132, 199, 0.28)',
+                                    }}
+                                />
                                 <span>Balance Esperado</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(activeShift.expected_balance ?? activeShift.opening_balance ?? 0)}</div>
@@ -208,7 +215,15 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
 
                         <div className="cash-kpi income">
                             <div className="cash-kpi-header">
-                                <TrendingUp size={18} />
+                                <AdminIconSlot
+                                    Icon={TrendingUp}
+                                    slotSize="sm"
+                                    style={{
+                                        color: 'var(--c-income)',
+                                        background: 'rgba(22, 163, 74, 0.12)',
+                                        borderColor: 'rgba(22, 163, 74, 0.28)',
+                                    }}
+                                />
                                 <span>Ingresos</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(totals.income)}</div>
@@ -217,7 +232,15 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
 
                         <div className="cash-kpi expense">
                             <div className="cash-kpi-header">
-                                <TrendingDown size={18} />
+                                <AdminIconSlot
+                                    Icon={TrendingDown}
+                                    slotSize="sm"
+                                    style={{
+                                        color: 'var(--c-expense)',
+                                        background: 'rgba(220, 38, 38, 0.1)',
+                                        borderColor: 'rgba(220, 38, 38, 0.28)',
+                                    }}
+                                />
                                 <span>Egresos</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(totals.expenses)}</div>
@@ -226,22 +249,30 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
 
                         <div className="cash-kpi methods">
                             <div className="cash-kpi-header">
-                                <CreditCard size={18} />
+                                <AdminIconSlot
+                                    Icon={CreditCard}
+                                    slotSize="sm"
+                                    style={{
+                                        color: 'var(--c-text-secondary)',
+                                        background: 'var(--admin-icon-bg)',
+                                        borderColor: 'var(--admin-border)',
+                                    }}
+                                />
                                 <span>Por Método</span>
                             </div>
                             <div className="cash-methods-grid">
                                 <div className="cash-method-row">
-                                    <DollarSign size={14} />
+                                    <AdminIconSlot Icon={DollarSign} slotSize="xxs" style={{ color: 'var(--c-income)', background: 'rgba(22, 163, 74, 0.1)', borderColor: 'rgba(22, 163, 74, 0.22)' }} />
                                     <span>Efectivo</span>
                                     <strong>{fmt(totals.cash)}</strong>
                                 </div>
                                 <div className="cash-method-row">
-                                    <CreditCard size={14} />
+                                    <AdminIconSlot Icon={CreditCard} slotSize="xxs" style={{ color: '#2563eb', background: 'rgba(37, 99, 235, 0.08)', borderColor: 'rgba(37, 99, 235, 0.22)' }} />
                                     <span>Tarjeta</span>
                                     <strong>{fmt(totals.card)}</strong>
                                 </div>
                                 <div className="cash-method-row">
-                                    <Smartphone size={14} />
+                                    <AdminIconSlot Icon={Smartphone} slotSize="xxs" style={{ color: '#7c3aed', background: 'rgba(124, 58, 237, 0.08)', borderColor: 'rgba(124, 58, 237, 0.22)' }} />
                                     <span>Transf.</span>
                                     <strong>{fmt(totals.online)}</strong>
                                 </div>
@@ -253,7 +284,7 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
                     {recentMovements.length > 0 && (
                         <div className="cash-recent">
                             <div className="cash-recent-header">
-                                <h4><Clock size={16} /> Últimos movimientos</h4>
+                                <h4><AdminIconSlot Icon={Clock} slotSize="sm" tone="accent" /> Últimos movimientos</h4>
                                 <button className="btn-text" onClick={() => setViewingShift(activeShift)}>
                                     Ver todos <ChevronRight size={14} />
                                 </button>
@@ -326,7 +357,7 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
             {/* HISTORIAL DE TURNOS */}
             <section className="cash-section">
                 <div className="cash-section-header">
-                    <h3 className="cash-section-title"><History size={18} /> Historial de turnos</h3>
+                    <h3 className="cash-section-title cash-section-title--with-icon"><AdminIconSlot Icon={History} slotSize="sm" tone="accent" /> Historial de turnos</h3>
                     <div className="cash-filters-inline">
                         <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)}>
                             <option value="7">7 días</option>

@@ -15,31 +15,32 @@
     align-items: center;
     gap: 15px;
     padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--card-border);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 12px;
     transition: all 0.2s ease;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 .admin-layout .cat-row-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--admin-icon-bg, #f0f2f6);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
 }
 
 .admin-layout .cat-name-lg {
     flex: 1;
     font-weight: 700;
     font-size: 1.1rem;
-    color: white;
+    color: var(--admin-text, #1a1d21);
     letter-spacing: 0.5px;
 }
 
 .admin-layout .cat-drag-handle {
-    color: var(--text-secondary);
+    color: var(--admin-text-muted, #6b7280);
     cursor: grab;
     display: flex;
     align-items: center;
-    opacity: 0.5;
+    opacity: 0.85;
 }
 
 .admin-layout .cat-drag-handle:hover {
@@ -108,7 +109,7 @@
     align-items: flex-end;
     flex-wrap: wrap;
     gap: 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-bottom: 1px solid var(--admin-border, #e8ecf1);
     padding-bottom: 1.5rem;
 }
 
@@ -121,7 +122,7 @@
 .admin-layout .cat-title {
     font-size: clamp(1.4rem, 4vw, 2rem);
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     margin: 0;
     letter-spacing: -0.03em;
 }
@@ -129,7 +130,7 @@
 .admin-layout .cat-subtitle {
     margin: 0;
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
 }
 
 .admin-layout .cat-header-actions {
@@ -147,8 +148,8 @@
 
 /* --- CARD --- */
 .admin-layout .cat-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 16px;
     padding: 20px;
     display: flex;
@@ -157,6 +158,7 @@
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 
     /* Staggered animation setup */
     opacity: 0;
@@ -189,10 +191,10 @@
 }
 
 .admin-layout .cat-card:hover {
-    border-color: rgba(255,255,255,0.2);
-    background: rgba(255,255,255,0.06);
+    border-color: color-mix(in srgb, var(--cat-accent-color) 35%, var(--admin-border));
+    background: var(--admin-card-bg, #fff);
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
 }
 
 .admin-layout .cat-card:hover::before {
@@ -223,9 +225,9 @@
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    background: rgba(255,255,255,0.05);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 20px;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .cat-status-button {
@@ -234,8 +236,8 @@
 }
 
 .admin-layout .cat-status-button:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
+    background: var(--admin-card-bg, #fff);
+    border-color: var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .cat-status-button:disabled {
@@ -264,7 +266,7 @@
 .admin-layout .cat-status-text {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -287,7 +289,7 @@
 .admin-layout .cat-name {
     font-size: 1.2rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     margin: 0;
     line-height: 1.2;
 }
@@ -319,7 +321,7 @@
 .admin-layout .cat-stat-label {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -327,7 +329,7 @@
 .admin-layout .cat-stat-value {
     font-size: 1.3rem;
     font-weight: 900;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -335,16 +337,16 @@
 /* --- REVENUE --- */
 .admin-layout .cat-revenue {
     padding: 12px;
-    background: rgba(0,0,0,0.2);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .cat-revenue-label {
     display: block;
     font-size: 0.7rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: 4px;
@@ -366,7 +368,7 @@
 
 .admin-layout .cat-progress-bar {
     height: 6px;
-    background: rgba(255,255,255,0.05);
+    background: var(--admin-icon-bg, #f0f2f6);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -382,7 +384,7 @@
 .admin-layout .cat-progress-text {
     font-size: 0.7rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
     text-align: right;
 }
 
@@ -414,14 +416,14 @@
 }
 
 .admin-layout .cat-btn-edit {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--admin-icon-bg, #f0f2f6);
+    color: var(--admin-text, #1a1d21);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .cat-btn-edit:hover {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.2);
+    background: var(--admin-card-bg, #fff);
+    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
     transform: translateY(-2px);
 }
 
@@ -459,8 +461,8 @@
     gap: 16px;
     padding: 60px 20px;
     text-align: center;
-    background: rgba(255,255,255,0.02);
-    border: 2px dashed rgba(255,255,255,0.1);
+    background: var(--admin-icon-bg, #f0f2f6);
+    border: 2px dashed color-mix(in srgb, var(--admin-border) 85%, var(--admin-text-muted));
     border-radius: 16px;
     margin-top: 20px;
 }
@@ -468,24 +470,25 @@
 .admin-layout .cat-empty-icon {
     width: 80px;
     height: 80px;
-    background: rgba(255,255,255,0.05);
+    background: var(--admin-card-bg, #fff);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
+    border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .cat-empty-title {
     font-size: 1.3rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--admin-text, #1a1d21);
     margin: 0;
 }
 
 .admin-layout .cat-empty-text {
     font-size: 0.9rem;
-    color: #94a3b8;
+    color: var(--admin-text-muted, #6b7280);
     margin: 0;
     max-width: 300px;
 }

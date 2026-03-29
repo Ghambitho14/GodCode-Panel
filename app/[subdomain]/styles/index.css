@@ -1,4 +1,4 @@
-﻿/* Forzar dark mode en los menús desplegables de los select */
+/* Forzar dark mode en los menús desplegables de los select */
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap");
 
 select,
@@ -145,13 +145,6 @@ html, body, #root {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--card-border);
-}
-
-.admin-layout {
-  display: flex;
-  min-height: 100vh;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
 }
 
 section {

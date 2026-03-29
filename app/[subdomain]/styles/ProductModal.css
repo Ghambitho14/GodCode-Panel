@@ -503,3 +503,83 @@
     height: 120px;
   }
 }
+
+/* --- Admin: modal producto (tema claro) --- */
+.admin-layout .modal-content {
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
+}
+
+.admin-layout .modal-content .modal-header {
+	background: var(--admin-icon-bg, #f8fafc);
+	border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .modal-header h3 {
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .modal-content .modal-form-scroll::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--admin-text-muted, #64748b) 35%, transparent);
+}
+
+.admin-layout .modal-content .modal-footer {
+	background: var(--admin-icon-bg, #f8fafc);
+	border-top: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .form-group label {
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .modal-content .custom-switch {
+	background: var(--admin-icon-bg, #f8fafc);
+	border: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .custom-switch:hover {
+	background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 90%, var(--admin-text) 10%);
+	border-color: var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .slider {
+	background-color: #cbd5e1;
+}
+
+.admin-layout .modal-content .modal-content .product-image-section {
+	border-color: var(--admin-border, #e2e8f0);
+	background: var(--admin-icon-bg, #f8fafc);
+}
+
+/* typo fix: single selector */
+.admin-layout .modal-content .product-image-section {
+  border-color: var(--admin-border, #e2e8f0);
+  background: var(--admin-icon-bg, #f8fafc);
+}
+
+.admin-layout .modal-content .product-image-section:hover {
+  background: var(--admin-icon-bg, #f8fafc);
+}
+
+.admin-layout .modal-content .icon-circle {
+  background: var(--admin-card-bg, #fff);
+  border: 1px solid var(--admin-border, #e2e8f0);
+  color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .modal-content .form-input {
+  background: var(--admin-card-bg, #fff);
+  border: 1px solid var(--admin-border, #e2e8f0);
+  color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .modal-content .form-input:focus {
+  background: var(--admin-card-bg, #fff);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-shadow, rgba(15, 23, 42, 0.08));
+}
+
+.admin-layout .modal-content .form-input::placeholder {
+  color: var(--admin-text-muted, #64748b);
+}

@@ -1,5 +1,13 @@
 import { formatCurrency } from '../../shared/utils/formatters';
 
+/**
+ * Impresión térmica desde el navegador: usar mm + pt evita que el preview
+ * escale todo “a lo pequeño” (texto borroso). 80 = rollo 80mm (común en cocina);
+ * 58 = rollo 58mm (reducir ancho útil).
+ */
+const THERMAL_PAPER_MM = 80;
+const CONTENT_MM = THERMAL_PAPER_MM <= 58 ? 48 : 72;
+
 export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl = null) => {
 	const escapeHtml = (value) =>
 		String(value)
@@ -22,12 +30,12 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 		}
 	})();
 
-	// Ancho típico para impresoras térmicas 58mm/80mm (aprox. 280px útil)
-	const receiptWidth = 280;
-	const logoMaxWidth = 180;
-	const logoMaxHeight = 48;
+	// Ventana más ancha que el ticket: el motor renderiza mejor antes de mandar a la impresora
+	const previewWindowWidth = 520;
+	const logoMaxWidthMm = CONTENT_MM <= 50 ? 40 : 58;
+	const logoMaxHeightMm = 14;
 
-	const printWindow = window.open('', '', `width=${receiptWidth + 40},height=600`);
+	const printWindow = window.open('', '', `width=${previewWindowWidth},height=700`);
 	if (!printWindow) {
 		return;
 	}
@@ -62,24 +70,121 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 	const html = `
 		<html>
 		<head>
+			<meta charset="utf-8" />
 			<title>Comanda #${safeOrderId}</title>
 			<style>
-				@page { margin: 0; }
-				body { font-family: 'Courier New', monospace; font-size: 11px; width: 100%; max-width: ${receiptWidth}px; margin: 0 auto; padding: 8px; color: black; background: white; line-height: 1.1; box-sizing: border-box; }
-				.header { text-align: center; margin-bottom: 6px; border-bottom: 1px dashed #000; padding-bottom: 6px; }
-				.logo { max-width: ${logoMaxWidth}px; max-height: ${logoMaxHeight}px; width: auto; height: auto; display: block; margin: 0 auto 4px; object-fit: contain; filter: grayscale(100%) contrast(1.1); }
-				.title { font-size: 14px; font-weight: bold; margin: 0; text-transform: uppercase; }
-				.info { font-size: 10px; margin: 0; }
-				.items { margin-top: 5px; }
-				.item { margin-bottom: 3px; }
-				.row { display: flex; justify-content: space-between; align-items: flex-start; }
-				.qty { font-weight: bold; margin-right: 5px; min-width: 15px; }
-				.name { flex: 1; font-weight: 600; }
-				.price { margin-left: 5px; white-space: nowrap; font-size: 11px; }
-				.note { font-size: 9px; font-style: italic; margin-left: 20px; margin-top: 0; }
-				.total { border-top: 1px dashed #000; margin-top: 5px; padding-top: 5px; text-align: right; font-size: 14px; font-weight: bold; }
-				.order-note { margin-top: 6px; font-size: 11px; font-weight: bold; border: 1px solid #000; padding: 3px; text-align: center; }
-				.footer { text-align: center; margin-top: 8px; font-size: 9px; }
+				@page {
+					size: ${THERMAL_PAPER_MM}mm auto;
+					margin: 2mm;
+				}
+				html {
+					-webkit-text-size-adjust: 100%;
+					text-size-adjust: 100%;
+				}
+				body {
+					font-family: 'Courier New', 'Liberation Mono', Consolas, monospace;
+					font-size: 12pt;
+					line-height: 1.25;
+					width: ${CONTENT_MM}mm;
+					max-width: ${CONTENT_MM}mm;
+					margin: 0 auto;
+					padding: 2mm 1mm;
+					color: #000;
+					background: #fff;
+					box-sizing: border-box;
+					-webkit-print-color-adjust: exact;
+					print-color-adjust: exact;
+					-webkit-font-smoothing: antialiased;
+				}
+				.header {
+					text-align: center;
+					margin-bottom: 4mm;
+					border-bottom: 1px dashed #000;
+					padding-bottom: 3mm;
+				}
+				.logo {
+					max-width: ${logoMaxWidthMm}mm;
+					max-height: ${logoMaxHeightMm}mm;
+					width: auto;
+					height: auto;
+					display: block;
+					margin: 0 auto 2mm;
+					object-fit: contain;
+					image-rendering: auto;
+					filter: contrast(1.15);
+				}
+				.title {
+					font-size: 15pt;
+					font-weight: bold;
+					margin: 0;
+					text-transform: uppercase;
+					letter-spacing: 0.02em;
+				}
+				.info {
+					font-size: 10pt;
+					margin: 0;
+				}
+				.items { margin-top: 3mm; }
+				.item { margin-bottom: 2mm; page-break-inside: avoid; }
+				.row {
+					display: flex;
+					justify-content: space-between;
+					align-items: flex-start;
+					gap: 2mm;
+					font-size: 12pt;
+				}
+				.qty {
+					font-weight: bold;
+					margin-right: 2mm;
+					min-width: 1.8em;
+					flex-shrink: 0;
+				}
+				.name {
+					flex: 1;
+					font-weight: 700;
+					word-break: break-word;
+				}
+				.price {
+					margin-left: 2mm;
+					white-space: nowrap;
+					font-size: 11pt;
+					flex-shrink: 0;
+				}
+				.note {
+					font-size: 10pt;
+					font-style: italic;
+					margin-left: 5mm;
+					margin-top: 0.5mm;
+				}
+				.total {
+					border-top: 1px dashed #000;
+					margin-top: 4mm;
+					padding-top: 3mm;
+					text-align: right;
+					font-size: 14pt;
+					font-weight: bold;
+				}
+				.order-note {
+					margin-top: 4mm;
+					font-size: 11pt;
+					font-weight: bold;
+					border: 1px solid #000;
+					padding: 2mm;
+					text-align: center;
+				}
+				.footer {
+					text-align: center;
+					margin-top: 4mm;
+					font-size: 10pt;
+				}
+				@media print {
+					body {
+						margin: 0;
+						padding: 1mm;
+						-webkit-font-smoothing: none;
+						font-smooth: never;
+					}
+				}
 			</style>
 		</head>
 		<body>

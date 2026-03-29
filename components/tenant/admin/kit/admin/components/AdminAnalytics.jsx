@@ -12,6 +12,7 @@ import {
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin
 } from 'lucide-react';
+import AdminIconSlot from './AdminIconSlot';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isOnlineOrder, getPaymentSlug } from '../../shared/utils/orderUtils';
 
@@ -27,7 +28,7 @@ const TrendBadge = ({ value }) => {
     const pos = value > 0;
     return (
         <span className={`rpt-trend ${pos ? 'positive' : 'negative'}`}>
-            {pos ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+            {pos ? <ArrowUpRight size={13} aria-hidden /> : <ArrowDownRight size={13} aria-hidden />}
             {Math.abs(value)}%
         </span>
     );
@@ -265,7 +266,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
             },
             x: {
                 grid: { display: false },
-                ticks: { color: '#666', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                ticks: { color: '#4b5563', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
                 border: { display: false }
             }
         }
@@ -281,7 +282,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                 </div>
                 <div className="rpt-header-actions">
                     <div className="rpt-period-select">
-                        <Calendar size={15} />
+                        <AdminIconSlot Icon={Calendar} slotSize="sm" tone="accent" />
                         <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}>
                             <option value="7">7 días</option>
                             <option value="15">15 días</option>
@@ -350,18 +351,27 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                 <div className="rpt-sidebar">
                     {/* Payment Breakdown */}
                     <div className="rpt-side-card">
-                        <h4><CreditCard size={16} /> Métodos de pago</h4>
+                        <h4><AdminIconSlot Icon={CreditCard} slotSize="xs" tone="accent" /> Métodos de pago</h4>
                         <div className="rpt-payment-list">
                             {[
-                                { label: 'Efectivo', value: paymentBreakdown.cash, icon: <DollarSign size={14} />, color: '#22c55e' },
-                                { label: 'Tarjeta', value: paymentBreakdown.card, icon: <CreditCard size={14} />, color: '#3b82f6' },
-                                { label: 'Transferencia', value: paymentBreakdown.online, icon: <Smartphone size={14} />, color: '#a855f7' },
+                                { label: 'Efectivo', value: paymentBreakdown.cash, Icon: DollarSign, color: '#22c55e' },
+                                { label: 'Tarjeta', value: paymentBreakdown.card, Icon: CreditCard, color: '#3b82f6' },
+                                { label: 'Transferencia', value: paymentBreakdown.online, Icon: Smartphone, color: '#a855f7' },
                             ].map(pm => {
                                 const pct = kpis.total > 0 ? Math.round((pm.value / kpis.total) * 100) : 0;
                                 return (
                                     <div key={pm.label} className="rpt-payment-row">
                                         <div className="rpt-payment-info">
-                                            <span className="rpt-payment-icon" style={{ color: pm.color }}>{pm.icon}</span>
+                                            <AdminIconSlot
+                                                Icon={pm.Icon}
+                                                slotSize="xxs"
+                                                size={12}
+                                                style={{
+                                                    color: pm.color,
+                                                    background: `color-mix(in srgb, ${pm.color} 14%, var(--admin-card-bg, #fff))`,
+                                                    borderColor: `color-mix(in srgb, ${pm.color} 32%, var(--admin-border, #e8ecf1))`,
+                                                }}
+                                            />
                                             <span>{pm.label}</span>
                                         </div>
                                         <div className="rpt-payment-bar-wrap">
@@ -380,7 +390,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                     {/* Peak Hour */}
                     {peakHour && (
                         <div className="rpt-side-card rpt-peak">
-                            <h4><Clock size={16} /> Hora pico</h4>
+                            <h4><AdminIconSlot Icon={Clock} slotSize="xs" tone="accent" /> Hora pico</h4>
                             <div className="rpt-peak-value">{peakHour.hour}</div>
                             <div className="rpt-peak-sub">{peakHour.count} pedidos en este horario</div>
                         </div>
@@ -388,7 +398,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
 
                     {/* Quick Stats */}
                     <div className="rpt-side-card">
-                        <h4><Users size={16} /> Clientes</h4>
+                        <h4><AdminIconSlot Icon={Users} slotSize="xs" tone="accent" /> Clientes</h4>
                         <div className="rpt-quick-stats">
                             <div className="rpt-quick-stat">
                                 <span className="rpt-quick-label">Total registrados</span>
@@ -404,7 +414,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                     {/* Branch Breakdown */}
                     {branchStats.length > 0 && (
                         <div className="rpt-side-card">
-                            <h4><MapPin size={16} /> Ventas por Sucursal</h4>
+                            <h4><AdminIconSlot Icon={MapPin} slotSize="xs" tone="accent" /> Ventas por Sucursal</h4>
                             <div className="rpt-payment-list">
                                 {branchStats.map(b => {
                                     const pct = kpis.total > 0 ? Math.round((b.total / kpis.total) * 100) : 0;
@@ -415,7 +425,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                                             </div>
                                             <div className="rpt-payment-values" style={{textAlign: 'right'}}>
                                                 <strong>{fmt(b.total)}</strong>
-                                                <span style={{fontSize: '0.75rem', color: '#888', marginLeft: 6}}>{pct}%</span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted, #5a6169)', marginLeft: 6 }}>{pct}%</span>
                                             </div>
                                         </div>
                                     );
@@ -428,7 +438,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
 
             {/* TOP PRODUCTS */}
             <div className="rpt-products-card">
-                <h3><Package size={18} /> Top productos vendidos</h3>
+                <h3><AdminIconSlot Icon={Package} slotSize="sm" tone="accent" /> Top productos vendidos</h3>
                 {topProducts.length === 0 ? (
                     <div className="rpt-empty">No hay datos de productos en este período.</div>
                 ) : (

@@ -82,6 +82,9 @@ export function TenantShell({ children }: TenantShellProps) {
         uiLayer.style.zIndex = "9999";
 
         document.body.style.overflowX = "hidden";
+        if (document.querySelector(".admin-layout")) {
+          document.body.style.overflowX = "visible";
+        }
       } else {
         document.body.style.removeProperty("zoom");
         document.body.style.overflowX = "";

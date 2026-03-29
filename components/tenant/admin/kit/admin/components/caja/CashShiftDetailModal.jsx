@@ -1,9 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, History, Clock, User } from 'lucide-react';
+import { X, History, Clock, User, DollarSign, CreditCard, Smartphone } from 'lucide-react';
 import { cashService } from '../../services/cashService';
 import { getPaymentLabel } from '../../../shared/utils/orderUtils';
+import AdminIconSlot from '../AdminIconSlot';
+
+const PaymentMethodBreakdownHeader = ({ Icon, label }) => (
+    <div
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            color: 'var(--c-text-secondary, var(--admin-text-muted))',
+        }}
+    >
+        <AdminIconSlot Icon={Icon} slotSize="xxs" />
+        <span>{label}</span>
+    </div>
+);
 
 const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
     const [movements, setMovements] = useState([]);
@@ -110,15 +128,15 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                     <h4 style={{ fontSize: '0.9rem', marginBottom: 15, color: 'var(--text-secondary)' }}>Desglose por Métodos de Pago</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 30 }}>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>💵 Efectivo</div>
+                            <PaymentMethodBreakdownHeader Icon={DollarSign} label="Efectivo" />
                             <div style={{ fontWeight: 700 }}>${(totals.cash || 0).toLocaleString('es-CL')}</div>
                         </div>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>💳 Tarjeta</div>
+                            <PaymentMethodBreakdownHeader Icon={CreditCard} label="Tarjeta" />
                             <div style={{ fontWeight: 700 }}>${(totals.card || 0).toLocaleString('es-CL')}</div>
                         </div>
                         <div className="glass" style={{ padding: 12, textAlign: 'center', borderRadius: 10 }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>📲 Transf.</div>
+                            <PaymentMethodBreakdownHeader Icon={Smartphone} label="Transf." />
                             <div style={{ fontWeight: 700 }}>${(totals.online || 0).toLocaleString('es-CL')}</div>
                         </div>
                     </div>
@@ -164,7 +182,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                                                     </div>
                                                 )}
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                                                    {m.orders ? getPaymentLabel(m.orders) : (m.payment_method === 'cash' ? '💵 Efectivo' : (m.payment_method === 'card' ? '💳 Tarjeta' : '📲 Transf.'))}
+                                                    {m.orders ? getPaymentLabel(m.orders) : (m.payment_method === 'cash' ? 'Efectivo' : (m.payment_method === 'card' ? 'Tarjeta' : 'Transf.'))}
                                                 </div>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '12px 15px' }}>

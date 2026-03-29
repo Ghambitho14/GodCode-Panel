@@ -10,6 +10,7 @@ import { formatCurrency } from '../../shared/utils/formatters';
 const logo = '/tenant/logo-placeholder.svg';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { printOrderTicket } from '../utils/receiptPrinting';
+import AdminIconSlot from './AdminIconSlot';
 
 const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale, branch, logoUrl }) => {
     const {
@@ -312,7 +313,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         {/* Sección: Datos Cliente */}
                         <div className="manual-order-section">
                             <div className="manual-order-section-title">
-                                <User size={14} />
+                                <User size={14} aria-hidden />
                                 DATOS CLIENTE
                             </div>
                             <div className="manual-order-form-grid">
@@ -374,38 +375,29 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         </div>
 
                         {/* Sección: Nota/Comentario - Compacto */}
-                        <div className="manual-order-section" style={{ padding: '12px 16px' }}>
-                            <div className="manual-order-section-title" style={{ marginBottom: '8px', fontSize: '10px' }}>
-                                <MessageCircle size={12} />
+                        <div className="manual-order-section manual-order-section--note">
+                            <div className="manual-order-section-title manual-order-section-title--note">
+                                <MessageCircle size={12} aria-hidden />
                                 NOTA DEL PEDIDO
                             </div>
-                            <div style={{ position: 'relative' }}>
+                            <div className="manual-order-note-wrap">
                                 <textarea
                                     placeholder="Nota opcional..."
-                                    className="manual-order-input"
+                                    className="manual-order-input manual-order-note-textarea"
                                     value={manualOrder.note}
                                     onChange={e => updateNote(sanitizeNote(e.target.value))}
                                     rows={1}
                                     maxLength={500}
                                     aria-label="Nota o comentario del pedido"
-                                    style={{
-                                        width: '100%',
-                                        resize: 'vertical',
-                                        minHeight: '36px',
-                                        fontFamily: 'inherit',
-                                        fontSize: '12px',
-                                        lineHeight: '1.4',
-                                        padding: '8px 10px'
-                                    }}
                                 />
                                 {manualOrder.note.length > 0 && (
-                                    <div style={{
-                                        fontSize: '10px',
-                                        color: manualOrder.note.length > 450 ? '#e63946' : '#666',
-                                        textAlign: 'right',
-                                        marginTop: '2px',
-                                        fontWeight: manualOrder.note.length > 450 ? '600' : '400'
-                                    }}>
+                                    <div
+                                        className={
+                                            manualOrder.note.length > 450
+                                                ? 'manual-order-note-count manual-order-note-count--warn'
+                                                : 'manual-order-note-count'
+                                        }
+                                    >
                                         {manualOrder.note.length}/500
                                     </div>
                                 )}
@@ -413,145 +405,77 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         </div>
 
                         {/* Sección: Resumen Orden - Expandido */}
-                        <div className="manual-order-section" style={{ borderBottom: 'none', flex: 1, display: 'flex', flexDirection: 'column', padding: '0', overflow: 'hidden' }}>
-                            <div className="manual-order-section-title" style={{ padding: '12px 16px 8px', margin: 0, background: '#0f0f0f', zIndex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <ShoppingBag size={14} />
-                                RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
-                            </div>
+                        <div className="manual-order-section manual-order-summary-section">
+                            <div className="manual-order-section-title manual-order-summary-head">
+                                <div className="manual-order-summary-head-row">
+                                    <div className="manual-order-summary-head-label">
+                                        <ShoppingBag size={14} aria-hidden />
+                                        RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
+                                    </div>
                                     {manualOrder.items.length > 0 && (
-                                        <button onClick={handlePrintPreCheck} className="btn-icon-xs" title="Imprimir Pre-cuenta" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', borderRadius: 4, padding: 4, cursor: 'pointer' }}>
-                                            <Printer size={14} />
+                                        <button
+                                            type="button"
+                                            onClick={handlePrintPreCheck}
+                                            className="manual-order-summary-print"
+                                            title="Imprimir Pre-cuenta"
+                                            aria-label="Imprimir Pre-cuenta"
+                                        >
+                                            <Printer size={14} aria-hidden />
                                         </button>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Carrito - VERSIÓN PREMIUM GLASSMORPHIC */}
-                            <div style={{
-                                flex: 1,
-                                padding: '0 16px 16px',
-                                overflowY: 'auto'
-                            }}>
+                            <div className="manual-order-cart-body">
                                 {manualOrder.items.length === 0 ? (
-                                    <div style={{
-                                        textAlign: 'center',
-                                        padding: '50px 20px',
-                                        color: '#555',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '12px',
-                                        marginTop: '16px'
-                                    }}>
-                                        <ShoppingBag size={42} strokeWidth={1} style={{ opacity: 0.5 }} />
-                                        <div style={{ fontSize: '0.85rem', letterSpacing: '2px', fontWeight: '600' }}>CARRITO VACÍO</div>
+                                    <div className="manual-order-cart-empty">
+                                        <ShoppingBag size={42} strokeWidth={1} className="manual-order-cart-empty-icon" aria-hidden />
+                                        <div className="manual-order-cart-empty-text">CARRITO VACÍO</div>
                                     </div>
                                 ) : (
-                                    <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div className="manual-order-cart-list">
                                         {manualOrder.items.map(item => (
                                             <div
                                                 key={item.id}
-                                                className="animate-slide-up"
-                                                style={{
-                                                    background: 'rgba(255, 255, 255, 0.03)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                                                    borderRadius: '12px',
-                                                    padding: '10px 12px',
-                                                    display: 'flex',
-                                                    gap: '12px',
-                                                    alignItems: 'center',
-                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-                                                    position: 'relative',
-                                                    overflow: 'hidden'
-                                                }}
+                                                className="manual-order-cart-item animate-slide-up"
                                             >
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    left: 0, top: 0, bottom: 0, width: '4px',
-                                                    background: 'var(--accent-red)'
-                                                }} />
+                                                <div className="manual-order-cart-item-accent" aria-hidden />
 
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img
                                                     src={item.image_url || logo}
                                                     alt={item.name}
-                                                    style={{
-                                                        width: '46px',
-                                                        height: '46px',
-                                                        borderRadius: '8px',
-                                                        objectFit: 'cover',
-                                                        background: '#000'
-                                                    }}
+                                                    className="manual-order-cart-item-thumb"
                                                     onError={(e) => { e.target.src = logo }}
                                                 />
-                                                
-                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                    <div style={{
-                                                        color: '#eee',
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: '600',
-                                                        marginBottom: '2px',
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis'
-                                                    }}>
+
+                                                <div className="manual-order-cart-item-info">
+                                                    <div className="manual-order-cart-item-title">
                                                         {item.name}
                                                     </div>
 
-                                                    <div style={{
-                                                        color: '#e63946',
-                                                        fontSize: '0.9rem',
-                                                        fontWeight: '800'
-                                                    }}>
+                                                    <div className="manual-order-cart-item-price-block">
                                                         {(() => {
                                                             const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
                                                             const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
                                                             const subtotal = unit * Number(item.quantity || 1);
                                                             return (
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                <div className="manual-order-cart-price-rows">
                                                                     {hasDiscount && (
-                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                            <span style={{
-                                                                                fontSize: '10px',
-                                                                                fontWeight: '900',
-                                                                                color: '#fff',
-                                                                                background: 'rgba(230,57,70,0.9)',
-                                                                                padding: '2px 6px',
-                                                                                borderRadius: '999px',
-                                                                                letterSpacing: '0.8px',
-                                                                                textTransform: 'uppercase'
-                                                                            }}>
+                                                                        <div className="manual-order-cart-discount-row">
+                                                                            <span className="manual-order-cart-badge-oferta">
                                                                                 Oferta
                                                                             </span>
-                                                                            <span style={{
-                                                                                fontSize: '11px',
-                                                                                opacity: 0.7,
-                                                                                textDecoration: 'line-through',
-                                                                                fontWeight: '700',
-                                                                                color: '#cfcfcf'
-                                                                            }}>
+                                                                            <span className="manual-order-cart-price-old">
                                                                                 {formatCurrency(Number(item.price))}
                                                                             </span>
                                                                         </div>
                                                                     )}
-                                                                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px' }}>
-                                                                        <span style={{
-                                                                            fontSize: '13px',
-                                                                            fontWeight: '900',
-                                                                            color: '#e63946'
-                                                                        }}>
+                                                                    <div className="manual-order-cart-price-main-row">
+                                                                        <span className="manual-order-cart-price-total">
                                                                             {formatCurrency(subtotal)}
                                                                         </span>
-                                                                        <span style={{
-                                                                            fontSize: '11px',
-                                                                            opacity: 0.75,
-                                                                            color: '#cfcfcf',
-                                                                            fontWeight: '600'
-                                                                        }}>
+                                                                        <span className="manual-order-cart-price-unit">
                                                                             {formatCurrency(unit)} c/u
                                                                         </span>
                                                                     </div>
@@ -560,83 +484,35 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                                         })()}
                                                     </div>
                                                 </div>
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px',
-                                                    backgroundColor: 'rgba(0,0,0,0.4)',
-                                                    padding: '4px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid rgba(255,255,255,0.05)'
-                                                }}>
+                                                <div className="manual-order-cart-stepper">
                                                     <button
+                                                        type="button"
+                                                        className="manual-order-cart-step-btn"
                                                         onClick={() => updateQuantity(item.id, -1)}
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            color: '#ccc',
-                                                            cursor: 'pointer',
-                                                            padding: '4px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            transition: 'color 0.2s'
-                                                        }}
-                                                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                                                        onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
+                                                        aria-label="Reducir cantidad"
                                                     >
-                                                        <Minus size={14} />
+                                                        <Minus size={14} aria-hidden />
                                                     </button>
-                                                    <span style={{
-                                                        color: 'white',
-                                                        minWidth: '16px',
-                                                        textAlign: 'center',
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: '700'
-                                                    }}>
+                                                    <span className="manual-order-cart-step-qty">
                                                         {item.quantity}
                                                     </span>
                                                     <button
+                                                        type="button"
+                                                        className="manual-order-cart-step-btn"
                                                         onClick={() => updateQuantity(item.id, 1)}
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            color: '#ccc',
-                                                            cursor: 'pointer',
-                                                            padding: '4px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            transition: 'color 0.2s'
-                                                        }}
-                                                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                                                        onMouseLeave={e => e.currentTarget.style.color = '#ccc'}
+                                                        aria-label="Aumentar cantidad"
                                                     >
-                                                        <Plus size={14} />
+                                                        <Plus size={14} aria-hidden />
                                                     </button>
                                                 </div>
                                                 <button
+                                                    type="button"
+                                                    className="manual-order-cart-remove"
                                                     onClick={() => removeItem(item.id)}
                                                     title="Eliminar ítem"
-                                                    style={{
-                                                        background: 'rgba(230,57,70,0.1)',
-                                                        border: '1px solid rgba(230,57,70,0.2)',
-                                                        color: '#e63946',
-                                                        cursor: 'pointer',
-                                                        padding: '6px',
-                                                        borderRadius: '6px',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onMouseEnter={e => {
-                                                        e.currentTarget.style.background = '#e63946';
-                                                        e.currentTarget.style.color = '#fff';
-                                                    }}
-                                                    onMouseLeave={e => {
-                                                        e.currentTarget.style.background = 'rgba(230,57,70,0.1)';
-                                                        e.currentTarget.style.color = '#e63946';
-                                                    }}
+                                                    aria-label="Eliminar ítem"
                                                 >
-                                                    <Trash2 size={14} />
+                                                    <Trash2 size={14} aria-hidden />
                                                 </button>
                                             </div>
                                         ))}
@@ -727,18 +603,8 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                             e.currentTarget.style.borderColor = 'rgba(230, 57, 70, 0.3)';
                                         }}
                                     >
-                                        <div style={{
-                                            background: '#e63946',
-                                            borderRadius: '50%',
-                                            width: '32px',
-                                            height: '32px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <FileText size={16} color="white" />
-                                        </div>
-                                        <span style={{ fontSize: '12px', color: '#ccc', fontWeight: '500' }}>
+                                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
+                                        <span style={{ fontSize: '12px', color: 'var(--admin-text-muted, #64748b)', fontWeight: '500' }}>
                                             {receiptFile ? receiptFile.name : 'Click para subir imagen'}
                                         </span>
                                     </label>

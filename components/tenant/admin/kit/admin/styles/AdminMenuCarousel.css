@@ -788,3 +788,257 @@
 		display: none;
 	}
 }
+
+/* --- Tema claro en panel admin --- */
+.admin-layout .menu-carousel-header {
+	border-bottom: 1px solid var(--admin-border, #e8ecf1);
+	background: linear-gradient(
+		165deg,
+		var(--admin-card-bg, #fff) 0%,
+		var(--admin-icon-bg, #f0f2f6) 100%
+	);
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-title {
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-sub {
+	color: var(--admin-text-muted, #475569);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-settings-block {
+	border-bottom: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .menu-carousel-settings-block h3 {
+	color: var(--admin-text, #334155);
+	opacity: 1;
+	font-weight: 800;
+}
+
+.admin-layout .menu-carousel-settings label {
+	color: var(--admin-text, #334155);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-eyebrow {
+	color: var(--admin-text-muted, #475569);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-toolbar {
+	border-bottom: 1px solid var(--admin-border, #e8ecf1);
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-toolbar h3 {
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-slide-card {
+	border: 1px solid var(--admin-border, #e8ecf1);
+	background: linear-gradient(
+		145deg,
+		var(--admin-card-bg, #fff) 0%,
+		var(--admin-icon-bg, #f0f2f6) 100%
+	);
+	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.admin-layout .menu-carousel-slide-card:hover {
+	border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--admin-border));
+	box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
+}
+
+.admin-layout .menu-carousel-slide-card-thumb {
+	background: var(--admin-icon-bg, #f0f2f6);
+	border-right: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .menu-carousel-thumb-open {
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #1a1d21);
+	border: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .menu-carousel-slide-eyebrow {
+	color: var(--admin-text, #475569);
+	opacity: 1;
+	gap: 6px;
+}
+
+.admin-layout .menu-carousel-slide-eyebrow-icon {
+	opacity: 1;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .menu-carousel-slide-filename {
+	color: var(--admin-text, #0f172a);
+	font-weight: 700;
+}
+
+.admin-layout .menu-carousel-kebab-menu {
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e8ecf1);
+	box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.14));
+}
+
+.admin-layout .menu-carousel-kebab-menu button {
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-kebab-menu button:hover:not(:disabled) {
+	background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.admin-layout .menu-carousel-empty {
+	border: 1px dashed var(--admin-border, #e8ecf1);
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #1a1d21);
+}
+
+.admin-layout .menu-carousel-empty p {
+	color: var(--admin-text-muted, #475569);
+	font-weight: 500;
+}
+
+.admin-layout .menu-carousel-panel-inner {
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e8ecf1);
+	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.admin-layout .menu-carousel-chip--neutral {
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #cbd5e1);
+	color: var(--admin-text, #1e293b);
+	font-weight: 700;
+}
+
+.admin-layout .menu-carousel-chip--accent {
+	background: rgba(34, 197, 94, 0.14);
+	border: 1px solid rgba(22, 163, 74, 0.45);
+	color: #14532d;
+	font-weight: 800;
+}
+
+.admin-layout .menu-carousel-chip--status {
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #cbd5e1);
+	color: var(--admin-text, #334155);
+	font-weight: 700;
+}
+
+.admin-layout .menu-carousel-chip--status.menu-carousel-chip--on {
+	background: rgba(34, 197, 94, 0.16);
+	border: 1px solid rgba(22, 163, 74, 0.48);
+	color: #14532d;
+	font-weight: 800;
+}
+
+.admin-layout .menu-carousel-chip-dot {
+	background: #64748b;
+}
+
+.admin-layout .menu-carousel-chip--on .menu-carousel-chip-dot {
+	background: #15803d;
+	box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.3);
+}
+
+.admin-layout .menu-carousel-slide-promo-block {
+	border-top-color: var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .menu-carousel-kebab-menu button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.admin-layout .menu-carousel-kebab-item-icon {
+	flex-shrink: 0;
+}
+
+.admin-layout .menu-carousel-slide-promo-label {
+	color: var(--admin-text, #334155);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-promo-days-label {
+	color: var(--admin-text, #334155);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-promo-off-hint {
+	color: var(--admin-text-muted, #475569);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-promo-icon {
+	color: #b45309;
+	opacity: 1;
+}
+
+/* Menú kebab: no recortar el desplegable; stacking por encima de la lista */
+.admin-layout .menu-carousel-slide-card {
+	overflow: visible;
+}
+
+.admin-layout .menu-carousel-slide-card-thumb {
+	overflow: hidden;
+	border-radius: 14px 0 0 14px;
+}
+
+.admin-layout .menu-carousel-kebab-wrap {
+	z-index: 5;
+}
+
+.admin-layout .menu-carousel-kebab-menu {
+	z-index: 60;
+}
+
+/* Eliminar: alto contraste en fondo claro (evita rosa lavado) */
+.admin-layout .menu-carousel-btn-delete {
+	border: 1px solid #dc2626;
+	background: rgba(220, 38, 38, 0.09);
+	color: #991b1b;
+	font-weight: 800;
+}
+
+.admin-layout .menu-carousel-btn-delete:hover {
+	background: rgba(220, 38, 38, 0.16);
+	border-color: #b91c1c;
+	color: #7f1d1d;
+}
+
+.admin-layout .menu-carousel-slide-card-actions {
+	border-left: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .menu-carousel-switch {
+	border: 1px solid var(--admin-border, #cbd5e1);
+	background: var(--admin-icon-bg, #e8ecf2);
+}
+
+.admin-layout .menu-carousel-switch.is-on {
+	background: rgba(34, 197, 94, 0.28);
+	border-color: rgba(22, 163, 74, 0.55);
+}
+
+.admin-layout .menu-carousel-upload-hint {
+	color: var(--admin-text-muted, #475569);
+	opacity: 1;
+}
+
+.admin-layout .menu-carousel-thumb-open {
+	background: transparent;
+	border: none;
+	padding: 0;
+	width: auto;
+	height: auto;
+	color: var(--admin-text, #0f172a);
+}

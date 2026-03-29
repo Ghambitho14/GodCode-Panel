@@ -2,36 +2,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal } from 'lucide-react';
-const cashIcon = '/tenant/cash.svg';
-const categoryIcon = '/tenant/category.svg';
+import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Wallet, FolderTree } from 'lucide-react';
 
-const CashIcon = ({ size }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img 
-        src={cashIcon} 
-        alt="Caja" 
-        style={{ 
-            width: size, 
-            height: size, 
-            filter: 'brightness(0) invert(1)',
-            opacity: 0.9 
-        }} 
-    />
-);
-
-const CategoryIcon = ({ size }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img 
-        src={categoryIcon} 
-        alt="Categorías" 
-        style={{ 
-            width: size, 
-            height: size, 
-            filter: 'brightness(0) invert(1)',
-            opacity: 0.9 
-        }} 
-    />
+const SidebarIcon = ({ Icon, size }) => (
+    <span className="nav-icon-slot">
+        <Icon size={size} strokeWidth={1.65} aria-hidden />
+    </span>
 );
 
 const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, userEmail, branchName, logoUrl, canAccessTab, onDeniedAccess, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
@@ -96,7 +72,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 				icon: DollarSign,
 				isGroup: true,
 				children: [
-					{ id: 'caja', label: L.caja || 'Caja', icon: CashIcon },
+					{ id: 'caja', label: L.caja || 'Caja', icon: Wallet },
 					{ id: 'analytics', label: L.analytics || 'Reportes', icon: BarChart3 },
 					...salesModules.map((module) => ({
 						id: module.tabId,
@@ -112,7 +88,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 				icon: List,
 				isGroup: true,
 				children: [
-					{ id: 'categories', label: L.categories || 'Categorías', icon: CategoryIcon },
+					{ id: 'categories', label: L.categories || 'Categorías', icon: FolderTree },
 					{ id: 'products', label: L.products || 'Productos', icon: ShoppingBag },
 					{ id: 'inventory', label: L.inventory || 'Inventario', icon: ClipboardList },
 					{ id: 'menu_options', label: L.menu_options || 'Opciones de menú', icon: SlidersHorizontal },
@@ -174,7 +150,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
     };
 
     return (
-        <aside className="admin-sidebar glass">
+        <aside className="admin-sidebar">
             <div className="sidebar-top">
                 <div className="logo-circle">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -207,7 +183,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         title={disabled ? 'Necesitas un rol diferente para acceder.' : child.description || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                     >
-                                        <child.icon size={20} />
+                                        <SidebarIcon Icon={child.icon} size={20} />
                                         <span className="nav-label-mobile">{child.label}</span>
                                     </button>
                                 );
@@ -228,7 +204,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                     title={disabled ? 'Necesitas un rol diferente para acceder.' : item.description || undefined}
                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
-                                    <item.icon size={20} />
+                                    <SidebarIcon Icon={item.icon} size={20} />
                                     <span className="nav-label-mobile">{item.label}</span>
                                     {item.badge && <span className="badge-count">{item.badge}</span>}
                                 </button>
@@ -246,11 +222,12 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         className={`nav-item nav-group-header ${isActiveGroup ? 'active-group' : ''}`}
                                     >
                                         <div className="nav-item-inner">
-                                            <item.icon size={22} />
+                                            <SidebarIcon Icon={item.icon} size={20} />
                                             <span className="nav-text">{item.label}</span>
                                         </div>
                                         <ChevronDown 
                                             size={16} 
+                                            strokeWidth={1.75}
                                             className={`nav-chevron ${isExpanded ? 'expanded' : ''}`} 
                                         />
                                     </button>
@@ -295,7 +272,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                     title={disabled ? 'Necesitas un rol diferente para acceder.' : item.description || undefined}
                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
-                                    <item.icon size={22} />
+                                    <SidebarIcon Icon={item.icon} size={20} />
                                     <span className="nav-text">{item.label}</span>
                                     {item.badge && <span className="badge-count">{item.badge}</span>}
                                 </button>
@@ -315,16 +292,16 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                     className="nav-item"
                     style={!renderMobile ? { marginTop: 'auto', marginBottom: 10 } : {}}
                 >
-                    <Store size={renderMobile ? 20 : 22} />
+                    <SidebarIcon Icon={Store} size={20} />
                     {renderMobile ? <span className="nav-label-mobile">Tienda</span> : <span className="nav-text">Ver Tienda</span>}
                 </button>
                 <button onClick={onLogout} className="nav-item logout">
-                    <LogOut size={renderMobile ? 20 : 22} />
+                    <SidebarIcon Icon={LogOut} size={20} />
                     {renderMobile ? <span className="nav-label-mobile">Salir</span> : <span className="nav-text">Cerrar Sesión</span>}
                 </button>
 
                 {hasRestrictedItems && !renderMobile && (
-                    <p style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+                    <p className="admin-sidebar-hint">
                         Las opciones en gris requieren un rol diferente.
                     </p>
                 )}

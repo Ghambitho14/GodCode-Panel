@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
-  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, MapPin, Upload, Keyboard,
+  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle,
 } from 'lucide-react';
 import ProductModal from '../../products/components/ProductModal';
 import CategoryModal from '../../products/components/CategoryModal';
@@ -19,6 +19,9 @@ import AdminCommandPalette from '../components/AdminCommandPalette';
 import AdminShortcutsModal from '../components/AdminShortcutsModal';
 import AdminTabFallback from '../components/AdminTabFallback';
 import AdminBroadcastsBanner from '../components/AdminBroadcastsBanner';
+import AdminTopBar from '../components/AdminTopBar';
+import AdminBranchSelector from '../components/AdminBranchSelector';
+import AdminHeaderClock from '../components/AdminHeaderClock';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
 import { TENANT_ADMIN_TAB_IDS, getCashierDefaultAllowedTabIds } from '../../../../../../lib/tenant-admin-tabs';
 import { fetchJsonWithRetry } from '../../../../../../utils/fetch-json';
@@ -165,6 +168,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   }, [dynamicModules]);
 
   const activeDynamicModule = dynamicModuleByTab.get(activeTab) || null;
+
+  const hideKitchenTitleOnMobile = isMobile && activeTab === 'orders' && !isHistoryView;
 
   const pageTitle = React.useMemo(() => {
     if (activeTab === 'orders') return isHistoryView ? 'Historial' : 'Cocina en Vivo';
@@ -478,10 +483,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       )}
 
       {productToDelete && (
-        <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg)', padding: 24, borderRadius: 12, maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-            <p style={{ margin: '0 0 16px', fontSize: 16 }}>¿Eliminar producto?</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)}>
+          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
+            <p>¿Eliminar producto?</p>
+            <div className="admin-confirm-modal__actions">
               <button type="button" className="admin-btn secondary" onClick={() => setProductToDelete(null)}>Cancelar</button>
               <button type="button" className="admin-btn danger" onClick={confirmDeleteProduct}>Eliminar</button>
             </div>
@@ -490,10 +495,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       )}
 
       {categoryToDelete && (
-        <div className="admin-modal-overlay" onClick={() => setCategoryToDelete(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg)', padding: 24, borderRadius: 12, maxWidth: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-            <p style={{ margin: '0 0 16px', fontSize: 16 }}>¿Eliminar categoría &quot;{categoryToDelete.name}&quot;? Los productos quedarán sin categoría.</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div className="admin-modal-overlay" onClick={() => setCategoryToDelete(null)}>
+          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
+            <p>¿Eliminar categoría &quot;{categoryToDelete.name}&quot;? Los productos quedarán sin categoría.</p>
+            <div className="admin-confirm-modal__actions">
               <button type="button" className="admin-btn secondary" onClick={() => setCategoryToDelete(null)}>Cancelar</button>
               <button type="button" className="admin-btn danger" onClick={confirmDeleteCategory}>Eliminar</button>
             </div>
@@ -522,84 +527,57 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       />
 
       <main className="admin-content">
-        <AdminBroadcastsBanner
-          broadcasts={broadcasts}
-          broadcastsLoading={broadcastsLoading}
-          ackingId={ackingId}
-          onAcknowledge={acknowledgeBroadcast}
-        />
-
-        <header className="content-header">
-          <h1>{pageTitle}</h1>
-
-          <div className="header-actions">
-            {lastSyncLabel ? (
-              <span
-                className="admin-last-sync"
-                title={`Última actualización de datos: ${lastSyncLabel}`}
-                style={{ fontSize: 12, opacity: 0.75, marginRight: 4, whiteSpace: 'nowrap', alignSelf: 'center' }}
-              >
-                Actualizado {lastSyncLabel}
-              </span>
-            ) : null}
+        <AdminTopBar
+          title={pageTitle}
+          showBroadcastsCue={broadcasts.length > 0 || broadcastsLoading}
+          hideTitleVisual={hideKitchenTitleOnMobile}
+        >
+            <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
             {adminShortcutsEnabled ? (
               <button
                 type="button"
-                className="btn-icon-refresh"
+                className="btn-icon-refresh admin-icon-btn header-action-shortcuts"
                 onClick={() => { setShortcutsHelpOpen(true); setCommandPaletteOpen(false); }}
                 title="Atajos de teclado (?)"
                 aria-label="Atajos de teclado"
               >
-                <Keyboard size={20} />
+                <HelpCircle size={24} strokeWidth={1.65} aria-hidden />
               </button>
             ) : null}
             <button
               type="button"
               onClick={() => loadData(true)}
-              className="btn-icon-refresh"
+              className="btn-icon-refresh admin-icon-btn header-action-refresh"
               disabled={refreshing}
               title="Actualizar datos (Mod+Shift+R)"
+              aria-label="Actualizar datos"
             >
-              <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={24} strokeWidth={1.65} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
-            {/* SELECTOR DE SUCURSAL */}
-            <div className="branch-selector-wrapper" style={{ marginRight: 10 }}>
-              <div className="glass" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 8, gap: 8 }}>
-                <MapPin size={16} className="text-accent" />
-                <select 
-                  value={selectedBranch?.id || ''} 
-                  onChange={(e) => {
-                    if (e.target.value === 'all') {
-                      setSelectedBranch({ id: 'all', name: 'Todas las sucursales' });
-                    } else {
-                      const branch = branches.find(b => b.id === e.target.value);
-                      setSelectedBranch(branch);
-                    }
-                  }}
-                  disabled={isBranchLocked}
-                  title={isBranchLocked ? 'Tu correo está bloqueado a una sucursal específica.' : undefined}
-                  style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', cursor: isBranchLocked ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: isBranchLocked ? 0.7 : 1 }}
-                >
-                  {branches.map(b => <option key={b.id} value={b.id} style={{color: 'black'}}>{b.name}</option>)}
-                  {activeTab === 'analytics' && (
-                    <option value="all" style={{color: 'black', fontWeight: 'bold'}}>Todas las sucursales</option>
-                  )}
-                </select>
-              </div>
-            </div>
+            <AdminBranchSelector
+              branches={branches}
+              selectedBranch={selectedBranch}
+              onSelectBranch={setSelectedBranch}
+              disabled={isBranchLocked}
+              allowAllOption={activeTab === 'analytics'}
+              lockTitle="Tu correo está bloqueado a una sucursal específica."
+              className="header-action-branch"
+            />
 
             {activeTab === 'orders' && (
               <>
-                <button className={`btn ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`} 
-                        onClick={() => setIsHistoryView(!isHistoryView)}
-                        style={!isHistoryView ? { background: 'white', color: '#1a1a1a', border: '1px solid #e5e7eb' } : {}}
+                <button
+                  type="button"
+                  className={`btn header-action-orders-history ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setIsHistoryView(!isHistoryView)}
                 >
                   {isHistoryView ? 'Ver Tablero' : 'Ver Historial'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setIsManualOrderModalOpen(true)}
-                  className="btn btn-primary"
+                  className="btn btn-primary header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
@@ -609,8 +587,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             )}
             {activeTab === 'products' && (
               <button
+                type="button"
                 onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-                className="btn btn-primary"
+                className="btn btn-primary header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
@@ -619,8 +598,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             )}
             {activeTab === 'categories' && (
               <button
+                type="button"
                 onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
-                className="btn btn-primary"
+                className="btn btn-primary header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
@@ -629,14 +609,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             )}
             {activeTab === 'users' && (
               <button
+                type="button"
                 onClick={openTeamCreateModal}
-                className="btn btn-primary"
+                className="btn btn-primary header-action-generic"
               >
                 <Plus size={18} /> Crear usuario
               </button>
             )}
-          </div>
-        </header>
+        </AdminTopBar>
+
+        <AdminBroadcastsBanner
+          broadcasts={broadcasts}
+          broadcastsLoading={broadcastsLoading}
+          ackingId={ackingId}
+          onAcknowledge={acknowledgeBroadcast}
+        />
 
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
@@ -669,26 +656,35 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div className="products-view animate-fade">
             
             {/* BARRA DE ESTADÍSTICAS */}
-            <div className="stats-bar glass" style={{ display: 'flex', gap: 20, padding: '15px 20px', marginBottom: 20, borderRadius: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 8 }}><Package size={18} /></div>
-                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Total Platos</span><strong style={{ fontSize: '1.1rem' }}>{productStats.total}</strong></div>
+            <div className="admin-stats-bar glass">
+              <div className="admin-stats-bar__item">
+                <div className="admin-stats-bar__icon"><Package size={18} /></div>
+                <div>
+                  <span className="admin-stats-bar__label">Total Platos</span>
+                  <strong className="admin-stats-bar__value">{productStats.total}</strong>
+                </div>
               </div>
-              <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }}></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: 'rgba(37, 211, 102, 0.1)', color: '#25d366', padding: 8, borderRadius: 8 }}><Eye size={18} /></div>
-                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Activos</span><strong style={{ fontSize: '1.1rem', color: '#25d366' }}>{productStats.active}</strong></div>
+              <div className="admin-stats-bar__divider" aria-hidden />
+              <div className="admin-stats-bar__item">
+                <div className="admin-stats-bar__icon admin-stats-bar__icon--success"><Eye size={18} /></div>
+                <div>
+                  <span className="admin-stats-bar__label">Activos</span>
+                  <strong className="admin-stats-bar__value admin-stats-bar__value--success">{productStats.active}</strong>
+                </div>
               </div>
-              <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }}></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: 8, borderRadius: 8 }}><EyeOff size={18} /></div>
-                <div><span style={{ display: 'block', fontSize: '0.75rem', color: '#9ca3af' }}>Pausados</span><strong style={{ fontSize: '1.1rem', color: '#ef4444' }}>{productStats.paused}</strong></div>
+              <div className="admin-stats-bar__divider" aria-hidden />
+              <div className="admin-stats-bar__item">
+                <div className="admin-stats-bar__icon admin-stats-bar__icon--danger"><EyeOff size={18} /></div>
+                <div>
+                  <span className="admin-stats-bar__label">Pausados</span>
+                  <strong className="admin-stats-bar__value admin-stats-bar__value--danger">{productStats.paused}</strong>
+                </div>
               </div>
             </div>
 
             <div className="admin-toolbar glass">
-              <div style={{ display: 'flex', gap: 10, flex: 1 }}>
-                <div className="search-box" style={{ flex: 1 }}>
+              <div className="admin-toolbar-row">
+                <div className="search-box">
                   <Search size={18} />
                   <input placeholder="Buscar plato..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                 </div>
@@ -711,8 +707,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </div>
               </div>
 
-              <div className="admin-toolbar-actions" style={{ display: 'flex', gap: 8, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 10 }}>
-                 <div className="filter-box" style={{ minWidth: 'auto' }}>
+              <div className="admin-toolbar-actions">
+                 <div className="filter-box filter-box--compact">
                     <ArrowUpDown size={18} />
                     <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
                       <option value="name-asc">Nombre (A-Z)</option>
@@ -800,8 +796,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* EQUIPO (solo CEO) */}
         {activeTab === 'users' && (
-          <div className="admin-toolbar glass" style={{ marginBottom: 20 }}>
-            <p style={{ margin: 0, opacity: 0.9 }}>Usuarios que pueden entrar al panel de este local. Crea staff y asígnales las pestañas que podrán ver.</p>
+          <div className="admin-toolbar glass">
+            <p className="admin-toolbar-hint">Usuarios que pueden entrar al panel de este local. Crea staff y asígnales las pestañas que podrán ver.</p>
           </div>
         )}
         {activeTab === 'payment_methods' && (
@@ -817,38 +813,38 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeTab === 'users' && (
-          <div className="glass staff-table-glass" style={{ padding: 20, borderRadius: 12 }}>
+          <div className="glass staff-table-glass admin-staff-panel">
             {teamLoading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Loader2 size={32} className="animate-spin" /></div>
+              <div className="admin-staff-loading"><Loader2 size={32} className="animate-spin" /></div>
             ) : teamUsers.length === 0 ? (
-              <p style={{ margin: 0, opacity: 0.8 }}>Aún no hay usuarios. Crea uno con &quot;Crear usuario&quot;.</p>
+              <p className="admin-staff-empty">Aún no hay usuarios. Crea uno con &quot;Crear usuario&quot;.</p>
             ) : (
-              <div className="staff-table-wrapper" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <table className="staff-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 320 }}>
+              <div className="staff-table-wrapper admin-staff-table-wrap">
+                <table className="staff-table admin-staff-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.2)', textAlign: 'left' }}>
-                      <th style={{ padding: '10px 12px' }}>Correo</th>
-                      <th style={{ padding: '10px 12px' }}>Rol</th>
-                      <th style={{ padding: '10px 12px' }}>Sucursal</th>
-                      <th style={{ padding: '10px 12px' }}>Permisos</th>
-                      <th className="staff-table-actions-th" style={{ padding: '10px 12px', minWidth: 90, whiteSpace: 'nowrap' }}>Acciones</th>
+                    <tr>
+                      <th>Correo</th>
+                      <th>Rol</th>
+                      <th>Sucursal</th>
+                      <th>Permisos</th>
+                      <th className="staff-table-actions-th admin-staff-actions-th">Acciones</th>
                     </tr>
                   </thead>
                 <tbody>
                   {teamUsers.map((u) => (
-                    <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                      <td style={{ padding: '10px 12px' }}>{u.email}</td>
-                      <td style={{ padding: '10px 12px', textTransform: 'capitalize' }}>{u.role}</td>
-                      <td style={{ padding: '10px 12px' }}>{u.branch?.name ?? '—'}</td>
-                      <td style={{ padding: '10px 12px', fontSize: 12 }}>
+                    <tr key={u.id}>
+                      <td>{u.email}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
+                      <td>{u.branch?.name ?? '—'}</td>
+                      <td className="admin-staff-perms">
                         {(u.allowed_tabs && u.allowed_tabs.length > 0)
                           ? u.allowed_tabs.map(t => tabLabels[t] || t).join(', ')
                           : ((u.role === 'cashier' || u.role === 'staff') ? `Por defecto (${getCashierDefaultAllowedTabIds().map((t) => tabLabels[t] || t).join(', ')})` : 'Todos')}
                       </td>
-                      <td style={{ padding: '10px 12px', display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <td className="admin-staff-actions">
                         {isTeamUserCeo(u) ? (
                           <span
-                            style={{ fontSize: 12, opacity: 0.65, userSelect: 'none' }}
+                            className="admin-staff-muted"
                             title="El CEO no se puede editar ni eliminar desde aquí"
                           >
                             —
@@ -858,8 +854,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                             <button
                               type="button"
                               onClick={() => openTeamEditModal(u)}
-                              className="admin-btn secondary"
-                              style={{ padding: '6px 10px', fontSize: 12 }}
+                              className="admin-btn secondary admin-staff-btn"
                               title="Editar usuario"
                             >
                               <Edit size={14} />
@@ -867,8 +862,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                             <button
                               type="button"
                               onClick={() => setTeamUserToDelete(u)}
-                              className="admin-btn secondary"
-                              style={{ padding: '6px 10px', fontSize: 12 }}
+                              className="admin-btn secondary admin-staff-btn"
                               title="Eliminar usuario"
                             >
                               <Trash2 size={14} />
@@ -890,78 +884,26 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div
             className="admin-modal-overlay"
             onClick={() => !teamDeleting && setTeamUserToDelete(null)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(4, 10, 22, 0.72)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 16,
-              backdropFilter: 'blur(8px)',
-            }}
           >
             <div
-              className="admin-confirm-modal"
+              className="admin-danger-modal glass admin-danger-modal--team-delete"
               onClick={e => e.stopPropagation()}
-              style={{
-                width: '100%',
-                maxWidth: 520,
-                borderRadius: 16,
-                border: '1px solid rgba(255, 92, 92, 0.28)',
-                background: 'linear-gradient(165deg, rgba(28,9,9,0.97) 0%, rgba(18,8,10,0.98) 100%)',
-                boxShadow: '0 28px 70px rgba(0,0,0,0.55)',
-                overflow: 'hidden',
-              }}
             >
-              <div style={{
-                padding: '16px 18px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255, 68, 68, 0.09)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px solid rgba(255, 68, 68, 0.45)',
-                    background: 'rgba(255, 68, 68, 0.18)',
-                    color: '#ff9d9d',
-                  }}>
-                    <Trash2 size={16} />
+              <div className="admin-danger-header">
+                <div className="admin-danger-title admin-danger-title--with-kicker">
+                  <div className="admin-danger-icon-pill">
+                    <Trash2 size={18} />
                   </div>
                   <div>
-                    <p style={{ margin: 0, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)', fontWeight: 700 }}>
-                      Acción destructiva
-                    </p>
-                    <h3 style={{ margin: '3px 0 0', fontSize: 18, fontWeight: 800, color: '#fff' }}>
-                      Eliminar usuario del equipo
-                    </h3>
+                    <p className="admin-danger-kicker">Acción destructiva</p>
+                    <h3>Eliminar usuario del equipo</h3>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => !teamDeleting && setTeamUserToDelete(null)}
                   disabled={teamDeleting}
-                  style={{
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    background: 'rgba(255,255,255,0.03)',
-                    color: '#f3f4f6',
-                    width: 34,
-                    height: 34,
-                    borderRadius: 999,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: teamDeleting ? 'not-allowed' : 'pointer',
-                  }}
+                  className="admin-danger-close"
                   aria-label="Cerrar"
                   title="Cerrar"
                 >
@@ -969,23 +911,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </button>
               </div>
 
-              <div style={{ padding: 18 }}>
-                <p style={{ margin: 0, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55 }}>
-                  Vas a eliminar el acceso de <strong style={{ color: '#fff' }}>{teamUserToDelete.email}</strong>.
+              <div className="admin-danger-body">
+                <p>
+                  Vas a eliminar el acceso de <strong>{teamUserToDelete.email}</strong>.
                 </p>
-                <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.66)', fontSize: 13 }}>
+                <p className="admin-danger-hint">
                   Esta acción revoca el ingreso al panel del local y no se puede deshacer automáticamente.
                 </p>
               </div>
 
-              <div style={{
-                padding: '14px 18px',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(0,0,0,0.25)',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 8,
-              }}>
+              <div className="admin-danger-footer admin-danger-footer--row">
                 <button
                   type="button"
                   className="admin-btn secondary"
@@ -1007,57 +942,18 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div
             className="admin-modal-overlay"
             onClick={() => !teamSubmitting && (setTeamModalOpen(false), setTeamUserToEdit(null))}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(4, 10, 22, 0.72)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 16,
-              backdropFilter: 'blur(8px)',
-            }}
           >
             <div
-              className="admin-confirm-modal"
+              className="admin-team-dialog glass"
               onClick={e => e.stopPropagation()}
-              style={{
-                background: 'linear-gradient(165deg, rgba(17,24,39,0.96) 0%, rgba(10,10,18,0.98) 100%)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: 18,
-                maxWidth: 640,
-                width: '100%',
-                maxHeight: '88vh',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
-                overflow: 'hidden',
-              }}
             >
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                padding: '18px 20px 14px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.02)',
-              }}>
+              <div className="admin-team-dialog__header">
                 <div>
-                  <p style={{
-                    margin: '0 0 6px',
-                    fontSize: 11,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: 'rgba(255,255,255,0.6)',
-                    fontWeight: 700,
-                  }}>
-                    Gestión de equipo
-                  </p>
-                  <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#fff' }}>
+                  <p className="admin-team-dialog__kicker">Gestión de equipo</p>
+                  <h3 className="admin-team-dialog__title">
                     {teamUserToEdit ? 'Editar miembro' : 'Crear miembro del equipo'}
                   </h3>
-                  <p style={{ margin: '6px 0 0', color: 'rgba(255,255,255,0.72)', fontSize: 13 }}>
+                  <p className="admin-team-dialog__lead">
                     Define acceso por rol, sucursal y pestañas permitidas.
                   </p>
                 </div>
@@ -1065,18 +961,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                   type="button"
                   onClick={() => !teamSubmitting && (setTeamModalOpen(false), setTeamUserToEdit(null))}
                   disabled={teamSubmitting}
-                  style={{
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    background: 'rgba(255,255,255,0.04)',
-                    color: '#e5e7eb',
-                    width: 34,
-                    height: 34,
-                    borderRadius: 999,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: teamSubmitting ? 'not-allowed' : 'pointer',
-                  }}
+                  className="admin-team-dialog__close"
                   aria-label="Cerrar"
                   title="Cerrar"
                 >
@@ -1084,32 +969,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </button>
               </div>
 
-              <form onSubmit={handleSaveTeamUser} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-                <div style={{ padding: 20, overflowY: 'auto', display: 'grid', gap: 16 }}>
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    <label style={{ display: 'grid', gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Correo</span>
+              <form className="admin-team-dialog__form" onSubmit={handleSaveTeamUser}>
+                <div className="admin-team-dialog__scroll">
+                  <div className="admin-form-stack">
+                    <label className="admin-form-label">
+                      <span>Correo</span>
                       <input
                         type="email"
                         value={teamForm.email}
                         onChange={e => setTeamForm(prev => ({ ...prev, email: e.target.value }))}
                         placeholder="usuario@ejemplo.com"
                         required
-                        style={{
-                          width: '100%',
-                          padding: '11px 12px',
-                          borderRadius: 10,
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          background: 'rgba(8, 14, 28, 0.82)',
-                          color: '#f8fafc',
-                          outline: 'none',
-                        }}
                       />
                     </label>
 
                     {!teamUserToEdit && (
-                      <label style={{ display: 'grid', gap: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Contraseña</span>
+                      <label className="admin-form-label">
+                        <span>Contraseña</span>
                         <input
                           type="password"
                           value={teamForm.password}
@@ -1117,77 +993,41 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                           placeholder="Mínimo 6 caracteres"
                           required
                           minLength={6}
-                          style={{
-                            width: '100%',
-                            padding: '11px 12px',
-                            borderRadius: 10,
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            background: 'rgba(8, 14, 28, 0.82)',
-                            color: '#f8fafc',
-                            outline: 'none',
-                          }}
                         />
                       </label>
                     )}
 
                     {teamUserToEdit && (
-                      <label style={{ display: 'grid', gap: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Nueva contraseña (opcional)</span>
+                      <label className="admin-form-label">
+                        <span>Nueva contraseña (opcional)</span>
                         <input
                           type="password"
                           value={teamForm.password}
                           onChange={e => setTeamForm(prev => ({ ...prev, password: e.target.value }))}
                           placeholder="Dejar en blanco para no cambiar"
                           minLength={6}
-                          style={{
-                            width: '100%',
-                            padding: '11px 12px',
-                            borderRadius: 10,
-                            border: '1px solid rgba(255,255,255,0.18)',
-                            background: 'rgba(8, 14, 28, 0.82)',
-                            color: '#f8fafc',
-                            outline: 'none',
-                          }}
                         />
                       </label>
                     )}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <label style={{ display: 'grid', gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Rol</span>
+                  <div className="admin-form-grid-2">
+                    <label className="admin-form-label">
+                      <span>Rol</span>
                       <select
                         value={teamForm.role}
                         onChange={e => setTeamForm(prev => ({ ...prev, role: e.target.value }))}
-                        style={{
-                          width: '100%',
-                          padding: '11px 12px',
-                          borderRadius: 10,
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          background: 'rgba(8, 14, 28, 0.82)',
-                          color: '#f8fafc',
-                          outline: 'none',
-                        }}
                       >
                         <option value="ceo">CEO</option>
                         <option value="cashier">Cashier</option>
                       </select>
                     </label>
 
-                    <label style={{ display: 'grid', gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Sucursal (opcional)</span>
+                    <label className="admin-form-label">
+                      <span>Sucursal (opcional)</span>
                       <select
                         value={teamForm.branch_id}
                         onChange={e => setTeamForm(prev => ({ ...prev, branch_id: e.target.value }))}
-                        style={{
-                          width: '100%',
-                          padding: '11px 12px',
-                          borderRadius: 10,
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          background: 'rgba(8, 14, 28, 0.82)',
-                          color: '#f8fafc',
-                          outline: 'none',
-                        }}
                       >
                         <option value="">Todas / Sin restricción</option>
                         {branches.filter(b => b.id !== 'all').map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -1195,19 +1035,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                     </label>
                   </div>
 
-                  <div style={{
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: 12,
-                    background: 'rgba(255,255,255,0.03)',
-                    padding: 14,
-                  }}>
-                    <div style={{ marginBottom: 10 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>Pestañas habilitadas</p>
-                      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>
-                        Selecciona qué secciones puede ver este usuario.
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div className="admin-team-perms-box">
+                    <p className="admin-team-perms-box__title">Pestañas habilitadas</p>
+                    <p className="admin-team-perms-box__hint">
+                      Selecciona qué secciones puede ver este usuario.
+                    </p>
+                    <div className="admin-chip-row">
                       {ASSIGNABLE_TAB_IDS.map(tabId => {
                         const active = teamForm.allowed_tabs?.includes(tabId) ?? false;
                         return (
@@ -1215,17 +1048,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                             key={tabId}
                             type="button"
                             onClick={() => toggleTeamTab(tabId)}
-                            style={{
-                              border: active ? '1px solid rgba(37, 211, 102, 0.6)' : '1px solid rgba(255,255,255,0.2)',
-                              background: active ? 'rgba(37, 211, 102, 0.16)' : 'rgba(255,255,255,0.04)',
-                              color: active ? '#d9ffe9' : '#e5e7eb',
-                              borderRadius: 999,
-                              padding: '6px 11px',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              transition: 'all .18s ease',
-                            }}
+                            className={`admin-chip-tab${active ? ' admin-chip-tab--active' : ''}`}
                           >
                             {tabLabels[tabId] || tabId}
                           </button>
@@ -1235,19 +1058,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                   </div>
                 </div>
 
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '14px 20px',
-                  borderTop: '1px solid rgba(255,255,255,0.1)',
-                  background: 'rgba(0,0,0,0.28)',
-                }}>
-                  <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.62)' }}>
+                <div className="admin-team-dialog__footer">
+                  <p className="admin-team-dialog__footer-meta">
                     {teamForm.allowed_tabs?.length || 0} pestañas seleccionadas
                   </p>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="admin-team-dialog__footer-actions">
                     <button
                       type="button"
                       className="admin-btn secondary"
@@ -1273,25 +1088,20 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && (
-          <div className="glass" style={{ padding: 24, borderRadius: 14, display: 'grid', gap: 12 }}>
+          <div className="glass admin-dynamic-module">
             <div>
-              <p style={{ margin: 0, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7 }}>
+              <p className="admin-dynamic-module__kicker">
                 Nuevo módulo
               </p>
-              <h3 style={{ margin: '6px 0 0', fontSize: 24, fontWeight: 800 }}>
+              <h3 className="admin-dynamic-module__title">
                 {activeDynamicModule.label}
               </h3>
-              <p style={{ margin: '10px 0 0', opacity: 0.85 }}>
+              <p className="admin-dynamic-module__desc">
                 {activeDynamicModule.description || 'Módulo agregado desde SaaS. Aquí vivirá la nueva funcionalidad del panel admin.'}
               </p>
             </div>
-            <div style={{
-              border: '1px dashed rgba(255,255,255,0.22)',
-              borderRadius: 12,
-              padding: 14,
-              background: 'rgba(255,255,255,0.03)'
-            }}>
-              <p style={{ margin: 0, fontSize: 14, opacity: 0.9 }}>
+            <div className="admin-dynamic-module__placeholder">
+              <p>
                 Este espacio está listo para implementar la lógica del módulo <strong>{activeDynamicModule.label}</strong>.
               </p>
             </div>
