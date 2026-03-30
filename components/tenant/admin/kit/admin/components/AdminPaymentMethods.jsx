@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CreditCard, Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 
 const PROVIDER_LABELS = { paypal: 'PayPal', stripe: 'Stripe' };
 
@@ -219,10 +219,6 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 	return (
 		<div className="settings-container animate-fade">
 			<header className="settings-header settings-header--stack">
-				<div className="settings-header-title-row">
-					<CreditCard size={24} aria-hidden />
-					<h1>Métodos de pago</h1>
-				</div>
 				<p className="settings-subtitle">
 					Conecta PayPal y Stripe, activa métodos por sucursal y configura los datos de pago (Pago Móvil, Zelle, transferencia). Solo el dueño o CEO puede ver y editar esta sección.
 				</p>

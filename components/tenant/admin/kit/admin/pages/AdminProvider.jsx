@@ -376,6 +376,7 @@ export const AdminProvider = ({
 		if (!companyId) {
 			setBranches([]);
 			setSelectedBranch(null);
+			setLoading(false);
 			return;
 		}
 		const { data, error } = await supabase
@@ -394,9 +395,11 @@ export const AdminProvider = ({
 				const updated = data.find(b => b.id === prev.id);
 				return updated || data[0];
 			});
-		} else if (!error) {
+		} else {
 			setBranches([]);
 			setSelectedBranch(null);
+			/* Sin sucursal loadData() no corre; sin esto el panel queda en spinner infinito. */
+			setLoading(false);
 		}
 	}, [assignedBranchId, companyId]);
 

@@ -6,7 +6,7 @@ import {
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
     DollarSign, CreditCard, Smartphone, ChevronRight,
-    MapPin, Wallet,
+    MapPin, Calculator,
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
 import { isValidBranchId } from '../../../shared/utils/safeIds';
@@ -17,10 +17,18 @@ import CashOrderDetailPanel from './CashOrderDetailPanel';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { getPaymentLabel } from '../../../shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
+import AdminMenuSelect from '../AdminMenuSelect';
 
 const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
 };
+
+const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = [
+    { value: '7', label: '7 días' },
+    { value: '30', label: '30 días' },
+    { value: '90', label: '3 meses' },
+    { value: '365', label: '1 año' },
+];
 
 const ElapsedTime = ({ since }) => {
     const [elapsed, setElapsed] = useState('');
@@ -160,16 +168,13 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
             {/* HEADER */}
             <header className="cash-header">
                 <div className="cash-header-left">
-                    <AdminIconSlot Icon={Wallet} slotSize="lg" tone="accent" className="cash-header-brand-icon" />
-                    <div>
-                        <h1>Caja</h1>
-                        {activeShift && (
-                            <div className="cash-header-status">
-                                <span className="cash-pulse" />
-                                Turno activo · <ElapsedTime since={activeShift.opened_at} />
-                            </div>
-                        )}
-                    </div>
+                    <AdminIconSlot Icon={Calculator} slotSize="lg" tone="accent" className="cash-header-brand-icon" />
+                    {activeShift ? (
+                        <div className="cash-header-status">
+                            <span className="cash-pulse" />
+                            Turno activo · <ElapsedTime since={activeShift.opened_at} />
+                        </div>
+                    ) : null}
                 </div>
                 <div className="cash-header-actions">
                     {activeShift ? (
@@ -325,6 +330,9 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
                                                 <span className="cash-recent-time" style={textStyle}>
                                                     {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                                     {isCancel ? ' · Cancelado' : ` · ${paymentLabel}`}
+                                                    {!isCancel && order && Number(order.delivery_fee) > 0
+                                                        ? ` · Envío ${fmt(Number(order.delivery_fee))}`
+                                                        : ''}
                                                 </span>
                                             </div>
                                             {m.type === 'cancel' ? (
@@ -359,12 +367,13 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
                 <div className="cash-section-header">
                     <h3 className="cash-section-title cash-section-title--with-icon"><AdminIconSlot Icon={History} slotSize="sm" tone="accent" /> Historial de turnos</h3>
                     <div className="cash-filters-inline">
-                        <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)}>
-                            <option value="7">7 días</option>
-                            <option value="30">30 días</option>
-                            <option value="90">3 meses</option>
-                            <option value="365">1 año</option>
-                        </select>
+                        <AdminMenuSelect
+                            value={filterPeriod}
+                            onChange={setFilterPeriod}
+                            options={CASH_SHIFT_HISTORY_PERIOD_OPTIONS}
+                            aria-label="Período del historial de turnos"
+                            icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
+                        />
                     </div>
                 </div>
 

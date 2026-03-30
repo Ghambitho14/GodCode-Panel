@@ -158,11 +158,7 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId }) => {
 
     return (
         <div className="inventory-view animate-fade">
-            <div className="inventory-header">
-                <div>
-                    <h1>Inventario de Insumos</h1>
-                    <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginTop: 5 }}>Gestiona tus materias primas y stock crítico.</p>
-                </div>
+            <div className="inventory-header inventory-header--toolbar-only">
                 <div style={{ display: 'flex', gap: 10 }}>
                     <button className="btn btn-secondary btn-icon-text" onClick={handleExport}>
                         <Download size={18} /> Exportar

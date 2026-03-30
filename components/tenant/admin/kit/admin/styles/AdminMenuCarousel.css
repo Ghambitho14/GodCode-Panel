@@ -144,8 +144,13 @@
 .menu-carousel-switch {
 	position: relative;
 	flex-shrink: 0;
+	box-sizing: border-box;
 	width: 52px;
+	min-width: 52px;
+	max-width: 52px;
 	height: 30px;
+	min-height: 30px;
+	max-height: 30px;
 	border-radius: 999px;
 	border: 1px solid rgba(255, 255, 255, 0.2);
 	background: rgba(255, 255, 255, 0.12);
@@ -182,7 +187,11 @@
 
 .menu-carousel-switch--sm {
 	width: 44px;
+	min-width: 44px;
+	max-width: 44px;
 	height: 26px;
+	min-height: 26px;
+	max-height: 26px;
 }
 
 .menu-carousel-switch--sm .menu-carousel-switch-knob {
@@ -1022,6 +1031,22 @@
 .admin-layout .menu-carousel-switch {
 	border: 1px solid var(--admin-border, #cbd5e1);
 	background: var(--admin-icon-bg, #e8ecf2);
+	box-sizing: border-box;
+	width: 52px;
+	min-width: 52px;
+	max-width: 52px;
+	height: 30px;
+	min-height: 30px;
+	max-height: 30px;
+}
+
+.admin-layout .menu-carousel-switch.menu-carousel-switch--sm {
+	width: 44px;
+	min-width: 44px;
+	max-width: 44px;
+	height: 26px;
+	min-height: 26px;
+	max-height: 26px;
 }
 
 .admin-layout .menu-carousel-switch.is-on {

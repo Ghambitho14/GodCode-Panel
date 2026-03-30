@@ -170,6 +170,7 @@ export function sanitizeOrder(rawOrder) {
 		...rawOrder,
 		items: cleanItems,
 		total: Number(rawOrder.total) || 0,
+		delivery_fee: Number(rawOrder.delivery_fee) || 0,
 		client_name: rawOrder.client_name || 'Cliente Desconocido',
 		client_rut: rawOrder.client_rut || 'Sin RUT',
 		client_phone: rawOrder.client_phone || '',

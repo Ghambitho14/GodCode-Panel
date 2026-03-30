@@ -20,7 +20,16 @@ export class AdminErrorBoundary extends React.Component {
 	}
 
 	handleRetry = () => {
-		this.setState({ error: null });
+		const { onRetry } = this.props;
+		this.setState({ error: null }, () => {
+			if (typeof onRetry === "function") {
+				try {
+					onRetry();
+				} catch {
+					/* noop */
+				}
+			}
+		});
 	};
 
 	render() {

@@ -41,10 +41,15 @@ async function getTenantCompanyContext(): Promise<
 	return { companyId: row.company_id };
 }
 
-function settingsResponse(deliverySettingsRaw: unknown) {
+function settingsResponse(
+	deliverySettingsRaw: unknown,
+	origin?: { lat: number | null; lng: number | null },
+) {
 	const n = normalizeDeliverySettings(deliverySettingsRaw);
 	return {
 		enabled: n.enabled,
+		deliveryPricingStrategy: n.deliveryPricingStrategy,
+		namedAreaResolution: n.namedAreaResolution,
 		pricePerKm: n.pricePerKm,
 		baseFee: n.baseFee,
 		minFee: n.minFee,
@@ -53,6 +58,10 @@ function settingsResponse(deliverySettingsRaw: unknown) {
 		freeDeliveryFromSubtotal: n.freeDeliveryFromSubtotal,
 		minOrderSubtotal: n.minOrderSubtotal,
 		customerNotes: n.customerNotes,
+		zones: n.zones,
+		namedAreas: n.namedAreas,
+		originLat: origin?.lat ?? null,
+		originLng: origin?.lng ?? null,
 	};
 }
 
@@ -60,6 +69,8 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 	const patch: Record<string, unknown> = {};
 	const keys = [
 		"enabled",
+		"deliveryPricingStrategy",
+		"namedAreaResolution",
 		"pricePerKm",
 		"baseFee",
 		"minFee",
@@ -73,6 +84,12 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 		if (k in body) {
 			patch[k] = body[k];
 		}
+	}
+	if ("zones" in body && Array.isArray(body.zones)) {
+		patch.zones = body.zones;
+	}
+	if ("namedAreas" in body && Array.isArray(body.namedAreas)) {
+		patch.namedAreas = body.namedAreas;
 	}
 	return patch;
 }
@@ -91,7 +108,7 @@ export async function GET(req: NextRequest) {
 
 		const { data, error } = await supabaseAdmin
 			.from("branches")
-			.select("delivery_settings")
+			.select("delivery_settings, origin_lat, origin_lng")
 			.eq("id", branchId)
 			.eq("company_id", ctx.companyId)
 			.maybeSingle();
@@ -103,7 +120,14 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		return NextResponse.json(settingsResponse(data.delivery_settings));
+		const olat = data.origin_lat != null ? Number(data.origin_lat) : null;
+		const olng = data.origin_lng != null ? Number(data.origin_lng) : null;
+		return NextResponse.json(
+			settingsResponse(data.delivery_settings, {
+				lat: Number.isFinite(olat) ? olat : null,
+				lng: Number.isFinite(olng) ? olng : null,
+			}),
+		);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });
@@ -125,16 +149,37 @@ export async function PATCH(req: NextRequest) {
 		}
 
 		const patch = buildPatchFromBody(body);
-		if (Object.keys(patch).length === 0) {
+		const branchGeo: Record<string, unknown> = {};
+		if ("originLat" in body) {
+			const v = body.originLat;
+			if (v === null || v === "") branchGeo.origin_lat = null;
+			else {
+				const n = Number(v);
+				if (Number.isFinite(n)) branchGeo.origin_lat = n;
+			}
+		}
+		if ("originLng" in body) {
+			const v = body.originLng;
+			if (v === null || v === "") branchGeo.origin_lng = null;
+			else {
+				const n = Number(v);
+				if (Number.isFinite(n)) branchGeo.origin_lng = n;
+			}
+		}
+
+		if (Object.keys(patch).length === 0 && Object.keys(branchGeo).length === 0) {
 			return NextResponse.json(
-				{ error: "Nada que actualizar: envía al menos un campo de delivery" },
+				{
+					error:
+						"Nada que actualizar: envía delivery, zones, namedAreas u origen GPS",
+				},
 				{ status: 400 },
 			);
 		}
 
 		const { data: row, error: loadError } = await supabaseAdmin
 			.from("branches")
-			.select("id,delivery_settings")
+			.select("id,delivery_settings,origin_lat,origin_lng")
 			.eq("id", branchId)
 			.eq("company_id", ctx.companyId)
 			.maybeSingle();
@@ -146,11 +191,20 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		const nextSettings = mergeDeliverySettingsJson(row.delivery_settings, patch);
+		const nextSettings =
+			Object.keys(patch).length > 0
+				? mergeDeliverySettingsJson(row.delivery_settings, patch)
+				: (row.delivery_settings as Record<string, unknown>);
+
+		const updatePayload: Record<string, unknown> = {};
+		if (Object.keys(patch).length > 0) {
+			updatePayload.delivery_settings = nextSettings;
+		}
+		Object.assign(updatePayload, branchGeo);
 
 		const { error: upError } = await supabaseAdmin
 			.from("branches")
-			.update({ delivery_settings: nextSettings })
+			.update(updatePayload)
 			.eq("id", branchId)
 			.eq("company_id", ctx.companyId);
 
@@ -158,7 +212,24 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: upError.message }, { status: 400 });
 		}
 
-		return NextResponse.json(settingsResponse(nextSettings));
+		const { data: fresh, error: freshErr } = await supabaseAdmin
+			.from("branches")
+			.select("delivery_settings,origin_lat,origin_lng")
+			.eq("id", branchId)
+			.eq("company_id", ctx.companyId)
+			.maybeSingle();
+
+		if (freshErr || !fresh) {
+			return NextResponse.json(settingsResponse(nextSettings));
+		}
+		const flatLat = fresh.origin_lat != null ? Number(fresh.origin_lat) : null;
+		const flatLng = fresh.origin_lng != null ? Number(fresh.origin_lng) : null;
+		return NextResponse.json(
+			settingsResponse(fresh.delivery_settings, {
+				lat: Number.isFinite(flatLat) ? flatLat : null,
+				lng: Number.isFinite(flatLng) ? flatLng : null,
+			}),
+		);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });

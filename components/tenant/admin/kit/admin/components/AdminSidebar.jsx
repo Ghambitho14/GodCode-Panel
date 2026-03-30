@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Wallet, FolderTree } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Calculator, FolderTree } from 'lucide-react';
 
 const SidebarIcon = ({ Icon, size }) => (
     <span className="nav-icon-slot">
@@ -72,7 +72,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 				icon: DollarSign,
 				isGroup: true,
 				children: [
-					{ id: 'caja', label: L.caja || 'Caja', icon: Wallet },
+					{ id: 'caja', label: L.caja || 'Caja', icon: Calculator },
 					{ id: 'analytics', label: L.analytics || 'Reportes', icon: BarChart3 },
 					...salesModules.map((module) => ({
 						id: module.tabId,

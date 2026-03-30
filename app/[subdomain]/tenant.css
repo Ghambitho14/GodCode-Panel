@@ -2,11 +2,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap");
 @import "./styles/index.css";
 @import "./styles/App.css";
-@import "./styles/Home.css";
-@import "./styles/Menu.css";
-@import "./styles/ProductCard.css";
-@import "./styles/Navbar.css";
-@import "./styles/BranchSelectorModal.css";
 @import "./styles/Login.css";
 @import "./styles/AdminLayout.css";
 @import "./styles/AdminAnalytics.css";
@@ -24,22 +19,7 @@
 @import "./styles/OrderCard.css";
 @import "./styles/ProductModal.css";
 @import "./styles/CategoryModal.css";
-@import "./styles/CartFloat.css";
-@import "./styles/CartModal.css";
 @import "./styles/Modals.css";
-
-/* Info bar styles for menu */
-.menu-info-bar {
-  margin-bottom: 12px;
-  padding: 8px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  font-size: 0.95em;
-  color: #555;
-}
-.menu-info-bar-methods {
-  margin-left: 16px;
-}
 
 html,
 body {

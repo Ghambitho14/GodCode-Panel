@@ -129,8 +129,6 @@ export function TenantShell({ children }: TenantShellProps) {
       </div>
 
       <div id="app-ui-layer" className="tenant-ui-layer">
-        <div id="navbar-portal-root" className="tenant-portal-navbar" />
-        <div id="cart-portal-root" className="tenant-portal-cart" />
         <div id="modal-root" className="tenant-portal-modal" />
       </div>
     </div>

@@ -4,7 +4,12 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatCurrency } from '../../../shared/utils/formatters';
-import { getPaymentLabel, getPaymentSlug } from '../../../shared/utils/orderUtils';
+import {
+	getPaymentLabel,
+	getPaymentSlug,
+	isOrderDelivery,
+	deliveryAddressLines,
+} from '../../../shared/utils/orderUtils';
 import './CashOrderDetailPanel.css';
 
 const fmt = (n) => {
@@ -134,6 +139,90 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 							})}
 						</div>
 					</div>
+
+					{(() => {
+						const fee = Number(order.delivery_fee) || 0;
+						const isDel = isOrderDelivery(order);
+						if (!isDel && fee <= 0) return null;
+						const addr = order.delivery_address;
+						const addrLines = deliveryAddressLines(addr);
+						const mapsUrl =
+							addr && typeof addr === "object" && !Array.isArray(addr) && addr.maps_url
+								? String(addr.maps_url)
+								: "";
+						const handoff =
+							order.handoff_code != null && String(order.handoff_code).trim() !== ""
+								? String(order.handoff_code).trim()
+								: "";
+						const driverText = [
+							`Pedido #${String(order.id).slice(-4)}`,
+							handoff ? `Código entrega: ${handoff}` : null,
+							...addrLines,
+							mapsUrl ? `Mapa: ${mapsUrl}` : null,
+							order.client_phone ? `Cliente: ${order.client_phone}` : null,
+						]
+							.filter(Boolean)
+							.join("\n");
+
+						return (
+							<div className="cash-order-detail-block">
+								<div className="cash-order-detail-label">Delivery</div>
+								{fee > 0 ? (
+									<div className="cash-order-detail-value">
+										Cargo al cliente: <strong>{fmt(fee)}</strong>
+									</div>
+								) : (
+									<div className="cash-order-detail-sub">Envío a domicilio (sin cargo en el pedido)</div>
+								)}
+								{handoff ? (
+									<div className="cash-order-detail-value cash-order-detail-handoff" style={{ marginTop: 10 }}>
+										<span className="cash-order-detail-label" style={{ display: "block", marginBottom: 4 }}>
+											Código para conductor / cliente
+										</span>
+										<strong className="cash-order-detail-handoff-digits">{handoff}</strong>
+									</div>
+								) : null}
+								{addrLines.length > 0 ? (
+									<div className="cash-order-detail-sub" style={{ marginTop: 10 }}>
+										<span className="cash-order-detail-label" style={{ display: "block", marginBottom: 4 }}>
+											Dirección
+										</span>
+										{addrLines.map((line, i) => (
+											<div key={`${i}-${line.slice(0, 12)}`}>{line}</div>
+										))}
+									</div>
+								) : null}
+								{isDel ? (
+									<div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+										{mapsUrl ? (
+											<a
+												href={mapsUrl}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="admin-btn secondary"
+												style={{
+													textDecoration: "none",
+													display: "inline-flex",
+													alignItems: "center",
+												}}
+											>
+												Abrir en mapas
+											</a>
+										) : null}
+										<button
+											type="button"
+											className="admin-btn secondary"
+											onClick={() => {
+												void navigator.clipboard.writeText(driverText).catch(() => {});
+											}}
+										>
+											Copiar para conductor
+										</button>
+									</div>
+								) : null}
+							</div>
+						);
+					})()}
 
 					{order.note ? (
 						<div className="cash-order-detail-block">

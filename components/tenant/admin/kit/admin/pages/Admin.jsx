@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
-  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle,
+  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store,
 } from 'lucide-react';
 import ProductModal from '../../products/components/ProductModal';
 import CategoryModal from '../../products/components/CategoryModal';
@@ -104,6 +104,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     resolvedTabLabels,
     adminShortcutsEnabled,
     lastDataRefreshAt,
+    loading,
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
@@ -625,10 +626,33 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           onAcknowledge={acknowledgeBroadcast}
         />
 
+        {branches.length === 0 && !loading ? (
+          <div className="admin-empty-branches glass animate-fade" role="status">
+            <div className="admin-empty-branches__icon" aria-hidden>
+              <Store size={40} strokeWidth={1.5} />
+            </div>
+            <h2 className="admin-empty-branches__title">No hay sucursales</h2>
+            <p className="admin-empty-branches__text">
+              Esta empresa aún no tiene locales configurados en el sistema, o no pudimos cargarlos.
+              Las sucursales se crean desde el panel de administración SaaS; cuando existan, podrás gestionar pedidos, menú y caja por local.
+            </p>
+            <button
+              type="button"
+              className="admin-btn primary admin-empty-branches__retry"
+              onClick={() => void refreshBranches()}
+            >
+              <RefreshCw size={18} strokeWidth={1.65} />
+              Reintentar carga
+            </button>
+          </div>
+        ) : branches.length === 0 ? (
+          <AdminTabFallback />
+        ) : (
+        <>
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
           !isHistoryView ? (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'}>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <AdminKanban
                 columns={kanbanColumns}
                 isMobile={isMobile}
@@ -643,7 +667,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               />
             </AdminErrorBoundary>
           ) : (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'}>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <React.Suspense fallback={<AdminTabFallback />}>
                 <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
               </React.Suspense>
@@ -651,8 +675,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           )
         )}
 
-        {/* 2. INVENTARIO */}
+        {/* 2. INVENTARIO (productos / platos) */}
         {activeTab === 'products' && (
+          <AdminErrorBoundary
+            tabLabel={tabLabels.products || 'Productos'}
+            onRetry={() => loadData(true)}
+          >
           <div className="products-view animate-fade">
             
             {/* BARRA DE ESTADÍSTICAS */}
@@ -740,11 +768,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               }
             </div>
           </div>
+          </AdminErrorBoundary>
         )}
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
         {activeTab === 'inventory' && (
-          <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'}>
+          <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} branches={branches} companyId={companyIdForClients} />
             </React.Suspense>
@@ -752,7 +781,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeTab === 'menu_options' && (
-          <AdminErrorBoundary tabLabel={tabLabels.menu_options || 'Opciones de menú'}>
+          <AdminErrorBoundary tabLabel={tabLabels.menu_options || 'Opciones de menú'} onRetry={() => void refreshBranches()}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminMenuOptions
                 showNotify={showNotify}
@@ -766,7 +795,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 3. REPORTES */}
         {activeTab === 'analytics' && (
-          <AdminErrorBoundary tabLabel={tabLabels.analytics || 'Reportes'}>
+          <AdminErrorBoundary tabLabel={tabLabels.analytics || 'Reportes'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminAnalytics 
                 orders={orders} 
@@ -780,7 +809,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 4. CLIENTES */}
         {activeTab === 'clients' && (
-          <AdminErrorBoundary tabLabel={tabLabels.clients || 'Clientes'}>
+          <AdminErrorBoundary tabLabel={tabLabels.clients || 'Clientes'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminClients
                 clients={clients}
@@ -794,14 +823,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </AdminErrorBoundary>
         )}
 
-        {/* EQUIPO (solo CEO) */}
-        {activeTab === 'users' && (
-          <div className="admin-toolbar glass">
-            <p className="admin-toolbar-hint">Usuarios que pueden entrar al panel de este local. Crea staff y asígnales las pestañas que podrán ver.</p>
-          </div>
-        )}
         {activeTab === 'payment_methods' && (
-          <AdminErrorBoundary tabLabel={tabLabels.payment_methods || 'Métodos de pago'}>
+          <AdminErrorBoundary tabLabel={tabLabels.payment_methods || 'Métodos de pago'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminPaymentMethods
                 showNotify={showNotify}
@@ -812,7 +835,13 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </AdminErrorBoundary>
         )}
 
+        {/* EQUIPO (solo CEO): toolbar + tabla + modales bajo un mismo boundary */}
         {activeTab === 'users' && (
+          <AdminErrorBoundary tabLabel={tabLabels.users || 'Equipo'} onRetry={() => void fetchTeamUsers()}>
+          <>
+          <div className="admin-toolbar glass">
+            <p className="admin-toolbar-hint">Usuarios que pueden entrar al panel de este local. Crea staff y asígnales las pestañas que podrán ver.</p>
+          </div>
           <div className="glass staff-table-glass admin-staff-panel">
             {teamLoading ? (
               <div className="admin-staff-loading"><Loader2 size={32} className="animate-spin" /></div>
@@ -877,7 +906,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               </div>
             )}
           </div>
-        )}
 
         {/* Modal confirmar eliminar usuario */}
         {teamUserToDelete && (
@@ -1080,22 +1108,20 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             </div>
           </div>
         )}
+          </>
+          </AdminErrorBoundary>
+        )}
 
         {activeDynamicModule && activeDynamicModule.tabId === 'module:tickets' && (
-          <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'}>
+          <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'} onRetry={() => loadData(true)}>
             <TenantTicketsPanel showNotify={showNotify} primaryColor={primaryColor} />
           </AdminErrorBoundary>
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && (
+          <AdminErrorBoundary tabLabel={tabLabels[activeDynamicModule.tabId] || activeDynamicModule.label || 'Módulo'} onRetry={() => loadData(true)}>
           <div className="glass admin-dynamic-module">
             <div>
-              <p className="admin-dynamic-module__kicker">
-                Nuevo módulo
-              </p>
-              <h3 className="admin-dynamic-module__title">
-                {activeDynamicModule.label}
-              </h3>
               <p className="admin-dynamic-module__desc">
                 {activeDynamicModule.description || 'Módulo agregado desde SaaS. Aquí vivirá la nueva funcionalidad del panel admin.'}
               </p>
@@ -1106,11 +1132,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               </p>
             </div>
           </div>
+          </AdminErrorBoundary>
         )}
 
         {/* 4.5 CAJA */}
         {activeTab === 'caja' && (
-          <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'}>
+          <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <CashManager showNotify={showNotify} selectedBranchId={selectedBranch?.id} orders={orders} />
             </React.Suspense>
@@ -1119,26 +1146,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 5. CATEGORÍAS */}
         {activeTab === 'categories' && (
+          <AdminErrorBoundary tabLabel={tabLabels.categories || 'Categorías'} onRetry={() => loadData(true)}>
           <div className="cat-container">
-            <div className="cat-header">
-              <div className="cat-header-left">
-                <h2 className="cat-title">Categorías</h2>
-                <p className="cat-subtitle">Gestiona tus categorías de productos</p>
-              </div>
-              <div className="cat-header-actions">
-                {categories.length > 0 && (
-                  <button
-                    onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }}
-                    className="btn btn-primary"
-                    disabled={!selectedBranch || selectedBranch.id === 'all'}
-                    title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
-                  >
-                    <Plus size={18} /> Nueva Categoría
-                  </button>
-                )}
-              </div>
-            </div>
-            
             {(!selectedBranch || selectedBranch.id === 'all') ? (
               <div className="cat-empty-state">
                 <div className="cat-empty-icon">
@@ -1279,6 +1288,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             </div>
             )}
           </div>
+          </AdminErrorBoundary>
+        )}
+        </>
         )}
 
         <AdminCommandPalette

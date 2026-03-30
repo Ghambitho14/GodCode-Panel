@@ -6,6 +6,9 @@ import { Search, Plus, Download, Filter, MoreVertical, ArrowUpDown, ChevronLeft,
 import ClientFormModal from './ClientFormModal';
 import AdminIconSlot from './AdminIconSlot';
 import { downloadExcel } from '../../shared/utils/exportUtils';
+import { getScrollableAncestors } from '../../shared/utils/scrollAncestors';
+import { WhatsAppGlyph, buildWhatsAppUrl } from '../../shared/utils/phoneWhatsApp';
+import { formatMoneyCl } from '../../shared/utils/numberSafe';
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNotify, companyId }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -36,25 +39,82 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
     const updateKebabMenuPosFromButton = useCallback((buttonEl) => {
         if (!buttonEl || typeof buttonEl.getBoundingClientRect !== 'function') return;
         const r = buttonEl.getBoundingClientRect();
-        setKebabMenuPos({
-            top: r.bottom + 6,
-            right: window.innerWidth - r.right,
-        });
+        const margin = 10;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        const menuW = Math.min(11.5 * remPx, vw - margin * 2);
+        const menuH = 168;
+
+        let left = r.right - menuW;
+        left = Math.max(margin, Math.min(left, vw - menuW - margin));
+
+        let top = r.bottom + 6;
+        if (top + menuH > vh - margin) {
+            top = Math.max(margin, r.top - menuH - 6);
+        }
+
+        setKebabMenuPos({ top, left });
     }, []);
 
     useLayoutEffect(() => {
         if (!menuOpenClientId) return undefined;
-        const reposition = () => {
-            const id = String(menuOpenClientId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-            const btn = document.querySelector(`[data-clients-kebab-id="${id}"]`);
+        const idEscaped = String(menuOpenClientId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+        let rafId = null;
+        const runReposition = () => {
+            const btn = document.querySelector(`[data-clients-kebab-id="${idEscaped}"]`);
             if (btn) updateKebabMenuPosFromButton(btn);
         };
-        reposition();
-        window.addEventListener('scroll', reposition, true);
-        window.addEventListener('resize', reposition);
+
+        const scheduleReposition = () => {
+            if (rafId != null) return;
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                runReposition();
+            });
+        };
+
+        runReposition();
+
+        const btn = document.querySelector(`[data-clients-kebab-id="${idEscaped}"]`);
+        const scrollRoots = btn ? getScrollableAncestors(btn) : [];
+        /* main.admin-content suele hacer scroll; por si no entra en la cadena de overflow */
+        const mainContent = typeof document !== 'undefined'
+            ? document.querySelector('.admin-layout main.admin-content')
+            : null;
+        const extraScrollRoots = mainContent && !scrollRoots.includes(mainContent) ? [mainContent] : [];
+
+        /* Scroll: reposición inmediata (sin rAF) para que el menú fixed no “flote” desincronizado */
+        scrollRoots.forEach((el) => {
+            el.addEventListener('scroll', runReposition, { passive: true });
+        });
+        extraScrollRoots.forEach((el) => {
+            el.addEventListener('scroll', runReposition, { passive: true });
+        });
+        window.addEventListener('scroll', runReposition, true);
+        window.addEventListener('resize', scheduleReposition);
+
+        const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+        if (vv) {
+            vv.addEventListener('scroll', runReposition);
+            vv.addEventListener('resize', scheduleReposition);
+        }
+
         return () => {
-            window.removeEventListener('scroll', reposition, true);
-            window.removeEventListener('resize', reposition);
+            if (rafId != null) cancelAnimationFrame(rafId);
+            scrollRoots.forEach((el) => {
+                el.removeEventListener('scroll', runReposition);
+            });
+            extraScrollRoots.forEach((el) => {
+                el.removeEventListener('scroll', runReposition);
+            });
+            window.removeEventListener('scroll', runReposition, true);
+            window.removeEventListener('resize', scheduleReposition);
+            if (vv) {
+                vv.removeEventListener('scroll', runReposition);
+                vv.removeEventListener('resize', scheduleReposition);
+            }
         };
     }, [menuOpenClientId, updateKebabMenuPosFromButton]);
 
@@ -105,7 +165,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
             // Si usamos solo 'clientOrders' (que puede estar filtrado por sucursal), 
             // un cliente VIP parecería nuevo en otra sucursal.
             const globalTotalOrders = client.total_orders || clientOrders.length;
-            const globalTotalSpent = client.total_spent || clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+            const dbSpent = Number(client.total_spent);
+            const globalTotalSpent = Number.isFinite(dbSpent) && dbSpent > 0
+                ? dbSpent
+                : clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
             
             const fidelityPoints = Math.floor(globalTotalSpent / 1000); // 1 punto por cada $1000
             
@@ -264,14 +327,11 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
         showNotify('Base de clientes exportada', 'success');
     };
 
-    // Helper para abrir WhatsApp
     const openWhatsApp = (e, phone) => {
         e.stopPropagation();
-        if (!phone) return;
-        // Limpiar teléfono (dejar solo números)
-        const cleanPhone = phone.replace(/\D/g, '');
-        const finalPhone = cleanPhone.startsWith('56') ? cleanPhone : `56${cleanPhone}`;
-        window.open(`https://wa.me/${finalPhone}`, '_blank');
+        const url = buildWhatsAppUrl(phone);
+        if (!url) return;
+        window.open(url, '_blank');
     };
 
     const copyPhone = async (e, phone) => {
@@ -373,28 +433,57 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                 ÚLTIMA VEZ {sortConfig.key === 'last_order_at' && <ArrowUpDown size={12} />}
                             </th>
                             <th>SEGMENTO</th>
-                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {paginatedClients.map(client => (
                             <tr key={client.id} onClick={() => onSelectClient && onSelectClient(client)} style={{ cursor: 'pointer' }}>
                                 <td data-label="Cliente">
-                                    <div className="client-info-cell">
-                                        <h4>{client.name || 'Sin Nombre'}</h4>
-                                        <div className="client-contact-row">
-                                            <span>{client.phone}</span>
-                                            {client.phone && (
-                                                <button 
-                                                    onClick={(e) => openWhatsApp(e, client.phone)}
-                                                    className="btn-icon-xs"
-                                                    title="Abrir WhatsApp"
+                                    <div className="client-card-header">
+                                        <div className="client-card-header__title-row">
+                                            <h4>{client.name || 'Sin Nombre'}</h4>
+                                            <div
+                                                className="clients-row-kebab-wrap"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
+                                                    data-clients-kebab-id={client.id}
+                                                    aria-expanded={menuOpenClientId === client.id}
+                                                    aria-haspopup="menu"
+                                                    aria-controls={menuOpenClientId === client.id ? 'clients-kebab-menu-popover' : undefined}
+                                                    id={menuOpenClientId === client.id ? 'clients-kebab-trigger-active' : undefined}
+                                                    aria-label="Más acciones"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (menuOpenClientId === client.id) {
+                                                            closeKebabMenu();
+                                                        } else {
+                                                            updateKebabMenuPosFromButton(e.currentTarget);
+                                                            setMenuOpenClientId(client.id);
+                                                        }
+                                                    }}
                                                 >
-                                                    <MessageCircle size={14} />
+                                                    <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
                                                 </button>
-                                            )}
+                                            </div>
                                         </div>
-                                        {client.email && <span className="client-email">{client.email}</span>}
+                                        {client.phone ? (
+                                            <div className="client-card-header__contact-row">
+                                                <span className="client-phone-text">{client.phone}</span>
+                                                <button
+                                                    type="button"
+                                                    className="clients-whatsapp-btn"
+                                                    onClick={(e) => openWhatsApp(e, client.phone)}
+                                                    title="Abrir chat en WhatsApp"
+                                                    aria-label="Abrir conversación en WhatsApp con este cliente"
+                                                >
+                                                    <WhatsAppGlyph className="clients-whatsapp-btn__glyph" />
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                        {client.email ? <span className="client-email">{client.email}</span> : null}
                                     </div>
                                 </td>
                                 <td className="hide-mobile" data-label="Canal">
@@ -420,7 +509,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                 </td>
                                 <td className="text-center" data-label="Gasto Total">
                                     <span className="text-success font-semibold">
-                                        ${client.total_spent.toLocaleString('es-CL')}
+                                        ${formatMoneyCl(client.total_spent)}
                                     </span>
                                 </td>
                                 <td data-label="Última vez">
@@ -435,31 +524,6 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                                 </td>
                                 <td data-label="Segmento">
                                     {getSegmentBadge(client.segment)}
-                                </td>
-                                <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                                    <div className="clients-row-kebab-wrap">
-                                        <button
-                                            type="button"
-                                            className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
-                                            data-clients-kebab-id={client.id}
-                                            aria-expanded={menuOpenClientId === client.id}
-                                            aria-haspopup="menu"
-                                            aria-controls={menuOpenClientId === client.id ? 'clients-kebab-menu-popover' : undefined}
-                                            id={menuOpenClientId === client.id ? 'clients-kebab-trigger-active' : undefined}
-                                            aria-label="Más acciones"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (menuOpenClientId === client.id) {
-                                                    closeKebabMenu();
-                                                } else {
-                                                    updateKebabMenuPosFromButton(e.currentTarget);
-                                                    setMenuOpenClientId(client.id);
-                                                }
-                                            }}
-                                        >
-                                            <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
-                                        </button>
-                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -490,7 +554,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, showNo
                     <div
                         id="clients-kebab-menu-popover"
                         className="clients-kebab-menu clients-kebab-menu--portal"
-                        style={{ top: kebabMenuPos.top, right: kebabMenuPos.right }}
+                        style={{ top: kebabMenuPos.top, left: kebabMenuPos.left }}
                         role="menu"
                         aria-label="Acciones del cliente"
                         onClick={(e) => e.stopPropagation()}

@@ -126,7 +126,6 @@ const AdminCompanyData = ({ showNotify, isMobile, branches, onBranchUpdate }) =>
         <div className="settings-container animate-fade">
             <header className="settings-header">
                 <div>
-                    <h1>Datos de la empresa</h1>
                     <p style={{ color: '#9ca3af', marginTop: 5 }}>Información legal y de contacto de la empresa (compartida por todos los locales).</p>
                 </div>
                 <button

@@ -22,6 +22,10 @@
     margin: 0;
 }
 
+.admin-layout .inventory-header--toolbar-only {
+    justify-content: flex-end;
+}
+
 /* SUMMARY BAR */
 .admin-layout .inventory-summary {
     display: flex;

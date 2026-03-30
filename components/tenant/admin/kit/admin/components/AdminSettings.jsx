@@ -137,7 +137,6 @@ const AdminSettings = ({ showNotify, isMobile, selectedBranch, onBranchUpdate })
         <div className="settings-container animate-fade">
             <header className="settings-header">
                 <div>
-                    <h1>Configuración del local</h1>
                     <p style={{ color: '#9ca3af', marginTop: 5 }}>Información pública de <strong style={{ color: 'white' }}>{selectedBranch.name}</strong></p>
                 </div>
                 <button 

@@ -39,6 +39,10 @@ const ClientDetailsPanel = ({
 
     if (!selectedClient) return null;
 
+    const clientName = selectedClient.name != null && String(selectedClient.name).trim() !== ''
+        ? String(selectedClient.name)
+        : 'Sin nombre';
+
     // --- 2. HELPERS DE RENDERIZADO (Limpieza) ---
     
     // Renderiza el botón de acción según estado del pago
@@ -117,10 +121,10 @@ const ClientDetailsPanel = ({
                 <div className="admin-side-header">
                     <div className="client-profile">
                         <div className="avatar-placeholder">
-                            {selectedClient.name.charAt(0).toUpperCase()}
+                            {clientName.charAt(0).toUpperCase()}
                         </div>
                         <div className="client-info">
-                            <h3 className="client-name">{selectedClient.name}</h3>
+                            <h3 className="client-name">{clientName}</h3>
                             <div className="client-meta">
                                 <span className="meta-tag">RUT: {selectedClient.rut || 'N/A'}</span>
                                 {selectedClient.phone && <span className="meta-tag">{selectedClient.phone}</span>}
@@ -204,12 +208,12 @@ const ClientDetailsPanel = ({
                                                 {getPaymentLabel(order)}
                                             </span>
                                             <span className="order-total">
-                                                ${order.total.toLocaleString('es-CL')}
+                                                ${Number(order.total ?? 0).toLocaleString('es-CL')}
                                             </span>
                                         </div>
 
                                         <div className="history-items">
-                                            {order.items.map((item, idx) => (
+                                            {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
                                                 <span key={idx} className="item-pill">
                                                     <b>{item.quantity}x</b> {item.name}
                                                 </span>

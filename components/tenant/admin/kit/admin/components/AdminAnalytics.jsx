@@ -13,10 +13,19 @@ import {
     Smartphone, TrendingUp, Package, Clock, MapPin
 } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
+import AdminMenuSelect from './AdminMenuSelect';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isOnlineOrder, getPaymentSlug } from '../../shared/utils/orderUtils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+
+const RPT_PERIOD_OPTIONS = [
+    { value: '7', label: '7 días' },
+    { value: '15', label: '15 días' },
+    { value: '30', label: '30 días' },
+    { value: '90', label: '3 meses' },
+    { value: 'all', label: 'Todo' },
+];
 
 const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
@@ -273,24 +282,18 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
     };
 
     return (
-        <div className="rpt-container animate-fade">
+        <div className="rpt-container rpt-container--compact-toolbar animate-fade">
             {/* HEADER */}
-            <header className="rpt-header">
-                <div>
-                    <h1 className="rpt-title">Reportes</h1>
-                    <p className="rpt-subtitle">Resumen de rendimiento del negocio</p>
-                </div>
+            <header className="rpt-header rpt-header--actions-only">
                 <div className="rpt-header-actions">
-                    <div className="rpt-period-select">
-                        <AdminIconSlot Icon={Calendar} slotSize="sm" tone="accent" />
-                        <select value={filterPeriod} onChange={e => setFilterPeriod(e.target.value)}>
-                            <option value="7">7 días</option>
-                            <option value="15">15 días</option>
-                            <option value="30">30 días</option>
-                            <option value="90">3 meses</option>
-                            <option value="all">Todo</option>
-                        </select>
-                    </div>
+                    <AdminMenuSelect
+                        className="rpt-period-menu-select"
+                        value={filterPeriod}
+                        onChange={setFilterPeriod}
+                        options={RPT_PERIOD_OPTIONS}
+                        aria-label="Rango de fechas del informe"
+                        icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
+                    />
                 </div>
             </header>
 

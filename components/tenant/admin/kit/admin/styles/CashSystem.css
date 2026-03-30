@@ -284,14 +284,6 @@
     padding-bottom: 1.5rem;
 }
 
-.admin-layout .cash-header h1 {
-    font-size: clamp(1.4rem, 4vw, 2rem);
-    font-weight: 900;
-    letter-spacing: -0.04em;
-    color: #fff;
-    margin: 0;
-}
-
 .admin-layout .cash-header-actions {
     display: flex;
     gap: 10px;
@@ -599,7 +591,6 @@
     font-size: 0.8rem;
     color: var(--c-income);
     font-weight: 600;
-    margin-top: 2px;
 }
 
 .admin-layout .cash-pulse {
@@ -947,6 +938,10 @@
     color: #fff;
 }
 
+.admin-layout .cash-filters-inline .admin-branch-select {
+    max-width: min(100%, 280px);
+}
+
 /* --- History Card List --- */
 .admin-layout .cash-history-list {
     display: flex;
@@ -1218,10 +1213,6 @@
 }
 
 @media (max-width: 480px) {
-    .admin-layout .cash-header h1 {
-        font-size: 1.3rem;
-    }
-
     .admin-layout .cash-section-title {
         font-size: 0.9rem;
     }

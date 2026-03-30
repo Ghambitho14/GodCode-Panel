@@ -81,6 +81,12 @@
 	margin: 6px 0 0;
 }
 
+.admin-layout .history-view .clients-header > .admin-history-meta {
+	margin: 0;
+	color: var(--admin-text-muted, #5a6169);
+	font-size: 0.85rem;
+}
+
 .admin-layout .history-view .select-wrapper {
 	display: flex;
 	align-items: center;

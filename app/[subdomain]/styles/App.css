@@ -88,12 +88,6 @@
   pointer-events: none;
 }
 
-.tenant-portal-navbar {
-  pointer-events: auto;
-  width: 100%;
-}
-
-.tenant-portal-cart,
 .tenant-portal-modal {
   pointer-events: auto;
 }

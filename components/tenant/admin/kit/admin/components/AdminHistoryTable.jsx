@@ -56,12 +56,9 @@ const AdminHistoryTable = ({ orders, setReceiptModalOrder }) => {
 	return (
 		<div className="history-view glass animate-fade">
 			<div className="clients-header">
-				<div className="clients-title">
-					<h2>Historial Completo</h2>
-					<p className="admin-history-subtitle">
-						{filteredOrders.length} pedidos encontrados
-					</p>
-				</div>
+				<p className="admin-history-subtitle admin-history-meta">
+					{filteredOrders.length} pedidos encontrados
+				</p>
 
 				<div className="clients-actions">
 					<div className="search-box">

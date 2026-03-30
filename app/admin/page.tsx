@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { AdminApp } from "../../components/tenant/admin/admin-app";
-
-export const dynamic = "force-dynamic";
 import { TenantShell } from "../../components/tenant/tenant-shell";
 import { buildTenantThemeCss } from "../../lib/panel-theme-css";
 import { getStorefrontMenuUrl } from "../../lib/storefront-url";
@@ -16,6 +14,8 @@ import {
 	parseAdminPanelThemeExtensions,
 } from "../../lib/admin-theme-config";
 import type { DatabaseCompanyTheme } from "../../lib/company-theme-types";
+
+export const dynamic = "force-dynamic";
 
 interface DynamicAdminModule {
 	id: string;

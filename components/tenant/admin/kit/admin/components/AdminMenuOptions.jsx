@@ -12,14 +12,6 @@ import "../styles/AdminMenuOptions.css";
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
 	return (
 		<div className="admin-menu-options" data-tab="menu-options">
-			<header className="glass animate-fade admin-menu-options-intro">
-				<p className="admin-menu-options-eyebrow">Menú digital</p>
-				<h2 className="admin-menu-options-title">Opciones de menú</h2>
-				<p className="admin-menu-options-lead">
-					Ajustes del menú público de tu negocio. Aquí iremos sumando más opciones cuando hagan falta.
-				</p>
-			</header>
-
 			<AdminMenuDeliverySection
 				showNotify={showNotify}
 				selectedBranch={selectedBranch}

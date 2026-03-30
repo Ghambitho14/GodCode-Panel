@@ -1287,10 +1287,10 @@
     }
 }
 
-/* === TOUCH TARGETS (Mobile) === */
+/* === TOUCH TARGETS (Mobile) — solo dentro del modal de pedido manual (no todo el panel admin) === */
 @media (max-width: 767px) {
 
-    button,
+    .manual-order-overlay button,
     .manual-order-product-card {
         min-height: 44px;
         min-width: 44px;

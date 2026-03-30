@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase';
 import { uploadImage } from '../../shared/utils/cloudinary';
 import {
     computeDeliveryFee,
+    effectiveDeliveryPricingMode,
     normalizeDeliverySettings,
 } from '@/lib/delivery-settings';
 
@@ -157,14 +158,69 @@ export const ordersService = {
                 if (!deliverySettings.enabled) {
                     throw new Error('El delivery no está habilitado para esta sucursal.');
                 }
+                const namedIdRaw =
+                    orderData.delivery_named_area_id ?? orderData.namedAreaId;
+                let namedId =
+                    typeof namedIdRaw === 'string' && namedIdRaw.trim()
+                        ? namedIdRaw.trim()
+                        : null;
                 const km = Number(orderData.delivery_km);
                 const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
-                const r = computeDeliveryFee(deliverySettings, safeKm, calculatedItemsTotal);
+                const priceMode = effectiveDeliveryPricingMode(deliverySettings);
+
+                if (priceMode === 'named' && deliverySettings.namedAreaResolution === 'address_matched') {
+                    const da = orderData.delivery_address;
+                    const addr =
+                        da && typeof da === 'object'
+                            ? String(da.address ?? da.formatted_address ?? '').trim()
+                            : '';
+                    if (addr.length < 8) {
+                        throw new Error('Completa la dirección de entrega (calle, número y comuna o ciudad).');
+                    }
+                    if (typeof window === 'undefined') {
+                        throw new Error('Cotización por dirección no disponible en este contexto.');
+                    }
+                    const geoRes = await fetch(`${window.location.origin}/api/delivery-geocode`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            branchId: orderData.branch_id,
+                            address: addr,
+                            subtotal: calculatedItemsTotal,
+                        }),
+                    });
+                    const geoJson = await geoRes.json().catch(() => ({}));
+                    if (!geoRes.ok || !geoJson.ok) {
+                        throw new Error(geoJson.error || 'No se pudo calcular el envío según la dirección.');
+                    }
+                    namedId = geoJson.namedAreaId;
+                    orderData.delivery_named_area_id = namedId;
+                    if (da && typeof da === 'object') {
+                        orderData.delivery_address = {
+                            ...da,
+                            named_area_id: namedId,
+                            named_area_label: geoJson.label,
+                        };
+                    }
+                }
+
+                const r =
+                    priceMode === 'named'
+                        ? computeDeliveryFee(deliverySettings, 0, calculatedItemsTotal, {
+                              namedAreaId: namedId,
+                          })
+                        : computeDeliveryFee(deliverySettings, safeKm, calculatedItemsTotal);
                 if (r.fee === -1) {
                     throw new Error('La distancia indicada supera el máximo permitido para delivery en esta sucursal.');
                 }
                 if (r.fee === -2) {
                     throw new Error('El subtotal del pedido no alcanza el mínimo requerido para delivery.');
+                }
+                if (r.fee === -3) {
+                    throw new Error('Debes elegir una zona de entrega.');
+                }
+                if (r.fee === -4) {
+                    throw new Error('La zona de entrega seleccionada no es válida.');
                 }
                 deliveryFee = r.fee;
             }
@@ -237,6 +293,14 @@ export const ordersService = {
                         deliveryKm: Number(orderData.delivery_km),
                         deliveryFee,
                         deliveryAddress: orderData.delivery_address ?? null,
+                        deliveryLat: orderData.delivery_lat,
+                        deliveryLng: orderData.delivery_lng,
+                        namedAreaId:
+                            typeof orderData.delivery_named_area_id === 'string'
+                                ? orderData.delivery_named_area_id.trim()
+                                : typeof orderData.namedAreaId === 'string'
+                                  ? orderData.namedAreaId.trim()
+                                  : undefined,
                     }),
                 });
                 if (!patchRes.ok) {

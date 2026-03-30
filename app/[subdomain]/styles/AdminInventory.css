@@ -23,6 +23,10 @@
 	color: var(--admin-text, #1a1d21);
 }
 
+.admin-layout .inventory-header--toolbar-only {
+	justify-content: flex-end;
+}
+
 /* SUMMARY BAR */
 .admin-layout .inventory-summary {
 	display: flex;

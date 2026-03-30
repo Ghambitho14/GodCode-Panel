@@ -179,6 +179,11 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                                                                     : ''}
                                                             </div>
                                                         )}
+                                                        {Number(m.orders.delivery_fee) > 0 ? (
+                                                            <div style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', marginTop: 4, fontWeight: 600 }}>
+                                                                Envío cobrado: ${Number(m.orders.delivery_fee).toLocaleString('es-CL')}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 )}
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: 2 }}>
