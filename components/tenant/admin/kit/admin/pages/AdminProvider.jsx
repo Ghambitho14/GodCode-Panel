@@ -486,8 +486,7 @@ export const AdminProvider = ({
 				};
 			});
 			const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
-			const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
-			const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
+			const allClients = cltsRes.data || [];
 			const branchCategoryMap = (categoryBranchRes.data || []).reduce((acc, row) => {
 				acc[row.category_id] = { order: row.order, is_active: row.is_active };
 				return acc;
@@ -506,7 +505,7 @@ export const AdminProvider = ({
 			setCategories(categoriesData);
 			setProducts(mergedProducts);
 			setOrders(cleanOrders);
-			setClients(filteredClients);
+			setClients(allClients);
 			setLastDataRefreshAt(Date.now());
 		} catch {
 			showNotify("Error de conexión", 'error');

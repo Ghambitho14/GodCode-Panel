@@ -695,11 +695,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							Repartidor (solo equipo)
 						</p>
 						<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
-							En pedidos <strong>delivery</strong>, el botón de enviar en el tablero abre WhatsApp con este
-							número y el texto completo (dirección, código de verificación, cliente, mapa).
+							En el tablero, el botón de WhatsApp abre el mensaje del envío y tú eliges al destinatario en la
+							app de WhatsApp.
 						</p>
 						<div className="form-group" style={{ maxWidth: "22rem" }}>
-							<label htmlFor="adm-del-driver-wa">WhatsApp del repartidor (código país + número)</label>
+							<label htmlFor="adm-del-driver-wa">WhatsApp repartidor (opcional)</label>
 							<input
 								id="adm-del-driver-wa"
 								type="tel"

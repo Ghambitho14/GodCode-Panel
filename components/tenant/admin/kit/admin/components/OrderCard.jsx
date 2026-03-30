@@ -3,7 +3,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Clock, XCircle, Upload, ImageIcon, Printer, MessageCircle, Eye, Truck, Copy, Send, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '../../shared/utils/formatters';
-import { buildOrderWhatsAppShareText, buildOrderDeliveryDriverPack, getPaymentLabel, getTrustedDriverWhatsAppDigits, isOrderDelivery } from '../../shared/utils/orderUtils';
+import {
+    buildOrderWhatsAppShareText,
+    buildOrderDeliveryDriverPack,
+    shareDeliveryPackViaWhatsApp,
+    getPaymentLabel,
+    isOrderDelivery,
+} from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
 import OrderDetailModal from './OrderDetailModal';
 
@@ -61,23 +67,12 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
         }
     };
 
-    const handleSendDeliveryWhatsApp = (e) => {
+    const handleDeliveryWhatsApp = async (e) => {
         e.stopPropagation();
-        const digits = getTrustedDriverWhatsAppDigits(branch);
-        if (!digits || digits.length < 8) {
-            showNotify?.(
-                'Configura el WhatsApp del repartidor en Menú → Opciones de menú → Delivery (y guarda).',
-                'error',
-            );
-            return;
-        }
         const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null);
-        if (!String(text).trim()) {
-            showNotify?.('No hay datos de envío para enviar.', 'error');
-            return;
-        }
-        const url = `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        await shareDeliveryPackViaWhatsApp(text, {
+            onError: (msg) => showNotify?.(msg, 'error'),
+        });
     };
 
     // Lógica VIP: Buscar cliente y verificar si tiene más de 5 pedidos
@@ -110,9 +105,10 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     {isDelivery ? (
                         <button
                             type="button"
-                            onClick={handleSendDeliveryWhatsApp}
+                            onClick={handleDeliveryWhatsApp}
                             className="admin-icon-btn admin-icon-btn--sm"
-                            title="Enviar por WhatsApp al repartidor (configura su número en Delivery del menú)"
+                            title="Abrir WhatsApp con el texto del envío; eliges el contacto en la app"
+                            aria-label="Enviar datos de delivery por WhatsApp"
                         >
                             <Send size={17} aria-hidden />
                         </button>

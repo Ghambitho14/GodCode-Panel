@@ -462,6 +462,7 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
             <CashOrderDetailPanel
                 order={selectedMovementOrder}
                 branch={selectedBranch}
+                showNotify={showNotify}
                 onClose={() => setSelectedMovementOrder(null)}
             />
         </div>

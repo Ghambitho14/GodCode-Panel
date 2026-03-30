@@ -289,17 +289,37 @@ export function deliveryAddressLines(addr) {
  * Usado en Admin y en hooks que parsean órdenes.
  */
 /**
- * Número WhatsApp del repartidor de confianza (solo dígitos, con código país).
- * Viene de `branches.delivery_settings.trustedDriverWhatsApp` guardado en el panel.
- * @param {{ delivery_settings?: Record<string, unknown> } | null | undefined} branch
- * @returns {string}
+ * Abre WhatsApp con el mensaje listo para que quien envía elija al destinatario **dentro de WhatsApp**
+ * (compartir nativo en móvil, o enlace sin número que abre la app / Web).
+ *
+ * @param {string} text
+ * @param {{ onError?: (msg: string) => void }} [options]
+ * @returns {Promise<boolean>}
  */
-export function getTrustedDriverWhatsAppDigits(branch) {
-	const ds = branch?.delivery_settings;
-	if (!ds || typeof ds !== 'object' || Array.isArray(ds)) return '';
-	const raw = ds.trustedDriverWhatsApp ?? ds.trusted_driver_whatsapp;
-	if (typeof raw !== 'string') return '';
-	return raw.replace(/\D/g, '').slice(0, 18);
+export async function shareDeliveryPackViaWhatsApp(text, options = {}) {
+	const { onError } = options;
+	const body = String(text ?? "").trim();
+	if (!body) {
+		onError?.("No hay datos de envío para enviar.");
+		return false;
+	}
+	if (typeof window === "undefined") return false;
+
+	try {
+		if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+			await navigator.share({ text: body });
+			return true;
+		}
+	} catch (err) {
+		const name = err && typeof err === "object" && "name" in err ? String(err.name) : "";
+		if (name === "AbortError") {
+			return true;
+		}
+	}
+
+	const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(body)}`;
+	window.open(url, "_blank", "noopener,noreferrer");
+	return true;
 }
 
 export function sanitizeOrder(rawOrder) {
