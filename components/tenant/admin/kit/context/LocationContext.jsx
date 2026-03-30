@@ -10,6 +10,15 @@ const getPublicCompanySlug = () => (
     process.env.NEXT_PUBLIC_PUBLIC_COMPANY_SLUG || process.env.NEXT_PUBLIC_COMPANY_SLUG || ''
 ).trim();
 
+/** No exponer al cliente público (menú/checkout) el WhatsApp del repartidor de confianza. */
+function stripStaffOnlyDeliverySettings(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+    const next = { ...raw };
+    delete next.trustedDriverWhatsApp;
+    delete next.trusted_driver_whatsapp;
+    return next;
+}
+
 function getInitialBranch() {
     if (typeof window === 'undefined') {
         return { branch: null, hasValidBranch: false };
@@ -50,12 +59,14 @@ export const LocationProvider = ({ children }) => {
 
                 const mappedBranches = (data || []).map((b) => {
                     const rawDel = b.delivery_settings ?? b.deliverySettings;
+                    const publicDel = stripStaffOnlyDeliverySettings(rawDel);
                     return {
                         ...b,
+                        delivery_settings: publicDel,
                         whatsappUrl: b.whatsapp_url,
                         instagramUrl: b.instagram_url,
                         mapUrl: b.map_url,
-                        deliverySettings: normalizeDeliverySettings(rawDel),
+                        deliverySettings: normalizeDeliverySettings(publicDel),
                     };
                 });
 

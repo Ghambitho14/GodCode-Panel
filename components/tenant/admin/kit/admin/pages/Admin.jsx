@@ -1139,7 +1139,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {activeTab === 'caja' && (
           <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
-              <CashManager showNotify={showNotify} selectedBranchId={selectedBranch?.id} orders={orders} />
+              <CashManager
+                showNotify={showNotify}
+                selectedBranchId={selectedBranch?.id}
+                selectedBranch={selectedBranch}
+                orders={orders}
+              />
             </React.Suspense>
           </AdminErrorBoundary>
         )}

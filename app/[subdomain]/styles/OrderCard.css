@@ -280,12 +280,18 @@
 }
 
 .admin-layout .payment-badge {
-    background: rgba(56, 189, 248, 0.1);
-    color: #38bdf8;
+    background: var(--admin-icon-bg);
+    color: var(--admin-text-muted);
     padding: 2px 7px;
     border-radius: 999px;
-    border: 1px solid rgba(56, 189, 248, 0.2);
+    border: 1px solid var(--admin-border);
     font-size: 0.65rem;
+}
+
+.admin-layout .payment-badge.online {
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--admin-icon-bg));
+    color: var(--admin-text);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
 }
 
 /* --- CLIENTE --- */
@@ -301,15 +307,43 @@
     line-height: 1.15;
 }
 
+/* Cliente habitual (≥5 pedidos): texto discreto, sin icono llamativo */
+.admin-layout .order-card-vip-badge {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
+}
+
 .admin-layout .client-phone {
     font-size: 0.75rem;
-    color: var(--accent-primary);
+    color: var(--admin-text-muted);
     display: flex;
     align-items: center;
     gap: 6px;
     margin-top: 4px;
-    opacity: 0.9;
     font-weight: 600;
+}
+
+.admin-layout .client-phone a,
+.admin-layout .client-phone-wa {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.admin-layout .client-phone a:hover,
+.admin-layout .client-phone-wa:hover {
+    color: var(--admin-text);
 }
 
 /* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
@@ -344,9 +378,10 @@
 }
 
 .admin-layout .qty-circle {
-    background: #fff;
-    color: #000;
-    font-weight: 900;
+    background: var(--admin-card-bg);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    font-weight: 800;
     width: 20px;
     height: 20px;
     border-radius: 6px;
@@ -370,11 +405,12 @@
 
 .admin-layout .order-item-detail {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     margin-left: 28px;
     margin-bottom: 4px;
-    font-style: italic;
-    color: #1d4ed8;
+    font-style: normal;
+    color: var(--admin-text-muted);
+    line-height: 1.4;
 }
 
 .admin-layout .order-card-meta-sep {
@@ -402,21 +438,31 @@
     color: var(--admin-text, #0f172a);
 }
 
-/* --- NOTAS Y ADJUNTOS --- */
+/* --- NOTAS: mismo lenguaje visual que el resto de la tarjeta --- */
 .admin-layout .card-note {
-    font-size: 0.75rem;
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.08);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-style: normal;
+    font-weight: 500;
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
     padding: 8px 10px;
     border-radius: var(--inner-radius);
-    border-left: 3px solid #fbbf24;
-    font-style: italic;
+    border: 1px solid var(--admin-border);
+    border-left: 3px solid color-mix(in srgb, var(--accent-primary) 45%, var(--admin-border));
+}
+
+.admin-layout .card-note .card-note-label {
+    font-weight: 800;
+    margin-right: 4px;
+    color: var(--admin-text-muted);
+    letter-spacing: 0.04em;
 }
 
 .admin-layout .receipt-link {
     font-size: 0.75rem;
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.05);
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
     padding: 8px;
     border-radius: var(--inner-radius);
     text-decoration: none;
@@ -424,8 +470,13 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: 1px solid rgba(56, 189, 248, 0.1);
+    border: 1px solid var(--admin-border);
     font-weight: 600;
+}
+
+.admin-layout .receipt-link:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--admin-border));
+    color: var(--admin-text);
 }
 
 /* --- TOTAL SECCION --- */
@@ -480,7 +531,7 @@
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: rgb(0, 56, 88);
+    color: #fff;
     transition: var(--transition-bounce);
 }
 
@@ -636,9 +687,9 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #38bdf8;
-    background: rgba(56, 189, 248, 0.12);
-    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
     padding: 4px 8px;
     border-radius: var(--inner-radius);
 }

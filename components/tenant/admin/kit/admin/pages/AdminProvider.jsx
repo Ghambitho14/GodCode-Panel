@@ -477,7 +477,8 @@ export const AdminProvider = ({
 					price: priceData ? priceData.price : 0,
 					has_discount: priceData ? priceData.has_discount : false,
 					discount_price: priceData ? priceData.discount_price : 0,
-					is_active: statusData ? statusData.is_active : false,
+					// Sin fila en product_branch: no asumir "desactivado" — heredar is_active global del catálogo.
+					is_active: statusData ? statusData.is_active : Boolean(prod.is_active),
 					is_special: statusData ? statusData.is_special : false,
 					category_id: statusData?.category_id || prod.category_id,
 					price_id: priceData?.id,

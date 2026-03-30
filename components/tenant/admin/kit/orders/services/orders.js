@@ -225,8 +225,10 @@ export const ordersService = {
                 deliveryFee = r.fee;
             }
 
-            const grandTotal = Math.round((calculatedItemsTotal + deliveryFee) * 100) / 100;
-            const totalToUse = grandTotal;
+            const itemsSubtotal = Math.round(calculatedItemsTotal * 100) / 100;
+            // La RPC valida precios de ítems contra la BD y exige coherencia con el subtotal de productos
+            // (sin incluir el cargo de envío; el envío se confirma después en /api/public-order-delivery).
+            const totalForRpc = itemsSubtotal;
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -261,7 +263,7 @@ export const ordersService = {
                 p_client_phone: orderData.client_phone,
                 p_client_rut: clientRut,
                 p_items: normalizedItems,
-                p_total: totalToUse,
+                p_total: totalForRpc,
                 p_payment_type: orderData.payment_type,
                 p_payment_ref: paymentRef,
                 p_payment_method_specific: orderData.payment_method_specific ?? null,

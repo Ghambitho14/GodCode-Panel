@@ -20,6 +20,7 @@ const emptyDraft = () => ({
 	freeDeliveryFromSubtotal: "",
 	minOrderSubtotal: "",
 	customerNotes: "",
+	trustedDriverWhatsApp: "",
 	originLat: "",
 	originLng: "",
 });
@@ -68,6 +69,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				n.freeDeliveryFromSubtotal != null ? String(n.freeDeliveryFromSubtotal) : "",
 			minOrderSubtotal: n.minOrderSubtotal != null ? String(n.minOrderSubtotal) : "",
 			customerNotes: n.customerNotes ?? "",
+			trustedDriverWhatsApp:
+				typeof data.trustedDriverWhatsApp === "string"
+					? data.trustedDriverWhatsApp
+					: "",
 			originLat:
 				data.originLat != null && data.originLat !== ""
 					? String(data.originLat)
@@ -259,6 +264,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						: Number(draft.freeDeliveryFromSubtotal),
 				minOrderSubtotal: draft.minOrderSubtotal === "" ? null : Number(draft.minOrderSubtotal),
 				customerNotes: draft.customerNotes.trim(),
+				trustedDriverWhatsApp: draft.trustedDriverWhatsApp.trim(),
 				zones: zonesPayload,
 				namedAreas: namedPlacesPayload,
 			};
@@ -683,6 +689,33 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							</div>
 						</>
 					)}
+
+					<div className="admin-delivery-strategy-block" style={{ marginTop: 18 }}>
+						<p className="admin-menu-options-section-label" style={{ marginBottom: 8 }}>
+							Repartidor (solo equipo)
+						</p>
+						<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
+							En pedidos <strong>delivery</strong>, el botón de enviar en el tablero abre WhatsApp con este
+							número y el texto completo (dirección, código de verificación, cliente, mapa).
+						</p>
+						<div className="form-group" style={{ maxWidth: "22rem" }}>
+							<label htmlFor="adm-del-driver-wa">WhatsApp del repartidor (código país + número)</label>
+							<input
+								id="adm-del-driver-wa"
+								type="tel"
+								className="form-input"
+								placeholder="Ej: 56 9 1234 5678"
+								autoComplete="off"
+								value={draft.trustedDriverWhatsApp}
+								onChange={(ev) =>
+									setDraft((d) => ({ ...d, trustedDriverWhatsApp: ev.target.value }))
+								}
+							/>
+							<p className="admin-menu-options-card-desc" style={{ marginTop: 6, marginBottom: 0 }}>
+								Se guarda al pulsar <strong>Guardar tarifas y opciones</strong>. Déjalo vacío para quitar.
+							</p>
+						</div>
+					</div>
 
 					<details
 						className="admin-delivery-advanced"

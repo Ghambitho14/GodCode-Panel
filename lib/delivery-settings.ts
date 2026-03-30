@@ -342,6 +342,21 @@ export function mergeDeliverySettingsJson(
 		}
 	}
 
+	/** Solo panel staff; no forma parte del contrato público de cotización. */
+	if ("trustedDriverWhatsApp" in patch) {
+		const v = patch.trustedDriverWhatsApp;
+		if (v === null || v === "") {
+			delete next.trustedDriverWhatsApp;
+			delete next.trusted_driver_whatsapp;
+		} else if (typeof v === "string") {
+			const digits = v.replace(/\D/g, "").slice(0, 18);
+			if (digits.length >= 8) {
+				next.trustedDriverWhatsApp = digits;
+			}
+			delete next.trusted_driver_whatsapp;
+		}
+	}
+
 	if (
 		typeof next.minFee === "number" &&
 		typeof next.maxFee === "number" &&

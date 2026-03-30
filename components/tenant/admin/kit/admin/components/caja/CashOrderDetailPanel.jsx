@@ -9,6 +9,8 @@ import {
 	getPaymentSlug,
 	isOrderDelivery,
 	deliveryAddressLines,
+	buildOrderDeliveryDriverPack,
+	getTrustedDriverWhatsAppDigits,
 } from '../../../shared/utils/orderUtils';
 import './CashOrderDetailPanel.css';
 
@@ -45,7 +47,7 @@ function parseItems(raw) {
 	return [];
 }
 
-export default function CashOrderDetailPanel({ order, onClose }) {
+export default function CashOrderDetailPanel({ order, onClose, branch = null }) {
 	useEffect(() => {
 		const onEsc = (e) => {
 			if (e.key === 'Escape') onClose();
@@ -151,18 +153,15 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 								? String(addr.maps_url)
 								: "";
 						const handoff =
-							order.handoff_code != null && String(order.handoff_code).trim() !== ""
+							order.handoff_code != null && String(order.handoff_code).trim() !== ''
 								? String(order.handoff_code).trim()
-								: "";
-						const driverText = [
-							`Pedido #${String(order.id).slice(-4)}`,
-							handoff ? `Código entrega: ${handoff}` : null,
-							...addrLines,
-							mapsUrl ? `Mapa: ${mapsUrl}` : null,
-							order.client_phone ? `Cliente: ${order.client_phone}` : null,
-						]
-							.filter(Boolean)
-							.join("\n");
+								: '';
+						const driverText = buildOrderDeliveryDriverPack(
+							order,
+							branch?.name ?? null,
+							branch?.address ?? null,
+						);
+						const driverWaDigits = getTrustedDriverWhatsAppDigits(branch);
 
 						return (
 							<div className="cash-order-detail-block">
@@ -209,15 +208,22 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 												Abrir en mapas
 											</a>
 										) : null}
-										<button
-											type="button"
-											className="admin-btn secondary"
-											onClick={() => {
-												void navigator.clipboard.writeText(driverText).catch(() => {});
-											}}
-										>
-											Copiar para conductor
-										</button>
+										{driverWaDigits.length >= 8 ? (
+											<button
+												type="button"
+												className="admin-btn primary"
+												onClick={() => {
+													const url = `https://wa.me/${driverWaDigits}?text=${encodeURIComponent(driverText)}`;
+													window.open(url, '_blank', 'noopener,noreferrer');
+												}}
+											>
+												Enviar a repartidor (WhatsApp)
+											</button>
+										) : (
+											<div className="cash-order-detail-sub" style={{ width: '100%' }}>
+												Configura el WhatsApp del repartidor en Menú → Opciones de menú → Delivery (Guardar tarifas).
+											</div>
+										)}
 									</div>
 								) : null}
 							</div>

@@ -211,7 +211,16 @@ export async function POST(req: NextRequest) {
 
 		const expectedTotal = Math.round((subtotal + expectedFee) * 100) / 100;
 		const orderTotal = Number(order.total) || 0;
-		if (Math.abs(orderTotal - expectedTotal) > TOTAL_EPS) {
+		const subtotalRounded = Math.round(subtotal * 100) / 100;
+		const matchesItemsPlusFee =
+			Math.abs(orderTotal - expectedTotal) <= TOTAL_EPS;
+		// Tras create_order_transaction el total suele ser solo ítems; el envío se confirma aquí.
+		const matchesItemsOnly =
+			Math.abs(orderTotal - subtotalRounded) <= TOTAL_EPS;
+		if (
+			!matchesItemsPlusFee &&
+			!(matchesItemsOnly && isDeliveryType(orderTypeRaw))
+		) {
 			return NextResponse.json(
 				{ error: "Total del pedido no coincide con ítems + envío" },
 				{ status: 400 },
@@ -247,6 +256,7 @@ export async function POST(req: NextRequest) {
 				order_type: isDeliveryType(orderTypeRaw) ? "delivery" : "pickup",
 				delivery_fee: expectedFee,
 				delivery_address: deliveryAddress,
+				total: expectedTotal,
 				...(handoff ? { handoff_code: handoff } : {}),
 			})
 			.eq("id", orderId)
