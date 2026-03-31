@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "../../../utils/supabase/server";
 
+import {
+	applyPaymentMethodToggle,
+	BRANCH_PAYMENT_METHOD_ORDER,
+	isBranchPaymentMethodKey,
+	normalizePaymentMethodKeyToCanonical,
+} from "../../../lib/branch-payment-methods";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 
 const PAYMENT_METHODS_ALLOWED_ROLES = new Set(["owner", "ceo"]);
@@ -101,12 +107,14 @@ export async function PATCH(req: NextRequest) {
 			is_enabled?: boolean;
 		};
 		const branchId = body.branch_id;
-		const provider = body.provider === "paypal" || body.provider === "stripe" ? body.provider : null;
 		const isEnabled = Boolean(body.is_enabled);
+		const canonical = normalizePaymentMethodKeyToCanonical(String(body.provider ?? ""));
 
-		if (!branchId || !provider) {
+		if (!branchId || !canonical || !isBranchPaymentMethodKey(canonical)) {
 			return NextResponse.json(
-				{ error: "branch_id y provider (paypal|stripe) son obligatorios" },
+				{
+					error: `branch_id y provider válido son obligatorios (${BRANCH_PAYMENT_METHOD_ORDER.join(", ")})`,
+				},
 				{ status: 400 }
 			);
 		}
@@ -121,57 +129,74 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		await supabaseAdmin.from("branch_payment_methods").upsert(
-			{
-				branch_id: branchId,
-				provider,
-				is_enabled: isEnabled,
-				updated_at: new Date().toISOString(),
-			},
-			{ onConflict: "branch_id,provider" }
-		);
-
-		// Sincronizar con branches para que el cliente vea el método en el menú/carrito
 		const currentMethods = Array.isArray(branch.payment_methods) ? branch.payment_methods : [];
-		const hasProvider = currentMethods.includes(provider);
-		let newMethods: string[];
-		const updates: { payment_methods?: string[]; paypal?: object | null; stripe?: object | null } = {};
-		if (isEnabled && !hasProvider) {
-			newMethods = [...currentMethods.filter((m) => m !== provider), provider];
-			updates.payment_methods = newMethods;
-			if (provider === "paypal") {
-				const { data: acc } = await supabaseAdmin
-					.from("tenant_connected_accounts")
-					.select("display_name,external_id")
-					.eq("company_id", ctx.companyId)
-					.eq("provider", "paypal")
-					.eq("status", "active")
-					.maybeSingle();
-				updates.paypal = acc ? { email: acc.display_name || acc.external_id || "" } : {};
+
+		// PayPal / Stripe: fila en branch_payment_methods + sincronizar JSON y payment_methods
+		if (canonical === "paypal" || canonical === "stripe") {
+			await supabaseAdmin.from("branch_payment_methods").upsert(
+				{
+					branch_id: branchId,
+					provider: canonical,
+					is_enabled: isEnabled,
+					updated_at: new Date().toISOString(),
+				},
+				{ onConflict: "branch_id,provider" }
+			);
+
+			const hasProvider = currentMethods.some(
+				(m) => String(m).trim().toLowerCase() === canonical
+			);
+			const updates: { payment_methods?: string[]; paypal?: object | null; stripe?: object | null } =
+				{};
+			if (isEnabled && !hasProvider) {
+				updates.payment_methods = [
+					...currentMethods.filter((m) => String(m).trim().toLowerCase() !== canonical),
+					canonical,
+				];
+				if (canonical === "paypal") {
+					const { data: acc } = await supabaseAdmin
+						.from("tenant_connected_accounts")
+						.select("display_name,external_id")
+						.eq("company_id", ctx.companyId)
+						.eq("provider", "paypal")
+						.eq("status", "active")
+						.maybeSingle();
+					updates.paypal = acc ? { email: acc.display_name || acc.external_id || "" } : {};
+				}
+				if (canonical === "stripe") {
+					const { data: acc } = await supabaseAdmin
+						.from("tenant_connected_accounts")
+						.select("id")
+						.eq("company_id", ctx.companyId)
+						.eq("provider", "stripe")
+						.eq("status", "active")
+						.maybeSingle();
+					updates.stripe = acc ? { connected: true } : {};
+				}
+			} else if (!isEnabled && hasProvider) {
+				updates.payment_methods = currentMethods.filter(
+					(m) => String(m).trim().toLowerCase() !== canonical
+				);
+				if (canonical === "paypal") updates.paypal = null;
+				if (canonical === "stripe") updates.stripe = null;
 			}
-			if (provider === "stripe") {
-				const { data: acc } = await supabaseAdmin
-					.from("tenant_connected_accounts")
-					.select("id")
-					.eq("company_id", ctx.companyId)
-					.eq("provider", "stripe")
-					.eq("status", "active")
-					.maybeSingle();
-				updates.stripe = acc ? { connected: true } : {};
+			if (Object.keys(updates).length > 0) {
+				await supabaseAdmin
+					.from("branches")
+					.update({ ...updates, updated_at: new Date().toISOString() })
+					.eq("id", branchId)
+					.eq("company_id", ctx.companyId);
 			}
-		} else if (!isEnabled && hasProvider) {
-			newMethods = currentMethods.filter((m) => m !== provider);
-			updates.payment_methods = newMethods;
-			if (provider === "paypal") updates.paypal = null;
-			if (provider === "stripe") updates.stripe = null;
+			return NextResponse.json({ ok: true });
 		}
-		if (Object.keys(updates).length > 0) {
-			await supabaseAdmin
-				.from("branches")
-				.update({ ...updates, updated_at: new Date().toISOString() })
-				.eq("id", branchId)
-				.eq("company_id", ctx.companyId);
-		}
+
+		// Resto de métodos: solo actualizar payment_methods (claves canónicas)
+		const newMethods = applyPaymentMethodToggle(currentMethods, canonical, isEnabled);
+		await supabaseAdmin
+			.from("branches")
+			.update({ payment_methods: newMethods, updated_at: new Date().toISOString() })
+			.eq("id", branchId)
+			.eq("company_id", ctx.companyId);
 
 		return NextResponse.json({ ok: true });
 	} catch (err) {

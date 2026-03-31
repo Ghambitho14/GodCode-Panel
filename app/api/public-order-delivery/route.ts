@@ -13,6 +13,7 @@ import {
 	isValidLatLng,
 } from "../../../lib/geo";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
+import { isUberDirectConfigured } from "../../../lib/uber-direct";
 
 const MAX_ORDER_AGE_MS = 10 * 60 * 1000;
 const TOTAL_EPS = 2;
@@ -131,7 +132,9 @@ export async function POST(req: NextRequest) {
 			const pricingMode = effectiveDeliveryPricingMode(settings);
 			let r: ReturnType<typeof computeDeliveryFee> | null = null;
 
-			if (pricingMode === "named") {
+			if (pricingMode === "external") {
+				r = computeDeliveryFee(settings, 0, subtotal);
+			} else if (pricingMode === "named") {
 				if (settings.namedAreaResolution === "address_matched") {
 					const draftAddr =
 						body.deliveryAddress &&
@@ -197,7 +200,18 @@ export async function POST(req: NextRequest) {
 								: "Zona de entrega no válida";
 				return NextResponse.json({ error: msg }, { status: 400 });
 			}
-			expectedFee = r.fee;
+			if (pricingMode === "external" && isUberDirectConfigured()) {
+				const cf = Math.round(deliveryFeeClient * 100) / 100;
+				if (!Number.isFinite(cf) || cf < 0 || cf > 50_000_000) {
+					return NextResponse.json(
+						{ error: "Tarifa de envío inválida" },
+						{ status: 400 },
+					);
+				}
+				expectedFee = cf;
+			} else {
+				expectedFee = r.fee;
+			}
 		} else {
 			expectedFee = 0;
 		}

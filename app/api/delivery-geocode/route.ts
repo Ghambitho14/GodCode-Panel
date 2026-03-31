@@ -81,7 +81,14 @@ export async function POST(req: NextRequest) {
 				{ status: 400 },
 			);
 		}
-		if (effectiveDeliveryPricingMode(settings) !== "named") {
+		const pricingMode = effectiveDeliveryPricingMode(settings);
+		if (pricingMode === "external") {
+			return NextResponse.json(
+				{ error: "Esta sucursal usa delivery externo; no hay cotización por dirección." },
+				{ status: 400 },
+			);
+		}
+		if (pricingMode !== "named") {
 			return NextResponse.json(
 				{ error: "Esta sucursal no cotiza por comunas con dirección" },
 				{ status: 400 },

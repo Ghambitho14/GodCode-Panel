@@ -1,23 +1,29 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
     Chart as ChartJS,
-    CategoryScale, LinearScale, PointElement, LineElement,
+    CategoryScale, LinearScale, PointElement, LineElement, BarElement,
     Title, Tooltip, Legend, Filler
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
-    Smartphone, TrendingUp, Package, Clock, MapPin
+    Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
+    BarChart3, AreaChart
 } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import AdminMenuSelect from './AdminMenuSelect';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isOnlineOrder, getPaymentSlug } from '../../shared/utils/orderUtils';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
+
+const CHART_KIND_OPTIONS = [
+    { value: 'area', label: 'Área', Icon: AreaChart },
+    { value: 'bar', label: 'Barras', Icon: BarChart3 },
+];
 
 const RPT_PERIOD_OPTIONS = [
     { value: '7', label: '7 días' },
@@ -46,6 +52,11 @@ const TrendBadge = ({ value }) => {
 const AdminAnalytics = ({ orders, clients, branches }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
+    const [chartKind, setChartKind] = useState('area');
+
+    useEffect(() => {
+        if (chartKind !== 'bar' && chartKind !== 'area') setChartKind('area');
+    }, [chartKind]);
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
 
@@ -54,8 +65,8 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
         if (!orders || orders.length === 0) {
             return {
                 chartData: { labels: [], datasets: [] },
-                kpis: { total: 0, count: 0, ticket: 0 },
-                trends: { total: 0, count: 0 },
+                kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0 },
+                trends: { total: 0, count: 0, delivery: 0 },
                 paymentBreakdown: { cash: 0, card: 0, online: 0 },
                 branchStats: []
             };
@@ -126,6 +137,31 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
         const prevSales = prev.reduce((a, o) => a + Number(o.total), 0);
         const prevCount = prev.length;
 
+        // --- DELIVERY: solo suma `delivery_fee` (no el total del pedido). Valor = cobro envíos del período.
+        const deliveryOrdersCurrent = current.filter((o) => {
+            const fee = Number(o?.delivery_fee);
+            return Number.isFinite(fee) && fee > 0;
+        });
+        const deliveryCount = deliveryOrdersCurrent.length;
+        const totalDeliveryFees = deliveryOrdersCurrent.reduce(
+            (a, o) => a + Number(o.delivery_fee),
+            0
+        );
+        const prevTotalDeliveryFees = prev
+            .filter((o) => {
+                const fee = Number(o?.delivery_fee);
+                return Number.isFinite(fee) && fee > 0;
+            })
+            .reduce((a, o) => a + Number(o.delivery_fee), 0);
+        const trendDelivery =
+            prevTotalDeliveryFees === 0
+                ? totalDeliveryFees > 0
+                    ? 100
+                    : 0
+                : Math.round(
+                      ((totalDeliveryFees - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100
+                  );
+
         // --- PAYMENT BREAKDOWN (incl. payment_method_specific: Zelle, Pago Móvil, etc.) ---
         const pb = { cash: 0, card: 0, online: 0 };
         current.forEach(o => {
@@ -179,15 +215,67 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                     pointHoverRadius: 5,
                 }],
             },
-            kpis: { total: totalSales, count, ticket },
+            kpis: {
+                total: totalSales,
+                count,
+                ticket,
+                deliveryTotal: totalDeliveryFees,
+                deliveryCount,
+            },
             trends: {
                 total: prevSales === 0 ? (totalSales > 0 ? 100 : 0) : Math.round(((totalSales - prevSales) / prevSales) * 100),
                 count: prevCount === 0 ? (count > 0 ? 100 : 0) : Math.round(((count - prevCount) / prevCount) * 100),
+                delivery: trendDelivery,
             },
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
     }, [orders, filterPeriod, chartTab, days, branches]);
+
+    const chartRenderData = useMemo(() => {
+        const base = chartData;
+        if (!base.labels?.length || !base.datasets?.[0]) return base;
+        const src = base.datasets[0];
+        const labels = base.labels;
+        const data = src.data;
+        const pr = days > 30 ? 0 : 3;
+        const kind = chartKind === 'bar' ? 'bar' : 'area';
+
+        if (kind === 'bar') {
+            return {
+                labels,
+                datasets: [{
+                    label: 'Ventas',
+                    data,
+                    backgroundColor: 'rgba(230, 57, 70, 0.72)',
+                    borderColor: 'rgba(230, 57, 70, 0.95)',
+                    borderWidth: 0,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }],
+            };
+        }
+
+        /* Área: línea curva + relleno (sin escalones; dataset explícito para no arrastrar props raras) */
+        return {
+            labels,
+            datasets: [{
+                label: 'Ventas',
+                data,
+                fill: true,
+                tension: 0.4,
+                stepped: false,
+                borderWidth: 2,
+                borderColor: '#e63946',
+                backgroundColor: 'rgba(230, 57, 70, 0.14)',
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#e63946',
+                pointBorderWidth: 2,
+                pointRadius: pr,
+                pointHoverRadius: 5,
+            }],
+        };
+    }, [chartData, chartKind, days]);
 
     // --- NEW CLIENTS ---
     const newClientsInfo = useMemo(() => {
@@ -281,6 +369,8 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
         }
     };
 
+    const activeChartKind = chartKind === 'bar' ? 'bar' : 'area';
+
     return (
         <div className="rpt-container rpt-container--compact-toolbar animate-fade">
             {/* HEADER */}
@@ -322,6 +412,21 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                         <span className="rpt-kpi-value">{fmt(Math.round(kpis.ticket))}</span>
                     </div>
                 </div>
+                <div
+                    className="rpt-kpi"
+                    title="Suma solo de delivery_fee (tarifa de envío) en el período. No incluye el monto de productos del pedido."
+                >
+                    <div className="rpt-kpi-icon delivery"><Truck size={20} aria-hidden /></div>
+                    <div className="rpt-kpi-body">
+                        <span className="rpt-kpi-label">Total delivery</span>
+                        <span className="rpt-kpi-value">{fmt(Math.round(kpis.deliveryTotal ?? 0))}</span>
+                        <span className="rpt-kpi-meta">
+                            {(kpis.deliveryCount ?? 0).toLocaleString('es-CL')}{' '}
+                            pedido{(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} con envío · solo tarifas
+                        </span>
+                    </div>
+                    <TrendBadge value={trends.delivery} />
+                </div>
                 <div className="rpt-kpi">
                     <div className="rpt-kpi-icon clients"><Users size={20} /></div>
                     <div className="rpt-kpi-body">
@@ -337,16 +442,38 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                 <div className="rpt-chart-card">
                     <div className="rpt-chart-header">
                         <h3>Ventas por día</h3>
-                        <div className="rpt-chart-tabs">
-                            {[['all', 'Todos'], ['store', 'Tienda'], ['online', 'Online']].map(([key, label]) => (
-                                <button key={key} className={`rpt-tab ${chartTab === key ? 'active' : ''}`} onClick={() => setChartTab(key)}>
-                                    {label}
-                                </button>
-                            ))}
+                        <div className="rpt-chart-toolbar">
+                            <div className="rpt-chart-kind" role="group" aria-label="Tipo de gráfico">
+                                {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={`rpt-chart-kind-btn ${activeChartKind === value ? 'active' : ''}`}
+                                        onClick={() => setChartKind(value)}
+                                        title={label}
+                                        aria-pressed={activeChartKind === value}
+                                        aria-label={label}
+                                    >
+                                        <Icon size={16} strokeWidth={1.75} aria-hidden />
+                                        <span className="rpt-chart-kind-label">{label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="rpt-chart-tabs">
+                                {[['all', 'Todos'], ['store', 'Tienda'], ['online', 'Online']].map(([key, label]) => (
+                                    <button key={key} className={`rpt-tab ${chartTab === key ? 'active' : ''}`} onClick={() => setChartTab(key)}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     <div className="rpt-chart-wrapper">
-                        <Line data={chartData} options={chartOptions} />
+                        {activeChartKind === 'bar' ? (
+                            <Bar data={chartRenderData} options={chartOptions} />
+                        ) : (
+                            <Line data={chartRenderData} options={chartOptions} />
+                        )}
                     </div>
                 </div>
 

@@ -25,8 +25,8 @@ export const DELIVERY_PAYMENT_METHOD_IDS = new Set([
 	"transferencia_bancaria",
 ]);
 
-/** Cómo cotiza la sucursal cuando hay zonas por nombre configuradas (o distancia). */
-export type DeliveryPricingStrategy = "distance" | "named_areas";
+/** Cómo cotiza la sucursal: km, zonas con nombre, o externo (sin cotización en checkout). */
+export type DeliveryPricingStrategy = "distance" | "named_areas" | "external";
 
 /** Si `named_areas`: lista manual o inferencia desde dirección (servidor). */
 export type NamedAreaResolution = "manual_select" | "address_matched";
@@ -56,6 +56,7 @@ export type DeliverySettingsNormalized = {
 	/**
 	 * `named_areas`: usa `namedAreas` + `namedAreaResolution`.
 	 * `distance`: usa km desde el local (`zones`, `pricePerKm`, `baseFee`).
+	 * `external`: no cotiza por distancia ni zonas; en checkout se muestra texto (p. ej. “Consultar con la tienda”), no monto; `fee` interno 0 para total; opcional `customerNotes`.
 	 */
 	deliveryPricingStrategy: DeliveryPricingStrategy;
 	namedAreaResolution: NamedAreaResolution;
@@ -187,6 +188,9 @@ function parseDeliveryPricingStrategy(
 		typeof raw === "string"
 			? raw.trim().toLowerCase().replace(/-/g, "_")
 			: "";
+	if (v === "external" || v === "store_consult" || v === "uber_direct") {
+		return "external";
+	}
 	if (v === "named_areas" || v === "namedareas") return "named_areas";
 	if (v === "distance" || v === "km") return "distance";
 	// Migración: JSON antiguo sin clave pero con zonas por nombre
@@ -367,6 +371,20 @@ export function deliverySettingsToPublic(
 	return { ...s };
 }
 
+/**
+ * Texto que debe mostrarse en el checkout en lugar de un monto de envío (Uber Direct, etc.).
+ * Si hay notas propias en la sucursal, sustituyen al texto por defecto.
+ */
+export const EXTERNAL_DELIVERY_DEFAULT_DISPLAY = "Consultar con la tienda";
+
+export function externalDeliveryCheckoutHint(
+	settings: DeliverySettingsNormalized,
+): string {
+	const n = settings.customerNotes?.trim();
+	if (n) return n;
+	return EXTERNAL_DELIVERY_DEFAULT_DISPLAY;
+}
+
 /** Merge parcial guardando solo claves conocidas; preserva el resto del JSON previo. */
 export function mergeDeliverySettingsJson(
 	prev: unknown,
@@ -441,7 +459,7 @@ export function mergeDeliverySettingsJson(
 	}
 	if ("deliveryPricingStrategy" in patch) {
 		const v = patch.deliveryPricingStrategy;
-		if (v === "named_areas" || v === "distance") {
+		if (v === "named_areas" || v === "distance" || v === "external") {
 			next.deliveryPricingStrategy = v;
 		}
 	}
@@ -496,10 +514,13 @@ export function mergeDeliverySettingsJson(
 	return next;
 }
 
-/** Modo efectivo para UI: `named` solo si estrategia + lista no vacía. */
+/** Modo efectivo para UI y APIs: `named` solo si estrategia + lista no vacía. */
 export function effectiveDeliveryPricingMode(
 	s: DeliverySettingsNormalized,
-): "named" | "distance" {
+): "named" | "distance" | "external" {
+	if (s.deliveryPricingStrategy === "external") {
+		return "external";
+	}
 	if (
 		s.deliveryPricingStrategy === "named_areas" &&
 		s.namedAreas.length > 0
@@ -524,6 +545,23 @@ export function computeDeliveryFee(
 	options?: ComputeDeliveryFeeOptions,
 ): { fee: number; waivedFreeShipping: boolean } {
 	if (!settings.enabled) {
+		return { fee: 0, waivedFreeShipping: false };
+	}
+
+	/** Externo: sin cargo calculado; total de pedido usa fee 0; la UI debe mostrar texto (ver `externalDeliveryCheckoutHint`), no precio. */
+	if (settings.deliveryPricingStrategy === "external") {
+		if (
+			settings.minOrderSubtotal != null &&
+			itemsSubtotal + 1e-9 < settings.minOrderSubtotal
+		) {
+			return { fee: -2, waivedFreeShipping: false };
+		}
+		if (
+			settings.freeDeliveryFromSubtotal != null &&
+			itemsSubtotal + 1e-9 >= settings.freeDeliveryFromSubtotal
+		) {
+			return { fee: 0, waivedFreeShipping: true };
+		}
 		return { fee: 0, waivedFreeShipping: false };
 	}
 

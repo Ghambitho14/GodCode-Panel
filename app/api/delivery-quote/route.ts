@@ -4,16 +4,22 @@ import { resolveNamedAreaFromAddress } from "../../../lib/delivery-area-resolve"
 import {
 	computeDeliveryFee,
 	effectiveDeliveryPricingMode,
+	externalDeliveryCheckoutHint,
 	normalizeDeliverySettings,
 } from "../../../lib/delivery-settings";
 import { haversineKm, isValidLatLng } from "../../../lib/geo";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
+import {
+	createUberDeliveryQuote,
+	isUberDirectConfigured,
+} from "../../../lib/uber-direct";
 
 /**
  * Cotización pública de delivery (sin auth).
  * - Estrategia `distance`: coordenadas de entrega vs origen de la sucursal.
  * - Estrategia `named_areas` + manual: `namedAreaId`.
  * - Estrategia `named_areas` + address_matched: texto `address`.
+ * - Estrategia `external`: si hay `UBER_*` en servidor y coords pickup+dropoff, cotiza con Uber Direct; si no, texto “Consultar con la tienda” (`showDeliveryFeeAmount: false`).
  */
 export async function POST(req: NextRequest) {
 	try {
@@ -54,6 +60,82 @@ export async function POST(req: NextRequest) {
 
 		const settings = normalizeDeliverySettings(branch.delivery_settings);
 		const mode = effectiveDeliveryPricingMode(settings);
+
+		if (mode === "external") {
+			const r = computeDeliveryFee(settings, 0, subtotal);
+			if (r.fee < 0) {
+				return NextResponse.json(
+					{
+						error:
+							r.fee === -2
+								? "No se alcanza el pedido mínimo para delivery"
+								: "No se pudo cotizar el envío",
+						code: r.fee,
+					},
+					{ status: 400 },
+				);
+			}
+
+			const olat = Number(branch.origin_lat);
+			const olng = Number(branch.origin_lng);
+			const canUber =
+				isUberDirectConfigured() &&
+				isValidLatLng(lat, lng) &&
+				isValidLatLng(olat, olng);
+
+			if (canUber) {
+				try {
+					const dropoffAddress =
+						addressStr.length >= 8
+							? addressStr
+							: `${lat.toFixed(6)},${lng.toFixed(6)}`;
+					const pickupAddress = `${olat.toFixed(6)},${olng.toFixed(6)}`;
+					const uber = await createUberDeliveryQuote({
+						pickupAddress,
+						dropoffAddress,
+					});
+					return NextResponse.json({
+						ok: true,
+						mode: "external",
+						provider: "uber_direct",
+						fee: uber.fee,
+						currencyCode: uber.currencyCode,
+						uberQuoteId: uber.quoteId,
+						waivedFreeShipping: r.waivedFreeShipping,
+						showDeliveryFeeAmount: true,
+						hint: externalDeliveryCheckoutHint(settings),
+					});
+				} catch (e) {
+					const msg = e instanceof Error ? e.message : "Uber Direct no disponible";
+					return NextResponse.json(
+						{ error: msg, code: "uber_quote_failed" },
+						{ status: 502 },
+					);
+				}
+			}
+
+			if (isUberDirectConfigured() && !canUber) {
+				return NextResponse.json(
+					{
+						error:
+							"Para cotizar con Uber Direct configura ubicación del local (origen) y la ubicación de entrega (mapa o dirección).",
+						code: "uber_needs_coordinates",
+					},
+					{ status: 400 },
+				);
+			}
+
+			const displayText = externalDeliveryCheckoutHint(settings);
+			return NextResponse.json({
+				ok: true,
+				mode: "external",
+				fee: r.fee,
+				waivedFreeShipping: r.waivedFreeShipping,
+				showDeliveryFeeAmount: false,
+				deliveryDisplayText: displayText,
+				hint: displayText,
+			});
+		}
 
 		if (mode === "named") {
 			if (settings.namedAreaResolution === "address_matched") {

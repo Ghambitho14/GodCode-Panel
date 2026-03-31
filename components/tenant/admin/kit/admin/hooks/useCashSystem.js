@@ -384,21 +384,51 @@ export const useCashSystem = (showNotify, branchId) => {
 
     const getTotals = useCallback((movementsData = movements) => {
         return movementsData.reduce((acc, m) => {
+            if (m.type === 'cancel') return acc;
             const amount = Number(m.amount) || 0;
+            const order = m?.orders ?? null;
+            const deliveryFee = Number(order?.delivery_fee) || 0;
+            const desc = String(m?.description || '').toLowerCase();
+            const isCourierPayout =
+                m.type === 'expense' &&
+                !order &&
+                (desc.includes('delivery') || desc.includes('repartidor') || desc.includes('conductor'));
+
             if (m.type === 'expense') {
                 acc.expenses += amount;
                 // [FIX] Restar egresos del balance del método de pago correspondiente
                 if (m.payment_method === 'cash') acc.cash -= amount;
                 else if (m.payment_method === 'card') acc.card -= amount;
                 else if (m.payment_method === 'online') acc.online -= amount;
+
+                if (deliveryFee > 0) {
+                    // Devolución/cancelación vinculada a pedido con delivery.
+                    acc.deliveryRefunded += deliveryFee;
+                }
+                if (isCourierPayout) {
+                    acc.deliveryPaidToCourier += amount;
+                }
             } else {
                 if (m.payment_method === 'cash') acc.cash += amount;
                 else if (m.payment_method === 'card') acc.card += amount;
                 else if (m.payment_method === 'online') acc.online += amount;
                 acc.income += amount; // Total Ingresos (Bruto)
+
+                if (m.type === 'sale' && deliveryFee > 0) {
+                    acc.deliveryCollected += deliveryFee;
+                }
             }
             return acc;
-        }, { cash: 0, card: 0, online: 0, expenses: 0, income: 0 });
+        }, {
+            cash: 0,
+            card: 0,
+            online: 0,
+            expenses: 0,
+            income: 0,
+            deliveryCollected: 0,
+            deliveryRefunded: 0,
+            deliveryPaidToCourier: 0,
+        });
     }, [movements]);
 
     // Memoizar el objeto de retorno para evitar re-renderizados infinitos en consumidores

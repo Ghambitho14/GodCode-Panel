@@ -23,7 +23,27 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
     const [searchQuery, setSearchQuery] = useState('');
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
+    const [showProductImages, setShowProductImages] = useState(false);
+    const [isMobileLikeLayout, setIsMobileLikeLayout] = useState(false);
     const printMenuRef = useRef(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mqWidth = window.matchMedia('(max-width: 1024px)');
+        const mqCoarse = window.matchMedia('(hover: none) and (pointer: coarse)');
+
+        const syncLayout = () => {
+            setIsMobileLikeLayout(mqWidth.matches || mqCoarse.matches);
+        };
+
+        syncLayout();
+        mqWidth.addEventListener('change', syncLayout);
+        mqCoarse.addEventListener('change', syncLayout);
+        return () => {
+            mqWidth.removeEventListener('change', syncLayout);
+            mqCoarse.removeEventListener('change', syncLayout);
+        };
+    }, []);
 
     useEffect(() => {
         if (!printMenuOpen) return;
@@ -53,6 +73,12 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 	const sanitizeInput = (text) => {
 		if (!text) return '';
 		return text.replace(/[<>]/g, '').trim(); // Elimina < y > para evitar inyección básica
+	};
+
+	// En inputs en vivo (ej: nombre) no hacer trim para permitir espacios al escribir.
+	const sanitizeInputLive = (text) => {
+		if (text == null || text === '') return '';
+		return text.replace(/[<>]/g, '');
 	};
 
 	// La nota no debe hacer trim para permitir espacios entre palabras mientras escribes.
@@ -145,6 +171,419 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid;
     };
 
+    const customerSection = (
+        <div className="manual-order-section">
+            <div className="manual-order-section-title">
+                <User size={14} aria-hidden />
+                DATOS CLIENTE
+            </div>
+            <div className="manual-order-form-grid">
+                <div className="manual-order-input-wrapper full-width">
+                    <input
+                        type="text"
+                        placeholder="NOMBRE COMPLETO *"
+                        className="manual-order-input"
+                        value={manualOrder.client_name}
+                        onChange={e => updateClientName(sanitizeInputLive(e.target.value))}
+                        aria-label="Nombre completo del cliente"
+                        style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
+                    />
+                    {manualOrder.client_name.length >= 3 && (
+                        <div className="manual-order-validation-icon">
+                            <CheckCircle2 size={18} color="#25d366" />
+                        </div>
+                    )}
+                </div>
+
+                <div className="manual-order-input-wrapper">
+                    <input
+                        type="text"
+                        placeholder="RUT *"
+                        className="manual-order-input"
+                        value={manualOrder.client_rut}
+                        onChange={handleRutChange}
+                        style={{
+                            ...getInputStyle(rutValid),
+                            paddingRight: rutValid ? '40px' : '16px'
+                        }}
+                    />
+                    {rutValid && (
+                        <div className="manual-order-validation-icon">
+                            <CheckCircle2 size={18} color="#25d366" />
+                        </div>
+                    )}
+                </div>
+
+                <div className="manual-order-input-wrapper">
+                    <input
+                        type="tel"
+                        placeholder="+56 9..."
+                        className="manual-order-input"
+                        value={manualOrder.client_phone}
+                        onChange={handlePhoneChange}
+                        style={{
+                            ...getInputStyle(phoneValid),
+                            paddingRight: phoneValid ? '40px' : '16px'
+                        }}
+                    />
+                    {phoneValid && (
+                        <div className="manual-order-validation-icon">
+                            <CheckCircle2 size={18} color="#25d366" />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+    const noteSection = (
+        <div className="manual-order-section manual-order-section--note">
+            <div className="manual-order-section-title manual-order-section-title--note">
+                <MessageCircle size={12} aria-hidden />
+                NOTA DEL PEDIDO
+            </div>
+            <div className="manual-order-note-wrap">
+                <textarea
+                    placeholder="Nota opcional..."
+                    className="manual-order-input manual-order-note-textarea"
+                    value={manualOrder.note}
+                    onChange={e => updateNote(sanitizeNote(e.target.value))}
+                    rows={1}
+                    maxLength={500}
+                    aria-label="Nota o comentario del pedido"
+                />
+                {manualOrder.note.length > 0 && (
+                    <div
+                        className={
+                            manualOrder.note.length > 450
+                                ? 'manual-order-note-count manual-order-note-count--warn'
+                                : 'manual-order-note-count'
+                        }
+                    >
+                        {manualOrder.note.length}/500
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    const summarySection = (
+        <div className="manual-order-section manual-order-summary-section">
+            <div className="manual-order-section-title manual-order-summary-head">
+                <div className="manual-order-summary-head-row">
+                    <div className="manual-order-summary-head-label">
+                        <ShoppingBag size={14} aria-hidden />
+                        RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
+                    </div>
+                    {manualOrder.items.length > 0 && (
+                        <div className="manual-order-print-menu" ref={printMenuRef}>
+                            <button
+                                type="button"
+                                onClick={() => setPrintMenuOpen((v) => !v)}
+                                className="manual-order-summary-print"
+                                title="Imprimir tickets"
+                                aria-expanded={printMenuOpen}
+                                aria-haspopup="menu"
+                                aria-label="Imprimir tickets"
+                            >
+                                <Printer size={14} aria-hidden />
+                            </button>
+                            {printMenuOpen ? (
+                                <div className="manual-order-print-panel" role="menu">
+                                    <button
+                                        type="button"
+                                        className="manual-order-print-item"
+                                        role="menuitem"
+                                        onClick={printManualKitchen}
+                                    >
+                                        <ChefHat size={16} aria-hidden />
+                                        Ticket cocina
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="manual-order-print-item"
+                                        role="menuitem"
+                                        onClick={printManualCaja}
+                                    >
+                                        <Banknote size={16} aria-hidden />
+                                        Ticket caja
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="manual-order-cart-body">
+                {manualOrder.items.length === 0 ? (
+                    <div className="manual-order-cart-empty">
+                        <ShoppingBag size={42} strokeWidth={1} className="manual-order-cart-empty-icon" aria-hidden />
+                        <div className="manual-order-cart-empty-text">CARRITO VACÍO</div>
+                    </div>
+                ) : (
+                    <div className="manual-order-cart-list">
+                        {manualOrder.items.map(item => (
+                            <div
+                                key={item.id}
+                                className="manual-order-cart-item animate-slide-up"
+                            >
+                                <div className="manual-order-cart-item-accent" aria-hidden />
+
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={item.image_url || logo}
+                                    alt={item.name}
+                                    className="manual-order-cart-item-thumb"
+                                    onError={(e) => { e.target.src = logo }}
+                                />
+
+                                <div className="manual-order-cart-item-info">
+                                    <div className="manual-order-cart-item-title">
+                                        {item.name}
+                                    </div>
+
+                                    <div className="manual-order-cart-item-price-block">
+                                        {(() => {
+                                            const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
+                                            const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
+                                            const subtotal = unit * Number(item.quantity || 1);
+                                            return (
+                                                <div className="manual-order-cart-price-rows">
+                                                    {hasDiscount && (
+                                                        <div className="manual-order-cart-discount-row">
+                                                            <span className="manual-order-cart-badge-oferta">
+                                                                Oferta
+                                                            </span>
+                                                            <span className="manual-order-cart-price-old">
+                                                                {formatCurrency(Number(item.price))}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div className="manual-order-cart-price-main-row">
+                                                        <span className="manual-order-cart-price-total">
+                                                            {formatCurrency(subtotal)}
+                                                        </span>
+                                                        <span className="manual-order-cart-price-unit">
+                                                            {formatCurrency(unit)} c/u
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                                <div className="manual-order-cart-stepper">
+                                    <button
+                                        type="button"
+                                        className="manual-order-cart-step-btn"
+                                        onClick={() => updateQuantity(item.id, -1)}
+                                        aria-label="Reducir cantidad"
+                                    >
+                                        <Minus size={14} aria-hidden />
+                                    </button>
+                                    <span className="manual-order-cart-step-qty">
+                                        {item.quantity}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="manual-order-cart-step-btn"
+                                        onClick={() => updateQuantity(item.id, 1)}
+                                        aria-label="Aumentar cantidad"
+                                    >
+                                        <Plus size={14} aria-hidden />
+                                    </button>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="manual-order-cart-remove"
+                                    onClick={() => removeItem(item.id)}
+                                    title="Eliminar ítem"
+                                    aria-label="Eliminar ítem"
+                                >
+                                    <Trash2 size={14} aria-hidden />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    const footerSection = (
+        <div className="manual-order-footer">
+            <div className="manual-order-total">
+                <span className="manual-order-total-label">TOTAL A PAGAR</span>
+                <span className="manual-order-total-amount">
+                    {formatCurrency(manualOrder.total)}
+                </span>
+            </div>
+
+            {/* Métodos de pago */}
+            <div className="manual-order-payment-methods">
+                <button
+                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'tienda' ? 'active' : ''}`}
+                    onClick={() => updatePaymentType('tienda')}
+                >
+                    <Store size={20} />
+                    EFECTIVO
+                </button>
+                <button
+                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'tarjeta' ? 'active' : ''}`}
+                    onClick={() => updatePaymentType('tarjeta')}
+                >
+                    <CreditCard size={20} />
+                    TARJETA
+                </button>
+                <button
+                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'online' ? 'active' : ''}`}
+                    onClick={() => updatePaymentType('online')}
+                >
+                    <Receipt size={20} />
+                    TRANSF.
+                </button>
+            </div>
+
+            {/* Comprobante de transferencia - Destacado */}
+            {manualOrder.payment_type === 'online' && (
+                <div style={{
+                    marginBottom: '12px',
+                    padding: '12px',
+                    background: 'rgba(230, 57, 70, 0.08)',
+                    border: '1px solid rgba(230, 57, 70, 0.3)',
+                    borderRadius: '8px',
+                    animation: 'fadeIn 0.3s ease'
+                }}>
+                    <div style={{
+                        fontSize: '11px',
+                        color: '#e63946',
+                        fontWeight: '800',
+                        marginBottom: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        textTransform: 'uppercase'
+                    }}>
+                        <Upload size={14} />
+                        Adjuntar Comprobante
+                    </div>
+
+                    <label
+                        htmlFor="receipt-upload"
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '16px',
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            border: '1px dashed rgba(230, 57, 70, 0.3)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(230, 57, 70, 0.05)';
+                            e.currentTarget.style.borderColor = '#e63946';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)';
+                            e.currentTarget.style.borderColor = 'rgba(230, 57, 70, 0.3)';
+                        }}
+                    >
+                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
+                        <span style={{ fontSize: '12px', color: 'var(--admin-text-muted, #64748b)', fontWeight: '500' }}>
+                            {receiptFile ? receiptFile.name : 'Click para subir imagen'}
+                        </span>
+                    </label>
+                    <input
+                        id="receipt-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                    />
+
+                    {receiptPreview && (
+                        <div style={{
+                            marginTop: '12px',
+                            borderRadius: '6px',
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            position: 'relative'
+                        }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={receiptPreview}
+                                alt="Preview"
+                                style={{
+                                    width: '100%',
+                                    height: 'auto',
+                                    maxHeight: '150px',
+                                    objectFit: 'cover'
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    removeReceipt();
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    background: 'rgba(230, 57, 70, 0.9)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                                }}
+                            >
+                                QUITAR
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Botón confirmar */}
+            <button
+                className="manual-order-confirm-btn"
+                onClick={submitOrder}
+                disabled={loading || !isFormValid()}
+                style={{
+                    opacity: loading || !isFormValid() ? 0.5 : 1,
+                    cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer'
+                }}
+            >
+                {loading ? (
+                    <>
+                        <div style={{
+                            width: '20px',
+                            height: '20px',
+                            border: '2px solid rgba(255,255,255,0.3)',
+                            borderTop: '2px solid white',
+                            borderRadius: '50%',
+                            animation: 'spin 0.8s linear infinite'
+                        }} />
+                        PROCESANDO...
+                    </>
+                ) : (
+                    <>
+                        <CheckCircle2 size={20} />
+                        CONFIRMAR PEDIDO
+                    </>
+                )}
+            </button>
+        </div>
+    );
+
     const renderProductCard = (p) => {
         const hasDiscount = Boolean(p.has_discount) && p.discount_price != null && Number(p.discount_price) > 0;
         const unitPrice = hasDiscount ? Number(p.discount_price) : Number(p.price);
@@ -155,7 +594,11 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         };
 
         return (
-            <div key={p.id} className="manual-order-product-card" onClick={() => addItem(p)}>
+            <div
+                key={p.id}
+                className={`manual-order-product-card ${showProductImages ? '' : 'no-images'}`}
+                onClick={() => addItem(p)}
+            >
                 {hasDiscount && (
                     <div style={{
                         position: 'absolute', top: '10px', left: '10px',
@@ -167,14 +610,16 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         Oferta
                     </div>
                 )}
-                <div className="manual-order-image-wrapper">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={p.image_url || logo} alt={p.name}
-                        className={!p.image_url ? 'is-logo' : ''}
-                        onError={(e) => { e.target.onerror = null; e.target.src = logo; e.target.classList.add('is-logo'); }}
-                    />
-                </div>
+                {showProductImages ? (
+                    <div className="manual-order-image-wrapper">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={p.image_url || logo} alt={p.name}
+                            className={!p.image_url ? 'is-logo' : ''}
+                            onError={(e) => { e.target.onerror = null; e.target.src = logo; e.target.classList.add('is-logo'); }}
+                        />
+                    </div>
+                ) : null}
                 <div className="manual-order-card-content">
                     <h3 className="manual-order-card-title" title={p.name}>{p.name}</h3>
                     {p.description && (
@@ -274,6 +719,18 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             />
                         </div>
 
+                        <label className="manual-order-images-toggle" title="Mostrar/ocultar imágenes de productos">
+                            <input
+                                type="checkbox"
+                                checked={showProductImages}
+                                onChange={(e) => setShowProductImages(e.target.checked)}
+                            />
+                            <span className="manual-order-images-toggle__track" aria-hidden="true">
+                                <span className="manual-order-images-toggle__thumb" />
+                            </span>
+                            <span className="manual-order-images-toggle__label">Mostrar imágenes</span>
+                        </label>
+
                         {/* Productos agrupados por categoría */}
                         <div className="manual-order-categories-scroll">
                             {(() => {
@@ -295,25 +752,80 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                                     .filter((cat) => cat?.is_active !== false)
                                     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-                                const visibleCategories = sortedCategories.filter((cat) =>
-                                    activeProducts.some((p) => p.category_id === cat.id)
+                                const normalizeId = (v) =>
+                                    v == null ? '' : String(v).trim();
+                                const normalizeName = (v) =>
+                                    typeof v === 'string' ? v.trim() : '';
+
+                                const categoryById = new Map(
+                                    sortedCategories.map((cat) => [normalizeId(cat?.id), cat])
                                 );
 
-                                const uncategorized = activeProducts.filter(
-                                    (p) => !p.category_id || !visibleCategories.some((c) => c.id === p.category_id)
-                                );
+                                const resolveProductCategory = (p) => {
+                                    const id =
+                                        normalizeId(p?.category_id) ||
+                                        normalizeId(p?.categoryId) ||
+                                        normalizeId(p?.category?.id);
+                                    const name =
+                                        normalizeName(p?.category_name) ||
+                                        normalizeName(p?.categoryName) ||
+                                        normalizeName(p?.category?.name);
+                                    return { id, name };
+                                };
+
+                                const buckets = new Map();
+                                const uncategorized = [];
+
+                                activeProducts.forEach((p) => {
+                                    const { id: productCatId, name: productCatName } = resolveProductCategory(p);
+                                    const knownCategory = productCatId ? categoryById.get(productCatId) : null;
+
+                                    if (knownCategory) {
+                                        const key = `id:${normalizeId(knownCategory.id)}`;
+                                        if (!buckets.has(key)) {
+                                            buckets.set(key, {
+                                                id: knownCategory.id,
+                                                name: knownCategory.name || 'Sin categoría',
+                                                order: Number(knownCategory.order) || 0,
+                                                products: [],
+                                            });
+                                        }
+                                        buckets.get(key).products.push(p);
+                                        return;
+                                    }
+
+                                    if (productCatName) {
+                                        const key = `name:${productCatName.toLowerCase()}`;
+                                        if (!buckets.has(key)) {
+                                            buckets.set(key, {
+                                                id: key,
+                                                name: productCatName,
+                                                order: 9999,
+                                                products: [],
+                                            });
+                                        }
+                                        buckets.get(key).products.push(p);
+                                        return;
+                                    }
+
+                                    uncategorized.push(p);
+                                });
+
+                                const groupedCategories = [...buckets.values()]
+                                    .sort((a, b) =>
+                                        a.order === b.order
+                                            ? String(a.name).localeCompare(String(b.name), 'es')
+                                            : a.order - b.order
+                                    );
 
                                 return (
                                     <>
-                                        {visibleCategories.map(cat => {
-                                            const catProducts = activeProducts.filter(p => p.category_id === cat.id);
-                                            if (catProducts.length === 0) return null;
-
+                                        {groupedCategories.map(cat => {
                                             return (
                                                 <div key={cat.id} className="manual-order-category-section">
                                                     <h3 className="manual-order-category-title">{cat.name}</h3>
                                                     <div className="manual-order-products-grid">
-                                                        {catProducts.map(p => renderProductCard(p))}
+                                                        {cat.products.map(p => renderProductCard(p))}
                                                     </div>
                                                 </div>
                                             );
@@ -332,416 +844,23 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         </div>
                     </div>
 
-                    {/* COLUMNA DERECHA: SIDEBAR */}
+                    {/* COLUMNA DERECHA: SIDEBAR — en móvil/tablet el DOM va: resumen → cliente → nota → footer */}
                     <div className="manual-order-sidebar">
-                        {/* Sección: Datos Cliente */}
-                        <div className="manual-order-section">
-                            <div className="manual-order-section-title">
-                                <User size={14} aria-hidden />
-                                DATOS CLIENTE
-                            </div>
-                            <div className="manual-order-form-grid">
-                                <div className="manual-order-input-wrapper full-width">
-                                    <input
-                                        type="text"
-                                        placeholder="NOMBRE COMPLETO *"
-                                        className="manual-order-input"
-                                        value={manualOrder.client_name}
-                                        onChange={e => updateClientName(sanitizeInput(e.target.value))}
-                                        aria-label="Nombre completo del cliente"
-                                        style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
-                                    />
-                                    {manualOrder.client_name.length >= 3 && (
-                                        <div className="manual-order-validation-icon">
-                                            <CheckCircle2 size={18} color="#25d366" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="manual-order-input-wrapper">
-                                    <input
-                                        type="text"
-                                        placeholder="RUT *"
-                                        className="manual-order-input"
-                                        value={manualOrder.client_rut}
-                                        onChange={handleRutChange}
-                                        style={{
-                                            ...getInputStyle(rutValid),
-                                            paddingRight: rutValid ? '40px' : '16px'
-                                        }}
-                                    />
-                                    {rutValid && (
-                                        <div className="manual-order-validation-icon">
-                                            <CheckCircle2 size={18} color="#25d366" />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="manual-order-input-wrapper">
-                                    <input
-                                        type="tel"
-                                        placeholder="+56 9..."
-                                        className="manual-order-input"
-                                        value={manualOrder.client_phone}
-                                        onChange={handlePhoneChange}
-                                        style={{
-                                            ...getInputStyle(phoneValid),
-                                            paddingRight: phoneValid ? '40px' : '16px'
-                                        }}
-                                    />
-                                    {phoneValid && (
-                                        <div className="manual-order-validation-icon">
-                                            <CheckCircle2 size={18} color="#25d366" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sección: Nota/Comentario - Compacto */}
-                        <div className="manual-order-section manual-order-section--note">
-                            <div className="manual-order-section-title manual-order-section-title--note">
-                                <MessageCircle size={12} aria-hidden />
-                                NOTA DEL PEDIDO
-                            </div>
-                            <div className="manual-order-note-wrap">
-                                <textarea
-                                    placeholder="Nota opcional..."
-                                    className="manual-order-input manual-order-note-textarea"
-                                    value={manualOrder.note}
-                                    onChange={e => updateNote(sanitizeNote(e.target.value))}
-                                    rows={1}
-                                    maxLength={500}
-                                    aria-label="Nota o comentario del pedido"
-                                />
-                                {manualOrder.note.length > 0 && (
-                                    <div
-                                        className={
-                                            manualOrder.note.length > 450
-                                                ? 'manual-order-note-count manual-order-note-count--warn'
-                                                : 'manual-order-note-count'
-                                        }
-                                    >
-                                        {manualOrder.note.length}/500
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Sección: Resumen Orden - Expandido */}
-                        <div className="manual-order-section manual-order-summary-section">
-                            <div className="manual-order-section-title manual-order-summary-head">
-                                <div className="manual-order-summary-head-row">
-                                    <div className="manual-order-summary-head-label">
-                                        <ShoppingBag size={14} aria-hidden />
-                                        RESUMEN ORDEN ({manualOrder.items.reduce((acc, i) => acc + i.quantity, 0)})
-                                    </div>
-                                    {manualOrder.items.length > 0 && (
-                                        <div className="manual-order-print-menu" ref={printMenuRef}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setPrintMenuOpen((v) => !v)}
-                                                className="manual-order-summary-print"
-                                                title="Imprimir tickets"
-                                                aria-expanded={printMenuOpen}
-                                                aria-haspopup="menu"
-                                                aria-label="Imprimir tickets"
-                                            >
-                                                <Printer size={14} aria-hidden />
-                                            </button>
-                                            {printMenuOpen ? (
-                                                <div className="manual-order-print-panel" role="menu">
-                                                    <button
-                                                        type="button"
-                                                        className="manual-order-print-item"
-                                                        role="menuitem"
-                                                        onClick={printManualKitchen}
-                                                    >
-                                                        <ChefHat size={16} aria-hidden />
-                                                        Ticket cocina
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="manual-order-print-item"
-                                                        role="menuitem"
-                                                        onClick={printManualCaja}
-                                                    >
-                                                        <Banknote size={16} aria-hidden />
-                                                        Ticket caja
-                                                    </button>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="manual-order-cart-body">
-                                {manualOrder.items.length === 0 ? (
-                                    <div className="manual-order-cart-empty">
-                                        <ShoppingBag size={42} strokeWidth={1} className="manual-order-cart-empty-icon" aria-hidden />
-                                        <div className="manual-order-cart-empty-text">CARRITO VACÍO</div>
-                                    </div>
-                                ) : (
-                                    <div className="manual-order-cart-list">
-                                        {manualOrder.items.map(item => (
-                                            <div
-                                                key={item.id}
-                                                className="manual-order-cart-item animate-slide-up"
-                                            >
-                                                <div className="manual-order-cart-item-accent" aria-hidden />
-
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={item.image_url || logo}
-                                                    alt={item.name}
-                                                    className="manual-order-cart-item-thumb"
-                                                    onError={(e) => { e.target.src = logo }}
-                                                />
-
-                                                <div className="manual-order-cart-item-info">
-                                                    <div className="manual-order-cart-item-title">
-                                                        {item.name}
-                                                    </div>
-
-                                                    <div className="manual-order-cart-item-price-block">
-                                                        {(() => {
-                                                            const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
-                                                            const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
-                                                            const subtotal = unit * Number(item.quantity || 1);
-                                                            return (
-                                                                <div className="manual-order-cart-price-rows">
-                                                                    {hasDiscount && (
-                                                                        <div className="manual-order-cart-discount-row">
-                                                                            <span className="manual-order-cart-badge-oferta">
-                                                                                Oferta
-                                                                            </span>
-                                                                            <span className="manual-order-cart-price-old">
-                                                                                {formatCurrency(Number(item.price))}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="manual-order-cart-price-main-row">
-                                                                        <span className="manual-order-cart-price-total">
-                                                                            {formatCurrency(subtotal)}
-                                                                        </span>
-                                                                        <span className="manual-order-cart-price-unit">
-                                                                            {formatCurrency(unit)} c/u
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                                <div className="manual-order-cart-stepper">
-                                                    <button
-                                                        type="button"
-                                                        className="manual-order-cart-step-btn"
-                                                        onClick={() => updateQuantity(item.id, -1)}
-                                                        aria-label="Reducir cantidad"
-                                                    >
-                                                        <Minus size={14} aria-hidden />
-                                                    </button>
-                                                    <span className="manual-order-cart-step-qty">
-                                                        {item.quantity}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        className="manual-order-cart-step-btn"
-                                                        onClick={() => updateQuantity(item.id, 1)}
-                                                        aria-label="Aumentar cantidad"
-                                                    >
-                                                        <Plus size={14} aria-hidden />
-                                                    </button>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    className="manual-order-cart-remove"
-                                                    onClick={() => removeItem(item.id)}
-                                                    title="Eliminar ítem"
-                                                    aria-label="Eliminar ítem"
-                                                >
-                                                    <Trash2 size={14} aria-hidden />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Footer: Total y Pago */}
-                        <div className="manual-order-footer">
-                            <div className="manual-order-total">
-                                <span className="manual-order-total-label">TOTAL A PAGAR</span>
-                                <span className="manual-order-total-amount">
-                                    {formatCurrency(manualOrder.total)}
-                                </span>
-                            </div>
-
-                            {/* Métodos de pago */}
-                            <div className="manual-order-payment-methods">
-                                <button
-                                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'tienda' ? 'active' : ''}`}
-                                    onClick={() => updatePaymentType('tienda')}
-                                >
-                                    <Store size={20} />
-                                    EFECTIVO
-                                </button>
-                                <button
-                                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'tarjeta' ? 'active' : ''}`}
-                                    onClick={() => updatePaymentType('tarjeta')}
-                                >
-                                    <CreditCard size={20} />
-                                    TARJETA
-                                </button>
-                                <button
-                                    className={`manual-order-payment-btn ${manualOrder.payment_type === 'online' ? 'active' : ''}`}
-                                    onClick={() => updatePaymentType('online')}
-                                >
-                                    <Receipt size={20} />
-                                    TRANSF.
-                                </button>
-                            </div>
-
-                            {/* Comprobante de transferencia - Destacado */}
-                            {manualOrder.payment_type === 'online' && (
-                                <div style={{
-                                    marginBottom: '12px',
-                                    padding: '12px',
-                                    background: 'rgba(230, 57, 70, 0.08)',
-                                    border: '1px solid rgba(230, 57, 70, 0.3)',
-                                    borderRadius: '8px',
-                                    animation: 'fadeIn 0.3s ease'
-                                }}>
-                                    <div style={{
-                                        fontSize: '11px',
-                                        color: '#e63946',
-                                        fontWeight: '800',
-                                        marginBottom: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        <Upload size={14} />
-                                        Adjuntar Comprobante
-                                    </div>
-
-                                    <label
-                                        htmlFor="receipt-upload"
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            padding: '16px',
-                                            background: 'rgba(0, 0, 0, 0.2)',
-                                            border: '1px dashed rgba(230, 57, 70, 0.3)',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = 'rgba(230, 57, 70, 0.05)';
-                                            e.currentTarget.style.borderColor = '#e63946';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.2)';
-                                            e.currentTarget.style.borderColor = 'rgba(230, 57, 70, 0.3)';
-                                        }}
-                                    >
-                                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
-                                        <span style={{ fontSize: '12px', color: 'var(--admin-text-muted, #64748b)', fontWeight: '500' }}>
-                                            {receiptFile ? receiptFile.name : 'Click para subir imagen'}
-                                        </span>
-                                    </label>
-                                    <input
-                                        id="receipt-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                    />
-
-                                    {receiptPreview && (
-                                        <div style={{
-                                            marginTop: '12px',
-                                            borderRadius: '6px',
-                                            overflow: 'hidden',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            position: 'relative'
-                                        }}>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={receiptPreview}
-                                                alt="Preview"
-                                                style={{
-                                                    width: '100%',
-                                                    height: 'auto',
-                                                    maxHeight: '150px',
-                                                    objectFit: 'cover'
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    removeReceipt();
-                                                }}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '8px',
-                                                    right: '8px',
-                                                    background: 'rgba(230, 57, 70, 0.9)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    padding: '4px 8px',
-                                                    fontSize: '10px',
-                                                    fontWeight: '700',
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
-                                                }}
-                                            >
-                                                QUITAR
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Botón confirmar */}
-                            <button
-                                className="manual-order-confirm-btn"
-                                onClick={submitOrder}
-                                disabled={loading || !isFormValid()}
-                                style={{
-                                    opacity: loading || !isFormValid() ? 0.5 : 1,
-                                    cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                {loading ? (
-                                    <>
-                                        <div style={{
-                                            width: '20px',
-                                            height: '20px',
-                                            border: '2px solid rgba(255,255,255,0.3)',
-                                            borderTop: '2px solid white',
-                                            borderRadius: '50%',
-                                            animation: 'spin 0.8s linear infinite'
-                                        }} />
-                                        PROCESANDO...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle2 size={20} />
-                                        CONFIRMAR PEDIDO
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                        {isMobileLikeLayout ? (
+                            <>
+                                {summarySection}
+                                {customerSection}
+                                {noteSection}
+                                {footerSection}
+                            </>
+                        ) : (
+                            <>
+                                {customerSection}
+                                {noteSection}
+                                {summarySection}
+                                {footerSection}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

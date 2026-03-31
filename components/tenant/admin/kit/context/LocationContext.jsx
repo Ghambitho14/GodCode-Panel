@@ -43,9 +43,12 @@ export const LocationProvider = ({ children }) => {
     const publicCompanySlug = getPublicCompanySlug();
 
     useEffect(() => {
+        let alive = true;
+
         const fetchBranches = async () => {
             try {
                 if (!publicCompanySlug) {
+                    if (!alive) return;
                     setAllBranches([]);
                     setLoadingBranches(false);
                     return;
@@ -70,6 +73,7 @@ export const LocationProvider = ({ children }) => {
                     };
                 });
 
+                if (!alive) return;
                 setAllBranches(mappedBranches);
 
                 setSelectedBranch((prev) => {
@@ -82,12 +86,37 @@ export const LocationProvider = ({ children }) => {
                     return prev;
                 });
             } catch {
+                // ignore to avoid breaking the menu/checkout
             } finally {
+                if (!alive) return;
                 setLoadingBranches(false);
             }
         };
 
+        setLoadingBranches(true);
         fetchBranches();
+
+        // Realtime: cualquier cambio en `branches` impacta `delivery_settings` -> refrescamos `get_public_branches`.
+        const channel = publicCompanySlug
+            ? supabase
+                .channel(`branches-realtime-${publicCompanySlug}`)
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'branches' },
+                    () => {
+                        // Recargar con debounce simple (para agrupar múltiples updates).
+                        void fetchBranches();
+                    }
+                )
+                .subscribe()
+            : null;
+
+        return () => {
+            alive = false;
+            try {
+                if (channel) supabase.removeChannel(channel);
+            } catch {}
+        };
     }, [publicCompanySlug]);
 
     useEffect(() => {

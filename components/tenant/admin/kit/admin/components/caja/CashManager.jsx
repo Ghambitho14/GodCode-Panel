@@ -5,7 +5,7 @@ import {
     Unlock, Lock, History, 
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
-    DollarSign, CreditCard, Smartphone, ChevronRight,
+    DollarSign, CreditCard, Smartphone, ChevronRight, Truck,
     MapPin, Calculator,
 } from 'lucide-react';
 import { useCashSystem } from '../../hooks/useCashSystem';
@@ -104,6 +104,14 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
     useEffect(() => { loadHistory(); }, [loadHistory, activeShift]);
 
     const totals = useMemo(() => getTotals(movements), [movements, getTotals]);
+    const deliveryNet = Math.max(
+        0,
+        (Number(totals.deliveryCollected) || 0) - (Number(totals.deliveryRefunded) || 0)
+    );
+    const deliveryPendingToPay = Math.max(
+        0,
+        deliveryNet - (Number(totals.deliveryPaidToCourier) || 0)
+    );
 
     const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
     const movementCount = movements.length;
@@ -283,6 +291,25 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                                 </div>
                             </div>
                         </div>
+
+                        <div className="cash-kpi delivery">
+                            <div className="cash-kpi-header">
+                                <AdminIconSlot
+                                    Icon={Truck}
+                                    slotSize="sm"
+                                    style={{
+                                        color: '#f59e0b',
+                                        background: 'rgba(245, 158, 11, 0.12)',
+                                        borderColor: 'rgba(245, 158, 11, 0.28)',
+                                    }}
+                                />
+                                <span>Delivery a pagar</span>
+                            </div>
+                            <div className="cash-kpi-value">{fmt(deliveryPendingToPay)}</div>
+                            <div className="cash-kpi-sub">
+                                Cobrado: {fmt(deliveryNet)} · Pagado: {fmt(totals.deliveryPaidToCourier || 0)}
+                            </div>
+                        </div>
                     </div>
 
                     {/* ÚLTIMOS MOVIMIENTOS */}
@@ -457,6 +484,7 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                 onClose={() => setViewingShift(null)}
                 shift={viewingShift}
                 getTotals={getTotals}
+                orders={orders}
             />
 
             <CashOrderDetailPanel

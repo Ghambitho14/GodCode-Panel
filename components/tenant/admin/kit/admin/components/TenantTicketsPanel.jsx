@@ -6,6 +6,30 @@ import { Send, Plus, MessageSquare, AlertCircle, Clock, CheckCircle2, ChevronRig
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'critical'];
 const CATEGORY_OPTIONS = ['general', 'billing', 'technical', 'product', 'account'];
 
+/** Etiquetas en español; los `value` de option siguen en inglés para la API. */
+const PRIORITY_LABELS_ES = {
+	low: 'Baja',
+	medium: 'Media',
+	high: 'Alta',
+	critical: 'Crítica',
+};
+const CATEGORY_LABELS_ES = {
+	general: 'General',
+	billing: 'Facturación',
+	technical: 'Técnico',
+	product: 'Producto',
+	account: 'Cuenta',
+};
+
+function labelPriorityEs(p) {
+	const k = String(p ?? '').toLowerCase();
+	return PRIORITY_LABELS_ES[k] ?? p;
+}
+function labelCategoryEs(c) {
+	const k = String(c ?? '').toLowerCase();
+	return CATEGORY_LABELS_ES[k] ?? c;
+}
+
 /** API devuelve `message` + `author_type`; el UI histórico usaba `body` + `author`. */
 function getMessageDisplay(m) {
   const raw =
@@ -202,7 +226,7 @@ export default function TenantTicketsPanel({
             aria-label="Categoría del ticket"
           >
             {CATEGORY_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
+              <option key={option} value={option}>{CATEGORY_LABELS_ES[option] ?? option}</option>
             ))}
           </select>
           
@@ -213,7 +237,7 @@ export default function TenantTicketsPanel({
             aria-label="Prioridad del ticket"
           >
             {PRIORITY_OPTIONS.map((option) => (
-              <option key={option} value={option}>{option}</option>
+              <option key={option} value={option}>{PRIORITY_LABELS_ES[option] ?? option}</option>
             ))}
           </select>
         </div>
@@ -258,12 +282,12 @@ export default function TenantTicketsPanel({
                 </div>
                 <div className="ticket-meta">
                   {/* Aplicamos las clases para que se vean como 'badges' profesionales */}
-                  <span className="ticket-status">{t.category}</span>
+                  <span className="ticket-status">{labelCategoryEs(t.category)}</span>
                   <span 
                     className="ticket-priority" 
                     style={{ color: getPriorityColor(t.priority), borderColor: `${getPriorityColor(t.priority)}40`, background: `${getPriorityColor(t.priority)}15` }}
                   >
-                    {t.priority}
+                    {labelPriorityEs(t.priority)}
                   </span>
                 </div>
               </li>
@@ -280,8 +304,8 @@ export default function TenantTicketsPanel({
             <div className="thread-header">
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '6px', color: 'white' }}>{selectedTicket.subject}</h3>
                 <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', color: '#64748b' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={14} /> {selectedTicket.priority}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14} /> {selectedTicket.category}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={14} /> {labelPriorityEs(selectedTicket.priority)}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14} /> {labelCategoryEs(selectedTicket.category)}</span>
                 </div>
             </div>
             

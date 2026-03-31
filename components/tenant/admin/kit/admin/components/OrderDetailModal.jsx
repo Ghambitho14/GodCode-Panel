@@ -23,6 +23,26 @@ export default function OrderDetailModal({ order, onClose, branchName, branchAdd
 
 	const delivery = isOrderDelivery(order);
 	const addrLines = deliveryAddressLines(order.delivery_address);
+	const displayAddrLines = (() => {
+		const base = addrLines
+			.map((s) => String(s ?? "").replace(/\s+/g, " ").trim())
+			.filter(Boolean);
+		if (base.length <= 1) return base;
+		const uniq = [];
+		const seen = new Set();
+		for (const line of base) {
+			const key = line.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			uniq.push(line);
+		}
+		// Si una línea es subtexto de otra más completa, ocultar la corta para evitar ruido.
+		return uniq.filter((line, _, arr) => {
+			const low = line.toLowerCase();
+			return !arr.some((other) => other !== line && other.toLowerCase().includes(low));
+		});
+	})();
+	const primaryAddressLine = displayAddrLines.length > 0 ? displayAddrLines[0] : "";
 	const fee = Number(order.delivery_fee);
 	const hasFee = Number.isFinite(fee) && fee > 0;
 	const handoffCode =
@@ -98,8 +118,8 @@ export default function OrderDetailModal({ order, onClose, branchName, branchAdd
 									Tarifa delivery: ${fee.toLocaleString("es-CL")}
 								</p>
 							) : null}
-							{addrLines.length > 0 ? (
-								<pre className="order-detail-address">{addrLines.join("\n")}</pre>
+							{primaryAddressLine ? (
+								<p className="order-detail-address-single">{primaryAddressLine}</p>
 							) : null}
 						</div>
 					) : null}

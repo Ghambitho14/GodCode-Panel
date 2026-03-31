@@ -143,6 +143,7 @@
 .admin-layout .rpt-kpi-icon.orders { background: rgba(59,130,246,0.12); color: #3b82f6; }
 .admin-layout .rpt-kpi-icon.ticket { background: rgba(34,197,94,0.12); color: #22c55e; }
 .admin-layout .rpt-kpi-icon.clients { background: rgba(168,85,247,0.12); color: #a855f7; }
+.admin-layout .rpt-kpi-icon.delivery { background: rgba(245, 158, 11, 0.14); color: #d97706; }
 
 .admin-layout .rpt-kpi-body {
     flex: 1;
@@ -166,6 +167,14 @@
     color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
+}
+
+.admin-layout .rpt-kpi-meta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--admin-text-muted, #5a6169);
+    margin-top: 4px;
+    line-height: 1.25;
 }
 
 .admin-layout .rpt-trend {
@@ -207,10 +216,67 @@
 .admin-layout .rpt-chart-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 16px;
     flex-wrap: wrap;
     gap: 12px;
+}
+
+.admin-layout .rpt-chart-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.admin-layout .rpt-chart-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border, #e8ecf1);
+    background: var(--admin-page-bg, #f4f6f9);
+}
+
+.admin-layout .rpt-chart-kind-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--admin-text-muted, #5a6169);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-layout .rpt-chart-kind-btn:hover:not(.active) {
+    color: var(--admin-text, #1a1d21);
+    background: color-mix(in srgb, var(--admin-card-bg, #fff) 70%, transparent);
+}
+
+.admin-layout .rpt-chart-kind-btn.active {
+    background: var(--admin-card-bg, #fff);
+    color: #e63946;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.admin-layout .rpt-chart-kind-label {
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .admin-layout .rpt-chart-kind-label {
+        display: none;
+    }
+    .admin-layout .rpt-chart-kind-btn {
+        padding: 8px 10px;
+    }
 }
 
 .admin-layout .rpt-chart-header h3 {

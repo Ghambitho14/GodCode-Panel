@@ -3,12 +3,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
 
+import {
+	BRANCH_PAYMENT_METHOD_ORDER,
+	applyPaymentMethodToggle,
+	branchHasCanonicalMethod,
+} from '@/lib/branch-payment-methods';
+
 const PROVIDER_LABELS = { paypal: 'PayPal', stripe: 'Stripe' };
 
 const METHOD_LABELS = {
 	pago_movil: 'Pago Móvil',
 	zelle: 'Zelle',
 	transferencia_bancaria: 'Transferencia bancaria',
+};
+
+/** Encabezados de columnas (claves canónicas en `branches.payment_methods`). */
+const METHOD_COLUMN_LABELS = {
+	tienda: 'Efectivo',
+	tarjeta: 'Tarjeta',
+	transferencia_bancaria: 'Transferencia',
+	pago_movil: 'Pago móvil',
+	zelle: 'Zelle',
+	paypal: 'PayPal',
+	stripe: 'Stripe',
 };
 
 const METHOD_FIELDS = {
@@ -150,25 +167,35 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 		branchMethods.find((m) => m.branch_id === branchId && m.provider === provider);
 
 	const setBranchEnabled = useCallback(
-		async (branchId, provider, isEnabled) => {
-			const key = `${branchId}-${provider}`;
+		async (branchId, canonical, isEnabled) => {
+			const key = `${branchId}-${canonical}`;
 			setSaving(key);
 			try {
 				const res = await fetch('/api/tenant-payment-methods', {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					credentials: 'include',
-					body: JSON.stringify({ branch_id: branchId, provider, is_enabled: isEnabled }),
+					body: JSON.stringify({ branch_id: branchId, provider: canonical, is_enabled: isEnabled }),
 				});
 				const data = await res.json();
 				if (!res.ok) {
 					showNotify?.(data?.error || 'Error al guardar', 'error');
 					return;
 				}
-				setBranchMethods((prev) => {
-					const rest = prev.filter((m) => !(m.branch_id === branchId && m.provider === provider));
-					return [...rest, { branch_id: branchId, provider, is_enabled: isEnabled }];
-				});
+				if (canonical === 'paypal' || canonical === 'stripe') {
+					setBranchMethods((prev) => {
+						const rest = prev.filter((m) => !(m.branch_id === branchId && m.provider === canonical));
+						return [...rest, { branch_id: branchId, provider: canonical, is_enabled: isEnabled }];
+					});
+				}
+				setBranches((prev) =>
+					prev.map((b) => {
+						if (b.id !== branchId) return b;
+						const current = Array.isArray(b.payment_methods) ? [...b.payment_methods] : [];
+						const next = applyPaymentMethodToggle(current, canonical, isEnabled);
+						return { ...b, payment_methods: next };
+					})
+				);
 				showNotify?.('Guardado');
 			} catch {
 				showNotify?.('Error al guardar', 'error');
@@ -462,37 +489,45 @@ export default function AdminPaymentMethods({ showNotify, branches: branchesProp
 			<section className="settings-section" style={{ marginTop: '1.5rem' }}>
 				<h2 className="section-title">Métodos por sucursal</h2>
 				<p className="form-hint" style={{ marginBottom: '1rem' }}>
-					Activa qué métodos de pago acepta cada sucursal. Solo tendrán efecto cuando la cuenta correspondiente esté conectada arriba.
+					Marca o desmarca qué métodos acepta cada sucursal. PayPal y Stripe requieren la cuenta conectada arriba.
 				</p>
 				<div style={{ overflowX: 'auto' }}>
-					<table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '400px' }}>
+					<table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '720px' }}>
 						<thead>
 							<tr style={{ borderBottom: '2px solid var(--border, #e5e7eb)' }}>
 								<th style={{ textAlign: 'left', padding: '0.75rem', fontWeight: 600 }}>Sucursal</th>
-								<th style={{ textAlign: 'center', padding: '0.75rem', fontWeight: 600 }}>PayPal</th>
-								<th style={{ textAlign: 'center', padding: '0.75rem', fontWeight: 600 }}>Stripe</th>
+								{BRANCH_PAYMENT_METHOD_ORDER.map((canonical) => (
+									<th
+										key={canonical}
+										style={{ textAlign: 'center', padding: '0.5rem 0.35rem', fontWeight: 600, fontSize: '0.78rem' }}
+									>
+										{METHOD_COLUMN_LABELS[canonical]}
+									</th>
+								))}
 							</tr>
 						</thead>
 						<tbody>
 							{branches.filter((b) => b.id && b.id !== 'all').map((branch) => (
 								<tr key={branch.id} style={{ borderBottom: '1px solid var(--border, #e5e7eb)' }}>
 									<td style={{ padding: '0.75rem' }}>{branch.name || 'Sin nombre'}</td>
-									<td style={{ padding: '0.75rem', textAlign: 'center' }}>
-										<input
-											type="checkbox"
-											checked={getBranchMethod(branch.id, 'paypal')?.is_enabled ?? false}
-											onChange={(e) => setBranchEnabled(branch.id, 'paypal', e.target.checked)}
-											disabled={saving === `${branch.id}-paypal`}
-										/>
-									</td>
-									<td style={{ padding: '0.75rem', textAlign: 'center' }}>
-										<input
-											type="checkbox"
-											checked={getBranchMethod(branch.id, 'stripe')?.is_enabled ?? false}
-											onChange={(e) => setBranchEnabled(branch.id, 'stripe', e.target.checked)}
-											disabled={saving === `${branch.id}-stripe`}
-										/>
-									</td>
+									{BRANCH_PAYMENT_METHOD_ORDER.map((canonical) => {
+										const checked =
+											canonical === 'paypal' || canonical === 'stripe'
+												? getBranchMethod(branch.id, canonical)?.is_enabled ??
+													branchHasCanonicalMethod(branch.payment_methods, canonical)
+												: branchHasCanonicalMethod(branch.payment_methods, canonical);
+										return (
+											<td key={canonical} style={{ padding: '0.5rem', textAlign: 'center' }}>
+												<input
+													type="checkbox"
+													checked={checked}
+													onChange={(e) => setBranchEnabled(branch.id, canonical, e.target.checked)}
+													disabled={saving === `${branch.id}-${canonical}`}
+													aria-label={`${METHOD_COLUMN_LABELS[canonical]} — ${branch.name || 'Sucursal'}`}
+												/>
+											</td>
+										);
+									})}
 								</tr>
 							))}
 						</tbody>

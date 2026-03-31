@@ -870,6 +870,40 @@
     border: 1px solid var(--admin-border);
 }
 
+.admin-layout .order-detail-address-list {
+    margin: 6px 0 0;
+    padding: 8px;
+    list-style: none;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--inner-radius);
+    background: var(--admin-icon-bg);
+    display: grid;
+    gap: 6px;
+}
+
+.admin-layout .order-detail-address-item {
+    margin: 0;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--admin-text);
+    font-size: 0.8rem;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-address-single {
+    margin: 6px 0 0;
+    padding: 9px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
+    font-size: 0.82rem;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
 .admin-layout .order-detail-items {
     margin: 0;
     padding-left: 1.1rem;

@@ -225,6 +225,13 @@
     }
 }
 
+/* Mobile/Tablet app: mantener columna vertical para que sidebar no se pierda */
+@media (max-width: 1024px) {
+    .manual-order-body {
+        flex-direction: column;
+    }
+}
+
 /* === COLUMNA IZQUIERDA: PRODUCTOS === */
 .manual-order-products {
     flex: 1;
@@ -233,6 +240,7 @@
     overflow: hidden;
     background: #0a0a0a;
     min-height: 0;
+    position: relative;
 }
 
 /* === FLOATING SEARCH PILL === */
@@ -255,6 +263,76 @@
     overflow: hidden;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.manual-order-images-toggle {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.7), rgba(15, 23, 42, 0.75));
+    color: #e2e8f0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    user-select: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.manual-order-images-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.manual-order-images-toggle__track {
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.manual-order-images-toggle__thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    transform: translateX(0);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.manual-order-images-toggle__label {
+    line-height: 1;
+}
+
+.manual-order-images-toggle:hover {
+    border-color: rgba(230, 57, 70, 0.35);
+    background: linear-gradient(180deg, rgba(20, 20, 24, 0.85), rgba(18, 18, 22, 0.9));
+}
+
+.manual-order-images-toggle input:checked + .manual-order-images-toggle__track {
+    background: rgba(230, 57, 70, 0.24);
+    border-color: rgba(230, 57, 70, 0.5);
+}
+
+.manual-order-images-toggle input:checked + .manual-order-images-toggle__track .manual-order-images-toggle__thumb {
+    transform: translateX(14px);
+    background: #ff8a93;
 }
 
 .manual-order-search-pill:hover {
@@ -322,6 +400,13 @@
     .manual-order-search-icon-wrapper {
         width: 36px;
         height: 36px;
+    }
+
+    .manual-order-images-toggle {
+        top: 12px;
+        right: 56px;
+        font-size: 10px;
+        padding: 6px 8px;
     }
 }
 
@@ -644,7 +729,49 @@
     .manual-order-sidebar {
         border-left: none;
         border-top: 1px solid var(--modal-border);
-        max-height: 50vh;
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+    }
+
+    /* El orden lo define el DOM en React; aquí evitamos que el resumen colapse por flex. */
+    .manual-order-summary-section {
+        flex: 0 0 auto;
+        flex-grow: 0;
+        min-height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .manual-order-cart-body {
+        flex: 0 0 auto;
+        min-height: 120px;
+        max-height: none;
+    }
+}
+
+/* Hasta tablet: mismo comportamiento */
+@media (max-width: 1024px) {
+    .manual-order-sidebar {
+        border-left: none;
+        border-top: 1px solid var(--modal-border);
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+    }
+
+    .manual-order-summary-section {
+        flex: 0 0 auto;
+        flex-grow: 0;
+        min-height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .manual-order-cart-body {
+        flex: 0 0 auto;
+        min-height: 120px;
+        max-height: none;
     }
 }
 
@@ -1081,18 +1208,12 @@
     /* Push to bottom if space available */
 }
 
-@media (max-width: 767px) {
+/* Sticky footer dentro del sidebar tapaba resumen/nota al hacer scroll; flujo natural. */
+@media (max-width: 1024px) {
     .manual-order-footer {
         padding: var(--spacing-sm);
-        /* Even smaller on mobile */
-        position: -webkit-sticky;
-        position: sticky;
-        bottom: 0;
-        z-index: 10;
-        background: #0a0a0a;
-        /* Ensure readability */
-        border-top: 1px solid #222;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+        position: static;
+        margin-top: 0;
     }
 }
 

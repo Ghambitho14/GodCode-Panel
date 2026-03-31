@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Truck, Plus, Trash2 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 import {
 	buildDefaultDeliveryPaymentKeys,
 	computeDeliveryFee,
@@ -63,11 +64,13 @@ const DELIVERY_TOOLTIPS = {
 	headerSwitch:
 		"Activa o desactiva el envío a domicilio para esta sucursal. Si está apagado, el cliente solo puede retirar o consumir en local; el resto de opciones queda bloqueado.",
 	strategyIntro:
-		"Elige una sola modalidad: por distancia desde el local o por zonas con nombre y precio fijo por zona.",
+		"Elige una sola modalidad: por distancia, por zonas con nombre o delivery externo (sin cotización automática en el checkout).",
 	strategyDistance:
 		"Cobro por distancia en línea recta desde el local: precio por km, cargo base opcional y anillos con tarifa fija por radio.",
 	strategyNamedAreas:
 		"Cada zona (comuna, barrio…) tiene un precio de envío fijo; no se suma precio por km ni cargo base de la otra modalidad.",
+	strategyExternal:
+		"No se cotiza por km ni por zonas. En el checkout no se muestra un monto de envío: el cliente ve “Consultar con la tienda” (o el mensaje que escribas en Avanzado). El total del pedido puede seguir sin cargo de envío en el sistema; el coste real lo coordinas fuera (p. ej. Uber Direct).",
 	namedManual:
 		"El cliente elige la zona en una lista al pagar. Útil cuando quieres nombres exactos y control total.",
 	namedAddress:
@@ -148,6 +151,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const [namedAreaResolution, setNamedAreaResolution] = useState("manual_select");
 	/** `true` = permitido para delivery (clave = id de método) */
 	const [deliveryPaymentChecked, setDeliveryPaymentChecked] = useState({});
+	const deliveryPaymentCheckedRef = useRef({});
 
 	const applyServerPayload = useCallback((data) => {
 		const n = normalizeDeliverySettings(data);
@@ -184,7 +188,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			: [emptyZoneRow()];
 		setZoneRows(z);
 		setPricingStrategy(
-			n.deliveryPricingStrategy === "named_areas" ? "named_areas" : "distance",
+			n.deliveryPricingStrategy === "named_areas"
+				? "named_areas"
+				: n.deliveryPricingStrategy === "external"
+					? "external"
+					: "distance",
 		);
 		setNamedAreaResolution(
 			n.namedAreaResolution === "address_matched" ? "address_matched" : "manual_select",
@@ -206,13 +214,13 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			const allowedSet = new Set(
 				allowedRaw.map((x) => String(x).trim().toLowerCase()),
 			);
-			setDeliveryPaymentChecked(
-				Object.fromEntries(allPayKeys.map((k) => [k, allowedSet.has(k)])),
-			);
+			const next = Object.fromEntries(allPayKeys.map((k) => [k, allowedSet.has(k)]));
+			deliveryPaymentCheckedRef.current = next;
+			setDeliveryPaymentChecked(next);
 		} else {
-			setDeliveryPaymentChecked(
-				Object.fromEntries(allPayKeys.map((k) => [k, true])),
-			);
+			const next = Object.fromEntries(allPayKeys.map((k) => [k, true]));
+			deliveryPaymentCheckedRef.current = next;
+			setDeliveryPaymentChecked(next);
 		}
 	}, [selectedBranch?.payment_methods]);
 
@@ -244,6 +252,27 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	useEffect(() => {
 		void load();
 	}, [load]);
+
+	// Realtime: si otro usuario cambia `branches.delivery_settings` de esta sucursal,
+	// refrescamos el panel de Opciones de menú sin recargar la página.
+	useEffect(() => {
+		if (!branchId) return;
+		const channel = supabase
+			.channel(`branch-delivery-settings-${branchId}`)
+			.on(
+				"postgres_changes",
+				{ event: "UPDATE", schema: "public", table: "branches", filter: `id=eq.${branchId}` },
+				() => {
+					void load();
+				},
+			)
+			.subscribe();
+		return () => {
+			try {
+				supabase.removeChannel(channel);
+			} catch {}
+		};
+	}, [branchId, load]);
 
 	const zonesPayload = useMemo(() => {
 		const out = [];
@@ -321,6 +350,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const previewFee = useMemo(() => {
 		const exKm = 3;
 		const exSubtotal = 15000;
+		if (normalizedFromDraft.deliveryPricingStrategy === "external") {
+			return computeDeliveryFee(normalizedFromDraft, 0, exSubtotal);
+		}
 		const areas = normalizedFromDraft.namedAreas;
 		if (effectiveDeliveryPricingMode(normalizedFromDraft) === "named" && areas.length > 0) {
 			return computeDeliveryFee(normalizedFromDraft, 0, exSubtotal, {
@@ -396,7 +428,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				delete payload.originLng;
 			}
 			const payKeys = buildDefaultDeliveryPaymentKeys(selectedBranch?.payment_methods);
-			const selectedPay = payKeys.filter((k) => deliveryPaymentChecked[k] !== false);
+			// Usar ref para evitar estado "stale" si el usuario toca chip y guarda muy rápido.
+			const checked = deliveryPaymentCheckedRef.current || {};
+			const selectedPay = payKeys.filter((k) => checked[k] !== false);
 			if (selectedPay.length === 0) {
 				showNotify(
 					"Selecciona al menos un método de pago permitido para delivery.",
@@ -448,20 +482,26 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const lockOptions = !deliveryEnabled || loading || savingFields || saving;
 
 	const previewText =
-		previewFee.fee < 0
-			? previewFee.fee === -1
-				? "Ejemplo no aplicable: distancia fuera del máximo configurado."
-				: previewFee.fee === -2
-					? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
-					: "Ejemplo no aplicable."
-			: effectiveDeliveryPricingMode(normalizedFromDraft) === "named" &&
-				  normalizedFromDraft.namedAreas?.length > 0
-				? previewFee.waivedFreeShipping
-					? "Ejemplo (primera zona, subtotal $15.000): envío gratuito por umbral."
-					: `Ejemplo (primera zona, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`
+		normalizedFromDraft.deliveryPricingStrategy === "external"
+			? previewFee.fee === -2
+				? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
 				: previewFee.waivedFreeShipping
-					? "Ejemplo (3 km, subtotal $15.000): envío gratuito por umbral."
-					: `Ejemplo (3 km, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`;
+					? "Modalidad externa: el cliente no ve precio de envío (solo “Consultar con la tienda” o tu mensaje). En el ejemplo, umbral de envío gratis podría aplicar al total sin mostrar monto de delivery."
+					: "Modalidad externa: el cliente ve “Consultar con la tienda” (o tu texto en Avanzado), no un monto de envío."
+			: previewFee.fee < 0
+				? previewFee.fee === -1
+					? "Ejemplo no aplicable: distancia fuera del máximo configurado."
+					: previewFee.fee === -2
+						? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
+						: "Ejemplo no aplicable."
+				: effectiveDeliveryPricingMode(normalizedFromDraft) === "named" &&
+					  normalizedFromDraft.namedAreas?.length > 0
+					? previewFee.waivedFreeShipping
+						? "Ejemplo (primera zona, subtotal $15.000): envío gratuito por umbral."
+						: `Ejemplo (primera zona, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`
+					: previewFee.waivedFreeShipping
+						? "Ejemplo (3 km, subtotal $15.000): envío gratuito por umbral."
+						: `Ejemplo (3 km, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`;
 
 	return (
 		<section
@@ -478,9 +518,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							Delivery{branchLabel}
 						</h3>
 						<p className="admin-menu-options-card-desc">
-							Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia desde el local o
-							por zonas con nombre (comunas/barrios). La tarifa de cada zona es el envío completo (no se
-							suma el cargo fijo ni el precio por km de la otra modalidad).
+							Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia, por zonas con
+							nombre (comunas/barrios) o <strong>delivery externo</strong> (sin cotización automática;
+							ideal si usas Uber Direct u otro courier). La tarifa por zona es el envío completo de esa
+							zona (no se suma el cargo fijo ni el precio por km de la modalidad por distancia).
 						</p>
 					</div>
 				</div>
@@ -558,6 +599,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								Por zonas con nombre
 								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 									{DELIVERY_TOOLTIPS.strategyNamedAreas}
+								</span>
+							</button>
+							<button
+								type="button"
+								disabled={lockOptions}
+								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "external" ? "is-active" : ""}`}
+								onClick={() => setPricingStrategy("external")}
+							>
+								Consultar con tienda / externo
+								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+									{DELIVERY_TOOLTIPS.strategyExternal}
 								</span>
 							</button>
 						</div>
@@ -739,7 +791,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</button>
 							</div>
 						</>
-					) : (
+					) : pricingStrategy === "named_areas" ? (
 						<>
 							<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
 								<p
@@ -916,6 +968,22 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</button>
 							</div>
 						</>
+					) : (
+						<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
+							<p className="admin-menu-options-card-desc" style={{ marginBottom: 0 }}>
+								<strong>Sin precio de envío en el checkout:</strong> el cliente ve{" "}
+								<strong>Consultar con la tienda</strong> (por defecto), no un monto. Puedes cambiar el
+								texto en <strong>Avanzado → Mensaje para el cliente</strong>. El coste real (Uber Direct,
+								etc.) lo coordinas fuera del total mostrado como “envío”.
+							</p>
+							<p
+								className="admin-menu-options-card-desc admin-delivery-inline-tip"
+								style={{ marginTop: 12, marginBottom: 0 }}
+							>
+								La API de cotización indica <code style={{ fontSize: "0.85em" }}>showDeliveryFeeAmount: false</code>{" "}
+								para que el menú público no muestre precio de delivery.
+							</p>
+						</div>
 					)}
 
 						</div>
@@ -947,12 +1015,12 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 											disabled={lockOptions}
 											className={`admin-delivery-pay-chip admin-tooltip-btn-hover ${on ? "is-on" : ""}`}
 											onClick={() => {
-												setDeliveryPaymentChecked((prev) => ({
-													...Object.fromEntries(
-														deliveryPaymentKeys.map((k) => [k, prev[k] !== false]),
-													),
-													[key]: !on,
-												}));
+												setDeliveryPaymentChecked((prev) => {
+													const currOn = prev[key] !== false;
+													const next = { ...prev, [key]: !currOn };
+													deliveryPaymentCheckedRef.current = next;
+													return next;
+												});
 											}}
 										>
 											{DELIVERY_PAYMENT_LABELS[key] ?? key}

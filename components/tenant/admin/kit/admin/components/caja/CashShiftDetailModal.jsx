@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, History, Clock, User, DollarSign, CreditCard, Smartphone } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { X, History, Clock, User, DollarSign, CreditCard, Smartphone, XCircle } from 'lucide-react';
 import { cashService } from '../../services/cashService';
 import { getPaymentLabel } from '../../../shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
@@ -23,11 +23,46 @@ const PaymentMethodBreakdownHeader = ({ Icon, label }) => (
     </div>
 );
 
-const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
+const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [] }) => {
     const [movements, setMovements] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const shiftRowId = shift?.id ?? shift?.shift_id;
+
+    /** Pedidos cancelados en el rango del turno (misma lógica que la lista reciente de caja). */
+    const cancelledOrdersInShift = useMemo(() => {
+        if (!shift?.opened_at || !shift?.closed_at) return [];
+        const branchId = shift.branch_id;
+        if (branchId == null || branchId === '') return [];
+        const openedAt = new Date(shift.opened_at).getTime();
+        const closedAt = new Date(shift.closed_at).getTime();
+        return (orders || [])
+            .filter(
+                (o) =>
+                    o?.status === 'cancelled' &&
+                    String(o.branch_id) === String(branchId) &&
+                    new Date(o.created_at).getTime() >= openedAt &&
+                    new Date(o.created_at).getTime() <= closedAt
+            )
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }, [shift, orders]);
+
+    const movementsWithCancellations = useMemo(() => {
+        const synthetic = (cancelledOrdersInShift || []).map((order) => ({
+            id: `cancel-${order.id}`,
+            type: 'cancel',
+            order_id: order.id,
+            description: `Pedido #${String(order.id).slice(-4)} cancelado`,
+            created_at: order.created_at,
+            amount: 0,
+            payment_method: null,
+            orders: order,
+        }));
+        const base = movements || [];
+        return [...base, ...synthetic].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+    }, [movements, cancelledOrdersInShift]);
 
     const loadMovements = useCallback(async () => {
         if (shiftRowId == null || shiftRowId === '') return;
@@ -149,7 +184,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
 
                     {loading ? (
                         <div style={{ padding: 40, textAlign: 'center' }}>Cargando transacciones...</div>
-                    ) : movements.length === 0 ? (
+                    ) : movementsWithCancellations.length === 0 ? (
                         <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                             No hay movimientos registrados para este turno.
                         </div>
@@ -157,20 +192,25 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                         <div className="cash-shift-movements-scroll">
                             <table className="cash-movements-table" style={{ borderSpacing: 0 }}>
                                 <tbody>
-                                    {movements.map(m => (
-                                        <tr key={m.id} className="movement-row">
+                                    {movementsWithCancellations.map(m => (
+                                        <tr key={m.id} className={`movement-row ${m.type === 'cancel' ? 'movement-row--cancelled' : ''}`}>
                                             <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', width: 80, padding: '12px 15px' }}>
                                                 {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                             </td>
                                             <td style={{ width: 110, padding: '12px 0' }}>
-                                                <span className={`movement-type type-${m.type}`} style={{ fontSize: '0.65rem' }}>
-                                                    {m.type === 'sale' ? 'Venta' : (m.type === 'income' ? 'Ingreso' : 'Egreso')}
+                                                <span className={`movement-type type-${m.type === 'cancel' ? 'cancel' : m.type}`} style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                                    {m.type === 'cancel' ? (
+                                                        <>
+                                                            <XCircle size={12} aria-hidden />
+                                                            Cancelado
+                                                        </>
+                                                    ) : m.type === 'sale' ? 'Venta' : (m.type === 'income' ? 'Ingreso' : 'Egreso')}
                                                 </span>
                                             </td>
                                             <td style={{ fontSize: '0.85rem', padding: '12px 10px' }}>
                                                 <div style={{ fontWeight: 500 }}>{m.description}</div>
                                                 {m.orders && (
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', marginTop: 2, marginBottom: 2 }}>
+                                                    <div style={{ fontSize: '0.75rem', color: m.type === 'cancel' ? '#f87171' : 'var(--accent-primary)', marginTop: 2, marginBottom: 2 }}>
                                                         <div style={{ fontWeight: 600 }}>{m.orders.client_name || 'Cliente Casual'}</div>
                                                         {m.orders.items && (
                                                             <div style={{ opacity: 0.85, fontSize: '0.7rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
@@ -187,13 +227,19 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals }) => {
                                                     </div>
                                                 )}
                                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                                                    {m.orders ? getPaymentLabel(m.orders) : (m.payment_method === 'cash' ? 'Efectivo' : (m.payment_method === 'card' ? 'Tarjeta' : 'Transf.'))}
+                                                    {m.type === 'cancel'
+                                                        ? 'Pedido anulado en el turno'
+                                                        : (m.orders ? getPaymentLabel(m.orders) : (m.payment_method === 'cash' ? 'Efectivo' : (m.payment_method === 'card' ? 'Tarjeta' : 'Transf.')))}
                                                 </div>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '12px 15px' }}>
-                                                <span className={`movement-amount ${m.type === 'expense' ? 'amount-minus' : 'amount-plus'}`} style={{ fontSize: '0.9rem' }}>
-                                                    {m.type === 'expense' ? '-' : '+'}${Number(m.amount).toLocaleString('es-CL')}
-                                                </span>
+                                                {m.type === 'cancel' ? (
+                                                    <span style={{ fontSize: '0.85rem', color: '#f87171', fontWeight: 700 }}>—</span>
+                                                ) : (
+                                                    <span className={`movement-amount ${m.type === 'expense' ? 'amount-minus' : 'amount-plus'}`} style={{ fontSize: '0.9rem' }}>
+                                                        {m.type === 'expense' ? '-' : '+'}${Number(m.amount).toLocaleString('es-CL')}
+                                                    </span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
