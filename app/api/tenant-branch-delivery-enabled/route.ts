@@ -41,11 +41,20 @@ async function getTenantCompanyContext(): Promise<
 	return { companyId: row.company_id };
 }
 
+function pickTrustedDriverWhatsAppDigits(raw: unknown): string {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
+	const o = raw as Record<string, unknown>;
+	const v = o.trustedDriverWhatsApp ?? o.trusted_driver_whatsapp;
+	if (typeof v !== "string") return "";
+	return v.replace(/\D/g, "").slice(0, 18);
+}
+
 function settingsResponse(
 	deliverySettingsRaw: unknown,
 	origin?: { lat: number | null; lng: number | null },
 ) {
 	const n = normalizeDeliverySettings(deliverySettingsRaw);
+	const trustedWa = pickTrustedDriverWhatsAppDigits(deliverySettingsRaw);
 	return {
 		enabled: n.enabled,
 		deliveryPricingStrategy: n.deliveryPricingStrategy,
@@ -60,8 +69,10 @@ function settingsResponse(
 		customerNotes: n.customerNotes,
 		zones: n.zones,
 		namedAreas: n.namedAreas,
+		allowedPaymentMethodsForDelivery: n.allowedPaymentMethodsForDelivery,
 		originLat: origin?.lat ?? null,
 		originLng: origin?.lng ?? null,
+		trustedDriverWhatsApp: trustedWa.length >= 8 ? trustedWa : "",
 	};
 }
 
@@ -79,6 +90,8 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 		"freeDeliveryFromSubtotal",
 		"minOrderSubtotal",
 		"customerNotes",
+		"trustedDriverWhatsApp",
+		"allowedPaymentMethodsForDelivery",
 	] as const;
 	for (const k of keys) {
 		if (k in body) {
@@ -171,7 +184,7 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json(
 				{
 					error:
-						"Nada que actualizar: envía delivery, zones, namedAreas u origen GPS",
+						"Nada que actualizar: envía delivery, tarifas, zonas, pagos delivery, WhatsApp repartidor u origen GPS",
 				},
 				{ status: 400 },
 			);

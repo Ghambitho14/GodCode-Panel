@@ -56,7 +56,14 @@ export function buildOrderWhatsAppShareText(order, branchName) {
 	if (branchName) lines.push(`Local: ${branchName}`);
 	lines.push(`Cliente: ${order.client_name || '—'}`);
 	if (order.client_phone) lines.push(`Tel: ${order.client_phone}`);
+	if (order.client_rut && String(order.client_rut).trim()) {
+		lines.push(`Doc: ${String(order.client_rut).trim()}`);
+	}
 	lines.push(`Pago: ${getPaymentLabel(order)}`);
+	const total = Number(order.total);
+	if (Number.isFinite(total) && total > 0) {
+		lines.push(`Total: $${total.toLocaleString('es-CL')}`);
+	}
 	const items = order.items;
 	if (Array.isArray(items) && items.length > 0) {
 		lines.push('Productos:');
@@ -65,6 +72,136 @@ export function buildOrderWhatsAppShareText(order, branchName) {
 			const name = it.name ?? 'Ítem';
 			lines.push(`• ${qty}x ${name}`);
 		}
+	}
+	if (order.note && String(order.note).trim()) {
+		lines.push(`Nota: ${String(order.note).trim()}`);
+	}
+	if (isOrderDelivery(order)) {
+		const handoff =
+			order.handoff_code != null && String(order.handoff_code).trim() !== ''
+				? String(order.handoff_code).trim()
+				: null;
+		const fee = Number(order.delivery_fee);
+		lines.push('');
+		lines.push('— Envío —');
+		if (handoff) {
+			lines.push(`Código verificación (pedir al cliente): ${handoff}`);
+		}
+		if (Number.isFinite(fee) && fee > 0) {
+			lines.push(`Cargo envío: $${fee.toLocaleString('es-CL')}`);
+		}
+		const addr = order.delivery_address;
+		const addrLines = deliveryAddressLines(addr);
+		if (addrLines.length > 0) {
+			lines.push('Dirección:');
+			for (const al of addrLines) {
+				lines.push(al);
+			}
+		}
+		const mapsUrl =
+			addr && typeof addr === 'object' && !Array.isArray(addr) && addr.maps_url
+				? String(addr.maps_url).trim()
+				: '';
+		if (mapsUrl) {
+			lines.push(`Mapa: ${mapsUrl}`);
+		}
+	}
+	return lines.join('\n');
+}
+
+/**
+ * Texto listo para pegar al repartidor: dirección, mapa, contacto, código de verificación, totales.
+ * @param {Record<string, unknown>} order
+ * @param {string | null | undefined} branchName
+ * @param {string | null | undefined} branchAddress Dirección del local (origen), opcional
+ * @returns {string}
+ */
+export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = null) {
+	if (!order || !isOrderDelivery(order)) return '';
+	const idPart = order.display_id ?? order.order_number ?? order.id;
+	const lines = [];
+	lines.push('ENTREGA A DOMICILIO');
+	lines.push(`Pedido: ${idPart != null && idPart !== '' ? idPart : order.id}`);
+	const handoff =
+		order.handoff_code != null && String(order.handoff_code).trim() !== ''
+			? String(order.handoff_code).trim()
+			: null;
+	if (handoff) {
+		lines.push(`Código verificación (validar con el cliente): ${handoff}`);
+	}
+	if (branchName) {
+		lines.push(`Local: ${branchName}`);
+	}
+	if (branchAddress && String(branchAddress).trim()) {
+		lines.push(`Sale de: ${String(branchAddress).trim()}`);
+	}
+	lines.push('');
+	lines.push('Dónde llevar');
+	const addr = order.delivery_address;
+	const addrLines = deliveryAddressLines(addr);
+	if (addrLines.length > 0) {
+		for (const al of addrLines) {
+			lines.push(al);
+		}
+	} else {
+		lines.push('(Sin dirección guardada en el pedido)');
+	}
+	const mapsUrl =
+		addr && typeof addr === 'object' && !Array.isArray(addr) && addr.maps_url
+			? String(addr.maps_url).trim()
+			: '';
+	if (mapsUrl) {
+		lines.push('');
+		lines.push(`Abrir en mapas: ${mapsUrl}`);
+	}
+	const lat =
+		addr && typeof addr === 'object' && !Array.isArray(addr) && addr.lat != null
+			? Number(addr.lat)
+			: NaN;
+	const lng =
+		addr && typeof addr === 'object' && !Array.isArray(addr) && addr.lng != null
+			? Number(addr.lng)
+			: NaN;
+	if (Number.isFinite(lat) && Number.isFinite(lng)) {
+		lines.push(`Coordenadas: ${lat}, ${lng}`);
+	}
+	lines.push('');
+	lines.push('Contacto');
+	lines.push(`Nombre: ${order.client_name || '—'}`);
+	if (order.client_phone) {
+		const digits = String(order.client_phone).replace(/\D/g, '');
+		lines.push(`Tel: ${order.client_phone}`);
+		if (digits) {
+			lines.push(`WhatsApp: https://wa.me/${digits}`);
+		}
+	}
+	if (order.client_rut && String(order.client_rut).trim()) {
+		lines.push(`Doc: ${String(order.client_rut).trim()}`);
+	}
+	lines.push('');
+	lines.push('Pago y montos');
+	lines.push(`Método: ${getPaymentLabel(order)}`);
+	const fee = Number(order.delivery_fee);
+	if (Number.isFinite(fee) && fee > 0) {
+		lines.push(`Cargo envío: $${fee.toLocaleString('es-CL')}`);
+	}
+	const total = Number(order.total);
+	if (Number.isFinite(total) && total > 0) {
+		lines.push(`Total pedido: $${total.toLocaleString('es-CL')}`);
+	}
+	const items = order.items;
+	if (Array.isArray(items) && items.length > 0) {
+		lines.push('');
+		lines.push('Qué lleva');
+		for (const it of items) {
+			const qty = it.quantity ?? 1;
+			const name = it.name ?? 'Ítem';
+			lines.push(`• ${qty}x ${name}`);
+		}
+	}
+	if (order.note && String(order.note).trim()) {
+		lines.push('');
+		lines.push(`Nota: ${String(order.note).trim()}`);
 	}
 	return lines.join('\n');
 }
@@ -124,6 +261,8 @@ export function deliveryAddressLines(addr) {
 		'line1',
 		'line_1',
 		'description',
+		'named_area_label',
+		'zone_label',
 		'reference',
 		'referencia',
 		'comuna',
@@ -149,6 +288,40 @@ export function deliveryAddressLines(addr) {
  * Saneamiento de pedidos desde la BD (items JSONB, total, client_*, status, etc.)
  * Usado en Admin y en hooks que parsean órdenes.
  */
+/**
+ * Abre WhatsApp con el mensaje listo para que quien envía elija al destinatario **dentro de WhatsApp**
+ * (compartir nativo en móvil, o enlace sin número que abre la app / Web).
+ *
+ * @param {string} text
+ * @param {{ onError?: (msg: string) => void }} [options]
+ * @returns {Promise<boolean>}
+ */
+export async function shareDeliveryPackViaWhatsApp(text, options = {}) {
+	const { onError } = options;
+	const body = String(text ?? "").trim();
+	if (!body) {
+		onError?.("No hay datos de envío para enviar.");
+		return false;
+	}
+	if (typeof window === "undefined") return false;
+
+	try {
+		if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+			await navigator.share({ text: body });
+			return true;
+		}
+	} catch (err) {
+		const name = err && typeof err === "object" && "name" in err ? String(err.name) : "";
+		if (name === "AbortError") {
+			return true;
+		}
+	}
+
+	const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(body)}`;
+	window.open(url, "_blank", "noopener,noreferrer");
+	return true;
+}
+
 export function sanitizeOrder(rawOrder) {
 	if (!rawOrder) return null;
 

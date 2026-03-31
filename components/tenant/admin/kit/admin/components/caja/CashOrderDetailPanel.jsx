@@ -9,6 +9,8 @@ import {
 	getPaymentSlug,
 	isOrderDelivery,
 	deliveryAddressLines,
+	buildOrderDeliveryDriverPack,
+	shareDeliveryPackViaWhatsApp,
 } from '../../../shared/utils/orderUtils';
 import './CashOrderDetailPanel.css';
 
@@ -45,7 +47,7 @@ function parseItems(raw) {
 	return [];
 }
 
-export default function CashOrderDetailPanel({ order, onClose }) {
+export default function CashOrderDetailPanel({ order, onClose, branch = null, showNotify }) {
 	useEffect(() => {
 		const onEsc = (e) => {
 			if (e.key === 'Escape') onClose();
@@ -57,6 +59,17 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 	if (!order || typeof document === 'undefined') return null;
 
 	const items = parseItems(order.items);
+
+	const handleDeliveryWhatsApp = async () => {
+		const text = buildOrderDeliveryDriverPack(
+			order,
+			branch?.name ?? null,
+			branch?.address ?? null,
+		);
+		await shareDeliveryPackViaWhatsApp(text, {
+			onError: (msg) => showNotify?.(msg, 'error'),
+		});
+	};
 
 	const panel = (
 		<div
@@ -151,19 +164,9 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 								? String(addr.maps_url)
 								: "";
 						const handoff =
-							order.handoff_code != null && String(order.handoff_code).trim() !== ""
+							order.handoff_code != null && String(order.handoff_code).trim() !== ''
 								? String(order.handoff_code).trim()
-								: "";
-						const driverText = [
-							`Pedido #${String(order.id).slice(-4)}`,
-							handoff ? `Código entrega: ${handoff}` : null,
-							...addrLines,
-							mapsUrl ? `Mapa: ${mapsUrl}` : null,
-							order.client_phone ? `Cliente: ${order.client_phone}` : null,
-						]
-							.filter(Boolean)
-							.join("\n");
-
+								: '';
 						return (
 							<div className="cash-order-detail-block">
 								<div className="cash-order-detail-label">Delivery</div>
@@ -211,12 +214,11 @@ export default function CashOrderDetailPanel({ order, onClose }) {
 										) : null}
 										<button
 											type="button"
-											className="admin-btn secondary"
-											onClick={() => {
-												void navigator.clipboard.writeText(driverText).catch(() => {});
-											}}
+											className="admin-btn primary"
+											style={{ marginTop: 4 }}
+											onClick={() => void handleDeliveryWhatsApp()}
 										>
-											Copiar para conductor
+											WhatsApp (elegir contacto en la app)
 										</button>
 									</div>
 								) : null}

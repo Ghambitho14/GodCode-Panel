@@ -14,6 +14,17 @@ export const DELIVERY_MAX_NAMED_AREAS = 40;
 /** Alias por fila para matching con geocodificación. */
 export const DELIVERY_MAX_ALIASES_PER_AREA = 8;
 
+/** Claves permitidas para restringir pagos solo en delivery (coincide con `payment_methods` + presencial). */
+export const DELIVERY_PAYMENT_METHOD_IDS = new Set([
+	"tienda",
+	"tarjeta",
+	"paypal",
+	"stripe",
+	"pago_movil",
+	"zelle",
+	"transferencia_bancaria",
+]);
+
 /** Cómo cotiza la sucursal cuando hay zonas por nombre configuradas (o distancia). */
 export type DeliveryPricingStrategy = "distance" | "named_areas";
 
@@ -38,6 +49,11 @@ export type DeliveryNamedArea = {
 export type DeliverySettingsNormalized = {
 	enabled: boolean;
 	/**
+	 * Subconjunto de métodos permitidos solo para pedidos delivery.
+	 * `null`: sin restricción extra (todos los habilitados en la sucursal + efectivo/tarjeta al recibir).
+	 */
+	allowedPaymentMethodsForDelivery: string[] | null;
+	/**
 	 * `named_areas`: usa `namedAreas` + `namedAreaResolution`.
 	 * `distance`: usa km desde el local (`zones`, `pricePerKm`, `baseFee`).
 	 */
@@ -59,6 +75,7 @@ export type DeliverySettingsPublic = DeliverySettingsNormalized;
 
 const DEFAULTS: DeliverySettingsNormalized = {
 	enabled: true,
+	allowedPaymentMethodsForDelivery: null,
 	deliveryPricingStrategy: "distance",
 	namedAreaResolution: "manual_select",
 	pricePerKm: 0,
@@ -185,6 +202,96 @@ function parseNamedAreaResolution(raw: unknown): NamedAreaResolution {
 	return "manual_select";
 }
 
+function parseAllowedPaymentMethodsForDelivery(raw: unknown): string[] | null {
+	if (raw === null || raw === undefined) return null;
+	if (!Array.isArray(raw)) return null;
+	const out: string[] = [];
+	for (const x of raw) {
+		if (typeof x !== "string") continue;
+		const k = x.trim().toLowerCase();
+		if (!DELIVERY_PAYMENT_METHOD_IDS.has(k)) continue;
+		if (!out.includes(k)) out.push(k);
+		if (out.length >= 24) break;
+	}
+	return out.length > 0 ? out : null;
+}
+
+/** Claves por defecto para delivery: efectivo/tarjeta al recibir + métodos digitales de la sucursal. */
+export function buildDefaultDeliveryPaymentKeys(
+	branchPaymentMethods: string[] | null | undefined,
+): string[] {
+	const base = Array.isArray(branchPaymentMethods)
+		? branchPaymentMethods
+				.map((k) => String(k).trim().toLowerCase())
+				.filter((k) => DELIVERY_PAYMENT_METHOD_IDS.has(k))
+		: [];
+	return [...new Set(["tienda", "tarjeta", ...base])];
+}
+
+/**
+ * Métodos efectivos que el checkout puede ofrecer en delivery (intersección restricción × sucursal).
+ */
+export function resolveDeliveryPaymentMethodsForCheckout(
+	branchPaymentMethods: string[] | null | undefined,
+	settings: DeliverySettingsNormalized,
+): string[] {
+	const defaults = buildDefaultDeliveryPaymentKeys(branchPaymentMethods);
+	const restriction = settings.allowedPaymentMethodsForDelivery;
+	if (!restriction || restriction.length === 0) {
+		return defaults;
+	}
+	const allowed = new Set(restriction);
+	return defaults.filter((k) => allowed.has(k));
+}
+
+const ONLINE_RAILS = new Set([
+	"paypal",
+	"stripe",
+	"pago_movil",
+	"zelle",
+	"transferencia_bancaria",
+]);
+
+/** Clave estable para comparar con `allowedPaymentMethodsForDelivery`. */
+export function orderPaymentKeyForDelivery(order: {
+	payment_type?: unknown;
+	payment_method_specific?: unknown;
+}): string {
+	const t = String(order.payment_type ?? "").trim().toLowerCase();
+	if (t === "tienda") return "tienda";
+	if (t === "tarjeta" || t === "card") return "tarjeta";
+	if (t === "online" || t === "transferencia") {
+		const spec = String(order.payment_method_specific ?? "").trim().toLowerCase();
+		if (spec && ONLINE_RAILS.has(spec)) return spec;
+		return "online";
+	}
+	return t;
+}
+
+export function isOrderPaymentAllowedForDelivery(
+	order: { payment_type?: unknown; payment_method_specific?: unknown },
+	branchPaymentMethods: string[] | null | undefined,
+	settings: DeliverySettingsNormalized,
+): boolean {
+	const effective = resolveDeliveryPaymentMethodsForCheckout(
+		branchPaymentMethods,
+		settings,
+	);
+	if (effective.length === 0) return false;
+	const key = orderPaymentKeyForDelivery(order);
+	if (key === "online") {
+		const spec = String(order.payment_method_specific ?? "").trim().toLowerCase();
+		if (spec && ONLINE_RAILS.has(spec)) {
+			return effective.includes(spec);
+		}
+		const rails = (branchPaymentMethods ?? [])
+			.map((x) => String(x).trim().toLowerCase())
+			.filter((r) => ONLINE_RAILS.has(r));
+		return rails.some((r) => effective.includes(r));
+	}
+	return effective.includes(key);
+}
+
 /** Normaliza lectura desde JSONB (camelCase; tolera algunos snake_case). */
 export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormalized {
 	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -212,9 +319,12 @@ export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormali
 		o.pricingStrategy;
 	const narRaw =
 		o.namedAreaResolution ?? o.named_area_resolution ?? o.namedAreaMatch;
+	const allowedPayRaw =
+		o.allowedPaymentMethodsForDelivery ?? o.allowed_payment_methods_for_delivery;
 
 	return {
 		enabled: parseBool(o.enabled, DEFAULTS.enabled),
+		allowedPaymentMethodsForDelivery: parseAllowedPaymentMethodsForDelivery(allowedPayRaw),
 		deliveryPricingStrategy: parseDeliveryPricingStrategy(
 			stratRaw,
 			namedParsed.length,
@@ -339,6 +449,37 @@ export function mergeDeliverySettingsJson(
 		const v = patch.namedAreaResolution;
 		if (v === "manual_select" || v === "address_matched") {
 			next.namedAreaResolution = v;
+		}
+	}
+	if ("allowedPaymentMethodsForDelivery" in patch) {
+		const v = patch.allowedPaymentMethodsForDelivery;
+		if (v === null || v === "") {
+			delete next.allowedPaymentMethodsForDelivery;
+			delete next.allowed_payment_methods_for_delivery;
+		} else if (Array.isArray(v)) {
+			const parsed = parseAllowedPaymentMethodsForDelivery(v);
+			if (parsed && parsed.length > 0) {
+				next.allowedPaymentMethodsForDelivery = parsed;
+				delete next.allowed_payment_methods_for_delivery;
+			} else {
+				delete next.allowedPaymentMethodsForDelivery;
+				delete next.allowed_payment_methods_for_delivery;
+			}
+		}
+	}
+
+	/** Solo panel staff; no forma parte del contrato público de cotización. */
+	if ("trustedDriverWhatsApp" in patch) {
+		const v = patch.trustedDriverWhatsApp;
+		if (v === null || v === "") {
+			delete next.trustedDriverWhatsApp;
+			delete next.trusted_driver_whatsapp;
+		} else if (typeof v === "string") {
+			const digits = v.replace(/\D/g, "").slice(0, 18);
+			if (digits.length >= 8) {
+				next.trustedDriverWhatsApp = digits;
+			}
+			delete next.trusted_driver_whatsapp;
 		}
 	}
 

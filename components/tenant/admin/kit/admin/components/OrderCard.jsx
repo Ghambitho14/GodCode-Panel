@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock, XCircle, Upload, ImageIcon, Printer, Crown, MessageCircle, Eye, Truck, Copy, ChefHat, Banknote } from 'lucide-react';
+import { Clock, XCircle, Upload, ImageIcon, Printer, MessageCircle, Eye, Truck, Copy, Send, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '../../shared/utils/formatters';
-import { buildOrderWhatsAppShareText, getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
+import {
+    buildOrderWhatsAppShareText,
+    buildOrderDeliveryDriverPack,
+    shareDeliveryPackViaWhatsApp,
+    getPaymentLabel,
+    isOrderDelivery,
+} from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
 import OrderDetailModal from './OrderDetailModal';
 
@@ -51,10 +57,22 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
         const text = buildOrderWhatsAppShareText(order, branch?.name);
         try {
             await navigator.clipboard.writeText(text);
-            showNotify?.('Resumen del pedido copiado. Pégalo en WhatsApp.');
+            showNotify?.(
+                isDelivery
+                    ? 'Resumen copiado (productos, totales y datos de envío).'
+                    : 'Resumen del pedido copiado.',
+            );
         } catch {
             showNotify?.('No se pudo copiar. Copia manualmente el texto del pedido.', 'error');
         }
+    };
+
+    const handleDeliveryWhatsApp = async (e) => {
+        e.stopPropagation();
+        const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null);
+        await shareDeliveryPackViaWhatsApp(text, {
+            onError: (msg) => showNotify?.(msg, 'error'),
+        });
     };
 
     // Lógica VIP: Buscar cliente y verificar si tiene más de 5 pedidos
@@ -76,9 +94,25 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     {formatTimeElapsed(order.created_at)}
                 </span>
                 <div className="order-card-header-tools">
-                    <button type="button" onClick={handleCopyShare} className="admin-icon-btn admin-icon-btn--sm" title="Copiar resumen para WhatsApp">
+                    <button
+                        type="button"
+                        onClick={handleCopyShare}
+                        className="admin-icon-btn admin-icon-btn--sm"
+                        title="Copiar resumen del pedido (cliente, productos, pago, total; si es envío: código de verificación, dirección y enlace al mapa)"
+                    >
                         <Copy size={17} aria-hidden />
                     </button>
+                    {isDelivery ? (
+                        <button
+                            type="button"
+                            onClick={handleDeliveryWhatsApp}
+                            className="admin-icon-btn admin-icon-btn--sm"
+                            title="Abrir WhatsApp con el texto del envío; eliges el contacto en la app"
+                            aria-label="Enviar datos de delivery por WhatsApp"
+                        >
+                            <Send size={17} aria-hidden />
+                        </button>
+                    ) : null}
                     <div className="order-ticket-menu" ref={ticketMenuRef}>
                         <button
                             type="button"
@@ -137,20 +171,23 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
             <div className="card-client">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <h4 className="card-client-name">{order.client_name}</h4>
-                    {isVip && (
-                        <span title={`Cliente VIP (${clientData.total_orders} pedidos)`} style={{ background: '#ffd700', color: '#000', borderRadius: '4px', padding: '2px 4px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                            <Crown size={12} fill="black" />
+                    {isVip ? (
+                        <span
+                            className="order-card-vip-badge"
+                            title={`Cliente habitual · ${clientData.total_orders} pedidos`}
+                        >
+                            VIP
                         </span>
-                    )}
+                    ) : null}
                 </div>
                 {(order.client_phone || order.client_rut) && (
                     <div className="client-phone">
                         {order.client_phone && (
-                            <a 
-                                href={`https://wa.me/${order.client_phone.replace(/\D/g,'')}`} 
-                                target="_blank" 
+                            <a
+                                className="client-phone-wa"
+                                href={`https://wa.me/${order.client_phone.replace(/\D/g,'')}`}
+                                target="_blank"
                                 rel="noreferrer"
-                                style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
                                 title="Abrir WhatsApp"
                             >
                                 <MessageCircle size={12} /> {order.client_phone}
@@ -186,7 +223,7 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
             {/* NOTAS */}
             {order.note && (
                 <div className="card-note">
-                    <span style={{ fontWeight: 800, marginRight: '4px' }}>NOTA:</span>
+                    <span className="card-note-label">NOTA:</span>
                     {order.note}
                 </div>
             )}

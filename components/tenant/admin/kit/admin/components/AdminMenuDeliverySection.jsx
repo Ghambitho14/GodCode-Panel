@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Truck, Plus, Trash2 } from "lucide-react";
 import {
+	buildDefaultDeliveryPaymentKeys,
 	computeDeliveryFee,
 	effectiveDeliveryPricingMode,
 	normalizeDeliverySettings,
@@ -10,6 +11,7 @@ import {
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
 import DeliveryPlaceSuggestInput from "./DeliveryPlaceSuggestInput";
+import AdminHelpTip from "./AdminHelpTip";
 
 const emptyDraft = () => ({
 	pricePerKm: "",
@@ -20,6 +22,7 @@ const emptyDraft = () => ({
 	freeDeliveryFromSubtotal: "",
 	minOrderSubtotal: "",
 	customerNotes: "",
+	trustedDriverWhatsApp: "",
 	originLat: "",
 	originLng: "",
 });
@@ -37,6 +40,96 @@ const emptyNamedPlaceRow = () => ({
 	aliasesStr: "",
 });
 
+const DELIVERY_PAYMENT_LABELS = {
+	tienda: "Efectivo al recibir",
+	tarjeta: "Tarjeta",
+	paypal: "PayPal",
+	stripe: "Stripe",
+	pago_movil: "Pago móvil",
+	zelle: "Zelle",
+	transferencia_bancaria: "Transferencia",
+};
+
+/** Textos de ayuda al pasar el cursor (title) y para lectores de pantalla */
+const DELIVERY_TOOLTIPS = {
+	removeDistanceRing:
+		"Quita este anillo: si el pedido llega dentro del radio (km) desde el local, aplicas la tarifa fija de la fila. Si no entra en ningún anillo, se usa precio por km + cargo base. Si solo queda una fila, no se borra (evita lista vacía).",
+	removeNamedZoneRow:
+		"Quita esta zona: nombre en el checkout, tarifa de envío y alias opcionales. Debe quedar al menos una fila. No borra datos guardados hasta que pulses Guardar.",
+	addDistanceRing:
+		"Añade otro anillo: ordena por radio del más pequeño al más grande; el primero que cubra la distancia gana.",
+	addNamedZone:
+		"Añade otra zona con nombre, tarifa y alias (opcional). Máximo 40 filas.",
+	headerSwitch:
+		"Activa o desactiva el envío a domicilio para esta sucursal. Si está apagado, el cliente solo puede retirar o consumir en local; el resto de opciones queda bloqueado.",
+	strategyIntro:
+		"Elige una sola modalidad: por distancia desde el local o por zonas con nombre y precio fijo por zona.",
+	strategyDistance:
+		"Cobro por distancia en línea recta desde el local: precio por km, cargo base opcional y anillos con tarifa fija por radio.",
+	strategyNamedAreas:
+		"Cada zona (comuna, barrio…) tiene un precio de envío fijo; no se suma precio por km ni cargo base de la otra modalidad.",
+	namedManual:
+		"El cliente elige la zona en una lista al pagar. Útil cuando quieres nombres exactos y control total.",
+	namedAddress:
+		"El cliente escribe su dirección; el sistema intenta asignar zona y precio automáticamente (datos de mapa abiertos).",
+	zonesCheckoutSection:
+		"Define cómo el cliente indica su zona en el checkout: lista para elegir o detección automática desde la dirección escrita.",
+	pricePerKm:
+		"Se multiplica por los kilómetros de distancia cuando ningún anillo cubre el pedido (modalidad por distancia).",
+	baseFee:
+		"Suma fija que se añade al costo por km antes de aplicar mínimos, máximos o envío gratis por subtotal.",
+	originLat:
+		"Latitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -33.4489.",
+	originLng:
+		"Longitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -70.6693.",
+	saveButton:
+		"Guarda tarifas, zonas, métodos de pago permitidos en delivery, WhatsApp del repartidor y opciones avanzadas en el servidor.",
+	preview:
+		"Ejemplo de envío con valores actuales (distancia o primera zona y subtotal de ejemplo).",
+	driverWhatsApp:
+		"Número al que el equipo puede enviar el mensaje de envío desde el tablero (WhatsApp abre en la app; tú eliges el contacto).",
+	minFee:
+		"Piso del costo de envío si el cálculo quedara por debajo (opcional).",
+	maxFee:
+		"Tope máximo del costo de envío aunque el cálculo sea mayor (opcional).",
+	maxDeliveryKm:
+		"No se aceptan pedidos de delivery si la distancia supera este valor (modalidad por km).",
+	freeDeliveryFromSubtotal:
+		"Si el subtotal del carrito alcanza este monto, el envío sale $0 (salvo que otra regla lo impida).",
+	minOrderSubtotal:
+		"Subtotal mínimo para permitir un pedido con delivery.",
+	customerNotes:
+		"Texto breve que ve el cliente en el checkout de envío (tiempos, condiciones, etc.).",
+	originLatNamed:
+		"Opcional: ayuda a ordenar sugerencias al escribir nombres de zona (modalidad por zonas con nombre).",
+	originLngNamed:
+		"Opcional: junto con la latitud, mejora sugerencias de lugares cercanos al local.",
+	paymentSection:
+		"Restringe qué medios de pago puede elegir el cliente solo cuando el pedido es delivery.",
+	distanceRingsHelp:
+		"Opcional: si el pedido entra dentro del radio (km) desde el local, aplicas la tarifa fija de esa fila; si no encaja en ningún anillo, se usa precio por km + cargo base.",
+	zoneRingRadius:
+		"Distancia máxima en km desde el local: si el pedido cae dentro de este radio, se aplica la tarifa fija de la misma fila.",
+	zoneRingFee:
+		"Precio de envío completo cuando la distancia entra en este anillo (no se suma precio por km ni cargo base de otras filas).",
+	namedZoneName:
+		"Nombre que verá el cliente o que se intentará casar con la dirección, según el modo de checkout.",
+	namedZoneFee: "Costo de envío fijo para esta zona (modalidad por zonas con nombre).",
+	namedZoneAliases:
+		"Sinónimos separados por coma para reconocer la misma zona (ej. abreviaturas o barrios cercanos).",
+};
+
+/** Tooltips por chip de método de pago (delivery) */
+const DELIVERY_PAYMENT_CHIP_TITLE = {
+	tienda: "Permite pagar en efectivo al recibir el pedido en domicilio.",
+	tarjeta: "Permite tarjeta al recibir o según tu configuración de métodos de pago.",
+	paypal: "Permite PayPal en checkout si lo tienes activo en la sucursal.",
+	stripe: "Permite Stripe en checkout si lo tienes activo en la sucursal.",
+	pago_movil: "Permite pago móvil si lo tienes configurado en métodos de pago.",
+	zelle: "Permite Zelle si lo tienes configurado en métodos de pago.",
+	transferencia_bancaria: "Permite transferencia bancaria si la tienes activa en la sucursal.",
+};
+
 /**
  * Lee y escribe `branches.delivery_settings` (JSONB) para la sucursal seleccionada.
  */
@@ -53,7 +146,8 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const [namedPlaceRows, setNamedPlaceRows] = useState(() => [emptyNamedPlaceRow()]);
 	const [pricingStrategy, setPricingStrategy] = useState("distance");
 	const [namedAreaResolution, setNamedAreaResolution] = useState("manual_select");
-	const [showAdvanced, setShowAdvanced] = useState(false);
+	/** `true` = permitido para delivery (clave = id de método) */
+	const [deliveryPaymentChecked, setDeliveryPaymentChecked] = useState({});
 
 	const applyServerPayload = useCallback((data) => {
 		const n = normalizeDeliverySettings(data);
@@ -68,6 +162,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				n.freeDeliveryFromSubtotal != null ? String(n.freeDeliveryFromSubtotal) : "",
 			minOrderSubtotal: n.minOrderSubtotal != null ? String(n.minOrderSubtotal) : "",
 			customerNotes: n.customerNotes ?? "",
+			trustedDriverWhatsApp:
+				typeof data.trustedDriverWhatsApp === "string"
+					? data.trustedDriverWhatsApp
+					: "",
 			originLat:
 				data.originLat != null && data.originLat !== ""
 					? String(data.originLat)
@@ -101,7 +199,22 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					}))
 				: [emptyNamedPlaceRow()];
 		setNamedPlaceRows(na);
-	}, []);
+
+		const allPayKeys = buildDefaultDeliveryPaymentKeys(selectedBranch?.payment_methods);
+		const allowedRaw = data.allowedPaymentMethodsForDelivery;
+		if (Array.isArray(allowedRaw) && allowedRaw.length > 0) {
+			const allowedSet = new Set(
+				allowedRaw.map((x) => String(x).trim().toLowerCase()),
+			);
+			setDeliveryPaymentChecked(
+				Object.fromEntries(allPayKeys.map((k) => [k, allowedSet.has(k)])),
+			);
+		} else {
+			setDeliveryPaymentChecked(
+				Object.fromEntries(allPayKeys.map((k) => [k, true])),
+			);
+		}
+	}, [selectedBranch?.payment_methods]);
 
 	const load = useCallback(async () => {
 		if (!branchId) {
@@ -200,6 +313,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 		namedPlacesPayload,
 	]);
 
+	const deliveryPaymentKeys = useMemo(
+		() => buildDefaultDeliveryPaymentKeys(selectedBranch?.payment_methods),
+		[selectedBranch?.payment_methods, selectedBranch?.id],
+	);
+
 	const previewFee = useMemo(() => {
 		const exKm = 3;
 		const exSubtotal = 15000;
@@ -241,6 +359,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 
 	const saveTariffs = async () => {
 		if (!branchId) return;
+		if (!deliveryEnabled) {
+			showNotify("Activa delivery para guardar tarifas y opciones.", "error");
+			return;
+		}
 		setSavingFields(true);
 		try {
 			const payload = {
@@ -259,6 +381,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						: Number(draft.freeDeliveryFromSubtotal),
 				minOrderSubtotal: draft.minOrderSubtotal === "" ? null : Number(draft.minOrderSubtotal),
 				customerNotes: draft.customerNotes.trim(),
+				trustedDriverWhatsApp: draft.trustedDriverWhatsApp.trim(),
 				zones: zonesPayload,
 				namedAreas: namedPlacesPayload,
 			};
@@ -271,6 +394,20 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			}
 			if (olng !== "" && !Number.isFinite(payload.originLng)) {
 				delete payload.originLng;
+			}
+			const payKeys = buildDefaultDeliveryPaymentKeys(selectedBranch?.payment_methods);
+			const selectedPay = payKeys.filter((k) => deliveryPaymentChecked[k] !== false);
+			if (selectedPay.length === 0) {
+				showNotify(
+					"Selecciona al menos un método de pago permitido para delivery.",
+					"error",
+				);
+				return;
+			}
+			if (selectedPay.length === payKeys.length) {
+				payload.allowedPaymentMethodsForDelivery = null;
+			} else {
+				payload.allowedPaymentMethodsForDelivery = selectedPay;
 			}
 			const res = await fetch("/api/tenant-branch-delivery-enabled", {
 				method: "PATCH",
@@ -308,6 +445,8 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	}
 
 	const branchLabel = selectedBranch?.name ? ` · ${selectedBranch.name}` : "";
+	const lockOptions = !deliveryEnabled || loading || savingFields || saving;
+
 	const previewText =
 		previewFee.fee < 0
 			? previewFee.fee === -1
@@ -329,67 +468,97 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			className="glass animate-fade admin-menu-options-card admin-menu-options-delivery"
 			aria-labelledby="admin-menu-delivery-heading"
 		>
-			<div className="admin-menu-options-card-head">
-				<div className="admin-menu-options-card-icon" aria-hidden>
-					<Truck size={20} />
-				</div>
-				<div>
-					<h3 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
-						Delivery{branchLabel}
-					</h3>
-					<p className="admin-menu-options-card-desc">
-						Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia desde el local o
-						por zonas con nombre (comunas/barrios). La tarifa de cada zona es el envío completo (no se suma
-						el cargo fijo ni el precio por km de la otra modalidad).
-					</p>
-				</div>
-			</div>
-			<div className="admin-menu-options-delivery-row">
-				<div>
-					<div className="admin-menu-options-delivery-label">
-						{deliveryEnabled ? "Delivery permitido" : "Delivery desactivado"}
+			<div className="admin-menu-options-card-head admin-menu-options-card-head--delivery">
+				<div className="admin-menu-options-card-head__main">
+					<div className="admin-menu-options-card-icon" aria-hidden>
+						<Truck size={20} />
 					</div>
-					<div className="admin-menu-options-delivery-hint">
-						{loading
-							? "Cargando…"
-							: deliveryEnabled
-								? "Los clientes podrán elegir envío completando zona o distancia y dirección, según configures abajo."
-								: "Solo retiro / consumo en local para esta sucursal."}
+					<div>
+						<h3 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
+							Delivery{branchLabel}
+						</h3>
+						<p className="admin-menu-options-card-desc">
+							Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia desde el local o
+							por zonas con nombre (comunas/barrios). La tarifa de cada zona es el envío completo (no se
+							suma el cargo fijo ni el precio por km de la otra modalidad).
+						</p>
 					</div>
 				</div>
-				<button
-					type="button"
-					className={`menu-carousel-switch ${deliveryEnabled ? "is-on" : ""}`}
-					role="switch"
-					aria-checked={deliveryEnabled}
-					disabled={loading || saving}
-					aria-label={deliveryEnabled ? "Desactivar delivery" : "Activar delivery"}
-					onClick={() => void toggle(!deliveryEnabled)}
-				>
-					<span className="menu-carousel-switch-knob" />
-				</button>
+				<div className="admin-menu-options-delivery-head-toggle">
+					<div className="admin-menu-options-delivery-head-toggle__text">
+						<span className="admin-menu-options-delivery-head-toggle__label">
+							Delivery permitido
+							<AdminHelpTip text={DELIVERY_TOOLTIPS.headerSwitch} />
+						</span>
+						<span className="admin-menu-options-delivery-hint">
+							{loading
+								? "Cargando…"
+								: deliveryEnabled
+									? "Envío a domicilio activo para esta sucursal."
+									: "Solo retiro o consumo en local; las opciones de abajo están desactivadas."}
+						</span>
+					</div>
+					<button
+						type="button"
+						className={`menu-carousel-switch ${deliveryEnabled ? "is-on" : ""}`}
+						role="switch"
+						aria-checked={deliveryEnabled}
+						disabled={loading || saving}
+						aria-label={deliveryEnabled ? "Desactivar delivery" : "Activar delivery"}
+						onClick={() => void toggle(!deliveryEnabled)}
+					>
+						<span className="menu-carousel-switch-knob" />
+					</button>
+				</div>
 			</div>
 
 			{!loading ? (
-				<>
-					<div className="admin-delivery-strategy-block" style={{ marginTop: 16 }}>
-						<p className="admin-menu-options-section-label" style={{ marginBottom: 8 }}>
+				<div
+					className={
+						lockOptions
+							? "admin-delivery-options-stack admin-delivery-options-stack--locked"
+							: "admin-delivery-options-stack"
+					}
+					aria-disabled={lockOptions}
+				>
+					<details className="admin-delivery-fold">
+						<summary className="admin-delivery-fold__summary">
+							<div className="admin-delivery-fold__summary-text">
+								<span className="admin-delivery-fold__eyebrow">Cobro</span>
+								<span className="admin-delivery-fold__title">Tarifas de envío</span>
+							</div>
+						</summary>
+						<div className="admin-delivery-fold__body">
+					<div className="admin-delivery-strategy-block" style={{ marginTop: 0 }}>
+						<p
+							className="admin-menu-options-section-label admin-menu-options-section-label--with-tip"
+							style={{ marginBottom: 8 }}
+						>
 							¿Cómo cobras el envío?
+							<AdminHelpTip text={DELIVERY_TOOLTIPS.strategyIntro} />
 						</p>
 						<div className="admin-delivery-strategy-pills">
 							<button
 								type="button"
-								className={`btn btn-secondary ${pricingStrategy === "distance" ? "is-active" : ""}`}
+								disabled={lockOptions}
+								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "distance" ? "is-active" : ""}`}
 								onClick={() => setPricingStrategy("distance")}
 							>
 								Por distancia (km)
+								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+									{DELIVERY_TOOLTIPS.strategyDistance}
+								</span>
 							</button>
 							<button
 								type="button"
-								className={`btn btn-secondary ${pricingStrategy === "named_areas" ? "is-active" : ""}`}
+								disabled={lockOptions}
+								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "named_areas" ? "is-active" : ""}`}
 								onClick={() => setPricingStrategy("named_areas")}
 							>
 								Por zonas con nombre
+								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+									{DELIVERY_TOOLTIPS.strategyNamedAreas}
+								</span>
 							</button>
 						</div>
 					</div>
@@ -398,13 +567,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						<>
 							<div className="admin-branch-delivery-grid" style={{ marginTop: 18 }}>
 								<div className="form-group">
-									<label htmlFor="adm-del-price-km">Precio por km</label>
+									<label htmlFor="adm-del-price-km">
+										Precio por km
+										<AdminHelpTip text={DELIVERY_TOOLTIPS.pricePerKm} />
+									</label>
 									<input
 										id="adm-del-price-km"
 										type="number"
 										min={0}
 										step="any"
 										className="form-input"
+										disabled={lockOptions}
 										value={draft.pricePerKm}
 										onChange={(ev) =>
 											setDraft((d) => ({ ...d, pricePerKm: ev.target.value }))
@@ -412,13 +585,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									/>
 								</div>
 								<div className="form-group">
-									<label htmlFor="adm-del-base">Cargo fijo base</label>
+									<label htmlFor="adm-del-base">
+										Cargo fijo base
+										<AdminHelpTip text={DELIVERY_TOOLTIPS.baseFee} />
+									</label>
 									<input
 										id="adm-del-base"
 										type="number"
 										min={0}
 										step="any"
 										className="form-input"
+										disabled={lockOptions}
 										value={draft.baseFee}
 										onChange={(ev) =>
 											setDraft((d) => ({ ...d, baseFee: ev.target.value }))
@@ -426,13 +603,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									/>
 								</div>
 								<div className="form-group">
-									<label htmlFor="adm-del-olat">Ubicación del local · latitud</label>
+									<label htmlFor="adm-del-olat">
+										Ubicación del local · latitud
+										<AdminHelpTip text={DELIVERY_TOOLTIPS.originLat} />
+									</label>
 									<input
 										id="adm-del-olat"
 										type="text"
 										inputMode="decimal"
 										className="form-input"
 										placeholder="Ej: -33.4489"
+										disabled={lockOptions}
 										value={draft.originLat}
 										onChange={(ev) =>
 											setDraft((d) => ({ ...d, originLat: ev.target.value }))
@@ -440,13 +621,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									/>
 								</div>
 								<div className="form-group">
-									<label htmlFor="adm-del-olng">Ubicación del local · longitud</label>
+									<label htmlFor="adm-del-olng">
+										Ubicación del local · longitud
+										<AdminHelpTip text={DELIVERY_TOOLTIPS.originLng} />
+									</label>
 									<input
 										id="adm-del-olng"
 										type="text"
 										inputMode="decimal"
 										className="form-input"
 										placeholder="Ej: -70.6693"
+										disabled={lockOptions}
 										value={draft.originLng}
 										onChange={(ev) =>
 											setDraft((d) => ({ ...d, originLng: ev.target.value }))
@@ -455,10 +640,14 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</div>
 							</div>
 							<div className="admin-branch-delivery-zones" style={{ marginTop: 8 }}>
-								<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
+								<p
+									className="admin-menu-options-card-desc admin-delivery-inline-tip"
+									style={{ marginBottom: 10 }}
+								>
 									<strong>Anillos por distancia (opcional):</strong> si el pedido cae dentro del radio
 									en km desde el local, aplicas la tarifa fija de esa fila; si no, se usa precio por km
-									+ cargo fijo.
+									+ cargo fijo.{" "}
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.distanceRingsHelp} />
 								</p>
 								{zoneRows.map((row, idx) => (
 									<div
@@ -472,13 +661,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										}}
 									>
 										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-zr-${row.id}`}>Radio máx. (km)</label>
+											<label htmlFor={`adm-del-zr-${row.id}`}>
+												Radio máx. (km)
+												<AdminHelpTip text={DELIVERY_TOOLTIPS.zoneRingRadius} />
+											</label>
 											<input
 												id={`adm-del-zr-${row.id}`}
 												type="number"
 												min={0}
 												step="any"
 												className="form-input"
+												disabled={lockOptions}
 												value={row.radiusKm}
 												onChange={(ev) => {
 													const v = ev.target.value;
@@ -489,13 +682,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 											/>
 										</div>
 										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-zf-${row.id}`}>Tarifa fija ($)</label>
+											<label htmlFor={`adm-del-zf-${row.id}`}>
+												Tarifa fija ($)
+												<AdminHelpTip text={DELIVERY_TOOLTIPS.zoneRingFee} />
+											</label>
 											<input
 												id={`adm-del-zf-${row.id}`}
 												type="number"
 												min={0}
 												step="any"
 												className="form-input"
+												disabled={lockOptions}
 												value={row.feeFlat}
 												onChange={(ev) => {
 													const v = ev.target.value;
@@ -507,23 +704,27 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										</div>
 										<button
 											type="button"
-											className="btn btn-secondary"
-											style={{ marginBottom: 2 }}
-											aria-label="Eliminar anillo"
+											className="admin-delivery-icon-btn admin-tooltip-btn-hover"
+											disabled={lockOptions}
+											aria-label="Quitar anillo de distancia (radio km y tarifa fija)"
 											onClick={() =>
 												setZoneRows((rows) =>
 													rows.length <= 1 ? rows : rows.filter((_, i) => i !== idx),
 												)
 											}
 										>
-											<Trash2 size={16} />
+											<Trash2 size={16} strokeWidth={1.75} aria-hidden />
+											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+												{DELIVERY_TOOLTIPS.removeDistanceRing}
+											</span>
 										</button>
 									</div>
 								))}
 								<button
 									type="button"
-									className="btn btn-secondary"
+									className="btn btn-secondary admin-tooltip-btn-hover"
 									style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+									disabled={lockOptions}
 									onClick={() =>
 										setZoneRows((rows) => [
 											...rows,
@@ -531,30 +732,45 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										])
 									}
 								>
-									<Plus size={16} /> Añadir anillo
+									<Plus size={16} strokeWidth={1.75} aria-hidden /> Añadir anillo
+									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+										{DELIVERY_TOOLTIPS.addDistanceRing}
+									</span>
 								</button>
 							</div>
 						</>
 					) : (
 						<>
 							<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
-								<p className="admin-menu-options-section-label" style={{ marginBottom: 8 }}>
+								<p
+									className="admin-menu-options-section-label admin-menu-options-section-label--with-tip"
+									style={{ marginBottom: 8 }}
+								>
 									Zonas en el checkout
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.zonesCheckoutSection} />
 								</p>
 								<div className="admin-delivery-strategy-pills">
 									<button
 										type="button"
-										className={`btn btn-secondary ${namedAreaResolution === "manual_select" ? "is-active" : ""}`}
+										disabled={lockOptions}
+										className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "manual_select" ? "is-active" : ""}`}
 										onClick={() => setNamedAreaResolution("manual_select")}
 									>
 										Lista para elegir
+										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+											{DELIVERY_TOOLTIPS.namedManual}
+										</span>
 									</button>
 									<button
 										type="button"
-										className={`btn btn-secondary ${namedAreaResolution === "address_matched" ? "is-active" : ""}`}
+										disabled={lockOptions}
+										className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "address_matched" ? "is-active" : ""}`}
 										onClick={() => setNamedAreaResolution("address_matched")}
 									>
 										Según la dirección (automático)
+										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+											{DELIVERY_TOOLTIPS.namedAddress}
+										</span>
 									</button>
 								</div>
 								<p className="admin-menu-options-card-desc" style={{ marginTop: 10, marginBottom: 0 }}>
@@ -589,7 +805,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										}}
 									>
 										<div className="form-group" style={{ flex: "2 1 160px" }}>
-											<label htmlFor={`adm-del-place-${row.id}`}>Nombre de la zona</label>
+											<label htmlFor={`adm-del-place-${row.id}`}>
+												Nombre de la zona
+												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneName} />
+											</label>
 											<DeliveryPlaceSuggestInput
 												id={`adm-del-place-${row.id}`}
 												placeholder="Comuna, barrio o sector"
@@ -611,7 +830,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 														? Number(draft.originLng)
 														: undefined
 												}
-												disabled={savingFields || saving}
+												disabled={lockOptions}
 												onChange={(v) => {
 													setNamedPlaceRows((rows) =>
 														rows.map((r, i) => (i === idx ? { ...r, name: v } : r)),
@@ -620,13 +839,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 											/>
 										</div>
 										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-place-fee-${row.id}`}>Tarifa ($)</label>
+											<label htmlFor={`adm-del-place-fee-${row.id}`}>
+												Tarifa ($)
+												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneFee} />
+											</label>
 											<input
 												id={`adm-del-place-fee-${row.id}`}
 												type="number"
 												min={0}
 												step="any"
 												className="form-input"
+												disabled={lockOptions}
 												value={row.feeFlat}
 												onChange={(ev) => {
 													const v = ev.target.value;
@@ -637,12 +860,16 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 											/>
 										</div>
 										<div className="form-group" style={{ flex: "1 1 140px" }}>
-											<label htmlFor={`adm-del-place-al-${row.id}`}>Alias (opc.)</label>
+											<label htmlFor={`adm-del-place-al-${row.id}`}>
+												Alias (opc.)
+												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneAliases} />
+											</label>
 											<input
 												id={`adm-del-place-al-${row.id}`}
 												type="text"
 												className="form-input"
 												placeholder="Separados por coma"
+												disabled={lockOptions}
 												value={row.aliasesStr ?? ""}
 												onChange={(ev) => {
 													const v = ev.target.value;
@@ -654,23 +881,27 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										</div>
 										<button
 											type="button"
-											className="btn btn-secondary"
-											style={{ marginBottom: 2 }}
-											aria-label="Eliminar lugar"
+											className="admin-delivery-icon-btn admin-tooltip-btn-hover"
+											disabled={lockOptions}
+											aria-label="Quitar zona de la lista (nombre, tarifa y alias)"
 											onClick={() =>
 												setNamedPlaceRows((rows) =>
 													rows.length <= 1 ? rows : rows.filter((_, i) => i !== idx),
 												)
 											}
 										>
-											<Trash2 size={16} />
+											<Trash2 size={16} strokeWidth={1.75} aria-hidden />
+											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+												{DELIVERY_TOOLTIPS.removeNamedZoneRow}
+											</span>
 										</button>
 									</div>
 								))}
 								<button
 									type="button"
-									className="btn btn-secondary"
+									className="btn btn-secondary admin-tooltip-btn-hover"
 									style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+									disabled={lockOptions}
 									onClick={() =>
 										setNamedPlaceRows((rows) => [
 											...rows,
@@ -678,24 +909,117 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										])
 									}
 								>
-									<Plus size={16} /> Añadir zona
+									<Plus size={16} strokeWidth={1.75} aria-hidden /> Añadir zona
+									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+										{DELIVERY_TOOLTIPS.addNamedZone}
+									</span>
 								</button>
 							</div>
 						</>
 					)}
 
-					<details
-						className="admin-delivery-advanced"
-						style={{ marginTop: 18 }}
-						open={showAdvanced}
-						onToggle={(e) => setShowAdvanced(e.target.open)}
-					>
-						<summary className="admin-menu-options-section-label" style={{ cursor: "pointer" }}>
-							Opciones avanzadas (límites, umbrales, texto de ayuda)
+						</div>
+					</details>
+
+					<details className="admin-delivery-fold">
+						<summary className="admin-delivery-fold__summary">
+							<div className="admin-delivery-fold__summary-text">
+								<span className="admin-delivery-fold__eyebrow">Pagos</span>
+								<span className="admin-delivery-fold__title">Métodos de pago (delivery)</span>
+							</div>
 						</summary>
-						<div className="admin-branch-delivery-grid" style={{ marginTop: 12 }}>
+						<div className="admin-delivery-fold__body">
+							<p className="admin-delivery-fold__lead admin-delivery-inline-tip">
+								Qué medios puede usar el cliente cuando el pedido es envío a domicilio (subconjunto de lo
+								activo en <strong>Métodos de pago</strong> más efectivo y tarjeta al recibir). Si activas
+								todos, no hay restricción extra.{" "}
+								<AdminHelpTip text={DELIVERY_TOOLTIPS.paymentSection} />
+							</p>
+							<div className="admin-delivery-payment-grid">
+								{deliveryPaymentKeys.map((key) => {
+									const on = deliveryPaymentChecked[key] !== false;
+									return (
+										<button
+											key={key}
+											type="button"
+											role="checkbox"
+											aria-checked={on}
+											disabled={lockOptions}
+											className={`admin-delivery-pay-chip admin-tooltip-btn-hover ${on ? "is-on" : ""}`}
+											onClick={() => {
+												setDeliveryPaymentChecked((prev) => ({
+													...Object.fromEntries(
+														deliveryPaymentKeys.map((k) => [k, prev[k] !== false]),
+													),
+													[key]: !on,
+												}));
+											}}
+										>
+											{DELIVERY_PAYMENT_LABELS[key] ?? key}
+											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+												{DELIVERY_PAYMENT_CHIP_TITLE[key] ??
+													`Permitir ${DELIVERY_PAYMENT_LABELS[key] ?? key} en pedidos delivery.`}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					</details>
+
+					<details className="admin-delivery-fold">
+						<summary className="admin-delivery-fold__summary">
+							<div className="admin-delivery-fold__summary-text">
+								<span className="admin-delivery-fold__eyebrow">Equipo</span>
+								<span className="admin-delivery-fold__title">Repartidor y WhatsApp</span>
+							</div>
+						</summary>
+						<div className="admin-delivery-fold__body">
+							<p className="admin-delivery-fold__lead admin-delivery-inline-tip">
+								En el tablero, el botón de WhatsApp abre el mensaje del envío y eliges al destinatario en la
+								app. <AdminHelpTip text={DELIVERY_TOOLTIPS.driverWhatsApp} />
+							</p>
+							<div className="form-group" style={{ maxWidth: "22rem" }}>
+								<label htmlFor="adm-del-driver-wa">
+									WhatsApp repartidor (opcional)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.driverWhatsApp} />
+								</label>
+								<input
+									id="adm-del-driver-wa"
+									type="tel"
+									className="form-input"
+									placeholder="Ej: 56 9 1234 5678"
+									autoComplete="off"
+									disabled={lockOptions}
+									value={draft.trustedDriverWhatsApp}
+									onChange={(ev) =>
+										setDraft((d) => ({ ...d, trustedDriverWhatsApp: ev.target.value }))
+									}
+								/>
+								<p className="admin-menu-options-card-desc" style={{ marginTop: 6, marginBottom: 0 }}>
+									Se guarda al pulsar <strong>Guardar tarifas y opciones</strong>. Déjalo vacío para quitar.
+								</p>
+							</div>
+						</div>
+					</details>
+
+					<details
+						className="admin-delivery-fold admin-delivery-fold--advanced"
+						style={{ marginTop: 18 }}
+					>
+						<summary className="admin-delivery-fold__summary">
+							<div className="admin-delivery-fold__summary-text">
+								<span className="admin-delivery-fold__eyebrow">Avanzado</span>
+								<span className="admin-delivery-fold__title">Límites, umbrales y texto de ayuda</span>
+							</div>
+						</summary>
+						<div className="admin-delivery-fold__body">
+							<div className="admin-branch-delivery-grid" style={{ marginTop: 0 }}>
 							<div className="form-group">
-								<label htmlFor="adm-del-minfee">Mínimo envío (opcional)</label>
+								<label htmlFor="adm-del-minfee">
+									Mínimo envío (opcional)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.minFee} />
+								</label>
 								<input
 									id="adm-del-minfee"
 									type="number"
@@ -703,6 +1027,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									step="any"
 									className="form-input"
 									placeholder="Sin piso"
+									disabled={lockOptions}
 									value={draft.minFee}
 									onChange={(ev) =>
 										setDraft((d) => ({ ...d, minFee: ev.target.value }))
@@ -710,7 +1035,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								/>
 							</div>
 							<div className="form-group">
-								<label htmlFor="adm-del-maxfee">Máximo envío (opcional)</label>
+								<label htmlFor="adm-del-maxfee">
+									Máximo envío (opcional)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.maxFee} />
+								</label>
 								<input
 									id="adm-del-maxfee"
 									type="number"
@@ -718,6 +1046,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									step="any"
 									className="form-input"
 									placeholder="Sin tope"
+									disabled={lockOptions}
 									value={draft.maxFee}
 									onChange={(ev) =>
 										setDraft((d) => ({ ...d, maxFee: ev.target.value }))
@@ -725,7 +1054,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								/>
 							</div>
 							<div className="form-group">
-								<label htmlFor="adm-del-maxkm">Distancia máx. (km)</label>
+								<label htmlFor="adm-del-maxkm">
+									Distancia máx. (km)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.maxDeliveryKm} />
+								</label>
 								<input
 									id="adm-del-maxkm"
 									type="number"
@@ -733,6 +1065,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									step="any"
 									className="form-input"
 									placeholder="Sin límite"
+									disabled={lockOptions}
 									value={draft.maxDeliveryKm}
 									onChange={(ev) =>
 										setDraft((d) => ({ ...d, maxDeliveryKm: ev.target.value }))
@@ -740,7 +1073,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								/>
 							</div>
 							<div className="form-group">
-								<label htmlFor="adm-del-free">Envío gratis desde (subtotal)</label>
+								<label htmlFor="adm-del-free">
+									Envío gratis desde (subtotal)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.freeDeliveryFromSubtotal} />
+								</label>
 								<input
 									id="adm-del-free"
 									type="number"
@@ -748,6 +1084,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									step="any"
 									className="form-input"
 									placeholder="Nunca"
+									disabled={lockOptions}
 									value={draft.freeDeliveryFromSubtotal}
 									onChange={(ev) =>
 										setDraft((d) => ({
@@ -758,7 +1095,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								/>
 							</div>
 							<div className="form-group">
-								<label htmlFor="adm-del-minorder">Pedido mínimo (subtotal)</label>
+								<label htmlFor="adm-del-minorder">
+									Pedido mínimo (subtotal)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.minOrderSubtotal} />
+								</label>
 								<input
 									id="adm-del-minorder"
 									type="number"
@@ -766,6 +1106,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									step="any"
 									className="form-input"
 									placeholder="Sin mínimo"
+									disabled={lockOptions}
 									value={draft.minOrderSubtotal}
 									onChange={(ev) =>
 										setDraft((d) => ({
@@ -776,12 +1117,16 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								/>
 							</div>
 							<div className="form-group full-span">
-								<label htmlFor="adm-del-notes">Mensaje para el cliente en el checkout</label>
+								<label htmlFor="adm-del-notes">
+									Mensaje para el cliente en el checkout
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.customerNotes} />
+								</label>
 								<textarea
 									id="adm-del-notes"
 									className="form-input"
 									rows={2}
 									placeholder="Ej.: Entregas en 45–60 min con caja abierta."
+									disabled={lockOptions}
 									value={draft.customerNotes}
 									onChange={(ev) =>
 										setDraft((d) => ({ ...d, customerNotes: ev.target.value }))
@@ -791,13 +1136,17 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							{pricingStrategy === "named_areas" ? (
 								<>
 									<div className="form-group">
-										<label htmlFor="adm-del-olat2">Ubicación del local · latitud (opcional)</label>
+										<label htmlFor="adm-del-olat2">
+											Ubicación del local · latitud (opcional)
+											<AdminHelpTip text={DELIVERY_TOOLTIPS.originLatNamed} />
+										</label>
 										<input
 											id="adm-del-olat2"
 											type="text"
 											inputMode="decimal"
 											className="form-input"
 											placeholder="Solo para sugerencias al escribir zonas"
+											disabled={lockOptions}
 											value={draft.originLat}
 											onChange={(ev) =>
 												setDraft((d) => ({ ...d, originLat: ev.target.value }))
@@ -805,12 +1154,16 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										/>
 									</div>
 									<div className="form-group">
-										<label htmlFor="adm-del-olng2">Ubicación del local · longitud (opcional)</label>
+										<label htmlFor="adm-del-olng2">
+											Ubicación del local · longitud (opcional)
+											<AdminHelpTip text={DELIVERY_TOOLTIPS.originLngNamed} />
+										</label>
 										<input
 											id="adm-del-olng2"
 											type="text"
 											inputMode="decimal"
 											className="form-input"
+											disabled={lockOptions}
 											value={draft.originLng}
 											onChange={(ev) =>
 												setDraft((d) => ({ ...d, originLng: ev.target.value }))
@@ -819,23 +1172,28 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									</div>
 								</>
 							) : null}
+							</div>
 						</div>
 					</details>
 					<p
-						className="admin-menu-options-card-desc"
+						className="admin-menu-options-card-desc admin-delivery-inline-tip"
 						style={{ marginTop: 10, marginBottom: 12 }}
 					>
-						<strong>Vista previa:</strong> {previewText}
+						<strong>Vista previa:</strong> {previewText}{" "}
+						<AdminHelpTip text={DELIVERY_TOOLTIPS.preview} />
 					</p>
 					<button
 						type="button"
-						className="btn btn-primary"
-						disabled={savingFields || saving}
+						className="btn btn-primary admin-tooltip-btn-hover"
+						disabled={lockOptions}
 						onClick={() => void saveTariffs()}
 					>
 						{savingFields ? "Guardando…" : "Guardar tarifas y opciones"}
+						<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+							{DELIVERY_TOOLTIPS.saveButton}
+						</span>
 					</button>
-				</>
+				</div>
 			) : null}
 		</section>
 	);

@@ -477,7 +477,8 @@ export const AdminProvider = ({
 					price: priceData ? priceData.price : 0,
 					has_discount: priceData ? priceData.has_discount : false,
 					discount_price: priceData ? priceData.discount_price : 0,
-					is_active: statusData ? statusData.is_active : false,
+					// Sin fila en product_branch: no asumir "desactivado" — heredar is_active global del catálogo.
+					is_active: statusData ? statusData.is_active : Boolean(prod.is_active),
 					is_special: statusData ? statusData.is_special : false,
 					category_id: statusData?.category_id || prod.category_id,
 					price_id: priceData?.id,
@@ -485,8 +486,7 @@ export const AdminProvider = ({
 				};
 			});
 			const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
-			const clientIdsInOrders = new Set(cleanOrders.map(o => o.client_id).filter(Boolean));
-			const filteredClients = (cltsRes.data || []).filter(c => clientIdsInOrders.has(c.id));
+			const allClients = cltsRes.data || [];
 			const branchCategoryMap = (categoryBranchRes.data || []).reduce((acc, row) => {
 				acc[row.category_id] = { order: row.order, is_active: row.is_active };
 				return acc;
@@ -505,7 +505,7 @@ export const AdminProvider = ({
 			setCategories(categoriesData);
 			setProducts(mergedProducts);
 			setOrders(cleanOrders);
-			setClients(filteredClients);
+			setClients(allClients);
 			setLastDataRefreshAt(Date.now());
 		} catch {
 			showNotify("Error de conexión", 'error');

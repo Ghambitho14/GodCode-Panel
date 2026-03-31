@@ -46,7 +46,7 @@ const ElapsedTime = ({ since }) => {
     return <span>{elapsed}</span>;
 };
 
-const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
+const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orders = [] }) => {
     const { 
         activeShift, loading: loadingSystem, movements,
         openShift, closeShift, addManualMovement, 
@@ -461,6 +461,8 @@ const CashManager = ({ showNotify, selectedBranchId, orders = [] }) => {
 
             <CashOrderDetailPanel
                 order={selectedMovementOrder}
+                branch={selectedBranch}
+                showNotify={showNotify}
                 onClose={() => setSelectedMovementOrder(null)}
             />
         </div>
