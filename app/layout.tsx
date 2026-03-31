@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { PwaServiceWorkerRegister } from "../components/PwaServiceWorkerRegister";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
 			>
 				<PwaServiceWorkerRegister />
 				{children}
+				<Analytics />
 			</body>
 		</html>
 	);
