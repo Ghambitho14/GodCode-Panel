@@ -4,6 +4,7 @@ import {
     computeDeliveryFee,
     effectiveDeliveryPricingMode,
     normalizeDeliverySettings,
+    isOrderPaymentAllowedForDelivery,
 } from '@/lib/delivery-settings';
 
 function extractOrderId(newOrder) {
@@ -142,7 +143,7 @@ export const ordersService = {
 
             const { data: branchCfg, error: branchCfgError } = await supabase
                 .from('branches')
-                .select('delivery_settings')
+                .select('delivery_settings, payment_methods')
                 .eq('id', orderData.branch_id)
                 .maybeSingle();
 
@@ -223,6 +224,19 @@ export const ordersService = {
                     throw new Error('La zona de entrega seleccionada no es válida.');
                 }
                 deliveryFee = r.fee;
+
+                const branchPm = branchCfg?.payment_methods;
+                if (
+                    !isOrderPaymentAllowedForDelivery(
+                        orderData,
+                        Array.isArray(branchPm) ? branchPm : [],
+                        deliverySettings,
+                    )
+                ) {
+                    throw new Error(
+                        'El método de pago no está permitido para delivery en esta sucursal.',
+                    );
+                }
             }
 
             const itemsSubtotal = Math.round(calculatedItemsTotal * 100) / 100;

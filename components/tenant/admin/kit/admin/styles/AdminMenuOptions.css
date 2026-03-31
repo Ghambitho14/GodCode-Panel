@@ -57,6 +57,19 @@
 	opacity: 0.5;
 }
 
+.admin-menu-options-section-label--with-tip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.admin-menu-options-section-label .admin-help-tip {
+	text-transform: none;
+	letter-spacing: normal;
+	font-weight: 500;
+}
+
 .admin-menu-options-card {
 	padding: clamp(14px, 3.5vw, 20px) clamp(14px, 3.5vw, 22px);
 	border-radius: clamp(12px, 2vw, 16px);
@@ -72,6 +85,87 @@
 	align-items: flex-start;
 	margin-bottom: 18px;
 	flex-wrap: wrap;
+}
+
+/* Delivery: interruptor en cabecera */
+.admin-menu-options-card-head--delivery {
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.admin-menu-options-card-head--delivery .admin-menu-options-card-head__main {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	min-width: 0;
+	flex: 1 1 220px;
+}
+
+.admin-menu-options-delivery-head-toggle {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 12px;
+	max-width: min(100%, 24rem);
+}
+
+.admin-menu-options-delivery-head-toggle__text {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	text-align: right;
+}
+
+.admin-menu-options-delivery-head-toggle__label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-weight: 600;
+	font-size: 0.92rem;
+	line-height: 1.2;
+}
+
+.admin-menu-options-delivery-head-toggle .admin-menu-options-delivery-hint {
+	font-size: 0.78rem;
+	opacity: 0.78;
+	line-height: 1.35;
+	margin: 0;
+}
+
+@media (max-width: 640px) {
+	.admin-menu-options-card-head--delivery {
+		align-items: flex-start;
+	}
+
+	.admin-menu-options-delivery-head-toggle {
+		width: 100%;
+		justify-content: space-between;
+		max-width: none;
+	}
+
+	.admin-menu-options-delivery-head-toggle__text {
+		text-align: left;
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+/* Delivery apagado o guardando: atenuado; controles deshabilitados en JSX (inputs no editables) */
+.admin-delivery-options-stack--locked {
+	opacity: 0.68;
+	transition: opacity 0.2s ease;
+}
+
+.admin-delivery-options-stack--locked a[href] {
+	pointer-events: none;
+	cursor: not-allowed;
+	opacity: 0.65;
+}
+
+.admin-layout .admin-delivery-options-stack--locked {
+	opacity: 0.75;
 }
 
 .admin-menu-options-card-icon {
@@ -105,6 +199,10 @@
 .admin-menu-options-card-head > div:last-child {
 	min-width: 0;
 	flex: 1;
+}
+
+.admin-menu-options-card-head--delivery > div:last-child {
+	flex: 0 0 auto;
 }
 
 .admin-menu-options-delivery-row {
@@ -356,4 +454,391 @@
 
 .admin-layout .admin-delivery-strategy-pills .btn.is-active {
 	box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25);
+}
+
+/* Delivery: secciones plegables + chips de pago */
+.admin-delivery-fold {
+	margin-top: 14px;
+	border-radius: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(0, 0, 0, 0.12);
+	overflow: visible;
+}
+
+.admin-menu-options-delivery .admin-delivery-fold:first-of-type {
+	margin-top: 0;
+}
+
+.admin-delivery-fold__summary {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 14px;
+	cursor: pointer;
+	user-select: none;
+	list-style: none;
+}
+
+.admin-delivery-fold__summary::-webkit-details-marker {
+	display: none;
+}
+
+.admin-delivery-fold__summary::after {
+	content: "";
+	flex-shrink: 0;
+	width: 0.5em;
+	height: 0.5em;
+	margin-left: 8px;
+	border-right: 2px solid currentColor;
+	border-bottom: 2px solid currentColor;
+	transform: rotate(45deg);
+	opacity: 0.45;
+	transition: transform 0.2s ease, opacity 0.15s ease;
+}
+
+.admin-delivery-fold[open] > .admin-delivery-fold__summary::after {
+	transform: rotate(-135deg);
+	margin-top: 4px;
+	opacity: 0.65;
+}
+
+.admin-delivery-fold__summary-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	align-items: flex-start;
+	min-width: 0;
+}
+
+.admin-delivery-fold__eyebrow {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	opacity: 0.48;
+}
+
+.admin-delivery-fold__title {
+	font-size: 14px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+}
+
+.admin-delivery-fold__lead {
+	margin: 0 0 12px;
+	font-size: 13px;
+	line-height: 1.5;
+	opacity: 0.78;
+	max-width: 42rem;
+}
+
+.admin-delivery-fold__body {
+	padding: 0 14px 14px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	overflow: visible;
+}
+
+.admin-menu-options-delivery-row--in-fold {
+	margin-top: 0;
+}
+
+.admin-delivery-payment-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	overflow: visible;
+}
+
+.admin-delivery-pay-chip.admin-tooltip-btn-hover {
+	position: relative;
+	overflow: visible;
+}
+
+.admin-delivery-inline-tip .admin-help-tip {
+	vertical-align: text-bottom;
+}
+
+.admin-delivery-pay-chip {
+	margin: 0;
+	appearance: none;
+	font: inherit;
+	border-radius: 999px;
+	padding: 9px 16px;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.2;
+	cursor: pointer;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background: rgba(255, 255, 255, 0.04);
+	color: inherit;
+	opacity: 0.82;
+	transition:
+		opacity 0.15s ease,
+		background 0.15s ease,
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.admin-delivery-pay-chip:hover {
+	opacity: 1;
+	background: rgba(255, 255, 255, 0.07);
+}
+
+.admin-delivery-pay-chip.is-on {
+	opacity: 1;
+	border-color: rgba(129, 140, 248, 0.55);
+	background: rgba(99, 102, 241, 0.18);
+	box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
+}
+
+.admin-delivery-fold--advanced:not([open]) {
+	opacity: 0.92;
+}
+
+.admin-layout .admin-delivery-fold {
+	border-color: rgba(15, 23, 42, 0.1);
+	background: rgba(255, 255, 255, 0.55);
+}
+
+.admin-layout .admin-delivery-fold__body {
+	border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+.admin-layout .admin-delivery-pay-chip {
+	border-color: rgba(15, 23, 42, 0.12);
+	background: rgba(255, 255, 255, 0.85);
+}
+
+.admin-layout .admin-delivery-pay-chip:hover {
+	background: #fff;
+}
+
+.admin-layout .admin-delivery-pay-chip.is-on {
+	border-color: rgba(79, 70, 229, 0.45);
+	background: rgba(238, 242, 255, 0.95);
+	box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+}
+
+/* Botones solo icono (papelera) + fila “Añadir”: ayuda vía AdminHelpTip / admin-tooltip-btn-hover */
+.admin-delivery-icon-btn {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	min-width: 38px;
+	min-height: 38px;
+	margin: 0 0 2px;
+	padding: 0;
+	border-radius: 10px;
+	cursor: pointer;
+	font: inherit;
+	color: inherit;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	background: rgba(255, 255, 255, 0.06);
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
+}
+
+.admin-delivery-icon-btn:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.22);
+}
+
+.admin-delivery-icon-btn:focus {
+	outline: none;
+}
+
+.admin-delivery-icon-btn:focus-visible {
+	box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.45);
+	border-color: rgba(165, 180, 252, 0.55);
+}
+
+.admin-delivery-icon-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.admin-delivery-icon-btn svg {
+	flex-shrink: 0;
+	opacity: 0.88;
+}
+
+.admin-layout .admin-delivery-icon-btn {
+	border-color: var(--admin-border, rgba(15, 23, 42, 0.12));
+	background: rgba(255, 255, 255, 0.75);
+}
+
+.admin-layout .admin-delivery-icon-btn:hover:not(:disabled) {
+	background: var(--admin-icon-bg, #f1f5f9);
+	border-color: var(--admin-border);
+}
+
+/* —— Ayuda contextual (reemplaza title nativo): icono + burbujas en botones —— */
+.admin-help-tip {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	vertical-align: middle;
+	margin-left: 5px;
+	color: rgba(255, 255, 255, 0.38);
+	cursor: help;
+	outline: none;
+	flex-shrink: 0;
+}
+
+.admin-help-tip:hover,
+.admin-help-tip:focus-visible {
+	color: rgba(165, 180, 252, 0.95);
+}
+
+.admin-help-tip:focus-visible {
+	box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.45);
+	border-radius: 6px;
+}
+
+.admin-help-tip__bubble {
+	position: absolute;
+	z-index: 90;
+	left: 50%;
+	bottom: calc(100% + 10px);
+	transform: translateX(-50%) translateY(6px);
+	min-width: 12rem;
+	max-width: min(20rem, calc(100vw - 2rem));
+	padding: 10px 12px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.45;
+	letter-spacing: 0.01em;
+	text-align: left;
+	color: rgba(248, 250, 252, 0.96);
+	background: rgba(15, 23, 42, 0.94);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow:
+		0 4px 24px rgba(0, 0, 0, 0.35),
+		0 0 0 1px rgba(0, 0, 0, 0.2);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity 0.18s ease,
+		visibility 0.18s ease,
+		transform 0.18s ease;
+}
+
+.admin-help-tip__bubble::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -6px;
+	border: 6px solid transparent;
+	border-top-color: rgba(15, 23, 42, 0.94);
+	filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.15));
+}
+
+.admin-help-tip:hover .admin-help-tip__bubble,
+.admin-help-tip:focus-visible .admin-help-tip__bubble {
+	opacity: 1;
+	visibility: visible;
+	transform: translateX(-50%) translateY(0);
+}
+
+.admin-menu-options-delivery .form-group label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+	max-width: 100%;
+}
+
+/* Botones / iconos: tooltip encima */
+.admin-tooltip-btn-hover {
+	position: relative;
+}
+
+.admin-tooltip-btn-hover__panel {
+	position: absolute;
+	z-index: 90;
+	left: 50%;
+	bottom: calc(100% + 10px);
+	transform: translateX(-50%) translateY(6px);
+	min-width: 11rem;
+	max-width: min(19rem, calc(100vw - 2rem));
+	padding: 10px 12px;
+	border-radius: 10px;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.45;
+	text-align: left;
+	color: rgba(248, 250, 252, 0.96);
+	background: rgba(15, 23, 42, 0.94);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow:
+		0 4px 24px rgba(0, 0, 0, 0.35),
+		0 0 0 1px rgba(0, 0, 0, 0.2);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition:
+		opacity 0.18s ease,
+		visibility 0.18s ease,
+		transform 0.18s ease;
+}
+
+.admin-tooltip-btn-hover__panel::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	margin-left: -6px;
+	border: 6px solid transparent;
+	border-top-color: rgba(15, 23, 42, 0.94);
+}
+
+.admin-tooltip-btn-hover:hover:not(:disabled) .admin-tooltip-btn-hover__panel,
+.admin-tooltip-btn-hover:focus-visible:not(:disabled) .admin-tooltip-btn-hover__panel {
+	opacity: 1;
+	visibility: visible;
+	transform: translateX(-50%) translateY(0);
+}
+
+.admin-tooltip-btn-hover:disabled .admin-tooltip-btn-hover__panel {
+	display: none;
+}
+
+.admin-layout .admin-help-tip {
+	color: rgba(71, 85, 105, 0.65);
+}
+
+.admin-layout .admin-help-tip:hover,
+.admin-layout .admin-help-tip:focus-visible {
+	color: rgba(79, 70, 229, 0.95);
+}
+
+.admin-layout .admin-help-tip__bubble,
+.admin-layout .admin-tooltip-btn-hover__panel {
+	background: rgba(255, 255, 255, 0.98);
+	color: rgba(15, 23, 42, 0.92);
+	border-color: rgba(15, 23, 42, 0.1);
+	box-shadow:
+		0 8px 30px rgba(15, 23, 42, 0.12),
+		0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.admin-layout .admin-help-tip__bubble::after,
+.admin-layout .admin-tooltip-btn-hover__panel::after {
+	border-top-color: rgba(255, 255, 255, 0.98);
 }

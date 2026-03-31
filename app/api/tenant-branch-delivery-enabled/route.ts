@@ -69,6 +69,7 @@ function settingsResponse(
 		customerNotes: n.customerNotes,
 		zones: n.zones,
 		namedAreas: n.namedAreas,
+		allowedPaymentMethodsForDelivery: n.allowedPaymentMethodsForDelivery,
 		originLat: origin?.lat ?? null,
 		originLng: origin?.lng ?? null,
 		trustedDriverWhatsApp: trustedWa.length >= 8 ? trustedWa : "",
@@ -90,6 +91,7 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 		"minOrderSubtotal",
 		"customerNotes",
 		"trustedDriverWhatsApp",
+		"allowedPaymentMethodsForDelivery",
 	] as const;
 	for (const k of keys) {
 		if (k in body) {
@@ -182,7 +184,7 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json(
 				{
 					error:
-						"Nada que actualizar: envía delivery, tarifas, zonas, WhatsApp repartidor u origen GPS",
+						"Nada que actualizar: envía delivery, tarifas, zonas, pagos delivery, WhatsApp repartidor u origen GPS",
 				},
 				{ status: 400 },
 			);
