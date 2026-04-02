@@ -1,5 +1,6 @@
 "use client";
 
+import "./kit/admin/styles/AdminContextualHelp.css";
 import { AdminPage } from "./kit/admin/pages/Admin";
 import { AdminProvider } from "./kit/admin/pages/AdminProvider";
 import { LocationProvider } from "./kit/context/LocationContext";

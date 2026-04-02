@@ -3,6 +3,8 @@
  * Claves en camelCase al guardar desde el panel.
  */
 
+import { parseTagList } from "@/lib/inventory-taxonomy";
+
 export const DELIVERY_MAX_PRICE_PER_KM = 500_000;
 export const DELIVERY_MAX_BASE_FEE = 10_000_000;
 export const DELIVERY_MAX_FEE_CAP = 50_000_000;
@@ -13,6 +15,296 @@ export const DELIVERY_MAX_ZONES = 12;
 export const DELIVERY_MAX_NAMED_AREAS = 40;
 /** Alias por fila para matching con geocodificación. */
 export const DELIVERY_MAX_ALIASES_PER_AREA = 8;
+
+/** Máximo de filas por catálogo de upsell en carrito (`delivery_settings`). */
+export const CART_UPSELL_MAX_ITEMS = 80;
+const CART_UPSELL_MAX_PRICE = 50_000_000;
+const CART_UPSELL_ID_MAX_LEN = 128;
+const CART_UPSELL_NAME_MAX_LEN = 160;
+const CART_UPSELL_CATEGORY_MAX_LEN = 64;
+const CART_UPSELL_BEVERAGE_KIND_MAX_LEN = 64;
+const CART_UPSELL_IMAGE_URL_MAX_LEN = 2048;
+const CART_UPSELL_MAX_PER_ORDER = 9999;
+const CART_UPSELL_MAX_UNITS_PER_SALE = 999;
+
+const CART_UPSELL_SNAKE_KEYS = [
+	"beverages_upsell_enabled_by_branch",
+	"extras_enabled_by_branch",
+	"beverages_catalog",
+	"cart_beverages_catalog",
+	"global_extras_catalog",
+	"cart_global_extras_catalog",
+] as const;
+
+export type CartUpsellCatalogItem = {
+	id: string;
+	name: string;
+	price: number;
+	imageUrl: string;
+	active: boolean;
+	/**
+	 * Subcategoría dentro del catálogo (bebidas: Aguas, Refrescos… / extras: Salsas, toppings…).
+	 * Independiente de la categoría de insumos en inventario.
+	 */
+	category: string;
+	/** UUID en `inventory_items` (misma empresa); stock por sucursal en `inventory_branch`. */
+	inventoryItemId: string | null;
+	/** Tope de unidades que el cliente puede pedir por línea (además del tope por stock). */
+	maxPerOrder: number | null;
+	/** Unidades de inventario que consume cada unidad vendida (solo aplica con `inventoryItemId`). */
+	unitsPerSale: number;
+	/**
+	 * Tipo de bebida elegido por el local (Refresco, Agua…). Solo aplica al catálogo de bebidas; vacío en extras.
+	 */
+	beverageKind: string;
+	/** Etiquetas de marketing / exclusividad en el ítem del carrito (p. ej. exclusivo). */
+	tags: string[];
+};
+
+function parseOptionalInventoryUuid(raw: unknown): string | null {
+	if (raw == null || raw === "") return null;
+	const s = String(raw).trim();
+	if (!s) return null;
+	if (
+		!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+	) {
+		return null;
+	}
+	return s.toLowerCase();
+}
+
+/**
+ * Une filas con el mismo `id` de distintas fuentes JSON (camel/snake/legacy).
+ * Evita perder `inventoryItemId` si una clave tiene el catálogo viejo y otra el vínculo a inventario.
+ */
+function mergeCartUpsellCatalogById(rows: CartUpsellCatalogItem[]): CartUpsellCatalogItem[] {
+	const byId = new Map<string, CartUpsellCatalogItem>();
+	const order: string[] = [];
+	for (const r of rows) {
+		const prev = byId.get(r.id);
+		if (!prev) {
+			byId.set(r.id, { ...r });
+			order.push(r.id);
+			continue;
+		}
+		const inv = prev.inventoryItemId || r.inventoryItemId;
+		const donorForUnits = prev.inventoryItemId ? prev : r.inventoryItemId ? r : null;
+		byId.set(r.id, {
+			...prev,
+			name: r.name || prev.name,
+			price: Number.isFinite(r.price) && r.price >= 0 ? r.price : prev.price,
+			imageUrl: r.imageUrl || prev.imageUrl,
+			active: r.active !== false && prev.active !== false,
+			category: r.category || prev.category,
+			beverageKind: r.beverageKind || prev.beverageKind,
+			tags: r.tags?.length ? r.tags : prev.tags,
+			maxPerOrder: r.maxPerOrder ?? prev.maxPerOrder,
+			inventoryItemId: inv,
+			unitsPerSale: inv
+				? Math.max(
+						1,
+						Math.min(
+							CART_UPSELL_MAX_UNITS_PER_SALE,
+							donorForUnits?.inventoryItemId
+								? donorForUnits.unitsPerSale || 1
+								: prev.unitsPerSale || r.unitsPerSale || 1,
+						),
+					)
+				: 1,
+		});
+	}
+	return order.map((id) => byId.get(id)!).slice(0, CART_UPSELL_MAX_ITEMS);
+}
+
+function parseOptionalMaxPerOrder(raw: unknown): number | null {
+	if (raw == null || raw === "") return null;
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n < 1) return null;
+	return Math.min(CART_UPSELL_MAX_PER_ORDER, Math.floor(n));
+}
+
+function parseUnitsPerSale(raw: unknown): number {
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n < 1) return 1;
+	return Math.min(CART_UPSELL_MAX_UNITS_PER_SALE, Math.floor(n));
+}
+
+function parseCartUpsellCategory(raw: unknown): string {
+	if (raw == null || raw === "") return "";
+	const s = typeof raw === "string" ? raw.trim() : "";
+	if (!s) return "";
+	return s.slice(0, CART_UPSELL_CATEGORY_MAX_LEN);
+}
+
+function parseBeverageKind(raw: unknown): string {
+	if (raw == null || raw === "") return "";
+	const s = typeof raw === "string" ? raw.trim() : "";
+	if (!s) return "";
+	return s.slice(0, CART_UPSELL_BEVERAGE_KIND_MAX_LEN);
+}
+
+/**
+ * Máximo de unidades que el cliente puede pedir de un ítem upsell en un pedido.
+ * `branchStock` = `current_stock` en `inventory_branch` para el insumo vinculado y la sucursal, o `null` si no aplica.
+ * Si no hay techo (sin inventario ni maxPerOrder), devuelve `null` (sin límite explícito en UI).
+ */
+export function cartUpsellEffectiveMaxPerOrder(
+	item: Pick<CartUpsellCatalogItem, "inventoryItemId" | "maxPerOrder" | "unitsPerSale">,
+	branchStock: number | null,
+): number | null {
+	const per = Math.max(1, item.unitsPerSale || 1);
+	let fromStock: number | null = null;
+	if (
+		item.inventoryItemId &&
+		branchStock != null &&
+		Number.isFinite(branchStock) &&
+		branchStock >= 0
+	) {
+		fromStock = Math.floor(branchStock / per);
+	}
+	const cap = item.maxPerOrder;
+	if (fromStock == null && cap == null) return null;
+	if (fromStock == null) return cap;
+	if (cap == null) return fromStock;
+	return Math.min(fromStock, cap);
+}
+
+function stripCartUpsellSnakeKeys(o: Record<string, unknown>): void {
+	for (const k of CART_UPSELL_SNAKE_KEYS) {
+		delete o[k];
+	}
+}
+
+function parseBranchBooleanMap(raw: unknown): Record<string, boolean> {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+	const out: Record<string, boolean> = {};
+	for (const [k, v] of Object.entries(raw)) {
+		if (typeof v === "boolean") out[k] = v;
+	}
+	return out;
+}
+
+/**
+ * Normaliza un catálogo de ítems upsell (bebidas / extras en carrito).
+ * Dedupe por `id` (gana la primera fila), precios ≥ 0 acotados.
+ */
+export function parseCartUpsellCatalog(raw: unknown): CartUpsellCatalogItem[] {
+	if (!Array.isArray(raw)) return [];
+	const seen = new Set<string>();
+	const out: CartUpsellCatalogItem[] = [];
+	for (let i = 0; i < raw.length && out.length < CART_UPSELL_MAX_ITEMS; i++) {
+		const row = raw[i];
+		if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+		const o = row as Record<string, unknown>;
+		const idRaw = o.id;
+		const id =
+			typeof idRaw === "string" && idRaw.trim()
+				? idRaw.trim().slice(0, CART_UPSELL_ID_MAX_LEN)
+				: "";
+		if (!id || seen.has(id)) continue;
+		const nameRaw = o.name ?? o.label ?? o.title;
+		const name =
+			typeof nameRaw === "string"
+				? nameRaw.trim().slice(0, CART_UPSELL_NAME_MAX_LEN)
+				: "";
+		if (!name) continue;
+		const priceNum = Number(o.price ?? o.fee ?? o.amount);
+		if (!Number.isFinite(priceNum) || priceNum < 0) continue;
+		const price = Math.min(CART_UPSELL_MAX_PRICE, priceNum);
+		const imgRaw = o.imageUrl ?? o.image_url;
+		const imageUrl =
+			typeof imgRaw === "string"
+				? imgRaw.trim().slice(0, CART_UPSELL_IMAGE_URL_MAX_LEN)
+				: "";
+		const active =
+			o.active === false || o.is_active === false || o.enabled === false
+				? false
+				: true;
+		const category = parseCartUpsellCategory(
+			o.category ?? o.catalogCategory ?? o.group ?? o.catalog_category,
+		);
+		const inventoryItemId = parseOptionalInventoryUuid(
+			o.inventoryItemId ?? o.inventory_item_id,
+		);
+		const maxPerOrder = parseOptionalMaxPerOrder(
+			o.maxPerOrder ?? o.max_per_order,
+		);
+		let unitsPerSale = parseUnitsPerSale(o.unitsPerSale ?? o.units_per_sale);
+		if (!inventoryItemId) unitsPerSale = 1;
+		const beverageKind = parseBeverageKind(
+			o.beverageKind ?? o.beverage_kind,
+		);
+		const tags = parseTagList(o.tags ?? o.catalogTags);
+		seen.add(id);
+		out.push({
+			id,
+			name,
+			price,
+			imageUrl,
+			active,
+			category,
+			inventoryItemId,
+			maxPerOrder,
+			unitsPerSale,
+			beverageKind,
+			tags,
+		});
+	}
+	return out;
+}
+
+export type CartUpsellSettingsExtracted = {
+	beveragesUpsellEnabledByBranch: Record<string, boolean>;
+	extrasEnabledByBranch: Record<string, boolean>;
+	cartBeveragesCatalog: CartUpsellCatalogItem[];
+	cartGlobalExtrasCatalog: CartUpsellCatalogItem[];
+};
+
+/**
+ * Lee flags y catálogos de upsell desde JSON crudo de `delivery_settings`.
+ * Unifica fallbacks camel/snake y nombres históricos de catálogo.
+ */
+export function extractCartUpsellSettings(raw: unknown): CartUpsellSettingsExtracted {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+		return {
+			beveragesUpsellEnabledByBranch: {},
+			extrasEnabledByBranch: {},
+			cartBeveragesCatalog: [],
+			cartGlobalExtrasCatalog: [],
+		};
+	}
+	const o = raw as Record<string, unknown>;
+	const beveragesUpsellEnabledByBranch = parseBranchBooleanMap(
+		o.beveragesUpsellEnabledByBranch ?? o.beverages_upsell_enabled_by_branch,
+	);
+	const extrasEnabledByBranch = parseBranchBooleanMap(
+		o.extrasEnabledByBranch ?? o.extras_enabled_by_branch,
+	);
+	const beverageSources = [
+		o.cartBeveragesCatalog,
+		o.cart_beverages_catalog,
+		o.beveragesCatalog,
+		o.beverages_catalog,
+	].filter((x): x is unknown[] => Array.isArray(x) && x.length > 0);
+	const cartBeveragesCatalog = mergeCartUpsellCatalogById(
+		beverageSources.flatMap((src) => parseCartUpsellCatalog(src)),
+	);
+	const extraSources = [
+		o.cartGlobalExtrasCatalog,
+		o.cart_global_extras_catalog,
+		o.globalExtrasCatalog,
+		o.global_extras_catalog,
+	].filter((x): x is unknown[] => Array.isArray(x) && x.length > 0);
+	const cartGlobalExtrasCatalog = mergeCartUpsellCatalogById(
+		extraSources.flatMap((src) => parseCartUpsellCatalog(src)),
+	);
+	return {
+		beveragesUpsellEnabledByBranch,
+		extrasEnabledByBranch,
+		cartBeveragesCatalog,
+		cartGlobalExtrasCatalog,
+	};
+}
 
 /** Claves permitidas para restringir pagos solo en delivery (coincide con `payment_methods` + presencial). */
 export const DELIVERY_PAYMENT_METHOD_IDS = new Set([
@@ -499,6 +791,37 @@ export function mergeDeliverySettingsJson(
 			}
 			delete next.trusted_driver_whatsapp;
 		}
+	}
+
+	if ("beveragesUpsellEnabledByBranch" in patch) {
+		const v = patch.beveragesUpsellEnabledByBranch;
+		if (v && typeof v === "object" && !Array.isArray(v)) {
+			const prev = parseBranchBooleanMap(next.beveragesUpsellEnabledByBranch);
+			const add = parseBranchBooleanMap(v);
+			next.beveragesUpsellEnabledByBranch = { ...prev, ...add };
+			stripCartUpsellSnakeKeys(next);
+		}
+	}
+	if ("extrasEnabledByBranch" in patch) {
+		const v = patch.extrasEnabledByBranch;
+		if (v && typeof v === "object" && !Array.isArray(v)) {
+			const prev = parseBranchBooleanMap(next.extrasEnabledByBranch);
+			const add = parseBranchBooleanMap(v);
+			next.extrasEnabledByBranch = { ...prev, ...add };
+			stripCartUpsellSnakeKeys(next);
+		}
+	}
+	if ("cartBeveragesCatalog" in patch) {
+		next.cartBeveragesCatalog = parseCartUpsellCatalog(patch.cartBeveragesCatalog);
+		delete next.beveragesCatalog;
+		delete next.beverages_catalog;
+		stripCartUpsellSnakeKeys(next);
+	}
+	if ("cartGlobalExtrasCatalog" in patch) {
+		next.cartGlobalExtrasCatalog = parseCartUpsellCatalog(patch.cartGlobalExtrasCatalog);
+		delete next.globalExtrasCatalog;
+		delete next.global_extras_catalog;
+		stripCartUpsellSnakeKeys(next);
 	}
 
 	if (

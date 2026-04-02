@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Calculator, FolderTree } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles } from 'lucide-react';
 
 const SidebarIcon = ({ Icon, size }) => (
     <span className="nav-icon-slot">
@@ -91,6 +91,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 					{ id: 'categories', label: L.categories || 'Categorías', icon: FolderTree },
 					{ id: 'products', label: L.products || 'Productos', icon: ShoppingBag },
 					{ id: 'inventory', label: L.inventory || 'Inventario', icon: ClipboardList },
+					{ id: 'menu_beverages', label: L.menu_beverages || 'Bebidas', icon: CupSoda },
+					{ id: 'menu_extras', label: L.menu_extras || 'Extras', icon: Sparkles },
 					{ id: 'menu_options', label: L.menu_options || 'Opciones de menú', icon: SlidersHorizontal },
 					...menuModules.map((module) => ({
 						id: module.tabId,
@@ -248,7 +250,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                                     title={disabled ? 'Necesitas un rol diferente para acceder.' : child.description || undefined}
                                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                                 >
-                                                    <child.icon size={18} />
+                                                    <SidebarIcon Icon={child.icon} size={18} />
                                                     <span className="nav-text">{child.label}</span>
                                                 </button>
                                             );

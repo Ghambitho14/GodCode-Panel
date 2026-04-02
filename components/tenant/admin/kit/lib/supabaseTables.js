@@ -18,5 +18,7 @@ export const TABLES = Object.freeze({
   admin_users: 'admin_users',
   inventory_items: 'inventory_items',
   inventory_branch: 'inventory_branch',
+  inventory_movements: 'inventory_movements',
+  product_inventory_recipe: 'product_inventory_recipe',
   hero_banners: 'hero_banners',
 });

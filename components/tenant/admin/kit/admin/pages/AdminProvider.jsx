@@ -103,6 +103,7 @@ export const AdminProvider = ({
 	const [refreshing, setRefreshing] = useState(false);
 	const [lastDataRefreshAt, setLastDataRefreshAt] = useState(/** @type {number | null} */ (null));
 	const sessionRestoredRef = useRef(false);
+	const inventoryRefreshTimerRef = useRef(null);
 	// Siempre false en el primer render (SSR = cliente) para evitar hydration mismatch;
 	// el valor real se aplica en useEffect tras montar (véase listener resize).
 	const [isMobile, setIsMobile] = useState(false);
@@ -124,6 +125,8 @@ export const AdminProvider = ({
 	const [selectedClient, setSelectedClient] = useState(null);
 	const [selectedClientOrders, setSelectedClientOrders] = useState([]);
 	const [clientHistoryLoading, setClientHistoryLoading] = useState(false);
+	/** Filas `inventory_branch` + `inventory_items` de la sucursal seleccionada (alertas campana / inventario). */
+	const [inventoryBranchRows, setInventoryBranchRows] = useState(/** @type {any[]} */ ([]));
 
 	const resolvedRolePermissions = useMemo(
 		() => normalizeRoleNavPermissions(roleNavPermissions || {}),
@@ -157,19 +160,33 @@ export const AdminProvider = ({
 		if (!roleKey) {
 			return new Set(ALL_ADMIN_TABS);
 		}
-		if (roleKey === 'cashier' && Array.isArray(userAllowedTabs) && userAllowedTabs.length > 0) {
+		/* Cajero: lista explícita en `users.allowed_tabs` sustituye al template del rol (comportamiento histórico). */
+		if (roleKey === "cashier" && Array.isArray(userAllowedTabs) && userAllowedTabs.length > 0) {
 			return new Set(
 				userAllowedTabs
-					.filter((t) => typeof t === 'string')
+					.filter((t) => typeof t === "string")
 					.map((t) => normalizeStoredNavTabId(t))
 					.filter((t) => ALL_ADMIN_TABS.includes(t)),
 			);
 		}
 		const configuredTabs = resolvedRolePermissions[roleKey];
-		if (Array.isArray(configuredTabs)) {
-			return new Set(configuredTabs);
+		const fallbackForRole = DEFAULT_ROLE_NAV_PERMISSIONS[roleKey] ?? DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
+		const baseList =
+			Array.isArray(configuredTabs) && configuredTabs.length > 0 ? configuredTabs : fallbackForRole;
+		const out = new Set(baseList);
+		/*
+		 * Admin / CEO / owner: `theme_config.roleNavPermissions` es la base; si el SaaS también escribe
+		 * `users.allowed_tabs` para ese correo (p. ej. añadiendo menu_beverages), se hace UNIÓN para no
+		 * ignorar esos ids ni romper filas antiguas con listas cortas en JSONB que antes no aplicaban al rol.
+		 */
+		if (Array.isArray(userAllowedTabs) && userAllowedTabs.length > 0) {
+			for (const t of userAllowedTabs) {
+				if (typeof t !== "string") continue;
+				const id = normalizeStoredNavTabId(t);
+				if (ALL_ADMIN_TABS.includes(id)) out.add(id);
+			}
 		}
-		return new Set(DEFAULT_ROLE_NAV_PERMISSIONS.cashier);
+		return out;
 	}, [resolvedRolePermissions, userRole, userAllowedTabs]);
 
 	const dynamicModuleTabs = useMemo(() => {
@@ -452,12 +469,19 @@ export const AdminProvider = ({
 				promises.push(supabase.from(TABLES.category_branch).select('category_id, order, is_active').eq('branch_id', selectedBranch.id));
 				promises.push(supabase.from(TABLES.product_prices).select('*').eq('company_id', companyId).eq('branch_id', selectedBranch.id));
 				promises.push(supabase.from(TABLES.product_branch).select('*').eq('company_id', companyId).eq('branch_id', selectedBranch.id));
+				promises.push(
+					supabase
+						.from(TABLES.inventory_branch)
+						.select('id, inventory_item_id, branch_id, current_stock, min_stock, updated_at, inventory_items(id, name, unit, min_stock, category)')
+						.eq('branch_id', selectedBranch.id)
+				);
 			}
 			const results = await Promise.all(promises);
 			const [catsRes, globalProductsRes, ordsRes, cltsRes] = results;
 			const categoryBranchRes = !isAllBranches ? results[4] : { data: [] };
 			const pricesRes = !isAllBranches ? results[5] : { data: [] };
 			const branchStatusRes = !isAllBranches ? results[6] : { data: [] };
+			const inventoryBranchRes = !isAllBranches ? results[7] : { data: [], error: null };
 			if (catsRes.error) throw catsRes.error;
 			if (globalProductsRes.error) throw globalProductsRes.error;
 			if (ordsRes.error) throw ordsRes.error;
@@ -465,6 +489,14 @@ export const AdminProvider = ({
 			if (!isAllBranches) {
 				if (pricesRes.error) throw pricesRes.error;
 				if (branchStatusRes.error) throw branchStatusRes.error;
+				if (inventoryBranchRes.error) {
+					console.warn('inventory_branch load:', inventoryBranchRes.error);
+					setInventoryBranchRows([]);
+				} else {
+					setInventoryBranchRows(inventoryBranchRes.data || []);
+				}
+			} else {
+				setInventoryBranchRows([]);
 			}
 			const branchPrices = pricesRes.data || [];
 			const branchStatuses = branchStatusRes.data || [];
@@ -482,7 +514,9 @@ export const AdminProvider = ({
 					is_special: statusData ? statusData.is_special : false,
 					category_id: statusData?.category_id || prod.category_id,
 					price_id: priceData?.id,
-					branch_relation_id: statusData?.id
+					branch_relation_id: statusData?.id,
+					inventory_pause_reason: statusData?.inventory_pause_reason ?? null,
+					inventory_paused_at: statusData?.inventory_paused_at ?? null,
 				};
 			});
 			const cleanOrders = (ordsRes.data || []).map(sanitizeOrder);
@@ -546,12 +580,17 @@ export const AdminProvider = ({
 			setOrders(prev => [newOrder, ...prev]);
 			showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
 			playOrderNotificationSound();
+			if (inventoryRefreshTimerRef.current) clearTimeout(inventoryRefreshTimerRef.current);
+			inventoryRefreshTimerRef.current = setTimeout(() => {
+				inventoryRefreshTimerRef.current = null;
+				loadData(true);
+			}, 500);
 		} else if (payload.eventType === 'UPDATE') {
 			setOrders(prev => prev.map(o => o.id === payload.new?.id ? sanitizeOrder(payload.new) : o));
 		} else if (payload.eventType === 'DELETE') {
 			setOrders(prev => prev.filter(o => o.id !== payload.old?.id));
 		}
-	}, [showNotify]);
+	}, [showNotify, loadData]);
 
 	useEffect(() => {
 		const onFirstInteract = () => {
@@ -689,6 +728,14 @@ export const AdminProvider = ({
 			});
 			if (error) throw error;
 			if (!productId) throw new Error('No se pudo guardar el producto');
+			const dishKind =
+				typeof formData.dish_kind === 'string' ? formData.dish_kind.trim().slice(0, 64) : '';
+			const { error: dishErr } = await supabase
+				.from(TABLES.products)
+				.update({ dish_kind: dishKind || null })
+				.eq('id', productId)
+				.eq('company_id', companyId);
+			if (dishErr) console.warn('dish_kind:', dishErr);
 			showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
 			setIsModalOpen(false);
 			loadData(true);
@@ -697,7 +744,7 @@ export const AdminProvider = ({
 		} finally {
 			setRefreshing(false);
 		}
-	}, [selectedBranch, editingProduct, showNotify, loadData]);
+	}, [selectedBranch, editingProduct, showNotify, loadData, companyId]);
 
 	const deleteProduct = useCallback((id) => setProductToDelete(id), []);
 
@@ -742,12 +789,17 @@ export const AdminProvider = ({
 				if (error) throw error;
 				showNotify(newActive ? 'Activado en todos los locales' : 'Desactivado en todos los locales');
 			} else {
-				const { error } = await supabase.from(TABLES.product_branch).upsert({
+				const row = {
 					product_id: item.id,
 					branch_id: selectedBranch.id,
 					is_active: newActive,
-					company_id: selectedBranch.company_id || null
-				}, { onConflict: 'product_id, branch_id' });
+					company_id: selectedBranch.company_id || null,
+				};
+				if (newActive) {
+					row.inventory_pause_reason = null;
+					row.inventory_paused_at = null;
+				}
+				const { error } = await supabase.from(TABLES.product_branch).upsert(row, { onConflict: 'product_id, branch_id' });
 				if (error) throw error;
 				showNotify(newActive ? 'Activado en este local' : 'Desactivado en este local');
 			}
@@ -962,6 +1014,7 @@ export const AdminProvider = ({
 		kanbanColumns,
 		processedProducts,
 		productStats,
+		inventoryBranchRows,
 		dynamicModules: normalizedDynamicModules,
 		resolvedTabLabels,
 		adminShortcutsEnabled,
@@ -979,8 +1032,9 @@ export const AdminProvider = ({
 		loadData, refreshBranches, handleSelectClient, moveOrder, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
-		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, resolvedRolePermissions, kanbanColumns, processedProducts, productStats, normalizedDynamicModules,
+		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, resolvedRolePermissions, kanbanColumns, processedProducts, productStats, inventoryBranchRows, normalizedDynamicModules,
 		resolvedTabLabels, adminShortcutsEnabled, lastDataRefreshAt, userEmail, productToDelete, confirmDeleteProduct,
+		inventoryBranchRows,
 	]);
 
 	return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

@@ -20,6 +20,7 @@ import AdminShortcutsModal from '../components/AdminShortcutsModal';
 import AdminTabFallback from '../components/AdminTabFallback';
 import AdminBroadcastsBanner from '../components/AdminBroadcastsBanner';
 import AdminTopBar from '../components/AdminTopBar';
+import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import AdminBranchSelector from '../components/AdminBranchSelector';
 import AdminHeaderClock from '../components/AdminHeaderClock';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
@@ -33,6 +34,8 @@ const AdminHistoryTable = React.lazy(() => import('../components/AdminHistoryTab
 const CashManager = React.lazy(() => import('../components/caja/CashManager'));
 const AdminPaymentMethods = React.lazy(() => import('../components/AdminPaymentMethods'));
 const AdminMenuOptions = React.lazy(() => import('../components/AdminMenuOptions'));
+const AdminMenuBeverages = React.lazy(() => import('../components/AdminMenuBeverages'));
+const AdminMenuExtras = React.lazy(() => import('../components/AdminMenuExtras'));
 
 import { supabase } from '../../lib/supabase';
 import { AdminProvider, useAdmin } from './AdminProvider';
@@ -105,6 +108,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     adminShortcutsEnabled,
     lastDataRefreshAt,
     loading,
+    inventoryBranchRows,
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
@@ -210,13 +214,19 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const shortcutRows = React.useMemo(() => {
     if (!adminShortcutsEnabled) return [];
-    return [
+    const base = [
       { keys: 'Mod + K', description: 'Buscar sección', group: 'General' },
       { keys: 'Mod + Shift + R', description: 'Actualizar datos del panel', group: 'General' },
       { keys: '?', description: 'Mostrar atajos', group: 'General' },
       { keys: 'Esc', description: 'Cerrar ventanas emergentes', group: 'General' },
     ];
-  }, [adminShortcutsEnabled]);
+    if (activeTab === 'inventory' && canAccessTab('inventory')) {
+      base.push(
+        { keys: '1 · 2 · 3 · 4', description: 'Resumen, Insumos, Movimientos, Recetas (con foco en la página, sin escribir en un campo)', group: 'Inventario' },
+      );
+    }
+    return base;
+  }, [adminShortcutsEnabled, activeTab, canAccessTab]);
 
   React.useEffect(() => {
     if (!adminShortcutsEnabled) return undefined;
@@ -530,10 +540,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       <main className="admin-content">
         <AdminTopBar
           title={pageTitle}
-          showBroadcastsCue={broadcasts.length > 0 || broadcastsLoading}
           hideTitleVisual={hideKitchenTitleOnMobile}
         >
             <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
+            <AdminNotificationCenter
+              broadcasts={broadcasts}
+              broadcastsLoading={broadcastsLoading}
+              ackingId={ackingId}
+              onAcknowledge={acknowledgeBroadcast}
+              inventoryBranchRows={inventoryBranchRows}
+              products={products}
+              selectedBranch={selectedBranch}
+              setActiveTab={setActiveTab}
+              setEditingProduct={setEditingProduct}
+              setIsModalOpen={setIsModalOpen}
+              canAccessInventory={canAccessTab('inventory')}
+              canAccessProducts={canAccessTab('products')}
+            />
             {adminShortcutsEnabled ? (
               <button
                 type="button"
@@ -567,7 +590,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             />
 
             {activeTab === 'orders' && (
-              <>
+              <div className="header-actions-orders-row">
                 <button
                   type="button"
                   className={`btn header-action-orders-history ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`}
@@ -584,7 +607,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 >
                   <PlusCircle size={18} /> Pedido Manual
                 </button>
-              </>
+              </div>
             )}
             {activeTab === 'products' && (
               <button
@@ -775,7 +798,13 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {activeTab === 'inventory' && (
           <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'} onRetry={() => loadData(true)}>
             <React.Suspense fallback={<AdminTabFallback />}>
-              <AdminInventory showNotify={showNotify} branchId={selectedBranch?.id} branches={branches} companyId={companyIdForClients} />
+              <AdminInventory
+                showNotify={showNotify}
+                branchId={selectedBranch?.id}
+                branches={branches}
+                companyId={companyIdForClients}
+                products={products}
+              />
             </React.Suspense>
           </AdminErrorBoundary>
         )}
@@ -788,6 +817,32 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 selectedBranch={selectedBranch}
                 companyId={companyIdForClients}
                 onDeliverySaved={() => void refreshBranches()}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
+        )}
+
+        {activeTab === 'menu_beverages' && (
+          <AdminErrorBoundary tabLabel={tabLabels.menu_beverages || 'Bebidas'} onRetry={() => void refreshBranches()}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminMenuBeverages
+                showNotify={showNotify}
+                selectedBranch={selectedBranch}
+                companyId={companyIdForClients}
+                onSaved={() => void refreshBranches()}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
+        )}
+
+        {activeTab === 'menu_extras' && (
+          <AdminErrorBoundary tabLabel={tabLabels.menu_extras || 'Extras'} onRetry={() => void refreshBranches()}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminMenuExtras
+                showNotify={showNotify}
+                selectedBranch={selectedBranch}
+                companyId={companyIdForClients}
+                onSaved={() => void refreshBranches()}
               />
             </React.Suspense>
           </AdminErrorBoundary>

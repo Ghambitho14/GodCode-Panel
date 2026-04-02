@@ -4,6 +4,7 @@ import type { DatabaseCompanyTheme } from "./company-theme-types";
  * Claves opcionales en `companies.theme_config` para el panel admin (gestor SaaS).
  * - `enabledAdminModuleTabIds`: si es un array no vacío, solo esos `tab_id` de `saas_admin_modules` se muestran.
  * - Sin clave o array vacío: todos los módulos activos del catálogo (comportamiento anterior).
+ * - `inventory` (objeto JSON opcional): `allowNegativeStock`, `autoPauseProducts` — leído por la lógica de inventario en Postgres (trigger/RPC).
  */
 export type AdminPanelThemeExtensions = {
 	tabLabels?: Record<string, string>;

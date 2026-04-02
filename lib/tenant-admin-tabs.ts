@@ -27,8 +27,11 @@ export const TENANT_ADMIN_TAB_OPTIONS = [
 	{ id: "caja", label: "Caja" },
 	{ id: "analytics", label: "Reportes" },
 	{ id: "categories", label: "Categorías" },
-	{ id: "products", label: "Productos" },
-	{ id: "inventory", label: "Inventario" },
+	/** Catálogo vendible (platos); no confundir con la pestaña `inventory` (insumos / stock). */
+	{ id: "products", label: "Menú y carta" },
+	{ id: "inventory", label: "Inventario (insumos)" },
+	{ id: "menu_beverages", label: "Bebidas" },
+	{ id: "menu_extras", label: "Extras" },
 	{ id: "menu_options", label: "Opciones de menú" },
 	{ id: "clients", label: "Clientes" },
 	{ id: "users", label: "Equipo" },
@@ -62,6 +65,14 @@ export function normalizeTenantPanelUserRole(role: string | null | undefined): s
 /** Ids antiguos que pudo guardar otra app; se mapean al id del panel. */
 const STORED_TAB_ID_ALIASES: Record<string, string> = {
 	admin_menu_options: "menu_options",
+	/** SaaS o formularios que usan etiqueta corta en lugar del id canónico */
+	bebidas: "menu_beverages",
+	beverages: "menu_beverages",
+	cart_beverages: "menu_beverages",
+	/** Nombre usado por el SaaS en `roleNavPermissions` antes de alinear ids con el panel */
+	global_extras: "menu_extras",
+	extras: "menu_extras",
+	cart_extras: "menu_extras",
 };
 
 /**

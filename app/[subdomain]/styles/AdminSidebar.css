@@ -185,6 +185,8 @@
 	position: relative;
 	flex-shrink: 0;
 	font-family: inherit;
+	min-height: 44px;
+	box-sizing: border-box;
 }
 
 .admin-layout .nav-item:hover {
@@ -291,6 +293,9 @@
 	font-weight: 500;
 	padding: 8px 10px;
 	border-radius: 12px;
+	align-items: center;
+	min-height: 44px;
+	box-sizing: border-box;
 }
 
 .admin-layout .nav-sub-menu .nav-item.active {
@@ -377,11 +382,15 @@
 		display: none;
 	}
 
-	.admin-layout .nav-item,
-	.admin-layout .admin-sidebar:hover .nav-item {
-		width: auto;
-		min-width: 52px;
-		padding: 6px 8px;
+	/* Misma “tile” para cada acción: evita anchos distintos según el texto */
+	.admin-layout .sidebar-menu > .nav-item,
+	.admin-layout .admin-sidebar:hover .sidebar-menu > .nav-item {
+		width: 72px;
+		min-width: 72px;
+		max-width: 72px;
+		min-height: 58px;
+		box-sizing: border-box;
+		padding: 6px 4px;
 		border-radius: 12px;
 		justify-content: center !important;
 		align-items: center;
@@ -395,6 +404,7 @@
 		width: 36px;
 		height: 36px;
 		border-radius: 11px;
+		flex-shrink: 0;
 	}
 
 	.admin-layout .nav-icon-slot svg {
@@ -402,16 +412,20 @@
 	}
 
 	.admin-layout .nav-label-mobile {
-		display: block !important;
-		font-size: 0.6rem;
+		display: -webkit-box !important;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		font-size: 0.58rem;
 		font-weight: 600;
 		color: inherit;
-		white-space: nowrap;
-		line-height: 1.1;
+		line-height: 1.15;
 		opacity: 0.85;
-		max-width: none !important;
-		overflow: visible !important;
+		width: 100%;
+		max-width: 100%;
+		overflow: hidden;
 		text-align: center;
+		word-break: break-word;
+		hyphens: auto;
 	}
 
 	.admin-layout .nav-item.active .nav-label-mobile {

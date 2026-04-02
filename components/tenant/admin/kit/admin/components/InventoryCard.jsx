@@ -5,7 +5,10 @@ import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 const logo = '/tenant/logo-placeholder.svg';
 
-// Usamos memo para que SOLO se re-renderice si cambian las props de ESTE producto
+/**
+ * Tarjeta de producto del **menú / carta** (catálogo vendible).
+ * El nombre histórico `InventoryCard` se mantiene por imports; en UI se distingue de la pestaña Inventario (insumos).
+ */
 const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct, viewMode = 'grid' }) => {
 
     // Manejadores de eventos limpios para evitar lógica en el JSX
@@ -141,6 +144,6 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
     );
 });
 
-InventoryCard.displayName = 'InventoryCard';
+InventoryCard.displayName = 'MenuProductCard';
 
 export default InventoryCard;

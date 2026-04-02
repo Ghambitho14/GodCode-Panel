@@ -4,11 +4,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign } from 'lucide-react';
 
+const DISH_KIND_PRESETS = ['Plato principal', 'Acompañamiento', 'Entrada', 'Postre', 'Bebida (carta)', 'Otro'];
+
 const INITIAL_STATE = {
   name: '',
   price: '',
   description: '',
   category_id: '',
+  dish_kind: '',
   is_special: false,
   has_discount: false,
   discount_price: '',
@@ -27,6 +30,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
         price: product.price || '',
         description: product.description || '',
         category_id: product.category_id || (categories?.[0]?.id || ''),
+        dish_kind: product.dish_kind || '',
         is_special: product.is_special || false,
         has_discount: product.has_discount || false,
         discount_price: product.discount_price || '',
@@ -233,6 +237,29 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                 </select>
                 {errors.category_id && <span className="error-text">{errors.category_id}</span>}
               </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="product-dish-kind">Tipo de plato (opcional)</label>
+              <input
+                id="product-dish-kind"
+                className="form-input"
+                name="dish_kind"
+                value={formData.dish_kind}
+                onChange={handleChange}
+                list="product-dish-kind-presets"
+                placeholder="Ej. Plato principal"
+                maxLength={64}
+                autoComplete="off"
+              />
+              <datalist id="product-dish-kind-presets">
+                {DISH_KIND_PRESETS.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+              <p className="form-hint" style={{ marginTop: 6, marginBottom: 0 }}>
+                Independiente de la categoría del menú; útil para organizar la carta.
+              </p>
             </div>
 
             <div className="form-group">

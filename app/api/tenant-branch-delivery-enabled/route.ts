@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+	extractCartUpsellSettings,
 	mergeDeliverySettingsJson,
 	normalizeDeliverySettings,
 } from "../../../lib/delivery-settings";
@@ -55,6 +56,7 @@ function settingsResponse(
 ) {
 	const n = normalizeDeliverySettings(deliverySettingsRaw);
 	const trustedWa = pickTrustedDriverWhatsAppDigits(deliverySettingsRaw);
+	const cart = extractCartUpsellSettings(deliverySettingsRaw);
 	return {
 		enabled: n.enabled,
 		deliveryPricingStrategy: n.deliveryPricingStrategy,
@@ -73,6 +75,10 @@ function settingsResponse(
 		originLat: origin?.lat ?? null,
 		originLng: origin?.lng ?? null,
 		trustedDriverWhatsApp: trustedWa.length >= 8 ? trustedWa : "",
+		beveragesUpsellEnabledByBranch: cart.beveragesUpsellEnabledByBranch,
+		extrasEnabledByBranch: cart.extrasEnabledByBranch,
+		cartBeveragesCatalog: cart.cartBeveragesCatalog,
+		cartGlobalExtrasCatalog: cart.cartGlobalExtrasCatalog,
 	};
 }
 
@@ -103,6 +109,31 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 	}
 	if ("namedAreas" in body && Array.isArray(body.namedAreas)) {
 		patch.namedAreas = body.namedAreas;
+	}
+	if (
+		"beveragesUpsellEnabledByBranch" in body &&
+		body.beveragesUpsellEnabledByBranch &&
+		typeof body.beveragesUpsellEnabledByBranch === "object" &&
+		!Array.isArray(body.beveragesUpsellEnabledByBranch)
+	) {
+		patch.beveragesUpsellEnabledByBranch = body.beveragesUpsellEnabledByBranch as Record<
+			string,
+			unknown
+		>;
+	}
+	if (
+		"extrasEnabledByBranch" in body &&
+		body.extrasEnabledByBranch &&
+		typeof body.extrasEnabledByBranch === "object" &&
+		!Array.isArray(body.extrasEnabledByBranch)
+	) {
+		patch.extrasEnabledByBranch = body.extrasEnabledByBranch as Record<string, unknown>;
+	}
+	if ("cartBeveragesCatalog" in body && Array.isArray(body.cartBeveragesCatalog)) {
+		patch.cartBeveragesCatalog = body.cartBeveragesCatalog;
+	}
+	if ("cartGlobalExtrasCatalog" in body && Array.isArray(body.cartGlobalExtrasCatalog)) {
+		patch.cartGlobalExtrasCatalog = body.cartGlobalExtrasCatalog;
 	}
 	return patch;
 }
@@ -184,7 +215,7 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json(
 				{
 					error:
-						"Nada que actualizar: envía delivery, tarifas, zonas, pagos delivery, WhatsApp repartidor u origen GPS",
+						"Nada que actualizar: envía delivery, tarifas, zonas, pagos delivery, WhatsApp repartidor, origen GPS o opciones de carrito (bebidas/extras)",
 				},
 				{ status: 400 },
 			);

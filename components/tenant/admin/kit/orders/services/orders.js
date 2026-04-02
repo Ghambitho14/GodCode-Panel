@@ -295,6 +295,12 @@ export const ordersService = {
                 if (rpcMessage.includes('no_items_available')) {
                     throw new Error('Ningún producto del carrito está disponible en esta sucursal en este momento.');
                 }
+                if (rpcMessage.includes('insufficient_inventory_stock')) {
+                    throw new Error('Stock insuficiente en inventario para completar el pedido. Revisa recetas y existencias en la sucursal.');
+                }
+                if (rpcMessage.includes('inventory_branch_missing')) {
+                    throw new Error('Falta configuración de stock en sucursal para un insumo del pedido. Completa el inventario por local.');
+                }
                 throw orderError;
             }
 
