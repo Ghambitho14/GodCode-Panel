@@ -26,6 +26,8 @@ const emptyDraft = () => ({
 	trustedDriverWhatsApp: "",
 	originLat: "",
 	originLng: "",
+	uberDirectStoreId: "",
+	externalDeliveryDisplayText: "",
 });
 
 const emptyZoneRow = () => ({
@@ -64,13 +66,19 @@ const DELIVERY_TOOLTIPS = {
 	headerSwitch:
 		"Activa o desactiva el envío a domicilio para esta sucursal. Si está apagado, el cliente solo puede retirar o consumir en local; el resto de opciones queda bloqueado.",
 	strategyIntro:
-		"Elige una sola modalidad: por distancia, por zonas con nombre o delivery externo (sin cotización automática en el checkout).",
+		"Elige una sola modalidad: por distancia, por zonas con nombre o Uber Direct / consultar con tienda (cotización opcional vía API).",
 	strategyDistance:
 		"Cobro por distancia en línea recta desde el local: precio por km, cargo base opcional y anillos con tarifa fija por radio.",
 	strategyNamedAreas:
 		"Cada zona (comuna, barrio…) tiene un precio de envío fijo; no se suma precio por km ni cargo base de la otra modalidad.",
 	strategyExternal:
-		"No se cotiza por km ni por zonas. En el checkout no se muestra un monto de envío: el cliente ve “Consultar con la tienda” (o el mensaje que escribas en Avanzado). El total del pedido puede seguir sin cargo de envío en el sistema; el coste real lo coordinas fuera (p. ej. Uber Direct).",
+		"Uber Direct: con Store ID (esta sucursal) y credenciales OAuth a nivel empresa, el menú puede cotizar envío en tiempo real. Si desactivas “Mostrar monto”, el cliente solo ve texto. Client ID/Secret los configura GodCode en admin SaaS (Global de la empresa), no aquí.",
+	uberStoreId:
+		"Identificador del local de recogida en Uber para esta sucursal (no es el Client ID OAuth). Lo obtienes en el portal de Uber.",
+	uberShowFee:
+		"Activo: el cliente ve precio estimado de envío en el carrito. Apagado: solo texto informativo sin monto.",
+	uberDisplayText:
+		"Mensaje en checkout cuando no hay monto de envío o como texto de apoyo.",
 	namedManual:
 		"El cliente elige la zona en una lista al pagar. Útil cuando quieres nombres exactos y control total.",
 	namedAddress:
@@ -149,6 +157,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const [namedPlaceRows, setNamedPlaceRows] = useState(() => [emptyNamedPlaceRow()]);
 	const [pricingStrategy, setPricingStrategy] = useState("distance");
 	const [namedAreaResolution, setNamedAreaResolution] = useState("manual_select");
+	const [showExternalDeliveryFee, setShowExternalDeliveryFee] = useState(true);
+	/** Viene del SaaS (`companies.integration_settings.allowTenantExternalDelivery`). */
+	const [allowTenantExternalDelivery, setAllowTenantExternalDelivery] = useState(true);
 	/** `true` = permitido para delivery (clave = id de método) */
 	const [deliveryPaymentChecked, setDeliveryPaymentChecked] = useState({});
 	const deliveryPaymentCheckedRef = useRef({});
@@ -178,7 +189,14 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				data.originLng != null && data.originLng !== ""
 					? String(data.originLng)
 					: "",
+			uberDirectStoreId:
+				typeof data.uberDirectStoreId === "string" ? data.uberDirectStoreId : "",
+			externalDeliveryDisplayText:
+				typeof data.externalDeliveryDisplayText === "string"
+					? data.externalDeliveryDisplayText
+					: "",
 		});
+		setShowExternalDeliveryFee(data.showExternalDeliveryFeeAmount !== false);
 		const z = Array.isArray(n.zones) && n.zones.length > 0
 			? n.zones.map((row) => ({
 					id: row.id,
@@ -187,13 +205,22 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				}))
 			: [emptyZoneRow()];
 		setZoneRows(z);
-		setPricingStrategy(
+		const allowExt = data.allowTenantExternalDelivery !== false;
+		setAllowTenantExternalDelivery(allowExt);
+		const rawStrat =
 			n.deliveryPricingStrategy === "named_areas"
 				? "named_areas"
 				: n.deliveryPricingStrategy === "external"
 					? "external"
-					: "distance",
-		);
+					: "distance";
+		const strat = rawStrat === "external" && !allowExt ? "distance" : rawStrat;
+		setPricingStrategy(strat);
+		if (rawStrat === "external" && !allowExt) {
+			showNotify(
+				"Esta sucursal tenía envío externo, pero tu administrador lo desactivó en el panel SaaS. Elige una modalidad y guarda para alinear el menú.",
+				"warning",
+			);
+		}
 		setNamedAreaResolution(
 			n.namedAreaResolution === "address_matched" ? "address_matched" : "manual_select",
 		);
@@ -222,7 +249,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			deliveryPaymentCheckedRef.current = next;
 			setDeliveryPaymentChecked(next);
 		}
-	}, [selectedBranch?.payment_methods]);
+	}, [selectedBranch?.payment_methods, showNotify]);
 
 	const load = useCallback(async () => {
 		if (!branchId) {
@@ -320,6 +347,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 		return normalizeDeliverySettings({
 			enabled: deliveryEnabled,
 			deliveryPricingStrategy: pricingStrategy,
+			externalDeliveryProvider: pricingStrategy === "external" ? "uber_direct" : null,
+			uberDirectStoreId: draft.uberDirectStoreId,
+			showExternalDeliveryFeeAmount: showExternalDeliveryFee,
+			externalDeliveryDisplayText: draft.externalDeliveryDisplayText,
 			namedAreaResolution,
 			pricePerKm: draft.pricePerKm === "" ? 0 : Number(draft.pricePerKm),
 			baseFee: draft.baseFee === "" ? 0 : Number(draft.baseFee),
@@ -340,6 +371,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 		draft,
 		zonesPayload,
 		namedPlacesPayload,
+		showExternalDeliveryFee,
 	]);
 
 	const deliveryPaymentKeys = useMemo(
@@ -443,6 +475,20 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			} else {
 				payload.allowedPaymentMethodsForDelivery = selectedPay;
 			}
+			payload.externalDeliveryProvider =
+				pricingStrategy === "external" ? "uber_direct" : null;
+			payload.uberDirectStoreId =
+				pricingStrategy === "external" && draft.uberDirectStoreId.trim()
+					? draft.uberDirectStoreId.trim().slice(0, 128)
+					: null;
+			payload.showExternalDeliveryFeeAmount =
+				pricingStrategy === "external" ? showExternalDeliveryFee : true;
+			if (pricingStrategy === "external") {
+				payload.externalDeliveryDisplayText =
+					draft.externalDeliveryDisplayText.trim().slice(0, 500) || null;
+			} else {
+				payload.externalDeliveryDisplayText = null;
+			}
 			const res = await fetch("/api/tenant-branch-delivery-enabled", {
 				method: "PATCH",
 				credentials: "include",
@@ -487,7 +533,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
 				: previewFee.waivedFreeShipping
 					? "Modalidad externa: el cliente no ve precio de envío (solo “Consultar con la tienda” o tu mensaje). En el ejemplo, umbral de envío gratis podría aplicar al total sin mostrar monto de delivery."
-					: "Modalidad externa: el cliente ve “Consultar con la tienda” (o tu texto en Avanzado), no un monto de envío."
+					: normalizedFromDraft.showExternalDeliveryFeeAmount
+						? "Uber Direct: con Store ID y credenciales de empresa, el menú cotiza el envío y muestra monto al cliente (requiere ubicación en el mapa)."
+						: "Uber Direct / externo: el cliente solo ve texto (sin monto de envío en checkout), p. ej. “Consultar con la tienda”."
 			: previewFee.fee < 0
 				? previewFee.fee === -1
 					? "Ejemplo no aplicable: distancia fuera del máximo configurado."
@@ -519,9 +567,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						</h3>
 						<p className="admin-menu-options-card-desc">
 							Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia, por zonas con
-							nombre (comunas/barrios) o <strong>delivery externo</strong> (sin cotización automática;
-							ideal si usas Uber Direct u otro courier). La tarifa por zona es el envío completo de esa
-							zona (no se suma el cargo fijo ni el precio por km de la modalidad por distancia).
+							nombre (comunas/barrios) o <strong>consultar / Uber Direct</strong>. En modo externo puedes
+							activar cotización en vivo con Uber (Store ID por sucursal + credenciales OAuth configuradas
+							por GodCode a nivel empresa). La tarifa por zona es el envío completo de esa zona (no se suma
+							el cargo fijo ni el precio por km de la modalidad por distancia).
 						</p>
 					</div>
 				</div>
@@ -601,17 +650,19 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									{DELIVERY_TOOLTIPS.strategyNamedAreas}
 								</span>
 							</button>
-							<button
-								type="button"
-								disabled={lockOptions}
-								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "external" ? "is-active" : ""}`}
-								onClick={() => setPricingStrategy("external")}
-							>
-								Consultar con tienda / externo
-								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-									{DELIVERY_TOOLTIPS.strategyExternal}
-								</span>
-							</button>
+							{allowTenantExternalDelivery ? (
+								<button
+									type="button"
+									disabled={lockOptions}
+									className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "external" ? "is-active" : ""}`}
+									onClick={() => setPricingStrategy("external")}
+								>
+									Consultar con tienda / externo
+									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+										{DELIVERY_TOOLTIPS.strategyExternal}
+									</span>
+								</button>
+							) : null}
 						</div>
 					</div>
 
@@ -970,18 +1021,76 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						</>
 					) : (
 						<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
-							<p className="admin-menu-options-card-desc" style={{ marginBottom: 0 }}>
-								<strong>Sin precio de envío en el checkout:</strong> el cliente ve{" "}
-								<strong>Consultar con la tienda</strong> (por defecto), no un monto. Puedes cambiar el
-								texto en <strong>Avanzado → Mensaje para el cliente</strong>. El coste real (Uber Direct,
-								etc.) lo coordinas fuera del total mostrado como “envío”.
+							<p className="admin-menu-options-card-desc admin-delivery-inline-tip" style={{ marginBottom: 12 }}>
+								<strong>Uber Direct:</strong> el <strong>Client ID y Secret</strong> de la app Uber están en
+								la base de datos por <strong>empresa</strong> (los configura soporte/GodCode en admin
+								SaaS). Aquí solo defines el <strong>Store ID</strong> de esta sucursal y si el cliente ve
+								el monto cotizado o solo un mensaje.
 							</p>
+							<div className="form-group" style={{ maxWidth: "36rem" }}>
+								<label htmlFor="adm-del-uber-store-id">
+									Store ID (Uber Direct) — esta sucursal
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.uberStoreId} />
+								</label>
+								<input
+									id="adm-del-uber-store-id"
+									type="text"
+									className="form-input"
+									style={{ fontFamily: "ui-monospace, monospace" }}
+									placeholder="UUID o id del local en Uber"
+									disabled={lockOptions}
+									autoComplete="off"
+									value={draft.uberDirectStoreId}
+									onChange={(ev) =>
+										setDraft((d) => ({ ...d, uberDirectStoreId: ev.target.value }))
+									}
+								/>
+							</div>
+							<div
+								className="admin-delivery-pay-chip-row"
+								style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}
+							>
+								<button
+									type="button"
+									role="checkbox"
+									aria-checked={showExternalDeliveryFee}
+									disabled={lockOptions}
+									className={`admin-delivery-pay-chip admin-tooltip-btn-hover ${showExternalDeliveryFee ? "is-on" : ""}`}
+									onClick={() => setShowExternalDeliveryFee((v) => !v)}
+								>
+									Mostrar monto de envío cotizado (Uber)
+									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
+										{DELIVERY_TOOLTIPS.uberShowFee}
+									</span>
+								</button>
+							</div>
+							<div className="form-group" style={{ maxWidth: "36rem", marginTop: 14 }}>
+								<label htmlFor="adm-del-uber-display-text">
+									Texto si no se muestra monto (o mensaje complementario)
+									<AdminHelpTip text={DELIVERY_TOOLTIPS.uberDisplayText} />
+								</label>
+								<input
+									id="adm-del-uber-display-text"
+									type="text"
+									className="form-input"
+									placeholder="Ej. Consultar con la tienda"
+									disabled={lockOptions}
+									value={draft.externalDeliveryDisplayText}
+									onChange={(ev) =>
+										setDraft((d) => ({
+											...d,
+											externalDeliveryDisplayText: ev.target.value,
+										}))
+									}
+								/>
+							</div>
 							<p
 								className="admin-menu-options-card-desc admin-delivery-inline-tip"
-								style={{ marginTop: 12, marginBottom: 0 }}
+								style={{ marginTop: 14, marginBottom: 0 }}
 							>
-								La API de cotización indica <code style={{ fontSize: "0.85em" }}>showDeliveryFeeAmount: false</code>{" "}
-								para que el menú público no muestre precio de delivery.
+								Si <strong>Mostrar monto</strong> está apagado, la API usa{" "}
+								<code style={{ fontSize: "0.85em" }}>showDeliveryFeeAmount: false</code>. Con monto
+								encendido, el cliente debe indicar ubicación para cotizar vía Uber.
 							</p>
 						</div>
 					)}

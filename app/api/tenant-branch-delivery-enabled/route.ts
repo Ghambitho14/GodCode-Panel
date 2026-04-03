@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isTenantExternalDeliveryAllowed } from "../../../lib/company-integration-policy";
 import {
 	extractCartUpsellSettings,
 	mergeDeliverySettingsJson,
@@ -60,6 +61,10 @@ function settingsResponse(
 	return {
 		enabled: n.enabled,
 		deliveryPricingStrategy: n.deliveryPricingStrategy,
+		externalDeliveryProvider: n.externalDeliveryProvider,
+		uberDirectStoreId: n.uberDirectStoreId,
+		showExternalDeliveryFeeAmount: n.showExternalDeliveryFeeAmount,
+		externalDeliveryDisplayText: n.externalDeliveryDisplayText,
 		namedAreaResolution: n.namedAreaResolution,
 		pricePerKm: n.pricePerKm,
 		baseFee: n.baseFee,
@@ -87,6 +92,10 @@ function buildPatchFromBody(body: Record<string, unknown>): Record<string, unkno
 	const keys = [
 		"enabled",
 		"deliveryPricingStrategy",
+		"externalDeliveryProvider",
+		"uberDirectStoreId",
+		"showExternalDeliveryFeeAmount",
+		"externalDeliveryDisplayText",
 		"namedAreaResolution",
 		"pricePerKm",
 		"baseFee",
@@ -150,12 +159,19 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Falta branchId" }, { status: 400 });
 		}
 
-		const { data, error } = await supabaseAdmin
-			.from("branches")
-			.select("delivery_settings, origin_lat, origin_lng")
-			.eq("id", branchId)
-			.eq("company_id", ctx.companyId)
-			.maybeSingle();
+		const [{ data, error }, { data: companyRow }] = await Promise.all([
+			supabaseAdmin
+				.from("branches")
+				.select("delivery_settings, origin_lat, origin_lng")
+				.eq("id", branchId)
+				.eq("company_id", ctx.companyId)
+				.maybeSingle(),
+			supabaseAdmin
+				.from("companies")
+				.select("integration_settings")
+				.eq("id", ctx.companyId)
+				.maybeSingle(),
+		]);
 
 		if (error) {
 			return NextResponse.json({ error: error.message }, { status: 400 });
@@ -166,12 +182,16 @@ export async function GET(req: NextRequest) {
 
 		const olat = data.origin_lat != null ? Number(data.origin_lat) : null;
 		const olng = data.origin_lng != null ? Number(data.origin_lng) : null;
-		return NextResponse.json(
-			settingsResponse(data.delivery_settings, {
+		const allowTenantExternalDelivery = isTenantExternalDeliveryAllowed(
+			companyRow?.integration_settings,
+		);
+		return NextResponse.json({
+			...settingsResponse(data.delivery_settings, {
 				lat: Number.isFinite(olat) ? olat : null,
 				lng: Number.isFinite(olng) ? olng : null,
 			}),
-		);
+			allowTenantExternalDelivery,
+		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });
@@ -221,12 +241,19 @@ export async function PATCH(req: NextRequest) {
 			);
 		}
 
-		const { data: row, error: loadError } = await supabaseAdmin
-			.from("branches")
-			.select("id,delivery_settings,origin_lat,origin_lng")
-			.eq("id", branchId)
-			.eq("company_id", ctx.companyId)
-			.maybeSingle();
+		const [{ data: row, error: loadError }, { data: companyRow }] = await Promise.all([
+			supabaseAdmin
+				.from("branches")
+				.select("id,delivery_settings,origin_lat,origin_lng")
+				.eq("id", branchId)
+				.eq("company_id", ctx.companyId)
+				.maybeSingle(),
+			supabaseAdmin
+				.from("companies")
+				.select("integration_settings")
+				.eq("id", ctx.companyId)
+				.maybeSingle(),
+		]);
 
 		if (loadError) {
 			return NextResponse.json({ error: loadError.message }, { status: 400 });
@@ -235,10 +262,25 @@ export async function PATCH(req: NextRequest) {
 			return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
 		}
 
-		const nextSettings =
-			Object.keys(patch).length > 0
-				? mergeDeliverySettingsJson(row.delivery_settings, patch)
-				: (row.delivery_settings as Record<string, unknown>);
+		const allowExt = isTenantExternalDeliveryAllowed(companyRow?.integration_settings);
+
+		let nextSettings: Record<string, unknown>;
+		if (Object.keys(patch).length > 0) {
+			const merged = mergeDeliverySettingsJson(row.delivery_settings, patch);
+			const normalized = normalizeDeliverySettings(merged);
+			if (normalized.deliveryPricingStrategy === "external" && !allowExt) {
+				return NextResponse.json(
+					{
+						error:
+							"Tu administrador desactivó la opción de envío externo o consultar con tienda en el panel del negocio. Elige otra estrategia de envío o contacta al soporte.",
+					},
+					{ status: 403 },
+				);
+			}
+			nextSettings = merged;
+		} else {
+			nextSettings = row.delivery_settings as Record<string, unknown>;
+		}
 
 		const updatePayload: Record<string, unknown> = {};
 		if (Object.keys(patch).length > 0) {
@@ -264,16 +306,20 @@ export async function PATCH(req: NextRequest) {
 			.maybeSingle();
 
 		if (freshErr || !fresh) {
-			return NextResponse.json(settingsResponse(nextSettings));
+			return NextResponse.json({
+				...settingsResponse(nextSettings),
+				allowTenantExternalDelivery: allowExt,
+			});
 		}
 		const flatLat = fresh.origin_lat != null ? Number(fresh.origin_lat) : null;
 		const flatLng = fresh.origin_lng != null ? Number(fresh.origin_lng) : null;
-		return NextResponse.json(
-			settingsResponse(fresh.delivery_settings, {
+		return NextResponse.json({
+			...settingsResponse(fresh.delivery_settings, {
 				lat: Number.isFinite(flatLat) ? flatLat : null,
 				lng: Number.isFinite(flatLng) ? flatLng : null,
 			}),
-		);
+			allowTenantExternalDelivery: allowExt,
+		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";
 		return NextResponse.json({ error: message }, { status: 500 });
