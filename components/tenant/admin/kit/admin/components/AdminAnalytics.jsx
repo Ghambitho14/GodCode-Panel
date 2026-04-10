@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale, LinearScale, PointElement, LineElement, BarElement,
@@ -53,10 +53,6 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('area');
-
-    useEffect(() => {
-        if (chartKind !== 'bar' && chartKind !== 'area') setChartKind('area');
-    }, [chartKind]);
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
 

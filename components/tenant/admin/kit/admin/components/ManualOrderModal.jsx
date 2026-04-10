@@ -1,16 +1,118 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import {
     X, Search, Plus, User, ShoppingBag, Minus, Trash2,
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle, Printer,
-    Upload, FileText, ChefHat, Banknote
+    Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles
 } from 'lucide-react';
 import { formatCurrency } from '../../shared/utils/formatters';
 const logo = '/tenant/logo-placeholder.svg';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { printOrderTicket } from '../utils/receiptPrinting';
 import AdminIconSlot from './AdminIconSlot';
+
+function branchFlag(map, branchId, defaultOn = true) {
+    if (!branchId || !map || typeof map !== 'object') return defaultOn;
+    if (Object.prototype.hasOwnProperty.call(map, branchId)) {
+        return map[branchId] !== false;
+    }
+    return defaultOn;
+}
+
+function normalizeCartUpsellCatalog(catalog, kind) {
+    if (!Array.isArray(catalog)) return [];
+    return catalog
+        .map((row) => {
+            if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+            const id = String(row.id ?? '').trim();
+            const name = String(row.name ?? '').trim();
+            const price = Number(row.price);
+            if (!id || !name || !Number.isFinite(price) || price < 0) return null;
+            const category = String(row.category ?? row.catalogCategory ?? row.group ?? '').trim();
+            const beverageKind = String(row.beverageKind ?? row.beverage_kind ?? '').trim();
+            const imageUrl = String(row.imageUrl ?? row.image_url ?? '').trim();
+
+            if (row.active === false || row.is_active === false || row.enabled === false) return null;
+
+            return {
+                id,
+                name,
+                price,
+                has_discount: false,
+                discount_price: null,
+                image_url: imageUrl,
+                description: beverageKind || null,
+                category_name: category,
+                manual_order_source: kind,
+                is_active: true,
+            };
+        })
+        .filter(Boolean);
+}
+
+function groupProductsByCategory(items, categories = []) {
+    const sortedCategories = [...(categories || [])]
+        .filter((cat) => cat?.is_active !== false)
+        .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+
+    const normalizeId = (value) => (value == null ? '' : String(value).trim());
+    const normalizeName = (value) => (typeof value === 'string' ? value.trim() : '');
+
+    const categoryById = new Map(sortedCategories.map((cat) => [normalizeId(cat?.id), cat]));
+    const buckets = new Map();
+    const uncategorized = [];
+
+    (items || []).forEach((item) => {
+        const id =
+            normalizeId(item?.category_id) ||
+            normalizeId(item?.categoryId) ||
+            normalizeId(item?.category?.id);
+        const name =
+            normalizeName(item?.category_name) ||
+            normalizeName(item?.categoryName) ||
+            normalizeName(item?.category?.name);
+
+        const knownCategory = id ? categoryById.get(id) : null;
+        if (knownCategory) {
+            const key = `id:${normalizeId(knownCategory.id)}`;
+            if (!buckets.has(key)) {
+                buckets.set(key, {
+                    id: knownCategory.id,
+                    name: knownCategory.name || 'Sin categoría',
+                    order: Number(knownCategory.order) || 0,
+                    products: [],
+                });
+            }
+            buckets.get(key).products.push(item);
+            return;
+        }
+
+        if (name) {
+            const key = `name:${name.toLowerCase()}`;
+            if (!buckets.has(key)) {
+                buckets.set(key, {
+                    id: key,
+                    name,
+                    order: 9999,
+                    products: [],
+                });
+            }
+            buckets.get(key).products.push(item);
+            return;
+        }
+
+        uncategorized.push(item);
+    });
+
+    const groupedCategories = [...buckets.values()].sort((a, b) => (
+        a.order === b.order
+            ? String(a.name).localeCompare(String(b.name), 'es')
+            : a.order - b.order
+    ));
+
+    return { groupedCategories, uncategorized };
+}
 
 const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale, branch, logoUrl }) => {
     const {
@@ -25,7 +127,16 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
     const [showProductImages, setShowProductImages] = useState(false);
     const [isMobileLikeLayout, setIsMobileLikeLayout] = useState(false);
+    const [cartUpsellCatalogs, setCartUpsellCatalogs] = useState({
+        beveragesEnabled: false,
+        extrasEnabled: false,
+        beverages: [],
+        extras: [],
+    });
     const printMenuRef = useRef(null);
+    const productsSectionRef = useRef(null);
+    const beveragesSectionRef = useRef(null);
+    const extrasSectionRef = useRef(null);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -54,6 +165,51 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         document.addEventListener('mousedown', onDown);
         return () => document.removeEventListener('mousedown', onDown);
     }, [printMenuOpen]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const resetCatalogs = () => {
+            setCartUpsellCatalogs({
+                beveragesEnabled: false,
+                extrasEnabled: false,
+                beverages: [],
+                extras: [],
+            });
+        };
+
+        if (!isOpen || !branch?.id || branch.id === 'all') {
+            resetCatalogs();
+            return undefined;
+        }
+
+        const loadCatalogs = async () => {
+            try {
+                const res = await fetch(
+                    `/api/tenant-branch-delivery-enabled?branchId=${encodeURIComponent(branch.id)}`,
+                    { cache: 'no-store', credentials: 'include' },
+                );
+                const data = await res.json();
+                if (!res.ok) throw new Error(data?.error || 'No se pudo cargar el catálogo de carrito');
+                if (cancelled) return;
+
+                setCartUpsellCatalogs({
+                    beveragesEnabled: branchFlag(data.beveragesUpsellEnabledByBranch, branch.id, true),
+                    extrasEnabled: branchFlag(data.extrasEnabledByBranch, branch.id, true),
+                    beverages: normalizeCartUpsellCatalog(data.cartBeveragesCatalog, 'beverages'),
+                    extras: normalizeCartUpsellCatalog(data.cartGlobalExtrasCatalog, 'extras'),
+                });
+            } catch {
+                if (!cancelled) resetCatalogs();
+            }
+        };
+
+        void loadCatalogs();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, branch?.id]);
 
     const getEffectivePrice = (product) => {
         const basePrice = Number(product?.price || 0);
@@ -149,8 +305,6 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
             setSearchExpanded(false);
         }
     };
-
-    if (!isOpen) return null;
 
     // Validación del formulario
     const isFormValid = () => {
@@ -584,7 +738,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         </div>
     );
 
-    const renderProductCard = (p) => {
+    const renderProductCard = (p, sourceLabel = '', variant = 'products') => {
         const hasDiscount = Boolean(p.has_discount) && p.discount_price != null && Number(p.discount_price) > 0;
         const unitPrice = hasDiscount ? Number(p.discount_price) : Number(p.price);
 
@@ -596,9 +750,14 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         return (
             <div
                 key={p.id}
-                className={`manual-order-product-card ${showProductImages ? '' : 'no-images'}`}
+                className={`manual-order-product-card manual-order-product-card--${variant} ${showProductImages ? '' : 'no-images'}`}
                 onClick={() => addItem(p)}
             >
+                {sourceLabel ? (
+                    <div className="manual-order-product-source-badge">
+                        {sourceLabel}
+                    </div>
+                ) : null}
                 {hasDiscount && (
                     <div style={{
                         position: 'absolute', top: '10px', left: '10px',
@@ -616,6 +775,8 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         <img
                             src={p.image_url || logo} alt={p.name}
                             className={!p.image_url ? 'is-logo' : ''}
+                            loading="lazy"
+                            decoding="async"
                             onError={(e) => { e.target.onerror = null; e.target.src = logo; e.target.classList.add('is-logo'); }}
                         />
                     </div>
@@ -668,6 +829,102 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
             </div>
         );
     };
+
+    const deferredSearchQuery = useDeferredValue(searchQuery);
+    const query = deferredSearchQuery.trim().toLowerCase();
+
+    const baseProducts = useMemo(() => {
+        return (products || []).filter((product) => {
+            if (!isProductAvailableForManualOrder(product)) return false;
+            const productName = String(product?.name || '').toLowerCase();
+            const categoryName = String(product?.category_name || product?.categoryName || product?.category?.name || '').toLowerCase();
+            return productName.includes(query) || categoryName.includes(query);
+        });
+    }, [products, query]);
+
+    const beverageProducts = useMemo(() => {
+        if (!cartUpsellCatalogs.beveragesEnabled) return [];
+        return cartUpsellCatalogs.beverages.filter((item) => {
+            const name = String(item?.name || '').toLowerCase();
+            const categoryName = String(item?.category_name || '').toLowerCase();
+            const detail = String(item?.description || '').toLowerCase();
+            return name.includes(query) || categoryName.includes(query) || detail.includes(query);
+        });
+    }, [cartUpsellCatalogs.beverages, cartUpsellCatalogs.beveragesEnabled, query]);
+
+    const extraProducts = useMemo(() => {
+        if (!cartUpsellCatalogs.extrasEnabled) return [];
+        return cartUpsellCatalogs.extras.filter((item) => {
+            const name = String(item?.name || '').toLowerCase();
+            const categoryName = String(item?.category_name || '').toLowerCase();
+            const detail = String(item?.description || '').toLowerCase();
+            return name.includes(query) || categoryName.includes(query) || detail.includes(query);
+        });
+    }, [cartUpsellCatalogs.extras, cartUpsellCatalogs.extrasEnabled, query]);
+
+    const groupedBaseCatalog = useMemo(
+        () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, []) : { groupedCategories: [], uncategorized: [] }),
+        [baseProducts],
+    );
+
+    const groupedBeverageCatalog = useMemo(
+        () => (beverageProducts.length > 0 ? groupProductsByCategory(beverageProducts, []) : { groupedCategories: [], uncategorized: [] }),
+        [beverageProducts],
+    );
+
+    const groupedExtrasCatalog = useMemo(
+        () => (extraProducts.length > 0 ? groupProductsByCategory(extraProducts, []) : { groupedCategories: [], uncategorized: [] }),
+        [extraProducts],
+    );
+
+    const renderCatalogSection = (catalog, sectionTitle, sourceLabel = '', variant = 'products', sectionNote = '') => {
+        if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
+
+        const totalCount = catalog.groupedCategories.reduce((sum, cat) => sum + cat.products.length, 0) + catalog.uncategorized.length;
+
+        return (
+            <section className={`manual-order-catalog-section manual-order-catalog-section--${variant}`}>
+                <header className="manual-order-catalog-section__head">
+                    <div className="manual-order-catalog-section__title-wrap">
+                        <span className="manual-order-catalog-section__eyebrow">{variant === 'products' ? 'Catálogo principal' : variant === 'beverages' ? 'Upsell sucursal' : 'Complementos'}</span>
+                        <h3 className="manual-order-catalog-section__title">{sectionTitle}</h3>
+                    </div>
+                    <div className="manual-order-catalog-section__meta">
+                        <span className="manual-order-catalog-section__count">{totalCount}</span>
+                        <span className="manual-order-catalog-section__count-label">{totalCount === 1 ? 'ítem' : 'ítems'}</span>
+                    </div>
+                </header>
+                {sectionNote ? <p className="manual-order-catalog-section__note">{sectionNote}</p> : null}
+                {catalog.groupedCategories.map((cat) => (
+                    <div key={cat.id} className="manual-order-category-section">
+                        <h3 className="manual-order-category-title">{cat.name}</h3>
+                        <div className="manual-order-products-grid">
+                            {cat.products.map((p) => renderProductCard(p, sourceLabel, variant))}
+                        </div>
+                    </div>
+                ))}
+                {catalog.uncategorized.length > 0 && (
+                    <div className="manual-order-category-section">
+                        <h3 className="manual-order-category-title">Otros</h3>
+                        <div className="manual-order-products-grid">
+                            {catalog.uncategorized.map((p) => renderProductCard(p, sourceLabel, variant))}
+                        </div>
+                    </div>
+                )}
+            </section>
+        );
+    };
+
+    const hasAnyResults = baseProducts.length > 0 || beverageProducts.length > 0 || extraProducts.length > 0;
+    const hasProductsSection = baseProducts.length > 0;
+    const hasBeveragesSection = cartUpsellCatalogs.beveragesEnabled && beverageProducts.length > 0;
+    const hasExtrasSection = cartUpsellCatalogs.extrasEnabled && extraProducts.length > 0;
+
+    const scrollToSection = (sectionRef) => {
+        sectionRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    if (!isOpen) return null;
 
     return (
         <div className="manual-order-overlay" onClick={onClose}>
@@ -731,116 +988,62 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             <span className="manual-order-images-toggle__label">Mostrar imágenes</span>
                         </label>
 
+                        <div className="manual-order-section-jumprail" aria-label="Navegación rápida del catálogo">
+                            <button
+                                type="button"
+                                className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--products"
+                                onClick={() => scrollToSection(productsSectionRef)}
+                                disabled={!hasProductsSection}
+                                aria-label="Ir a Productos"
+                                title="Productos"
+                            >
+                                <ShoppingBag size={18} aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--beverages"
+                                onClick={() => scrollToSection(beveragesSectionRef)}
+                                disabled={!hasBeveragesSection}
+                                aria-label="Ir a Bebidas"
+                                title="Bebidas"
+                            >
+                                <CupSoda size={18} aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--extras"
+                                onClick={() => scrollToSection(extrasSectionRef)}
+                                disabled={!hasExtrasSection}
+                                aria-label="Ir a Extras"
+                                title="Extras"
+                            >
+                                <Sparkles size={18} aria-hidden="true" />
+                            </button>
+                        </div>
+
                         {/* Productos agrupados por categoría */}
                         <div className="manual-order-categories-scroll">
-                            {(() => {
-                                const query = searchQuery.toLowerCase();
-                                const activeProducts = (products || []).filter((p) => {
-                                    const productName = String(p?.name || '').toLowerCase();
-                                    return isProductAvailableForManualOrder(p) && productName.includes(query);
-                                });
-
-                                if (activeProducts.length === 0) {
-                                    return (
-                                        <div className="manual-order-empty-search" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                                            No se encontraron productos
+                            {!hasAnyResults ? (
+                                <div className="manual-order-empty-search" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                    No se encontraron productos
+                                </div>
+                            ) : (
+                                <>
+                                    <div ref={productsSectionRef}>
+                                        {renderCatalogSection(groupedBaseCatalog, 'Productos', '', 'products', 'Producto regular del menú para este pedido manual.')}
+                                    </div>
+                                    {beverageProducts.length > 0 && (
+                                        <div ref={beveragesSectionRef}>
+                                            {renderCatalogSection(groupedBeverageCatalog, 'Bebidas', 'Bebida', 'beverages', 'Opciones de bebida activas para esta sucursal.')}
                                         </div>
-                                    );
-                                }
-
-                                const sortedCategories = [...(categories || [])]
-                                    .filter((cat) => cat?.is_active !== false)
-                                    .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-                                const normalizeId = (v) =>
-                                    v == null ? '' : String(v).trim();
-                                const normalizeName = (v) =>
-                                    typeof v === 'string' ? v.trim() : '';
-
-                                const categoryById = new Map(
-                                    sortedCategories.map((cat) => [normalizeId(cat?.id), cat])
-                                );
-
-                                const resolveProductCategory = (p) => {
-                                    const id =
-                                        normalizeId(p?.category_id) ||
-                                        normalizeId(p?.categoryId) ||
-                                        normalizeId(p?.category?.id);
-                                    const name =
-                                        normalizeName(p?.category_name) ||
-                                        normalizeName(p?.categoryName) ||
-                                        normalizeName(p?.category?.name);
-                                    return { id, name };
-                                };
-
-                                const buckets = new Map();
-                                const uncategorized = [];
-
-                                activeProducts.forEach((p) => {
-                                    const { id: productCatId, name: productCatName } = resolveProductCategory(p);
-                                    const knownCategory = productCatId ? categoryById.get(productCatId) : null;
-
-                                    if (knownCategory) {
-                                        const key = `id:${normalizeId(knownCategory.id)}`;
-                                        if (!buckets.has(key)) {
-                                            buckets.set(key, {
-                                                id: knownCategory.id,
-                                                name: knownCategory.name || 'Sin categoría',
-                                                order: Number(knownCategory.order) || 0,
-                                                products: [],
-                                            });
-                                        }
-                                        buckets.get(key).products.push(p);
-                                        return;
-                                    }
-
-                                    if (productCatName) {
-                                        const key = `name:${productCatName.toLowerCase()}`;
-                                        if (!buckets.has(key)) {
-                                            buckets.set(key, {
-                                                id: key,
-                                                name: productCatName,
-                                                order: 9999,
-                                                products: [],
-                                            });
-                                        }
-                                        buckets.get(key).products.push(p);
-                                        return;
-                                    }
-
-                                    uncategorized.push(p);
-                                });
-
-                                const groupedCategories = [...buckets.values()]
-                                    .sort((a, b) =>
-                                        a.order === b.order
-                                            ? String(a.name).localeCompare(String(b.name), 'es')
-                                            : a.order - b.order
-                                    );
-
-                                return (
-                                    <>
-                                        {groupedCategories.map(cat => {
-                                            return (
-                                                <div key={cat.id} className="manual-order-category-section">
-                                                    <h3 className="manual-order-category-title">{cat.name}</h3>
-                                                    <div className="manual-order-products-grid">
-                                                        {cat.products.map(p => renderProductCard(p))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        {uncategorized.length > 0 && (
-                                            <div className="manual-order-category-section">
-                                                <h3 className="manual-order-category-title">Otros</h3>
-                                                <div className="manual-order-products-grid">
-                                                    {uncategorized.map(p => renderProductCard(p))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </>
-                                );
-                            })()}
+                                    )}
+                                    {extraProducts.length > 0 && (
+                                        <div ref={extrasSectionRef}>
+                                            {renderCatalogSection(groupedExtrasCatalog, 'Extras', 'Extra', 'extras', 'Complementos opcionales disponibles en carrito.')}
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
 

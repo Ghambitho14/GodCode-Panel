@@ -72,6 +72,7 @@ export default function AdminCartUpsellItemModal({
 
 	useEffect(() => {
 		if (!isOpen) return;
+		const run = () => {
 		if (item) {
 			const inv = item.inventoryItemId && String(item.inventoryItemId).trim();
 			const hasInv = Boolean(inv);
@@ -122,6 +123,9 @@ export default function AdminCartUpsellItemModal({
 		setIsDirty(false);
 		setErrors({});
 		setTimeout(() => nameInputRef.current?.focus(), 80);
+		};
+
+		queueMicrotask(run);
 	}, [isOpen, item, suggestId, existingIds, isBev]);
 
 	const handleSafeClose = useCallback(() => {

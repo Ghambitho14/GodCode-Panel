@@ -1,12 +1,32 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Images, Truck } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
 import AdminMenuCarousel from "./AdminMenuCarousel";
 import "../styles/AdminMenuOptions.css";
 
 const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel"]);
+
+function normalizeStoredSubTab(raw) {
+	if (raw === "cart") return "delivery";
+	if (raw && SUB_TAB_IDS.includes(/** @type {typeof SUB_TAB_IDS[number]} */ (raw))) {
+		return /** @type {typeof SUB_TAB_IDS[number]} */ (raw);
+	}
+	return "delivery";
+}
+
+function getStoredSubTab(storageKey) {
+	try {
+		const normalized = normalizeStoredSubTab(localStorage.getItem(storageKey));
+		if (normalized === "delivery") {
+			localStorage.setItem(storageKey, "delivery");
+		}
+		return normalized;
+	} catch {
+		return "delivery";
+	}
+}
 
 /**
  * Pestaña "Opciones de menú": sub-pestañas Envío y Carrusel.
@@ -22,27 +42,12 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 		[companyId, branchKey],
 	);
 
-	const [activeSubTab, setActiveSubTab] = useState("delivery");
-
-	useEffect(() => {
-		try {
-			const raw = localStorage.getItem(storageKey);
-			if (raw === "cart") {
-				setActiveSubTab("delivery");
-				localStorage.setItem(storageKey, "delivery");
-				return;
-			}
-			if (raw && SUB_TAB_IDS.includes(/** @type {typeof SUB_TAB_IDS[number]} */ (raw))) {
-				setActiveSubTab(raw);
-				return;
-			}
-		} catch {}
-		setActiveSubTab("delivery");
-	}, [storageKey]);
+	const [activeSubTabByKey, setActiveSubTabByKey] = useState(() => ({}));
+	const activeSubTab = activeSubTabByKey[storageKey] ?? getStoredSubTab(storageKey);
 
 	const persistSubTab = useCallback(
 		(id) => {
-			setActiveSubTab(id);
+			setActiveSubTabByKey((prev) => ({ ...prev, [storageKey]: id }));
 			try {
 				localStorage.setItem(storageKey, id);
 			} catch {}
