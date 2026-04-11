@@ -4,9 +4,9 @@ import { validateImageFile } from '../../shared/utils/cloudinary';
 import { createManualOrder } from '../../orders/services/orders';
 
 const initialOrderState = {
-    client_name: '',
-    client_rut: '',
-    client_phone: '+56 9 ',
+    client_name: 'CAJA',
+    client_rut: '1-9',
+    client_phone: '+56 9 0000 0000',
     items: [],
     total: 0,
     payment_type: 'tienda',
@@ -21,8 +21,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     const [loading, setLoading] = useState(false);
 
     // --- ESTADOS DE VALIDACIÓN Y ARCHIVOS ---
-    const [rutValid, setRutValid] = useState(null);
-    const [phoneValid, setPhoneValid] = useState(null);
+    const [rutValid, setRutValid] = useState(true);
+    const [phoneValid, setPhoneValid] = useState(true);
     const [receiptFile, setReceiptFile] = useState(null);
     const [receiptPreview, setReceiptPreview] = useState(null);
 
@@ -162,8 +162,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
             if (prev) URL.revokeObjectURL(prev);
             return null;
         });
-        setRutValid(null);
-        setPhoneValid(null);
+        setRutValid(true);
+        setPhoneValid(true);
     }, []);
 
     // --- ENVÍO ---
@@ -266,6 +266,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
         updateQuantity,
         removeItem,
         submitOrder,
+        resetOrder,
         isValid,
         getInputStyle
     };
