@@ -10,6 +10,9 @@ const initialOrderState = {
     items: [],
     total: 0,
     payment_type: 'tienda',
+    order_type: 'pickup',
+    delivery_address: '',
+    delivery_fee: 0,
     note: ''
 };
 
@@ -42,6 +45,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     // --- MANEJADORES DE FORMULARIO ---
     const updateClientName = (val) => setManualOrder(prev => ({ ...prev, client_name: val }));
     const updateNote = (val) => setManualOrder(prev => ({ ...prev, note: val }));
+    const updateOrderType = (val) => setManualOrder(prev => ({ ...prev, order_type: val }));
+    const updateDeliveryAddress = (val) => setManualOrder(prev => ({ ...prev, delivery_address: val }));
+    const updateDeliveryFee = (val) => setManualOrder(prev => ({ ...prev, delivery_fee: Number(val) || 0 }));
 
     const updatePaymentType = (type) => {
         setManualOrder(prev => ({ ...prev, payment_type: type }));
@@ -180,6 +186,11 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
             showNotify('Faltan datos obligatorios o son incorrectos', 'error');
             return;
         }
+
+        if (manualOrder.order_type === 'delivery' && (!manualOrder.delivery_address || manualOrder.delivery_address.trim().length < 5)) {
+            showNotify('La dirección de despacho es obligatoria para Delivery', 'error');
+            return;
+        }
         if (!manualOrder.client_rut || !validateRut(manualOrder.client_rut)) {
             showNotify('El RUT ingresado no es válido', 'error');
             return;
@@ -199,7 +210,10 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 note: sanitizeInput(manualOrder.note),
                 branch_id: branch.id,
                 company_id: branch.company_id,
-                branch_name: branch.name
+                branch_name: branch.name,
+                order_type: manualOrder.order_type,
+                delivery_address: manualOrder.order_type === 'delivery' ? sanitizeInput(manualOrder.delivery_address) : null,
+                manual_delivery_fee: manualOrder.order_type === 'delivery' ? manualOrder.delivery_fee : 0
             };
 
             const itemsForOrder = (sanitizedOrder.items || []).map((item) => ({
@@ -265,6 +279,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
         addItem,
         updateQuantity,
         removeItem,
+        updateOrderType,
+        updateDeliveryAddress,
+        updateDeliveryFee,
         submitOrder,
         resetOrder,
         isValid,
