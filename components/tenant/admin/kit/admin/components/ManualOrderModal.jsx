@@ -120,8 +120,10 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         receiptFile, receiptPreview,
         updateClientName, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
-        submitOrder, getInputStyle
+        submitOrder, resetOrder, getInputStyle
     } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale, branch);
+	
+	const [showCustomerFields, setShowCustomerFields] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
@@ -137,6 +139,14 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     const productsSectionRef = useRef(null);
     const beveragesSectionRef = useRef(null);
     const extrasSectionRef = useRef(null);
+
+    // Reiniciar modal al abrir para evitar el bug de persistencia
+    useEffect(() => {
+        if (isOpen) {
+            if (typeof resetOrder === 'function') resetOrder();
+            setShowCustomerFields(false);
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -327,66 +337,137 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
     const customerSection = (
         <div className="manual-order-section">
-            <div className="manual-order-section-title">
-                <User size={14} aria-hidden />
-                DATOS CLIENTE
-            </div>
-            <div className="manual-order-form-grid">
-                <div className="manual-order-input-wrapper full-width">
-                    <input
-                        type="text"
-                        placeholder="NOMBRE COMPLETO *"
-                        className="manual-order-input"
-                        value={manualOrder.client_name}
-                        onChange={e => updateClientName(sanitizeInputLive(e.target.value))}
-                        aria-label="Nombre completo del cliente"
-                        style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
-                    />
-                    {manualOrder.client_name.length >= 3 && (
-                        <div className="manual-order-validation-icon">
-                            <CheckCircle2 size={18} color="#25d366" />
-                        </div>
-                    )}
+            <div className="manual-order-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={14} aria-hidden />
+                    DATOS CLIENTE
                 </div>
-
-                <div className="manual-order-input-wrapper">
-                    <input
-                        type="text"
-                        placeholder="RUT *"
-                        className="manual-order-input"
-                        value={manualOrder.client_rut}
-                        onChange={handleRutChange}
-                        style={{
-                            ...getInputStyle(rutValid),
-                            paddingRight: rutValid ? '40px' : '16px'
+                {!showCustomerFields && (
+                    <button 
+                        type="button"
+                        onClick={() => setShowCustomerFields(true)}
+                        style={{ 
+                            fontSize: '10px', 
+                            background: 'rgba(255,255,255,0.05)', 
+                            border: '1px solid rgba(255,255,255,0.1)', 
+                            borderRadius: '4px', 
+                            padding: '4px 8px', 
+                            color: 'white', 
+                            cursor: 'pointer',
+                            fontWeight: '600'
                         }}
-                    />
-                    {rutValid && (
-                        <div className="manual-order-validation-icon">
-                            <CheckCircle2 size={18} color="#25d366" />
-                        </div>
-                    )}
-                </div>
-
-                <div className="manual-order-input-wrapper">
-                    <input
-                        type="tel"
-                        placeholder="+56 9..."
-                        className="manual-order-input"
-                        value={manualOrder.client_phone}
-                        onChange={handlePhoneChange}
-                        style={{
-                            ...getInputStyle(phoneValid),
-                            paddingRight: phoneValid ? '40px' : '16px'
-                        }}
-                    />
-                    {phoneValid && (
-                        <div className="manual-order-validation-icon">
-                            <CheckCircle2 size={18} color="#25d366" />
-                        </div>
-                    )}
-                </div>
+                    >
+                        EDITAR
+                    </button>
+                )}
             </div>
+
+            {!showCustomerFields ? (
+                <div 
+                    className="manual-order-client-summary-box" 
+                    onClick={() => setShowCustomerFields(true)}
+                    style={{ 
+                        cursor: 'pointer', 
+                        padding: '12px', 
+                        background: 'rgba(255,255,255,0.03)', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '8px', 
+                        fontSize: '13px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        transition: 'all 0.2s ease',
+                        marginTop: '8px'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                >
+                    <div style={{ fontWeight: '700', color: '#000000', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {manualOrder.client_name || 'Sin nombre'}
+                        {manualOrder.client_name === 'CAJA' && (
+                            <span style={{ fontSize: '9px', background: '#25d366', color: 'black', padding: '1px 5px', borderRadius: '4px', fontWeight: '900' }}>DEFAULT</span>
+                        )}
+                    </div>
+                    <div style={{ color: '#333333', opacity: 0.8, fontSize: '11px', letterSpacing: '0.5px', fontWeight: '500' }}>
+                        {manualOrder.client_rut} • {manualOrder.client_phone}
+                    </div>
+                </div>
+            ) : (
+                <div className="manual-order-form-grid animate-fade-in" style={{ marginTop: '12px' }}>
+                    <div className="manual-order-input-wrapper full-width">
+                        <input
+                            type="text"
+                            placeholder="NOMBRE COMPLETO *"
+                            className="manual-order-input"
+                            value={manualOrder.client_name}
+                            onChange={e => updateClientName(sanitizeInputLive(e.target.value))}
+                            aria-label="Nombre completo del cliente"
+                            style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
+                        />
+                        {manualOrder.client_name.length >= 3 && (
+                            <div className="manual-order-validation-icon">
+                                <CheckCircle2 size={18} color="#25d366" />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="manual-order-input-wrapper">
+                        <input
+                            type="text"
+                            placeholder="RUT *"
+                            className="manual-order-input"
+                            value={manualOrder.client_rut}
+                            onChange={handleRutChange}
+                            style={{
+                                ...getInputStyle(rutValid),
+                                paddingRight: rutValid ? '40px' : '16px'
+                            }}
+                        />
+                        {rutValid && (
+                            <div className="manual-order-validation-icon">
+                                <CheckCircle2 size={18} color="#25d366" />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="manual-order-input-wrapper">
+                        <input
+                            type="tel"
+                            placeholder="+56 9..."
+                            className="manual-order-input"
+                            value={manualOrder.client_phone}
+                            onChange={handlePhoneChange}
+                            style={{
+                                ...getInputStyle(phoneValid),
+                                paddingRight: phoneValid ? '40px' : '16px'
+                            }}
+                        />
+                        {phoneValid && (
+                            <div className="manual-order-validation-icon">
+                                <CheckCircle2 size={18} color="#25d366" />
+                            </div>
+                        )}
+                    </div>
+                    
+                    <button 
+                        type="button"
+                        onClick={() => setShowCustomerFields(false)}
+                        style={{ 
+                            gridColumn: '1 / -1',
+                            fontSize: '11px',
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(255,255,255,0.5)',
+                            padding: '8px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            marginTop: '4px'
+                        }}
+                    >
+                        CERRAR EDICIÓN
+                    </button>
+                </div>
+            )}
         </div>
     );
 
@@ -863,8 +944,8 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     }, [cartUpsellCatalogs.extras, cartUpsellCatalogs.extrasEnabled, query]);
 
     const groupedBaseCatalog = useMemo(
-        () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, []) : { groupedCategories: [], uncategorized: [] }),
-        [baseProducts],
+        () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, categories) : { groupedCategories: [], uncategorized: [] }),
+        [baseProducts, categories],
     );
 
     const groupedBeverageCatalog = useMemo(
