@@ -863,8 +863,8 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     }, [cartUpsellCatalogs.extras, cartUpsellCatalogs.extrasEnabled, query]);
 
     const groupedBaseCatalog = useMemo(
-        () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, []) : { groupedCategories: [], uncategorized: [] }),
-        [baseProducts],
+        () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, categories) : { groupedCategories: [], uncategorized: [] }),
+        [baseProducts, categories],
     );
 
     const groupedBeverageCatalog = useMemo(
