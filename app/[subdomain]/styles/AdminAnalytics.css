@@ -113,11 +113,11 @@
 .admin-layout .rpt-kpi {
     background: var(--admin-card-bg, #fff);
     border: 1px solid var(--admin-border, #e8ecf1);
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 14px;
+    padding: 10px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 9px;
     transition: all 0.25s ease;
     box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
@@ -130,9 +130,9 @@
 }
 
 .admin-layout .rpt-kpi-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -144,6 +144,8 @@
 .admin-layout .rpt-kpi-icon.ticket { background: rgba(34,197,94,0.12); color: #22c55e; }
 .admin-layout .rpt-kpi-icon.clients { background: rgba(168,85,247,0.12); color: #a855f7; }
 .admin-layout .rpt-kpi-icon.delivery { background: rgba(245, 158, 11, 0.14); color: #d97706; }
+.admin-layout .rpt-kpi-icon.expenses { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.admin-layout .rpt-kpi-icon.balance { background: rgba(99, 102, 241, 0.12); color: #4f46e5; }
 
 .admin-layout .rpt-kpi-body {
     flex: 1;
@@ -154,7 +156,7 @@
 }
 
 .admin-layout .rpt-kpi-label {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--admin-text-muted, #5a6169);
     text-transform: uppercase;
@@ -162,7 +164,7 @@
 }
 
 .admin-layout .rpt-kpi-value {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 900;
     color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;

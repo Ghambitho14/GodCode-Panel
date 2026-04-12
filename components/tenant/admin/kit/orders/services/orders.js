@@ -225,6 +225,11 @@ export const ordersService = {
                 }
                 deliveryFee = r.fee;
 
+                // Soporte para cobro de envío manual (ej: desde panel admin)
+                if (typeof orderData.manual_delivery_fee === 'number' && orderData.manual_delivery_fee >= 0) {
+                    deliveryFee = orderData.manual_delivery_fee;
+                }
+
                 const branchPm = branchCfg?.payment_methods;
                 if (
                     !isOrderPaymentAllowedForDelivery(

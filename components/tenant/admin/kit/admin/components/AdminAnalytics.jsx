@@ -11,8 +11,10 @@ import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart
+    BarChart3, AreaChart, Wallet, Banknote
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
 import AdminIconSlot from './AdminIconSlot';
 import AdminMenuSelect from './AdminMenuSelect';
 import { formatCurrency } from '../../shared/utils/formatters';
@@ -53,16 +55,83 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('area');
+    const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0 });
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
+
+    // --- FETCH EXPENSES ---
+    React.useEffect(() => {
+        const fetchExpenses = async () => {
+            setLoadingExpenses(true);
+            try {
+                const now = new Date();
+                const cutoff = new Date();
+                cutoff.setDate(now.getDate() - days);
+                
+                const prevCutoff = new Date();
+                prevCutoff.setDate(cutoff.getDate() - (days * 2)); // Queremos el periodo anterior completo
+
+                // Periodo actual
+                let query = supabase
+                    .from(TABLES.cash_movements)
+                    .select('amount, created_at')
+                    .eq('type', 'expense')
+                    .gte('created_at', cutoff.toISOString());
+                
+                // Si hay sucursales, filtrar? 
+                // AdminAnalytics recibe branches filtradas. 
+                // Los movimientos de caja tienen shift_id. No tienen branch_id directo?
+                // Revisemos useCashSystem: cash_shifts tiene branch_id.
+                
+                const { data: currentMovements, error: currentError } = await supabase
+                    .from(TABLES.cash_movements)
+                    .select(`
+                        amount, 
+                        created_at,
+                        ${TABLES.cash_shifts}!inner(branch_id)
+                    `)
+                    .eq('type', 'expense')
+                    .gte('created_at', cutoff.toISOString());
+
+                if (currentError) throw currentError;
+
+                // Periodo anterior
+                const { data: prevMovements, error: prevError } = await supabase
+                    .from(TABLES.cash_movements)
+                    .select(`
+                        amount, 
+                        created_at,
+                        ${TABLES.cash_shifts}!inner(branch_id)
+                    `)
+                    .eq('type', 'expense')
+                    .gte('created_at', prevCutoff.toISOString())
+                    .lt('created_at', cutoff.toISOString());
+
+                if (prevError) throw prevError;
+
+                const total = (currentMovements || []).reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+                const prevTotal = (prevMovements || []).reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+
+                setExpensesData({ total, prevTotal });
+            } catch (err) {
+                console.error('Error fetching expenses for analytics:', err);
+                setExpensesData({ total: 0, prevTotal: 0 });
+            } finally {
+                setLoadingExpenses(false);
+            }
+        };
+
+        fetchExpenses();
+    }, [days]);
 
     // --- CORE DATA ---
     const { chartData, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
         if (!orders || orders.length === 0) {
             return {
                 chartData: { labels: [], datasets: [] },
-                kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0 },
-                trends: { total: 0, count: 0, delivery: 0 },
+                kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
+                trends: { total: 0, count: 0, delivery: 0, expenses: 0, net: 0 },
                 paymentBreakdown: { cash: 0, card: 0, online: 0 },
                 branchStats: []
             };
@@ -89,8 +158,7 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
         const current = valid.filter(o => {
             const d = new Date(o.created_at);
             const matchesTime = (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
-            // Solo incluir órdenes que pertenecen a una sucursal activa/existente
-            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
+            return matchesTime;
         });
 
         const prev = valid.filter(o => {
@@ -132,6 +200,9 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
 
         const prevSales = prev.reduce((a, o) => a + Number(o.total), 0);
         const prevCount = prev.length;
+
+        const totalNet = totalSales - (expensesData.total || 0);
+        const prevNet = prevSales - (expensesData.prevTotal || 0);
 
         // --- DELIVERY: solo suma `delivery_fee` (no el total del pedido). Valor = cobro envíos del período.
         const deliveryOrdersCurrent = current.filter((o) => {
@@ -217,16 +288,19 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                 ticket,
                 deliveryTotal: totalDeliveryFees,
                 deliveryCount,
+                net: totalNet
             },
             trends: {
                 total: prevSales === 0 ? (totalSales > 0 ? 100 : 0) : Math.round(((totalSales - prevSales) / prevSales) * 100),
                 count: prevCount === 0 ? (count > 0 ? 100 : 0) : Math.round(((count - prevCount) / prevCount) * 100),
                 delivery: trendDelivery,
+                expenses: !expensesData.prevTotal ? (expensesData.total > 0 ? 100 : 0) : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
+                net: !prevNet ? (totalNet !== 0 ? 100 : 0) : Math.round(((totalNet - prevNet) / prevNet) * 100)
             },
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
-    }, [orders, filterPeriod, chartTab, days, branches]);
+    }, [orders, filterPeriod, chartTab, days, branches, expensesData]);
 
     const chartRenderData = useMemo(() => {
         const base = chartData;
@@ -430,6 +504,25 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                         <span className="rpt-kpi-value">{newClientsInfo.count}</span>
                     </div>
                     <TrendBadge value={newClientsInfo.trend} />
+                </div>
+                {/* KPI EGRESOS */}
+                <div className="rpt-kpi">
+                    <div className="rpt-kpi-icon expenses"><Wallet size={20} /></div>
+                    <div className="rpt-kpi-body">
+                        <span className="rpt-kpi-label">Egresos totales</span>
+                        <span className="rpt-kpi-value">{fmt(expensesData.total)}</span>
+                        {loadingExpenses && <span className="rpt-kpi-meta">Cargando...</span>}
+                    </div>
+                    <TrendBadge value={trends.expenses} />
+                </div>
+                {/* KPI BALANCE NETO */}
+                <div className="rpt-kpi">
+                    <div className="rpt-kpi-icon balance"><Banknote size={20} /></div>
+                    <div className="rpt-kpi-body">
+                        <span className="rpt-kpi-label">Balance neto</span>
+                        <span className="rpt-kpi-value">{fmt(kpis.net)}</span>
+                    </div>
+                    <TrendBadge value={trends.net} />
                 </div>
             </div>
 

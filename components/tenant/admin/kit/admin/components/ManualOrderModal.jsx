@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'r
 import {
     X, Search, Plus, User, ShoppingBag, Minus, Trash2,
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle, Printer,
-    Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles
+    Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles, MapPin, Truck
 } from 'lucide-react';
 import { formatCurrency } from '../../shared/utils/formatters';
 const logo = '/tenant/logo-placeholder.svg';
@@ -120,6 +120,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         receiptFile, receiptPreview,
         updateClientName, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
+        updateOrderType, updateDeliveryAddress, updateDeliveryFee,
         submitOrder, resetOrder, getInputStyle
     } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale, branch);
 	
@@ -332,8 +333,101 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
         const isPhoneStrictlyValid = phoneValid === true;
 
-        return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid;
+        const isDeliveryValid = manualOrder.order_type !== 'delivery' || (manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
+
+        return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid && isDeliveryValid;
     };
+
+    const orderTypeSection = (
+        <div className="manual-order-section" style={{ marginBottom: '16px' }}>
+            <div className="manual-order-section-title">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Truck size={14} aria-hidden />
+                    TIPO DE PEDIDO
+                </div>
+            </div>
+            <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '8px', 
+                marginTop: '8px' 
+            }}>
+                <button
+                    type="button"
+                    onClick={() => updateOrderType('pickup')}
+                    style={{
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: manualOrder.order_type === 'pickup' ? '#25d366' : 'rgba(255,255,255,0.1)',
+                        background: manualOrder.order_type === 'pickup' ? 'rgba(37, 211, 102, 0.1)' : 'rgba(255,255,255,0.03)',
+                        color: manualOrder.order_type === 'pickup' ? '#25d366' : '#000000',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <Store size={16} />
+                    LOCAL / RETIRO
+                </button>
+                <button
+                    type="button"
+                    onClick={() => updateOrderType('delivery')}
+                    style={{
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: manualOrder.order_type === 'delivery' ? '#25d366' : 'rgba(255,255,255,0.1)',
+                        background: manualOrder.order_type === 'delivery' ? 'rgba(37, 211, 102, 0.1)' : 'rgba(255,255,255,0.03)',
+                        color: manualOrder.order_type === 'delivery' ? '#25d366' : '#000000',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <Truck size={16} />
+                    DELIVERY
+                </button>
+            </div>
+
+            {manualOrder.order_type === 'delivery' && (
+                <div className="animate-fade-in" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className="manual-order-input-wrapper full-width">
+                        <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
+                        <input
+                            type="text"
+                            placeholder="DIRECCIÓN DE ENTREGA *"
+                            className="manual-order-input"
+                            style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
+                            value={manualOrder.delivery_address}
+                            onChange={e => updateDeliveryAddress(e.target.value)}
+                        />
+                    </div>
+                    <div className="manual-order-input-wrapper full-width">
+                        <Banknote size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(0,0,0,0.4)' }} />
+                        <input
+                            type="number"
+                            placeholder="COSTO DE ENVÍO (OPCIONAL)"
+                            className="manual-order-input"
+                            style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
+                            value={manualOrder.delivery_fee || ''}
+                            onChange={e => updateDeliveryFee(e.target.value)}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
     const customerSection = (
         <div className="manual-order-section">
@@ -402,7 +496,11 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             value={manualOrder.client_name}
                             onChange={e => updateClientName(sanitizeInputLive(e.target.value))}
                             aria-label="Nombre completo del cliente"
-                            style={{ paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px' }}
+                            style={{ 
+                                paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px',
+                                color: '#000000',
+                                fontWeight: '600'
+                            }}
                         />
                         {manualOrder.client_name.length >= 3 && (
                             <div className="manual-order-validation-icon">
@@ -420,7 +518,9 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             onChange={handleRutChange}
                             style={{
                                 ...getInputStyle(rutValid),
-                                paddingRight: rutValid ? '40px' : '16px'
+                                paddingRight: rutValid ? '40px' : '16px',
+                                color: '#000000',
+                                fontWeight: '600'
                             }}
                         />
                         {rutValid && (
@@ -439,7 +539,9 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             onChange={handlePhoneChange}
                             style={{
                                 ...getInputStyle(phoneValid),
-                                paddingRight: phoneValid ? '40px' : '16px'
+                                paddingRight: phoneValid ? '40px' : '16px',
+                                color: '#000000',
+                                fontWeight: '600'
                             }}
                         />
                         {phoneValid && (
@@ -481,6 +583,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                 <textarea
                     placeholder="Nota opcional..."
                     className="manual-order-input manual-order-note-textarea"
+                    style={{ color: '#000000', fontWeight: '600' }}
                     value={manualOrder.note}
                     onChange={e => updateNote(sanitizeNote(e.target.value))}
                     rows={1}
@@ -651,7 +754,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
             <div className="manual-order-total">
                 <span className="manual-order-total-label">TOTAL A PAGAR</span>
                 <span className="manual-order-total-amount">
-                    {formatCurrency(manualOrder.total)}
+                    {formatCurrency(manualOrder.total + (manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0))}
                 </span>
             </div>
 
@@ -1133,12 +1236,14 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         {isMobileLikeLayout ? (
                             <>
                                 {summarySection}
+                                {orderTypeSection}
                                 {customerSection}
                                 {noteSection}
                                 {footerSection}
                             </>
                         ) : (
                             <>
+                                {orderTypeSection}
                                 {customerSection}
                                 {noteSection}
                                 {summarySection}
