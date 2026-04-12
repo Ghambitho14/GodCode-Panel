@@ -451,11 +451,11 @@ export const AdminProvider = ({
 		else setLoading(true);
 		try {
 			const isAllBranches = selectedBranch.id === 'all';
-			// Cargar siempre todas las categorías de la empresa (como en la tienda); luego mezclar order/is_active por sucursal
+			// Cargar solo categorías del tenant actual; evita mezclar categorías legacy de otros tenants.
 			const categoriesQuery = supabase
 				.from(TABLES.categories)
 				.select('*')
-				.or(`company_id.eq.${companyId},company_id.is.null`)
+				.eq('company_id', companyId)
 				.order('order');
 			const promises = [
 				categoriesQuery,
