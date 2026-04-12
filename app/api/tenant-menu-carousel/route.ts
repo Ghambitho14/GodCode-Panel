@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { createSupabaseServerClient } from "../../../utils/supabase/server";
 
-const TENANT_ALLOWED_ROLES = new Set(["admin", "ceo", "cashier", "staff"]);
+const TENANT_ALLOWED_ROLES = new Set(["owner", "admin", "ceo", "cashier", "staff"]);
 
 const DEFAULT_EXPIRES = "2099-12-31T23:59:59.000Z";
 const MIN_INTERVAL_MS = 2000;
@@ -43,20 +43,38 @@ async function getTenantCompanyContext(): Promise<
 		return { error: "No autenticado" };
 	}
 
-	const email = user.email.trim().toLowerCase();
-	const { data: rows, error } = await supabaseAdmin
+	const { data: rowByAuth, error: authRowError } = await supabaseAdmin
 		.from("users")
 		.select("id,company_id,role")
-		.ilike("email", email);
+		.eq("auth_user_id", user.id)
+		.maybeSingle() as { data: TenantUserRow | null; error: MessageError };
 
-	if (error || !rows?.length) {
-		return { error: "Usuario no encontrado en la empresa." };
+	if (authRowError) {
+		return { error: "No se pudo validar tu usuario de panel." };
 	}
 
-	const row = rows.find((r) =>
-		TENANT_ALLOWED_ROLES.has(String(r.role ?? "").toLowerCase())
+	let row = rowByAuth;
+	if (!row) {
+		const email = user.email.trim().toLowerCase();
+		const { data: rows, error } = await supabaseAdmin
+			.from("users")
+			.select("id,company_id,role")
+			.ilike("email", email) as { data: TenantUserRow[] | null; error: MessageError };
+
+		if (error || !rows?.length) {
+			return { error: "Usuario no encontrado en la empresa." };
+		}
+
+		row =
+			rows.find((r) =>
+				TENANT_ALLOWED_ROLES.has(String(r.role ?? "").toLowerCase())
+			) ?? null;
+	}
+
+	const hasAllowedRole = TENANT_ALLOWED_ROLES.has(
+		String(row?.role ?? "").toLowerCase()
 	);
-	if (!row?.company_id) {
+	if (!row?.company_id || !hasAllowedRole) {
 		return { error: "No tienes permisos de panel tenant" };
 	}
 	return { companyId: row.company_id };

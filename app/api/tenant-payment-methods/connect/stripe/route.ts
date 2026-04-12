@@ -5,7 +5,7 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "../../../../../lib/supabase-admin";
 
 const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY ?? "";
-const PAYMENT_METHODS_ALLOWED_ROLES = new Set(["owner", "ceo"]);
+const PAYMENT_METHODS_ALLOWED_ROLES = new Set(["owner", "ceo", "admin"]);
 
 async function getContext(): Promise<
 	{ companyId: string; userId: string } | { error: string }
@@ -20,21 +20,39 @@ async function getContext(): Promise<
 		return { error: "No autenticado" };
 	}
 
-	const email = user.email.trim();
-	const { data: rows, error } = await supabaseAdmin
+	const { data: rowByAuth, error: authRowError } = await supabaseAdmin
 		.from("users")
 		.select("id,company_id,role")
-		.ilike("email", email);
+		.eq("auth_user_id", user.id)
+		.maybeSingle();
 
-	if (error || !rows?.length) {
-		return { error: "Usuario no encontrado en la empresa." };
+	if (authRowError) {
+		return { error: "No se pudo validar tu usuario de panel." };
 	}
 
-	const row = rows.find((r) =>
-		PAYMENT_METHODS_ALLOWED_ROLES.has(String(r.role ?? "").toLowerCase())
+	let row = rowByAuth;
+	if (!row) {
+		const email = user.email.trim().toLowerCase();
+		const { data: rows, error } = await supabaseAdmin
+			.from("users")
+			.select("id,company_id,role")
+			.ilike("email", email);
+
+		if (error || !rows?.length) {
+			return { error: "Usuario no encontrado en la empresa." };
+		}
+
+		row =
+			rows.find((r) =>
+				PAYMENT_METHODS_ALLOWED_ROLES.has(String(r.role ?? "").toLowerCase())
+			) ?? null;
+	}
+
+	const hasAllowedRole = PAYMENT_METHODS_ALLOWED_ROLES.has(
+		String(row?.role ?? "").toLowerCase()
 	);
-	if (!row?.company_id) {
-		return { error: "Solo el dueño o CEO puede conectar métodos de pago." };
+	if (!row?.company_id || !hasAllowedRole) {
+		return { error: "Solo owner, CEO o admin puede conectar métodos de pago." };
 	}
 	return { companyId: row.company_id, userId: row.id };
 }
