@@ -175,12 +175,16 @@ const InventoryItemModal = ({
 			}
 
 			if (itemToEdit) {
+				// Actualizar sin .select().single() que causa error 400
 				const { error } = await supabase
 					.from(TABLES.inventory_items)
 					.update(itemData)
-					.eq("id", itemId)
-					.eq("company_id", companyId);
-				if (error) throw error;
+					.eq("id", itemId);
+				
+				if (error) {
+					console.error("Error al actualizar insumo:", error);
+					throw error;
+				}
 			} else {
 				const { data, error } = await supabase.from(TABLES.inventory_items).insert([itemData]).select().single();
 				if (error) throw error;
