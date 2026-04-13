@@ -216,6 +216,16 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                         Detalle: {item.description}
                     </span>
                 )}
+                {Array.isArray(item.extras) && item.extras.length > 0 && (
+                    <div style={{ marginTop: '2px', marginLeft: '4px', fontSize: '11px', opacity: 0.75, lineHeight: '1.3' }}>
+                        {item.extras.map((extra, extraIdx) => (
+                            <div key={extraIdx} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <span style={{ opacity: 0.6 }}>+</span>
+                                <span>{extra.quantity || 1}x {extra.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         ))}
             </div>

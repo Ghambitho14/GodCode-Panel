@@ -123,7 +123,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                     discount_price: product.discount_price,
                     image_url: product.image_url,
                     description: product.description,
-                    quantity: 1
+                    quantity: 1,
+                    manual_order_source: product.manual_order_source || null,
+                    is_extra: product.manual_order_source === 'extras'
                 }];
             }
             // Recalcular total
@@ -223,7 +225,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 price: Number(item.price) || 0,
                 has_discount: Boolean(item.has_discount),
                 discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
-                description: item.description ? String(item.description) : null
+                description: item.description ? String(item.description) : null,
+                manual_order_source: item.manual_order_source || null,
+                is_extra: Boolean(item.is_extra)
             }));
 
             const totalForOrder = itemsForOrder.reduce((acc, i) => {

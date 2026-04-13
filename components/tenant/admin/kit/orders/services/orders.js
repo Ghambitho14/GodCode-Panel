@@ -42,8 +42,22 @@ export const ordersService = {
                 throw new Error("El pedido debe contener al menos un producto.");
             }
 
+            // Separar extras de productos normales
+            const regularItems = [];
+            const extraItems = [];
+            
+            for (const item of orderData.items) {
+                if (!item?.id) continue;
+                const isExtra = item.manual_order_source === 'extras' || Boolean(item.is_extra);
+                if (isExtra) {
+                    extraItems.push(item);
+                } else {
+                    regularItems.push(item);
+                }
+            }
+
             const requestedMap = new Map(
-                orderData.items
+                regularItems
                     .filter((item) => Boolean(item?.id))
                     .map((item) => [String(item.id), {
                         quantity: Math.max(1, Number(item.quantity) || 1),
@@ -52,33 +66,45 @@ export const ordersService = {
             );
 
             const requestedIds = Array.from(requestedMap.keys());
-            if (requestedIds.length === 0) {
+            
+            if (requestedIds.length === 0 && extraItems.length === 0) {
                 throw new Error('El pedido debe contener al menos un producto válido.');
             }
 
-            const [
-                { data: prices, error: pricesError },
-                { data: branchRows, error: branchRowsError },
-                { data: productsMeta, error: productsMetaError },
-            ] = await Promise.all([
-                supabase
-                    .from('product_prices')
-                    .select('product_id, price, has_discount, discount_price')
-                    .eq('branch_id', orderData.branch_id)
-                    .eq('is_active', true)
-                    .in('product_id', requestedIds),
-                supabase
-                    .from('product_branch')
-                    .select('product_id')
-                    .eq('branch_id', orderData.branch_id)
-                    .eq('is_active', true)
-                    .in('product_id', requestedIds),
-                supabase
-                    .from('products')
-                    .select('id, name')
-                    .eq('is_active', true)
-                    .in('id', requestedIds),
-            ]);
+            let prices = [];
+            let branchRows = [];
+            let productsMeta = [];
+            let pricesError = null;
+            let branchRowsError = null;
+            let productsMetaError = null;
+
+            if (requestedIds.length > 0) {
+                const [pricesRes, branchRes, productsRes] = await Promise.all([
+                    supabase
+                        .from('product_prices')
+                        .select('product_id, price, has_discount, discount_price')
+                        .eq('branch_id', orderData.branch_id)
+                        .eq('is_active', true)
+                        .in('product_id', requestedIds),
+                    supabase
+                        .from('product_branch')
+                        .select('product_id')
+                        .eq('branch_id', orderData.branch_id)
+                        .eq('is_active', true)
+                        .in('product_id', requestedIds),
+                    supabase
+                        .from('products')
+                        .select('id, name')
+                        .eq('is_active', true)
+                        .in('id', requestedIds),
+                ]);
+                prices = pricesRes.data || [];
+                pricesError = pricesRes.error;
+                branchRows = branchRes.data || [];
+                branchRowsError = branchRes.error;
+                productsMeta = productsRes.data || [];
+                productsMetaError = productsRes.error;
+            }
 
             if (pricesError || branchRowsError || productsMetaError) {
                 throw new Error('No se pudo validar los productos de la sucursal. Intenta nuevamente.');
@@ -113,11 +139,34 @@ export const ordersService = {
                     has_discount: false,
                     discount_price: null,
                     description: requested.description,
+                    manual_order_source: null,
+                    is_extra: false,
                 });
             }
 
-            if (normalizedItems.length === 0) {
+            // Agregar extras sin validar contra BD (vienen del catálogo de carrito)
+            for (const extraItem of extraItems) {
+                const extraPrice = Number(extraItem.price) || 0;
+                if (!Number.isFinite(extraPrice) || extraPrice <= 0) continue;
+                
+                normalizedItems.push({
+                    id: String(extraItem.id),
+                    name: String(extraItem.name || 'Extra'),
+                    quantity: Math.max(1, Number(extraItem.quantity) || 1),
+                    price: extraPrice,
+                    has_discount: Boolean(extraItem.has_discount) && Number(extraItem.discount_price) > 0,
+                    discount_price: Boolean(extraItem.has_discount) && Number(extraItem.discount_price) > 0 ? Number(extraItem.discount_price) : null,
+                    description: extraItem.description || null,
+                    manual_order_source: 'extras',
+                    is_extra: true,
+                });
+            }
+
+            if (normalizedItems.length === 0 && regularItems.length > 0) {
                 throw new Error('Ningún producto del carrito está disponible en esta sucursal en este momento.');
+            }
+            if (normalizedItems.length === 0) {
+                throw new Error('El pedido debe contener al menos un producto válido.');
             }
 
             const { data: openShift } = await supabase

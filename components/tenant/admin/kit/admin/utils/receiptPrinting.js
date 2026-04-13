@@ -143,6 +143,15 @@ function summarizeAmounts(order) {
 			: Number(it.price);
 		if (!Number.isFinite(price)) continue;
 		itemsSubtotal += price * (Number(it.quantity) || 1);
+		
+		// Agregar precio de extras
+		if (Array.isArray(it.extras) && it.extras.length > 0) {
+			for (const extra of it.extras) {
+				const extraPrice = Number(extra.price) || 0;
+				if (!Number.isFinite(extraPrice)) continue;
+				itemsSubtotal += extraPrice * (Number(extra.quantity) || 1);
+			}
+		}
 	}
 	const deliveryFee = Number(order?.delivery_fee);
 	const fee = Number.isFinite(deliveryFee) && deliveryFee > 0 ? deliveryFee : 0;
@@ -270,10 +279,19 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			const safeQuantity = Number(item.quantity) || 1;
 			const safeName = escapeHtml(String(item.name || '').toUpperCase());
 			const safeDescription = item.description ? escapeHtml(String(item.description).toUpperCase()) : '';
+			let extrasHtml = '';
+			if (Array.isArray(item.extras) && item.extras.length > 0) {
+				extrasHtml = item.extras.map((extra) => {
+					const extraQty = Number(extra.quantity) || 1;
+					const extraName = escapeHtml(String(extra.name || 'Extra').toUpperCase());
+					return `<div class="k-extra">+ ${extraQty}x ${extraName}</div>`;
+				}).join('');
+			}
 			return `
 		<div class="k-item">
 			<div class="k-line">X${safeQuantity} ${safeName}</div>
 			${safeDescription ? `<div class="k-desc">${safeDescription}</div>` : ''}
+			${extrasHtml ? `<div class="k-extras-wrap">${extrasHtml}</div>` : ''}
 		</div>`;
 		}).join('');
 
@@ -334,6 +352,19 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					word-break: break-word;
 					text-transform: uppercase;
 					line-height: 1.35;
+				}
+				.k-extras-wrap {
+					margin-top: 1.5mm;
+					margin-left: 1mm;
+					padding-left: 2mm;
+					border-left: 2px dashed #000;
+				}
+				.k-extra {
+					font-size: 9pt;
+					margin: 0.8mm 0;
+					word-break: break-word;
+					text-transform: uppercase;
+					line-height: 1.3;
 				}
 				.k-note {
 					margin-top: 4mm;
@@ -405,6 +436,24 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 		const safeDescription = item.description ? escapeHtml(String(item.description).toUpperCase()) : '';
 		const leftCol = `X${safeQuantity} ${safeName}`;
 
+		let extrasHtml = '';
+		if (Array.isArray(item.extras) && item.extras.length > 0) {
+			extrasHtml = item.extras.map((extra) => {
+				const extraQty = Number(extra.quantity) || 1;
+				const extraPrice = Number(extra.price) || 0;
+				const extraLineTotal = extraPrice * extraQty;
+				const extraName = escapeHtml(String(extra.name || 'Extra').toUpperCase());
+				return `
+			<div class="c-item c-item-extra">
+				<div class="c-row">
+					<span class="c-line-text">+ ${extraQty}x ${extraName}</span>
+					<span class="c-price">${formatCurrency(extraLineTotal)}</span>
+				</div>
+			</div>
+			`;
+			}).join('');
+		}
+
 		return `
 		<div class="c-item">
 			<div class="c-row">
@@ -413,12 +462,9 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			</div>
 			${safeDescription ? `<div class="c-detail">${safeDescription}</div>` : ''}
 		</div>
+		${extrasHtml}
 	`;
 	}).join('');
-
-	const deliveryRow = deliveryFee > 0
-		? `<div class="c-money-row"><span>Envío</span><span>${formatCurrency(deliveryFee)}</span></div>`
-		: '';
 
 	return `
 		<html>
@@ -521,6 +567,16 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					word-break: break-word;
 					line-height: 1.35;
 					text-transform: uppercase;
+				}
+				.c-item-extra {
+					opacity: 0.85;
+				}
+				.c-item-extra .c-row {
+					padding-left: 2mm;
+					border-left: 2px dashed #000;
+				}
+				.c-item-extra .c-line-text {
+					font-size: 9.5pt;
 				}
 				.c-money-block {
 					margin-top: 2mm;
