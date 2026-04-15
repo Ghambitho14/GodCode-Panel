@@ -17,6 +17,28 @@ import type { DatabaseCompanyTheme } from "../../lib/company-theme-types";
 
 export const dynamic = "force-dynamic";
 
+function normalizePanelAccess(raw: unknown): string[] | null {
+	if (!Array.isArray(raw)) return null;
+	const tabs = raw
+		.filter((tab): tab is string => typeof tab === "string")
+		.map((tab) => tab.trim())
+		.filter((tab) => tab.length > 0);
+
+	if (tabs.length === 0) return null;
+	return [...new Set(tabs)];
+}
+
+function deriveCompanyPanelAccess(themeConfig: DatabaseCompanyTheme | null | undefined): string[] | null {
+	const fromPanelAccess = normalizePanelAccess(themeConfig?.panelAccess);
+	if (fromPanelAccess) return fromPanelAccess;
+
+	const roleNavPermissions = themeConfig?.roleNavPermissions;
+	if (!roleNavPermissions || typeof roleNavPermissions !== "object") return null;
+
+	const flattened = Object.values(roleNavPermissions).flat();
+	return normalizePanelAccess(flattened);
+}
+
 interface DynamicAdminModule {
 	id: string;
 	tab_id: string;
@@ -42,7 +64,7 @@ export default async function TenantAdminPage() {
 
 	const { data: byAuth } = await supabase
 		.from("users")
-		.select("id,role,allowed_tabs,company_id")
+		.select("id,role,company_id")
 		.eq("auth_user_id", user.id)
 		.maybeSingle();
 
@@ -54,13 +76,18 @@ export default async function TenantAdminPage() {
 	if (!staffRow) {
 		const { data: byEmail } = await supabase
 			.from("users")
-			.select("id,role,allowed_tabs,company_id")
-			.ilike("email", user.email.trim());
+			.select("id,role,company_id")
+			.ilike("email", user.email.trim())
+			.limit(10);
 
-		staffRow =
-			(byEmail ?? []).find((row) =>
-				allowedRoles.has(String(row.role ?? "").toLowerCase()),
-			) ?? null;
+		const candidateRows = (byEmail ?? []).filter((row) =>
+			allowedRoles.has(String(row.role ?? "").toLowerCase()),
+		);
+		const candidateCompanyIds = [...new Set(candidateRows.map((row) => row.company_id).filter(Boolean))];
+
+		if (candidateCompanyIds.length === 1) {
+			staffRow = candidateRows.find((row) => row.company_id === candidateCompanyIds[0]) ?? null;
+		}
 	}
 
 	if (!staffRow?.company_id) {
@@ -84,14 +111,10 @@ export default async function TenantAdminPage() {
 	const logoUrl =
 		(company.theme_config as { logoUrl?: string | null } | null)?.logoUrl ?? null;
 	const themeConfig = company.theme_config as DatabaseCompanyTheme | null | undefined;
-	const roleNavPermissions = themeConfig?.roleNavPermissions ?? null;
+	const panelAccess = deriveCompanyPanelAccess(themeConfig);
 
 	const adminThemeExt = parseAdminPanelThemeExtensions(themeConfig ?? null);
 	const resolvedTabLabels = buildResolvedTabLabels(adminThemeExt.tabLabels ?? null);
-
-	const userAllowedTabs = Array.isArray(staffRow.allowed_tabs)
-		? staffRow.allowed_tabs
-		: null;
 
 	const { data: dynamicModulesData } = await supabase
 		.from("saas_admin_modules")
@@ -152,8 +175,7 @@ export default async function TenantAdminPage() {
 						logoUrl={logoUrl}
 						userEmail={user.email ?? null}
 						initialUserRole={initialUserRole}
-						roleNavPermissions={roleNavPermissions as Record<string, string[]> | null}
-						userAllowedTabs={userAllowedTabs}
+						panelAccess={panelAccess}
 						dynamicModules={dynamicModules}
 						storefrontMenuUrl={storefrontMenuUrl}
 						resolvedTabLabels={resolvedTabLabels}

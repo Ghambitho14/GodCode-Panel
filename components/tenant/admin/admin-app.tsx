@@ -14,8 +14,7 @@ interface AdminAppProps {
 	userEmail?: string | null;
 	/** Rol ya resuelto en el servidor (evita flash de permisos de cajero antes de verifyAdminAccess). */
 	initialUserRole?: string | null;
-	roleNavPermissions?: Record<string, string[]> | null;
-	userAllowedTabs?: string[] | null;
+	panelAccess?: string[] | null;
 	dynamicModules?: {
 		id: string;
 		tabId: string;
@@ -40,8 +39,7 @@ export function AdminApp({
 	logoUrl,
 	userEmail,
 	initialUserRole = null,
-	roleNavPermissions,
-	userAllowedTabs,
+	panelAccess,
 	dynamicModules = [],
 	primaryColor,
 	storefrontMenuUrl = null,
@@ -55,8 +53,7 @@ export function AdminApp({
 					<AdminProvider
 						companyId={companyId}
 						initialUserRole={initialUserRole}
-						roleNavPermissions={roleNavPermissions}
-						userAllowedTabs={userAllowedTabs}
+						panelAccess={panelAccess}
 						dynamicModules={dynamicModules}
 						resolvedTabLabels={resolvedTabLabels}
 						adminShortcutsEnabled={adminShortcutsEnabled}

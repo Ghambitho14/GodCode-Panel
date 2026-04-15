@@ -8,6 +8,9 @@ export type DatabaseCompanyTheme = {
 	hoverColor?: string;
 	backgroundColor?: string;
 	backgroundImageUrl?: string | null;
+	/** Fuente de verdad de permisos del panel admin a nivel empresa. */
+	panelAccess?: string[];
+	/** Legacy por rol; se mantiene solo para transición de datos. */
 	roleNavPermissions?: Record<string, string[]>;
 	/** Etiquetas por id de pestaña (`TENANT_ADMIN_TAB_IDS` o claves personalizadas). */
 	tabLabels?: Record<string, string>;

@@ -2,7 +2,8 @@
  * Única fuente de verdad para las pestañas del panel admin del tenant.
  *
  * Contrato con Supabase (`public.companies.theme_config`):
- * - `roleNavPermissions`: objeto por rol con arrays de ids de pestaña.
+ * - `panelAccess`: array con ids de pestaña habilitados para la empresa.
+ * - `roleNavPermissions`: legacy por rol, solo para transición de datos.
  *
  * Delivery (panel → Opciones de menú): `public.branches.delivery_settings` (JSONB por sucursal): `enabled`,
  * `pricePerKm`, `baseFee`, `minFee`, `maxFee`, `maxDeliveryKm`, `freeDeliveryFromSubtotal`, `minOrderSubtotal`, `customerNotes`.
@@ -55,7 +56,7 @@ export function getDefaultRoleNavPermissions(): Record<string, string[]> {
 	return { ...DEFAULT_ROLE_NAV_PERMISSIONS };
 }
 
-/** Alinea el rol de `public.users` con las claves de `roleNavPermissions` / `allowedTabs`. */
+/** Alinea el rol de `public.users` con las claves de permisos del panel. */
 export function normalizeTenantPanelUserRole(role: string | null | undefined): string | null {
 	const r = String(role ?? "").trim().toLowerCase();
 	if (!r) return null;
@@ -75,9 +76,7 @@ const STORED_TAB_ID_ALIASES: Record<string, string> = {
 	cart_extras: "menu_extras",
 };
 
-/**
- * Normaliza un id leído de `roleNavPermissions` o `users.allowed_tabs` antes de validar contra TENANT_ADMIN_TAB_IDS.
- */
+/** Normaliza un id leído de configuración legacy antes de validar contra TENANT_ADMIN_TAB_IDS. */
 export function normalizeStoredNavTabId(tabId: string): string {
 	const t = String(tabId ?? "").trim();
 	if (!t) return t;

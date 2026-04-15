@@ -24,7 +24,7 @@ import AdminNotificationCenter from '../components/AdminNotificationCenter';
 import AdminBranchSelector from '../components/AdminBranchSelector';
 import AdminHeaderClock from '../components/AdminHeaderClock';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
-import { TENANT_ADMIN_TAB_IDS, getCashierDefaultAllowedTabIds } from '../../../../../../lib/tenant-admin-tabs';
+import { TENANT_ADMIN_TAB_IDS } from '../../../../../../lib/tenant-admin-tabs';
 import { fetchJsonWithRetry } from '../../../../../../utils/fetch-json';
 
 const AdminAnalytics = React.lazy(() => import('../components/AdminAnalytics'));
@@ -112,10 +112,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
-  const ASSIGNABLE_TAB_IDS = React.useMemo(
-    () => TENANT_ADMIN_TAB_IDS.filter((id) => id !== 'users'),
-    [],
-  );
 
   const nextCategoryOrder = React.useMemo(() => {
     const maxOrder = categories.reduce((maxValue, cat) => {
@@ -151,7 +147,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     password: '',
     role: 'cashier',
     branch_id: '',
-    allowed_tabs: [...getCashierDefaultAllowedTabIds()],
   }));
   const [teamSubmitting, setTeamSubmitting] = React.useState(false);
   const [teamUserToDelete, setTeamUserToDelete] = React.useState(null);
@@ -330,7 +325,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const openTeamCreateModal = () => {
     setTeamUserToEdit(null);
-    setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: [...getCashierDefaultAllowedTabIds()] });
+    setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '' });
     setTeamModalOpen(true);
   };
 
@@ -345,7 +340,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       password: '',
       role: ((u.role || 'cashier').toLowerCase() === 'staff' ? 'cashier' : (u.role || 'cashier').toLowerCase()),
       branch_id: u.branch_id || '',
-      allowed_tabs: Array.isArray(u.allowed_tabs) && u.allowed_tabs.length ? u.allowed_tabs : [...getCashierDefaultAllowedTabIds()],
     });
     setTeamModalOpen(true);
   };
@@ -371,7 +365,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         email: teamForm.email.trim(),
         role: ((teamForm.role || 'cashier').toLowerCase() === 'staff' ? 'cashier' : (teamForm.role || 'cashier').toLowerCase()),
         branch_id: teamForm.branch_id || null,
-        allowed_tabs: teamForm.allowed_tabs?.length ? teamForm.allowed_tabs : null,
       };
       if (isEdit) {
         payload.id = teamUserToEdit.id;
@@ -390,7 +383,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         showNotify(isEdit ? 'Usuario actualizado.' : 'Usuario creado. Puede iniciar sesión con su correo y contraseña.');
         setTeamModalOpen(false);
         setTeamUserToEdit(null);
-        setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '', allowed_tabs: [...getCashierDefaultAllowedTabIds()] });
+        setTeamForm({ email: '', password: '', role: 'cashier', branch_id: '' });
         fetchTeamUsers();
       } else {
         showNotify(data.error || (isEdit ? 'Error al actualizar usuario' : 'Error al crear usuario'), 'error');
@@ -400,15 +393,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     } finally {
       setTeamSubmitting(false);
     }
-  };
-
-  const toggleTeamTab = (tabId) => {
-    setTeamForm(prev => ({
-      ...prev,
-      allowed_tabs: prev.allowed_tabs?.includes(tabId)
-        ? prev.allowed_tabs.filter(t => t !== tabId)
-        : [...(prev.allowed_tabs || []), tabId],
-    }));
   };
 
   const handleDeleteTeamUser = async () => {
@@ -895,7 +879,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <AdminErrorBoundary tabLabel={tabLabels.users || 'Equipo'} onRetry={() => void fetchTeamUsers()}>
           <>
           <div className="admin-toolbar glass">
-            <p className="admin-toolbar-hint">Usuarios que pueden entrar al panel de este local. Crea staff y asígnales las pestañas que podrán ver.</p>
+            <p className="admin-toolbar-hint">Usuarios que pueden entrar al panel de este local. Los permisos de pestañas se definen a nivel empresa.</p>
           </div>
           <div className="glass staff-table-glass admin-staff-panel">
             {teamLoading ? (
@@ -910,7 +894,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       <th>Correo</th>
                       <th>Rol</th>
                       <th>Sucursal</th>
-                      <th>Permisos</th>
                       <th className="staff-table-actions-th admin-staff-actions-th">Acciones</th>
                     </tr>
                   </thead>
@@ -920,11 +903,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       <td>{u.email}</td>
                       <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
                       <td>{u.branch?.name ?? '—'}</td>
-                      <td className="admin-staff-perms">
-                        {(u.allowed_tabs && u.allowed_tabs.length > 0)
-                          ? u.allowed_tabs.map(t => tabLabels[t] || t).join(', ')
-                          : ((u.role === 'cashier' || u.role === 'staff') ? `Por defecto (${getCashierDefaultAllowedTabIds().map((t) => tabLabels[t] || t).join(', ')})` : 'Todos')}
-                      </td>
                       <td className="admin-staff-actions">
                         {isTeamUserCeo(u) ? (
                           <span
@@ -1037,7 +1015,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                     {teamUserToEdit ? 'Editar miembro' : 'Crear miembro del equipo'}
                   </h3>
                   <p className="admin-team-dialog__lead">
-                    Define acceso por rol, sucursal y pestañas permitidas.
+                    Define acceso por rol y sucursal.
                   </p>
                 </div>
                 <button
@@ -1118,33 +1096,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                     </label>
                   </div>
 
-                  <div className="admin-team-perms-box">
-                    <p className="admin-team-perms-box__title">Pestañas habilitadas</p>
-                    <p className="admin-team-perms-box__hint">
-                      Selecciona qué secciones puede ver este usuario.
-                    </p>
-                    <div className="admin-chip-row">
-                      {ASSIGNABLE_TAB_IDS.map(tabId => {
-                        const active = teamForm.allowed_tabs?.includes(tabId) ?? false;
-                        return (
-                          <button
-                            key={tabId}
-                            type="button"
-                            onClick={() => toggleTeamTab(tabId)}
-                            className={`admin-chip-tab${active ? ' admin-chip-tab--active' : ''}`}
-                          >
-                            {tabLabels[tabId] || tabId}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
 
                 <div className="admin-team-dialog__footer">
-                  <p className="admin-team-dialog__footer-meta">
-                    {teamForm.allowed_tabs?.length || 0} pestañas seleccionadas
-                  </p>
+                  <p className="admin-team-dialog__footer-meta">Permisos de pestañas heredados desde la empresa.</p>
                   <div className="admin-team-dialog__footer-actions">
                     <button
                       type="button"

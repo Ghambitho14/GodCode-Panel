@@ -19,28 +19,20 @@ import { playOrderNotificationSound, primeOrderNotificationAudio } from '../util
 const ALL_ADMIN_TABS = TENANT_ADMIN_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
 
-const normalizeRoleNavPermissions = (raw) => {
+const normalizePanelAccess = (raw) => {
 	const allowed = new Set(ALL_ADMIN_TABS);
-	const normalized = { ...DEFAULT_ROLE_NAV_PERMISSIONS };
 
-	if (!raw || typeof raw !== 'object') return normalized;
+	if (!Array.isArray(raw)) return null;
 
-	Object.keys(raw).forEach((rawRole) => {
-		const tabs = raw[rawRole];
-		if (!Array.isArray(tabs)) return;
-		const role = String(rawRole).toLowerCase() === 'staff' ? 'cashier' : String(rawRole).toLowerCase();
-		const cleanTabs = [...new Set(
-			tabs
-				.filter((tab) => typeof tab === 'string')
-				.map((tab) => normalizeStoredNavTabId(tab))
-				.filter((tab) => allowed.has(tab)),
-		)];
-		const defaults = DEFAULT_ROLE_NAV_PERMISSIONS[role] ?? [];
-		/* Lista del SaaS en theme_config manda; si el rol no viene o el array queda vacío, defaults de código. */
-		normalized[role] = cleanTabs.length > 0 ? cleanTabs : defaults;
-	});
+	const cleanTabs = [...new Set(
+		raw
+			.filter((tab) => typeof tab === 'string')
+			.map((tab) => normalizeStoredNavTabId(tab))
+			.filter((tab) => allowed.has(tab)),
+	)];
 
-	return normalized;
+	if (cleanTabs.length === 0) return null;
+	return cleanTabs;
 };
 
 export const AdminContext = createContext(null);
@@ -56,8 +48,7 @@ export const useAdmin = () => {
  * @param {import('react').ReactNode} props.children
  * @param {string} props.companyId
  * @param {string | null | undefined} [props.initialUserRole]
- * @param {Record<string, string[]> | null | undefined} [props.roleNavPermissions]
- * @param {string[] | null | undefined} [props.userAllowedTabs]
+ * @param {string[] | null | undefined} [props.panelAccess]
  * @param {any[]} [props.dynamicModules]
  */
 /**
@@ -65,8 +56,7 @@ export const useAdmin = () => {
  * @param {React.ReactNode} root0.children
  * @param {string} root0.companyId
  * @param {string | null} [root0.initialUserRole]
- * @param {Record<string, string[]> | null | undefined} [root0.roleNavPermissions]
- * @param {string[] | null | undefined} [root0.userAllowedTabs]
+ * @param {string[] | null | undefined} [root0.panelAccess]
  * @param {any[]} [root0.dynamicModules]
  * @param {Record<string, string>} [root0.resolvedTabLabels]
  * @param {boolean} [root0.adminShortcutsEnabled]
@@ -75,8 +65,7 @@ export const AdminProvider = ({
 	children,
 	companyId,
 	initialUserRole = null,
-	roleNavPermissions,
-	userAllowedTabs,
+	panelAccess,
 	dynamicModules = /** @type {any[]} */ ([]),
 	resolvedTabLabels = /** @type {Record<string, string>} */ ({}),
 	adminShortcutsEnabled = true,
@@ -128,9 +117,9 @@ export const AdminProvider = ({
 	/** Filas `inventory_branch` + `inventory_items` de la sucursal seleccionada (alertas campana / inventario). */
 	const [inventoryBranchRows, setInventoryBranchRows] = useState(/** @type {any[]} */ ([]));
 
-	const resolvedRolePermissions = useMemo(
-		() => normalizeRoleNavPermissions(roleNavPermissions || {}),
-		[roleNavPermissions]
+	const normalizedPanelAccess = useMemo(
+		() => normalizePanelAccess(panelAccess),
+		[panelAccess]
 	);
 
 	const normalizedDynamicModules = useMemo(() => (
@@ -153,41 +142,20 @@ export const AdminProvider = ({
 	const allowedTabs = useMemo(() => {
 		const rawRoleKey = (userRole || '').toLowerCase();
 		const roleKey = rawRoleKey === 'staff' ? 'cashier' : rawRoleKey;
+		const companyAllowedTabs = new Set(normalizedPanelAccess ?? ALL_ADMIN_TABS);
 		/*
 		 * Sin rol aún: no usar el fallback del cajero (bloqueaba CEO/productos hasta verifyAdminAccess).
 		 * Tras verify, si el rol es inválido, verify redirige; aquí damos acceso amplio solo mientras roleKey está vacío.
 		 */
 		if (!roleKey) {
-			return new Set(ALL_ADMIN_TABS);
+			return companyAllowedTabs;
 		}
-		/* Cajero: lista explícita en `users.allowed_tabs` sustituye al template del rol (comportamiento histórico). */
-		if (roleKey === "cashier" && Array.isArray(userAllowedTabs) && userAllowedTabs.length > 0) {
-			return new Set(
-				userAllowedTabs
-					.filter((t) => typeof t === "string")
-					.map((t) => normalizeStoredNavTabId(t))
-					.filter((t) => ALL_ADMIN_TABS.includes(t)),
-			);
-		}
-		const configuredTabs = resolvedRolePermissions[roleKey];
+
 		const fallbackForRole = DEFAULT_ROLE_NAV_PERMISSIONS[roleKey] ?? DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
-		const baseList =
-			Array.isArray(configuredTabs) && configuredTabs.length > 0 ? configuredTabs : fallbackForRole;
-		const out = new Set(baseList);
-		/*
-		 * Admin / CEO / owner: `theme_config.roleNavPermissions` es la base; si el SaaS también escribe
-		 * `users.allowed_tabs` para ese correo (p. ej. añadiendo menu_beverages), se hace UNIÓN para no
-		 * ignorar esos ids ni romper filas antiguas con listas cortas en JSONB que antes no aplicaban al rol.
-		 */
-		if (Array.isArray(userAllowedTabs) && userAllowedTabs.length > 0) {
-			for (const t of userAllowedTabs) {
-				if (typeof t !== "string") continue;
-				const id = normalizeStoredNavTabId(t);
-				if (ALL_ADMIN_TABS.includes(id)) out.add(id);
-			}
-		}
-		return out;
-	}, [resolvedRolePermissions, userRole, userAllowedTabs]);
+		const roleAllowedTabs = Array.isArray(fallbackForRole) ? fallbackForRole : DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
+
+		return new Set(roleAllowedTabs.filter((tab) => companyAllowedTabs.has(tab)));
+	}, [normalizedPanelAccess, userRole]);
 
 	const dynamicModuleTabs = useMemo(() => {
 		const roleKey = String(userRole || '').toLowerCase() === 'staff'
@@ -1010,7 +978,7 @@ export const AdminProvider = ({
 		toggleCategoryActive,
 		reorderCategories,
 		canAccessTab,
-		roleNavPermissions: resolvedRolePermissions,
+		panelAccess: normalizedPanelAccess,
 		kanbanColumns,
 		processedProducts,
 		productStats,
@@ -1032,9 +1000,8 @@ export const AdminProvider = ({
 		loadData, refreshBranches, handleSelectClient, moveOrder, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
-		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, resolvedRolePermissions, kanbanColumns, processedProducts, productStats, inventoryBranchRows, normalizedDynamicModules,
+		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, normalizedPanelAccess, kanbanColumns, processedProducts, productStats, inventoryBranchRows, normalizedDynamicModules,
 		resolvedTabLabels, adminShortcutsEnabled, lastDataRefreshAt, userEmail, productToDelete, confirmDeleteProduct,
-		inventoryBranchRows,
 	]);
 
 	return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;

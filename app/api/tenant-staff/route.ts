@@ -17,6 +17,7 @@ type UserRow = {
 	id: string;
 	company_id: string;
 	role: string;
+	auth_user_id?: string | null;
 };
 
 type MessageError = { message: string } | null;
@@ -73,15 +74,32 @@ async function getCeoCompanyId(supabaseAdmin: ReturnType<typeof getSupabaseAdmin
 		return { error: "No autenticado" };
 	}
 
+	const { data: byAuth, error: byAuthError } = await supabaseAdmin
+		.from("users")
+		.select("id,company_id,role,auth_user_id")
+		.eq("auth_user_id", user.id)
+		.maybeSingle() as { data: UserRow | null; error: MessageError };
+
+	if (byAuthError) return { error: byAuthError.message };
+	if (byAuth && normalizeTenantRole(byAuth.role) === "ceo" && byAuth.company_id) {
+		return { companyId: byAuth.company_id, userId: byAuth.id };
+	}
+
 	const email = user.email.trim();
 	const { data: rows, error } = await supabaseAdmin
 		.from("users")
 		.select("id,company_id,role")
-		.ilike("email", email) as { data: UserRow[] | null; error: MessageError };
+		.ilike("email", email)
+		.ilike("role", "ceo")
+		.limit(2) as { data: UserRow[] | null; error: MessageError };
 
 	if (error) return { error: error.message };
-	if (!rows?.length) return { error: "Usuario no encontrado en la empresa" };
-	const row = rows.find((r) => (r.role || "").toLowerCase() === "ceo");
+	if (!rows?.length) return { error: "Tu usuario no tiene rol CEO en esta empresa" };
+	if (rows.length > 1) {
+		return { error: "Tu correo está asociado a múltiples empresas como CEO. Contacta soporte para consolidar la cuenta." };
+	}
+
+	const [row] = rows;
 	if (!row?.company_id) return { error: "Tu usuario no tiene rol CEO en esta empresa" };
 	return { companyId: row.company_id, userId: row.id };
 }
@@ -94,7 +112,6 @@ export async function GET() {
 			return NextResponse.json({ error: ceo.error }, { status: 403 });
 		}
 
-		// Selección sin allowed_tabs para no fallar si la columna no existe (migración pendiente)
 		const { data, error } = await supabaseAdmin
 			.from("users")
 			.select("id,email,role,branch_id,created_at,branch:branches(name)")
@@ -132,9 +149,6 @@ export async function POST(req: NextRequest) {
 			typeof (body as Record<string, unknown>)?.branch_id === "string" && (body as { branch_id: string }).branch_id.trim().length > 0
 				? (body as { branch_id: string }).branch_id.trim()
 				: null;
-		const allowedTabs = Array.isArray((body as Record<string, unknown>)?.allowed_tabs)
-			? (body as { allowed_tabs: unknown[] }).allowed_tabs.filter((t: unknown) => typeof t === "string")
-			: null;
 
 		if (!email || !password) {
 			return NextResponse.json({ error: "Email y contraseña son obligatorios" }, { status: 400 });
@@ -169,22 +183,10 @@ export async function POST(req: NextRequest) {
 			auth_id: authUser.user?.id,
 			created_by: ceo.userId,
 		};
-		if (allowedTabs && allowedTabs.length > 0) {
-			insertPayload.allowed_tabs = allowedTabs;
-		}
 
 		const { error } = await supabaseAdmin.from("users").insert(insertPayload);
 		if (error) {
-			// Si falla por columna allowed_tabs inexistente, reintentar sin ella
-			if (insertPayload.allowed_tabs && (error.message?.includes("allowed_tabs") || error.message?.includes("column"))) {
-				delete insertPayload.allowed_tabs;
-				const retry = await supabaseAdmin.from("users").insert(insertPayload);
-				if (retry.error) {
-					return NextResponse.json({ error: retry.error.message }, { status: 400 });
-				}
-			} else {
-				return NextResponse.json({ error: error.message }, { status: 400 });
-			}
+			return NextResponse.json({ error: error.message }, { status: 400 });
 		}
 		return NextResponse.json({ success: true });
 	} catch (err) {
@@ -216,9 +218,6 @@ export async function PUT(req: NextRequest) {
 			typeof b?.branch_id === "string" && (b.branch_id as string).trim().length > 0
 				? (b.branch_id as string).trim()
 				: null;
-		const allowedTabs = Array.isArray(b?.allowed_tabs)
-			? (b.allowed_tabs as unknown[]).filter((t: unknown) => typeof t === "string")
-			: null;
 
 		if (!id || !email || !role) {
 			return NextResponse.json({ error: "Faltan id, correo o rol" }, { status: 400 });
@@ -267,17 +266,10 @@ export async function PUT(req: NextRequest) {
 			role,
 			branch_id: branchId,
 		};
-		if (allowedTabs !== null) updatePayload.allowed_tabs = allowedTabs.length > 0 ? allowedTabs : null;
 
 		const { error } = await supabaseAdmin.from("users").update(updatePayload).eq("id", id);
 		if (error) {
-			if (updatePayload.allowed_tabs !== undefined && (error.message?.includes("allowed_tabs") || error.message?.includes("column"))) {
-				delete updatePayload.allowed_tabs;
-				const retry = await supabaseAdmin.from("users").update(updatePayload).eq("id", id);
-				if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 400 });
-			} else {
-				return NextResponse.json({ error: error.message }, { status: 400 });
-			}
+			return NextResponse.json({ error: error.message }, { status: 400 });
 		}
 		return NextResponse.json({ success: true });
 	} catch (err) {
