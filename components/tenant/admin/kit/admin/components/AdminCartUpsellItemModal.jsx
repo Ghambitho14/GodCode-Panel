@@ -159,8 +159,8 @@ export default function AdminCartUpsellItemModal({
 
 	const processFile = (file) => {
 		if (file && file.type.startsWith("image/")) {
-			if (file.size > 5 * 1024 * 1024) {
-				alert("La imagen es muy pesada (Máx 5MB)");
+			if (file.size > 20 * 1024 * 1024) {
+				alert("La imagen es muy pesada (Máx 20MB)");
 				return;
 			}
 			setLocalFile(file);
@@ -346,7 +346,7 @@ export default function AdminCartUpsellItemModal({
 									<p className="drop-text">
 										Arrastra una imagen o <span>haz click aquí</span>
 									</p>
-									<p className="drop-hint">JPG, PNG, WEBP (Máx 5MB)</p>
+									<p className="drop-hint">JPG, PNG, WEBP (Máx 20MB)</p>
 								</div>
 							)}
 						</div>

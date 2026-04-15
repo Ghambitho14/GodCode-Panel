@@ -2,14 +2,14 @@ const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export const validateImageFile = (file: File | null) => {
   if (!file || !(file instanceof File)) {
     return { valid: false, error: "Archivo no valido." };
   }
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return { valid: false, error: "La imagen es muy pesada (max. 5 MB)." };
+    return { valid: false, error: "La imagen es muy pesada (max. 20 MB)." };
   }
   const type = (file.type || "").toLowerCase();
   if (!ALLOWED_IMAGE_TYPES.includes(type)) {

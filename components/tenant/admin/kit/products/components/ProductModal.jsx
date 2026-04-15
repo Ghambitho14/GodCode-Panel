@@ -75,9 +75,9 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
   // --- 3. GESTIÓN DE ARCHIVOS ---
   const processFile = (file) => {
     if (file && file.type.startsWith('image/')) {
-      // Validar tamaño (opcional, ej: 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("La imagen es muy pesada (Máx 5MB)");
+      // Validar tamaño (opcional, ej: 20MB)
+      if (file.size > 20 * 1024 * 1024) {
+        alert("La imagen es muy pesada (Máx 20MB)");
         return;
       }
       setLocalFile(file);
@@ -188,7 +188,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                     <ImageIcon size={28} />
                   </div>
                   <p className="drop-text">Arrastra una imagen o <span>haz click aquí</span></p>
-                  <p className="drop-hint">JPG, PNG, WEBP (Máx 5MB)</p>
+                  <p className="drop-hint">JPG, PNG, WEBP (Máx 20MB)</p>
                 </div>
               )}
             </div>

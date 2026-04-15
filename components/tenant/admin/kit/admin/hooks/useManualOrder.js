@@ -197,10 +197,6 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
             showNotify('El RUT ingresado no es válido', 'error');
             return;
         }
-        if (manualOrder.payment_type === 'online' && !receiptFile) {
-            showNotify('Falta el comprobante de transferencia', 'error');
-            return;
-        }
 
         setLoading(true);
         try {

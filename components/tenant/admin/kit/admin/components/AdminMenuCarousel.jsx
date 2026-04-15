@@ -363,7 +363,7 @@ export default function AdminMenuCarousel({
 						{uploading ? 'Subiendo…' : 'Añadir imagen'}
 						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
 					</label>
-					<span className="menu-carousel-upload-hint"> · JPG, PNG o WebP, máx. 5 MB</span>
+					<span className="menu-carousel-upload-hint"> · JPG, PNG o WebP, máx. 20 MB</span>
 				</div>
 			</div>
 

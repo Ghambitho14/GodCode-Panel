@@ -324,10 +324,8 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         const hasPaymentType = !!manualOrder.payment_type;
 
         // Validación específica por tipo de pago
+        // El comprobante de transferencia ahora es opcional
         let isPaymentValid = true;
-        if (manualOrder.payment_type === 'online') {
-            isPaymentValid = !!receiptFile;
-        }
 
         const exactRutLength = manualOrder.client_rut?.trim().length || 0;
         const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
@@ -804,7 +802,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         textTransform: 'uppercase'
                     }}>
                         <Upload size={14} />
-                        Adjuntar Comprobante
+                        Adjuntar Comprobante (Opcional)
                     </div>
 
                     <label
