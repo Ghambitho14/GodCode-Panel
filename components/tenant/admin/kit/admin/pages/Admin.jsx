@@ -841,6 +841,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 products={products} 
                 clients={clients} 
                 branches={branches.filter(b => b.id !== 'all')}
+                showNotify={showNotify}
+                companyId={companyIdForClients}
+                selectedBranch={selectedBranch}
               />
             </React.Suspense>
           </AdminErrorBoundary>

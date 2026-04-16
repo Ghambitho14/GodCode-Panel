@@ -11,14 +11,15 @@ import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart, Wallet, Banknote
+    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { TABLES } from '../../lib/supabaseTables';
 import AdminIconSlot from './AdminIconSlot';
 import AdminMenuSelect from './AdminMenuSelect';
 import { formatCurrency } from '../../shared/utils/formatters';
-import { isOnlineOrder, getPaymentSlug } from '../../shared/utils/orderUtils';
+import { isOnlineOrder, getPaymentSlug, getPaymentLabel } from '../../shared/utils/orderUtils';
+import { downloadExcel } from '../../shared/utils/exportUtils';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
@@ -51,14 +52,98 @@ const TrendBadge = ({ value }) => {
     );
 };
 
-const AdminAnalytics = ({ orders, clients, branches }) => {
+const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('area');
     const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0 });
     const [loadingExpenses, setLoadingExpenses] = useState(false);
+    const [analyticsDate, setAnalyticsDate] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [exportLoading, setExportLoading] = useState(false);
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
+
+    const getMonthRangeUtc = (yyyyMm) => {
+        const [yearStr, monthStr] = String(yyyyMm).split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return null;
+        }
+        const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const nextMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+        return {
+            startIso: start.toISOString(),
+            endIso: nextMonth.toISOString(),
+        };
+    };
+
+    const handleExportMonthlyExcel = async () => {
+        if (exportLoading) return;
+        const range = getMonthRangeUtc(analyticsDate);
+        if (!range) {
+            if (showNotify) showNotify('Mes inválido', 'error');
+            return;
+        }
+
+        setExportLoading(true);
+        try {
+            let query = supabase
+                .from(TABLES.orders)
+                .select('*')
+                .gte('created_at', range.startIso)
+                .lt('created_at', range.endIso)
+                .order('created_at', { ascending: true });
+
+            if (companyId) {
+                query = query.eq('company_id', companyId);
+            }
+
+            if (selectedBranch && selectedBranch.id && selectedBranch.id !== 'all') {
+                query = query.eq('branch_id', selectedBranch.id);
+            }
+
+            const { data: fullMonthOrders, error } = await query;
+
+            if (error) throw error;
+
+            if (!fullMonthOrders || fullMonthOrders.length === 0) {
+                if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
+                return;
+            }
+
+            const dataToExport = fullMonthOrders.map(order => {
+                const d = new Date(order.created_at);
+                let items = Array.isArray(order.items) ? order.items : [];
+                if (typeof order.items === 'string') {
+                    try { items = JSON.parse(order.items); } catch {}
+                }
+                const itemsText = items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
+                return {
+                    Fecha: d.toLocaleDateString('es-CL'),
+                    Hora: d.toLocaleTimeString('es-CL'),
+                    Cliente: order.client_name,
+                    RUT: order.client_rut,
+                    Teléfono: order.client_phone,
+                    Items: itemsText,
+                    Total: order.total,
+                    'Método Pago': getPaymentLabel(order) || '',
+                    'Ref. Pago': order.payment_ref || ''
+                };
+            });
+
+            const [year, month] = String(analyticsDate).split('-');
+            downloadExcel(dataToExport, `Reporte_${year || '0000'}_${month || '00'}.xls`);
+            if (showNotify) showNotify('Reporte Excel generado', 'success');
+        } catch (err) {
+            if (showNotify) showNotify('Error al generar reporte: ' + (err instanceof Error ? err.message : String(err)), 'error');
+        } finally {
+            setExportLoading(false);
+        }
+    };
 
     // --- FETCH EXPENSES ---
     React.useEffect(() => {
@@ -683,6 +768,62 @@ const AdminAnalytics = ({ orders, clients, branches }) => {
                         })}
                     </div>
                 )}
+            </div>
+
+            {/* MONTHLY EXPORT SECTION */}
+            <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text, #0f172a)' }}>Descargar Reporte Mensual</h3>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted, #6b7280)', fontWeight: 500 }}>Seleccionar mes</label>
+                        <input
+                            type="month"
+                            value={analyticsDate}
+                            onChange={(e) => setAnalyticsDate(e.target.value)}
+                            style={{
+                                padding: '8px 12px',
+                                background: 'rgba(0, 0, 0, 0.2)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: 6,
+                                color: 'var(--admin-text, #0f172a)',
+                                fontFamily: 'inherit',
+                                fontSize: '0.9rem',
+                                minWidth: 180
+                            }}
+                        />
+                    </div>
+                    <button
+                        onClick={handleExportMonthlyExcel}
+                        disabled={exportLoading}
+                        style={{
+                            padding: '10px 16px',
+                            background: 'var(--accent-primary, #3b82f6)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: exportLoading ? 'not-allowed' : 'pointer',
+                            opacity: exportLoading ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontSize: '0.9rem',
+                            fontWeight: 500,
+                            transition: 'opacity 0.2s'
+                        }}
+                    >
+                        {exportLoading ? (
+                            <>
+                                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                Generando...
+                            </>
+                        ) : (
+                            <>
+                                <Download size={16} />
+                                Descargar Excel
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
         </div>
     );
