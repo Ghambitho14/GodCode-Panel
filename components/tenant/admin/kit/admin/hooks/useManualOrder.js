@@ -2,6 +2,9 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { formatRut, validateRut } from '../../shared/utils/formatters';
 import { validateImageFile } from '../../shared/utils/cloudinary';
 import { createManualOrder } from '../../orders/services/orders';
+import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
+import { buildCouponPreview } from '@/lib/discount-coupon';
 
 const initialOrderState = {
     client_name: 'CAJA',
@@ -13,7 +16,18 @@ const initialOrderState = {
     order_type: 'pickup',
     delivery_address: '',
     delivery_fee: 0,
-    note: ''
+    note: '',
+    coupon_code: '',
+};
+
+const PREVIEW_ERR_MSG = {
+    empty: '',
+    invalid_coupon: 'Código no válido o cupón desactivado.',
+    coupon_expired: 'Este cupón no está vigente.',
+    coupon_min_subtotal: 'El subtotal no alcanza el mínimo del cupón.',
+    coupon_wrong_client: 'Este cupón solo aplica con el teléfono del cliente autorizado.',
+    coupon_usage_exhausted: 'Este cupón ya no tiene usos disponibles.',
+    coupon_usage_exhausted_client: 'Este cupón ya fue usado con este teléfono.',
 };
 
 export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, branch) => {
@@ -22,6 +36,12 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     // Usar lazy initialization para evitar reset
     const [manualOrder, setManualOrder] = useState(() => initialOrderState);
     const [loading, setLoading] = useState(false);
+    const [couponPreview, setCouponPreview] = useState(() => ({
+        loading: false,
+        discount: 0,
+        message: '',
+        variant: 'neutral',
+    }));
 
     // --- ESTADOS DE VALIDACIÓN Y ARCHIVOS ---
     const [rutValid, setRutValid] = useState(true);
@@ -44,6 +64,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
 
     // --- MANEJADORES DE FORMULARIO ---
     const updateClientName = (val) => setManualOrder(prev => ({ ...prev, client_name: val }));
+    const updateCouponCode = (val) => setManualOrder(prev => ({ ...prev, coupon_code: typeof val === 'string' ? val : '' }));
     const updateNote = (val) => setManualOrder(prev => ({ ...prev, note: val }));
     const updateOrderType = (val) => setManualOrder(prev => ({ ...prev, order_type: val }));
     const updateDeliveryAddress = (val) => setManualOrder(prev => ({ ...prev, delivery_address: val }));
@@ -164,7 +185,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     }, [getPrice]);
 
     const resetOrder = useCallback(() => {
-        setManualOrder(initialOrderState);
+        setManualOrder({ ...initialOrderState });
+        setCouponPreview({ loading: false, discount: 0, message: '', variant: 'neutral' });
         setReceiptFile(null);
         setReceiptPreview(prev => {
             if (prev) URL.revokeObjectURL(prev);
@@ -173,6 +195,73 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
         setRutValid(true);
         setPhoneValid(true);
     }, []);
+
+    useEffect(() => {
+        if (!branch?.company_id) {
+            setCouponPreview((p) =>
+                (p.variant === 'neutral' && p.discount === 0 && !p.message && !p.loading)
+                    ? p
+                    : { loading: false, discount: 0, message: '', variant: 'neutral' },
+            );
+            return undefined;
+        }
+        const rawCode = String(manualOrder.coupon_code ?? '').trim();
+        if (!rawCode) {
+            setCouponPreview({ loading: false, discount: 0, message: '', variant: 'neutral' });
+            return undefined;
+        }
+        let cancelled = false;
+        const subtotalPreview = manualOrder.total;
+        setCouponPreview({ loading: true, discount: 0, message: '', variant: 'neutral' });
+        const tid = setTimeout(async () => {
+            try {
+                const pv = await buildCouponPreview({
+                    supabase,
+                    companyId: String(branch.company_id),
+                    rawCode,
+                    itemsSubtotal: subtotalPreview,
+                    clientPhone: String(manualOrder.client_phone ?? '').trim(),
+                    tablesCoupons: TABLES.discount_coupons,
+                    tablesClients: TABLES.clients,
+                    tablesRedemptions: TABLES.discount_coupon_redemptions,
+                });
+                if (cancelled) return;
+                if (!pv.ok) {
+                    setCouponPreview({
+                        loading: false,
+                        discount: 0,
+                        message: PREVIEW_ERR_MSG[pv.key] || 'No se pudo validar el cupón.',
+                        variant: 'error',
+                    });
+                    return;
+                }
+                setCouponPreview({
+                    loading: false,
+                    discount: pv.discount,
+                    message: pv.discount > 0 ? 'Cupón válido (estimado; confirma al crear el pedido).' : '',
+                    variant: pv.discount > 0 ? 'success' : 'neutral',
+                });
+            } catch {
+                if (!cancelled) {
+                    setCouponPreview({
+                        loading: false,
+                        discount: 0,
+                        message: 'No se pudo validar el cupón.',
+                        variant: 'error',
+                    });
+                }
+            }
+        }, 420);
+        return () => {
+            cancelled = true;
+            clearTimeout(tid);
+        };
+    }, [
+        branch?.company_id,
+        manualOrder.coupon_code,
+        manualOrder.total,
+        manualOrder.client_phone,
+    ]);
 
     // --- ENVÍO ---
     const submitOrder = async () => {
@@ -211,7 +300,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 branch_name: branch.name,
                 order_type: manualOrder.order_type,
                 delivery_address: manualOrder.order_type === 'delivery' ? sanitizeInput(manualOrder.delivery_address) : null,
-                manual_delivery_fee: manualOrder.order_type === 'delivery' ? manualOrder.delivery_fee : 0
+                manual_delivery_fee: manualOrder.order_type === 'delivery' ? manualOrder.delivery_fee : 0,
+                coupon_code: sanitizeInput(manualOrder.coupon_code) || '',
             };
 
             const itemsForOrder = (sanitizedOrder.items || []).map((item) => ({
@@ -270,6 +360,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
         receiptFile,
         receiptPreview,
         updateClientName,
+        updateCouponCode,
+        couponPreview,
         updateNote,
         updatePaymentType,
         handleRutChange,

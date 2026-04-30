@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, UserPlus, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, CreditCard, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag } from 'lucide-react';
 
 const SidebarIcon = ({ Icon, size }) => (
     <span className="nav-icon-slot">
@@ -94,6 +94,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 					{ id: 'menu_beverages', label: L.menu_beverages || 'Bebidas', icon: CupSoda },
 					{ id: 'menu_extras', label: L.menu_extras || 'Extras', icon: Sparkles },
 					{ id: 'menu_options', label: L.menu_options || 'Opciones de menú', icon: SlidersHorizontal },
+					{ id: 'coupons', label: L.coupons || 'Cupones', icon: Tag },
 					...menuModules.map((module) => ({
 						id: module.tabId,
 						label: L[module.tabId] || module.label,

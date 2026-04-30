@@ -583,3 +583,252 @@
 .admin-layout .modal-content .form-input::placeholder {
   color: var(--admin-text-muted, #64748b);
 }
+
+/* --- NUEVOS ESTILOS: TABS Y RECETAS (PREMIUM) --- */
+
+.modal-tabs-wrapper {
+  background: var(--admin-icon-bg, rgba(255, 255, 255, 0.02));
+  border-bottom: 1px solid var(--admin-border, rgba(255, 255, 255, 0.08));
+}
+
+.modal-tabs {
+  display: flex;
+  padding: 0 24px;
+  gap: 24px;
+}
+
+.modal-tab {
+  padding: 14px 0;
+  border: none;
+  background: none;
+  color: var(--admin-text-muted, rgba(255, 255, 255, 0.4));
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.modal-tab:hover {
+  color: var(--admin-text, #fff);
+}
+
+.modal-tab.active {
+  color: var(--accent-primary);
+}
+
+.modal-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 2px 2px 0 0;
+}
+
+.product-recipe-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.recipe-header h4 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.btn-add-recipe {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-recipe:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.recipe-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipe-line-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--admin-card-bg-elevated, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--admin-border, rgba(255, 255, 255, 0.08));
+  transition: all 0.2s;
+}
+
+.recipe-line-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipe-line-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr minmax(120px, 0.9fr) 40px;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.recipe-stock-hint {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+}
+
+.xs-label {
+  font-size: 0.75rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-bottom: 4px !important;
+}
+
+.input-with-unit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-unit .form-input {
+  padding-right: 48px;
+}
+
+.unit-label {
+  position: absolute;
+  right: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--admin-text-muted, rgba(255, 255, 255, 0.4));
+  pointer-events: none;
+}
+
+.btn-remove-recipe {
+  width: 40px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #ff4444;
+  border: 1px solid rgba(255, 68, 68, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-recipe:hover {
+  background: rgba(255, 68, 68, 0.1);
+  border-color: #ff4444;
+}
+
+.recipe-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  opacity: 0.6;
+  border: 1px dashed var(--admin-border, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+}
+
+.recipe-empty p {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.recipe-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: var(--text-secondary);
+}
+
+.mb-0 { margin-bottom: 0 !important; }
+
+/* Admin (Tema Claro) specific overrides for Recipes */
+.admin-layout .recipe-line-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-layout .recipe-line-card:hover {
+  background: #f1f5f9;
+}
+
+.admin-layout .unit-label {
+  color: #64748b;
+}
+
+.admin-layout .modal-tab {
+  color: #64748b;
+}
+
+.admin-layout .modal-tab:hover {
+  color: #0f172a;
+}
+
+.admin-layout .modal-tabs-wrapper {
+  background: #f8fafc;
+}
+
+/* Animaciones */
+.animate-fade {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 600px) {
+  .recipe-line-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .btn-remove-recipe {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .modal-tabs {
+    padding: 0 20px;
+    gap: 16px;
+  }
+}

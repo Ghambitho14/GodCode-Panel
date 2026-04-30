@@ -282,6 +282,7 @@ export async function PATCH(req: NextRequest) {
 			orderedIds?: string[];
 			bannerId?: string;
 			is_active?: boolean;
+			image_url?: string;
 			intervalMs?: number;
 			maxSlides?: number;
 			promotion_duration_enabled?: boolean;
@@ -436,6 +437,9 @@ export async function PATCH(req: NextRequest) {
 
 			if (typeof body.is_active === "boolean") {
 				patch.is_active = body.is_active;
+			}
+			if (typeof body.image_url === "string" && body.image_url.trim().length > 0) {
+				patch.image_url = body.image_url.trim();
 			}
 
 			const promoFieldsSent =

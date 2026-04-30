@@ -1,5 +1,11 @@
 import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
 import { uploadImage } from '../../shared/utils/cloudinary';
+import {
+    computeCouponDiscountAmount,
+    fetchActiveCouponByCode,
+    normalizeCouponCode,
+} from '@/lib/discount-coupon';
 import {
     computeDeliveryFee,
     effectiveDeliveryPricingMode,
@@ -296,7 +302,26 @@ export const ordersService = {
             const itemsSubtotal = Math.round(calculatedItemsTotal * 100) / 100;
             // La RPC valida precios de ítems contra la BD y exige coherencia con el subtotal de productos
             // (sin incluir el cargo de envío; el envío se confirma después en /api/public-order-delivery).
-            const totalForRpc = itemsSubtotal;
+            // Con cupón: p_total = subtotal − descuento (misma regla que la RPC); el cupón se valida de nuevo en servidor.
+            const normCoupon = normalizeCouponCode(orderData.coupon_code);
+            let totalForRpc = itemsSubtotal;
+            let pCouponCode = null;
+            if (normCoupon) {
+                pCouponCode = normCoupon;
+                if (!orderData.company_id) {
+                    throw new Error('Falta empresa para validar el cupón.');
+                }
+                const couponRow = await fetchActiveCouponByCode(
+                    supabase,
+                    String(orderData.company_id),
+                    normCoupon,
+                    TABLES.discount_coupons,
+                );
+                if (couponRow) {
+                    const couponDisc = computeCouponDiscountAmount(itemsSubtotal, couponRow);
+                    totalForRpc = Math.round(Math.max(0, itemsSubtotal - couponDisc) * 100) / 100;
+                }
+            }
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -326,6 +351,8 @@ export const ordersService = {
             const clientRut = String(orderData.client_rut ?? orderData.client_document ?? '').trim();
 
             // 3. EJECUTAR TRANSACCIÓN ATÓMICA (RPC)
+            // Inventario: confirmar en Supabase que esta RPC descuenta product_inventory_recipe.qty_per_sale
+            // multiplicado por la cantidad vendida de cada producto; si no, ajustar la función en SQL.
             const { data: newOrder, error: orderError } = await supabase.rpc('create_order_transaction', {
                 p_client_name: orderData.client_name,
                 p_client_phone: orderData.client_phone,
@@ -338,11 +365,30 @@ export const ordersService = {
                 p_note: finalNote,
                 p_branch_id: orderData.branch_id,
                 p_company_id: orderData.company_id || null,
-                p_status: orderData.status || 'pending'
+                p_status: orderData.status || 'pending',
+                p_coupon_code: pCouponCode,
             });
 
             if (orderError) {
                 const rpcMessage = String(orderError.message || '').toLowerCase();
+                if (rpcMessage.includes('invalid_coupon')) {
+                    throw new Error('El código de descuento no es válido.');
+                }
+                if (rpcMessage.includes('coupon_expired')) {
+                    throw new Error('Este cupón no está vigente.');
+                }
+                if (rpcMessage.includes('coupon_min_subtotal')) {
+                    throw new Error('El subtotal del pedido no alcanza el mínimo de este cupón.');
+                }
+                if (rpcMessage.includes('coupon_wrong_client')) {
+                    throw new Error('Este cupón solo aplica si el teléfono coincide con el cliente autorizado.');
+                }
+                if (rpcMessage.includes('coupon_usage_exhausted')) {
+                    throw new Error('Este cupón ya no tiene usos disponibles.');
+                }
+                if (rpcMessage.includes('coupon_usage_exhausted_client')) {
+                    throw new Error('Este cupón ya fue usado con este teléfono.');
+                }
                 if (rpcMessage.includes('invalid_item_price')) {
                     throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
                 }

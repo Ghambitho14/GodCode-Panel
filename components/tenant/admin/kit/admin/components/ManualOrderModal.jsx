@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'r
 import {
     X, Search, Plus, User, ShoppingBag, Minus, Trash2,
     CreditCard, CheckCircle2, Store, Receipt, MessageCircle, Printer,
-    Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles, MapPin, Truck
+    Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles, MapPin, Truck, Tag,
 } from 'lucide-react';
 import { formatCurrency } from '../../shared/utils/formatters';
 const logo = '/tenant/logo-placeholder.svg';
@@ -118,7 +118,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
-        updateClientName, updateNote, updatePaymentType, handleRutChange,
+        updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
         updateOrderType, updateDeliveryAddress, updateDeliveryFee,
         submitOrder, resetOrder, getInputStyle
@@ -747,13 +747,81 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         </div>
     );
 
+    const deliveryFeeAmt = manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
+    const grossItems = manualOrder.total;
+    const couponDiscountApplied =
+        couponPreview?.variant === 'success' && Number(couponPreview.discount) > 0
+            ? Math.min(grossItems, Number(couponPreview.discount))
+            : 0;
+    const totalToPay = Math.max(0, grossItems - couponDiscountApplied + deliveryFeeAmt);
+
     const footerSection = (
         <div className="manual-order-footer">
-            <div className="manual-order-total">
-                <span className="manual-order-total-label">TOTAL A PAGAR</span>
-                <span className="manual-order-total-amount">
-                    {formatCurrency(manualOrder.total + (manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0))}
-                </span>
+            <div
+                style={{
+                    marginBottom: '0.65rem',
+                    padding: '0.65rem 0.75rem',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(148,163,184,0.35)',
+                    background: 'rgba(248,250,252,0.9)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.4rem',
+                }}
+            >
+                <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.04em', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Tag size={13} aria-hidden /> CÓDIGO DE DESCUENTO (OPC.)
+                </div>
+                <input
+                    type="text"
+                    className="form-input"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={manualOrder.coupon_code ?? ''}
+                    onChange={(e) => updateCouponCode(e.target.value)}
+                    placeholder="Ej. PROMO15"
+                    style={{ width: '100%', fontSize: '0.9rem', padding: '0.45rem 0.55rem' }}
+                />
+                {couponPreview?.loading ? (
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>Validando código…</span>
+                ) : null}
+                {couponPreview?.message ? (
+                    <span
+                        style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: couponPreview.variant === 'error' ? '#b91c1c' : couponPreview.variant === 'success' ? '#15803d' : '#64748b',
+                        }}
+                    >
+                        {couponPreview.message}
+                    </span>
+                ) : null}
+            </div>
+            <div className="manual-order-total" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.25rem' }}>
+                {couponDiscountApplied > 0 ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                        <span>Artículos</span>
+                        <span>{formatCurrency(grossItems)}</span>
+                    </div>
+                ) : null}
+                {couponDiscountApplied > 0 ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#15803d' }}>
+                        <span>Descuento (cupón)</span>
+                        <span>−{formatCurrency(couponDiscountApplied)}</span>
+                    </div>
+                ) : null}
+                {deliveryFeeAmt > 0 ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                        <span>Delivery</span>
+                        <span>{formatCurrency(deliveryFeeAmt)}</span>
+                    </div>
+                ) : null}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem' }}>
+                    <span className="manual-order-total-label">TOTAL A PAGAR</span>
+                    <span className="manual-order-total-amount">
+                        {formatCurrency(totalToPay)}
+                    </span>
+                </div>
             </div>
 
             {/* Métodos de pago */}

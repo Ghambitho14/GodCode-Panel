@@ -21,4 +21,6 @@ export const TABLES = Object.freeze({
   inventory_movements: 'inventory_movements',
   product_inventory_recipe: 'product_inventory_recipe',
   hero_banners: 'hero_banners',
+  discount_coupons: 'discount_coupons',
+  discount_coupon_redemptions: 'discount_coupon_redemptions',
 });

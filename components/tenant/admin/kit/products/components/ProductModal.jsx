@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign, Plus } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
+import { getInputUnitOptions, recipeUnitSelectLabel, toNativeQty } from '@/lib/recipe-units';
 
 const DISH_KIND_PRESETS = ['Plato principal', 'Acompañamiento', 'Entrada', 'Postre', 'Bebida (carta)', 'Otro'];
 
@@ -15,10 +18,11 @@ const INITIAL_STATE = {
   is_special: false,
   has_discount: false,
   discount_price: '',
-  image_url: ''
+  image_url: '',
+  recipe: [] // Array of { inventory_item_id, qty_per_sale }
 };
 
-const ProductModal = React.memo(({ onClose, onSave, product, categories, saving = false }) => {
+const ProductModal = React.memo(({ onClose, onSave, product, categories, inventoryItems = [], saving = false, companyId = null }) => {
   const fileInputRef = useRef();
   const nameInputRef = useRef();
 
@@ -46,6 +50,60 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
   const [isDragging, setIsDragging] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState('info'); // 'info' or 'recipe'
+  const [recipeLines, setRecipeLines] = useState([]);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+
+  useEffect(() => {
+    if (!companyId || !product?.id) {
+      setRecipeLines([]);
+      setLoadingRecipe(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRecipe(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from(TABLES.product_inventory_recipe)
+        .select('inventory_item_id, qty_per_sale')
+        .eq('product_id', product.id)
+        .eq('company_id', companyId);
+      if (cancelled) return;
+      setLoadingRecipe(false);
+      if (error) {
+        console.warn('product_inventory_recipe:', error);
+        setRecipeLines([]);
+        return;
+      }
+      const rows = data || [];
+      setRecipeLines(
+        rows.map((row) => ({
+          inventory_item_id: row.inventory_item_id,
+          qty_per_sale: Number(row.qty_per_sale) || 0,
+          input_unit: 'un',
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, product?.id]);
+
+  useEffect(() => {
+    if (!inventoryItems.length) return;
+    setRecipeLines((prev) =>
+      prev.map((line) => {
+        if (!line.inventory_item_id) return line;
+        const item = inventoryItems.find(
+          (i) => String(i.id) === String(line.inventory_item_id),
+        );
+        const native = item?.unit || 'un';
+        const opts = getInputUnitOptions(native);
+        const input_unit = opts.includes(line.input_unit) ? line.input_unit : native;
+        return { ...line, input_unit };
+      }),
+    );
+  }, [inventoryItems]);
 
   // Auto-foco al montar
   useEffect(() => {
@@ -133,8 +191,60 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!validate()) return;
-    onSave(formData, localFile);
+    if (!validate()) {
+      setActiveTab('info');
+      return;
+    }
+    const recipePayload = recipeLines
+      .filter((line) => line.inventory_item_id && String(line.inventory_item_id).trim())
+      .map((line) => {
+        const item = inventoryItems.find(
+          (i) => String(i.id) === String(line.inventory_item_id),
+        );
+        const nativeUnit = item?.unit || 'un';
+        const qtyNative = toNativeQty(
+          Number(line.qty_per_sale),
+          line.input_unit || nativeUnit,
+          nativeUnit,
+        );
+        return { inventory_item_id: line.inventory_item_id, qty_per_sale: qtyNative };
+      })
+      .filter((r) => r.qty_per_sale > 0);
+
+    onSave({ ...formData, recipe: recipePayload }, localFile);
+  };
+
+  const addRecipeLine = () => {
+    setRecipeLines(prev => [...prev, { inventory_item_id: '', qty_per_sale: '', input_unit: 'un' }]);
+    setIsDirty(true);
+  };
+
+  const removeRecipeLine = (index) => {
+    setRecipeLines(prev => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
+  };
+
+  const updateRecipeLine = (index, field, value) => {
+    setRecipeLines(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+    setIsDirty(true);
+  };
+
+  const onRecipeInventoryChange = (index, itemId) => {
+    const item = inventoryItems.find((i) => String(i.id) === String(itemId));
+    const native = item?.unit || 'un';
+    const opts = getInputUnitOptions(native);
+    setRecipeLines((prev) => {
+      const next = [...prev];
+      const cur = next[index];
+      const input_unit = opts.some((o) => o === cur.input_unit) ? cur.input_unit : native;
+      next[index] = { ...cur, inventory_item_id: itemId, input_unit };
+      return next;
+    });
+    setIsDirty(true);
   };
 
   return (
@@ -152,179 +262,261 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
           </button>
         </header>
 
+        {/* TABS ELEGANTES */}
+        <div className="modal-tabs-wrapper">
+          <div className="modal-tabs">
+            <button 
+              type="button" 
+              className={`modal-tab ${activeTab === 'info' ? 'active' : ''}`}
+              onClick={() => setActiveTab('info')}
+            >
+              Detalles Generales
+            </button>
+            <button 
+              type="button" 
+              className={`modal-tab ${activeTab === 'recipe' ? 'active' : ''}`}
+              onClick={() => setActiveTab('recipe')}
+            >
+              Mermas / Inventario
+            </button>
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} autoComplete="off">
           <div className="modal-form-scroll">
-            
-            {/* SECCIÓN IMAGEN (DRAG & DROP MEJORADO) */}
-            <div 
-              className={`product-image-section ${isDragging ? 'dragging' : ''} ${errors.image ? 'error-border' : ''}`}
-              onDragOver={e => handleDragEvents(e, true)}
-              onDragLeave={e => handleDragEvents(e, false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept="image/*" 
-                className="hidden" 
-                style={{display:'none'}} 
-              />
-              
-              {previewUrl ? (
-                <div className="image-preview-container">
-                  <Image src={previewUrl} alt="Preview" className="image-preview" width={400} height={300} unoptimized />
-                  <div className="image-overlay">
-                    <button type="button" className="btn-icon-overlay" onClick={clearImage} title="Eliminar imagen">
-                      <Trash2 size={18} />
-                    </button>
-                    <span className="overlay-text">Click para cambiar</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="dropzone-placeholder">
-                  <div className="icon-circle">
-                    <ImageIcon size={28} />
-                  </div>
-                  <p className="drop-text">Arrastra una imagen o <span>haz click aquí</span></p>
-                  <p className="drop-hint">JPG, PNG, WEBP (Máx 20MB)</p>
-                </div>
-              )}
-            </div>
-
-            {/* CAMPOS PRINCIPALES */}
-            <div className="form-group">
-              <label>Nombre del Plato <span className="req">*</span></label>
-              <input
-                ref={nameInputRef}
-                className={`form-input ${errors.name ? 'error' : ''}`}
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Ej: Roll Acevichado Premium"
-              />
-              {errors.name && <span className="error-text">{errors.name}</span>}
-            </div>
-
-            <div className="form-row two-col">
-              <div className="form-group">
-                <label>Precio Normal ($) <span className="req">*</span></label>
-                <input
-                  type="number"
-                  className={`form-input ${errors.price ? 'error' : ''}`}
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="0"
-                  min="0"
-                />
-                {errors.price && <span className="error-text">{errors.price}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Categoría <span className="req">*</span></label>
-                <select
-                  className={`form-input ${errors.category_id ? 'error' : ''}`}
-                  name="category_id"
-                  value={formData.category_id}
-                  onChange={handleChange}
+            {activeTab === 'info' ? (
+              <div className="animate-fade">
+                {/* SECCIÓN IMAGEN (DRAG & DROP MEJORADO) */}
+                <div 
+                  className={`product-image-section ${isDragging ? 'dragging' : ''} ${errors.image ? 'error-border' : ''}`}
+                  onDragOver={e => handleDragEvents(e, true)}
+                  onDragLeave={e => handleDragEvents(e, false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <option value="" disabled>Selecciona...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-                {errors.category_id && <span className="error-text">{errors.category_id}</span>}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="product-dish-kind">Tipo de plato (opcional)</label>
-              <input
-                id="product-dish-kind"
-                className="form-input"
-                name="dish_kind"
-                value={formData.dish_kind}
-                onChange={handleChange}
-                list="product-dish-kind-presets"
-                placeholder="Ej. Plato principal"
-                maxLength={64}
-                autoComplete="off"
-              />
-              <datalist id="product-dish-kind-presets">
-                {DISH_KIND_PRESETS.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-              <p className="form-hint" style={{ marginTop: 6, marginBottom: 0 }}>
-                Independiente de la categoría del menú; útil para organizar la carta.
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label>Descripción</label>
-              <textarea
-                className="form-input"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows="3"
-                placeholder="Ingredientes, alérgenos, detalles..."
-              />
-            </div>
-
-            {/* SWITCHES MODERNOS */}
-            <div className="switches-container">
-              
-              {/* Switch Especial */}
-              <label className={`custom-switch ${formData.is_special ? 'active' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  name="is_special" 
-                  checked={formData.is_special} 
-                  onChange={handleChange} 
-                />
-                <div className="switch-content">
-                  <span className="switch-title">Destacar como Especial</span>
-                  <span className="switch-desc">Aparecerá con una estrella en el menú</span>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    accept="image/*" 
+                    className="hidden" 
+                    style={{display:'none'}} 
+                  />
+                  
+                  {previewUrl ? (
+                    <div className="image-preview-container">
+                      <Image src={previewUrl} alt="Preview" className="image-preview" width={400} height={300} unoptimized />
+                      <div className="image-overlay">
+                        <button type="button" className="btn-icon-overlay" onClick={clearImage} title="Eliminar imagen">
+                          <Trash2 size={18} />
+                        </button>
+                        <span className="overlay-text">Click para cambiar</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="dropzone-placeholder">
+                      <div className="icon-circle">
+                        <ImageIcon size={28} />
+                      </div>
+                      <p className="drop-text">Arrastra una imagen o <span>haz click aquí</span></p>
+                      <p className="drop-hint">JPG, PNG, WEBP (Máx 20MB)</p>
+                    </div>
+                  )}
                 </div>
-              </label>
 
-              {/* Switch Descuento */}
-              <label className={`custom-switch ${formData.has_discount ? 'active-green' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  name="has_discount" 
-                  checked={formData.has_discount} 
-                  onChange={handleChange} 
-                />
-                <div className="switch-content">
-                  <span className="switch-title">Activar Oferta</span>
-                  <span className="switch-desc">Mostrará un precio rebajado</span>
-                </div>
-              </label>
-            </div>
-
-            {/* INPUT CONDICIONAL DE DESCUENTO CON ANIMACIÓN */}
-            {formData.has_discount && (
-              <div className="form-group animate-slide-down">
-                <label className="text-success">Precio Oferta ($) <span className="req">*</span></label>
-                <div className="input-with-icon">
-                  <DollarSign size={16} className="input-icon" />
+                {/* CAMPOS PRINCIPALES */}
+                <div className="form-group">
+                  <label>Nombre del Plato <span className="req">*</span></label>
                   <input
-                    type="number"
-                    className={`form-input ${errors.discount_price ? 'error' : ''}`}
-                    name="discount_price"
-                    value={formData.discount_price}
+                    ref={nameInputRef}
+                    className={`form-input ${errors.name ? 'error' : ''}`}
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
-                    placeholder="Debe ser menor al precio normal"
+                    placeholder="Ej: Roll Acevichado Premium"
+                  />
+                  {errors.name && <span className="error-text">{errors.name}</span>}
+                </div>
+
+                <div className="form-row two-col">
+                  <div className="form-group">
+                    <label>Precio Normal ($) <span className="req">*</span></label>
+                    <input
+                      type="number"
+                      className={`form-input ${errors.price ? 'error' : ''}`}
+                      name="price"
+                      value={formData.price}
+                      onChange={handleChange}
+                      placeholder="0"
+                      min="0"
+                    />
+                    {errors.price && <span className="error-text">{errors.price}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Categoría <span className="req">*</span></label>
+                    <select
+                      className={`form-input ${errors.category_id ? 'error' : ''}`}
+                      name="category_id"
+                      value={formData.category_id}
+                      onChange={handleChange}
+                    >
+                      <option value="" disabled>Selecciona...</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                    {errors.category_id && <span className="error-text">{errors.category_id}</span>}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Descripción</label>
+                  <textarea
+                    className="form-input"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    rows="3"
+                    placeholder="Ingredientes, alérgenos, detalles..."
                   />
                 </div>
-                {errors.discount_price && <span className="error-text">{errors.discount_price}</span>}
+
+                {/* SWITCHES MODERNOS */}
+                <div className="switches-container">
+                  <label className={`custom-switch ${formData.is_special ? 'active' : ''}`}>
+                    <input type="checkbox" name="is_special" checked={formData.is_special} onChange={handleChange} />
+                    <div className="switch-content">
+                      <span className="switch-title">Destacar como Especial</span>
+                      <span className="switch-desc">Aparecerá con una estrella en el menú</span>
+                    </div>
+                  </label>
+
+                  <label className={`custom-switch ${formData.has_discount ? 'active-green' : ''}`}>
+                    <input type="checkbox" name="has_discount" checked={formData.has_discount} onChange={handleChange} />
+                    <div className="switch-content">
+                      <span className="switch-title">Activar Oferta</span>
+                      <span className="switch-desc">Mostrará un precio rebajado</span>
+                    </div>
+                  </label>
+                </div>
+
+                {formData.has_discount && (
+                  <div className="form-group animate-slide-down">
+                    <label className="text-success">Precio Oferta ($) <span className="req">*</span></label>
+                    <div className="input-with-icon">
+                      <DollarSign size={16} className="input-icon" />
+                      <input
+                        type="number"
+                        className={`form-input ${errors.discount_price ? 'error' : ''}`}
+                        name="discount_price"
+                        value={formData.discount_price}
+                        onChange={handleChange}
+                        placeholder="Debe ser menor al precio normal"
+                      />
+                    </div>
+                    {errors.discount_price && <span className="error-text">{errors.discount_price}</span>}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="animate-fade product-recipe-section">
+                <div className="recipe-header">
+                  <div>
+                    <h4 className="fw-600">Receta / Consumo por venta</h4>
+                    <p className="form-hint">
+                      Cada vez que se venda este plato, se descontarán estos insumos. El stock del insumo está en su unidad
+                      nativa; puedes escribir la cantidad en otra unidad compatible (p. ej. gramos si el stock está en kg).
+                    </p>
+                  </div>
+                  <button type="button" onClick={addRecipeLine} className="btn-add-recipe">
+                    <Plus size={16} /> Agregar Insumo
+                  </button>
+                </div>
+
+                {loadingRecipe ? (
+                  <div className="recipe-loading">
+                    <Loader2 size={24} className="animate-spin" />
+                    <span>Cargando receta...</span>
+                  </div>
+                ) : (
+                  <div className="recipe-lines">
+                    {recipeLines.length === 0 ? (
+                      <div className="recipe-empty">
+                        <p>No hay insumos vinculados a este plato.</p>
+                        <button type="button" onClick={addRecipeLine} className="btn btn-outline">Vincular primer insumo</button>
+                      </div>
+                    ) : (
+                      recipeLines.map((line, idx) => {
+                        const sel = inventoryItems.find((i) => String(i.id) === String(line.inventory_item_id));
+                        const nativeUnit = sel?.unit || 'un';
+                        const unitOpts = sel ? getInputUnitOptions(nativeUnit) : getInputUnitOptions('un');
+                        const stockHint =
+                          sel && sel.stock != null && Number.isFinite(Number(sel.stock))
+                            ? `Stock en esta sucursal: ${Number(sel.stock).toLocaleString('es-CL', { maximumFractionDigits: 4 })} ${nativeUnit}`
+                            : sel
+                              ? 'Sin fila de stock en esta sucursal; puedes vincular el insumo igualmente.'
+                              : null;
+                        return (
+                          <div key={idx} className="recipe-line-card glass animate-scale-in">
+                            <div className="recipe-line-grid">
+                              <div className="form-group mb-0">
+                                <label className="xs-label">Insumo</label>
+                                <select
+                                  className="form-input"
+                                  value={line.inventory_item_id}
+                                  onChange={(e) => onRecipeInventoryChange(idx, e.target.value)}
+                                >
+                                  <option value="">Selecciona...</option>
+                                  {inventoryItems.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                      {item.name} ({item.unit})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="form-group mb-0">
+                                <label className="xs-label">Cantidad por venta</label>
+                                <input
+                                  type="number"
+                                  step="any"
+                                  min="0"
+                                  className="form-input"
+                                  value={line.qty_per_sale}
+                                  onChange={(e) => updateRecipeLine(idx, 'qty_per_sale', e.target.value)}
+                                  placeholder="Ej. 500"
+                                />
+                              </div>
+                              <div className="form-group mb-0">
+                                <label className="xs-label">Cantidad en</label>
+                                <select
+                                  className="form-input"
+                                  value={line.input_unit || nativeUnit}
+                                  onChange={(e) => updateRecipeLine(idx, 'input_unit', e.target.value)}
+                                  disabled={!line.inventory_item_id}
+                                >
+                                  {unitOpts.map((u) => (
+                                    <option key={u} value={u}>
+                                      {recipeUnitSelectLabel(u)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button type="button" className="btn-remove-recipe" onClick={() => removeRecipeLine(idx)} aria-label="Quitar línea">
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                            {stockHint ? (
+                              <p className="form-hint recipe-stock-hint">{stockHint}</p>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             )}
-
           </div>
 
           {/* FOOTER */}

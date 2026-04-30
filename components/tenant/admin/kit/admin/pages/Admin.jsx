@@ -36,8 +36,10 @@ const AdminPaymentMethods = React.lazy(() => import('../components/AdminPaymentM
 const AdminMenuOptions = React.lazy(() => import('../components/AdminMenuOptions'));
 const AdminMenuBeverages = React.lazy(() => import('../components/AdminMenuBeverages'));
 const AdminMenuExtras = React.lazy(() => import('../components/AdminMenuExtras'));
+const AdminCoupons = React.lazy(() => import('../components/AdminCoupons'));
 
 import { supabase } from '../../lib/supabase';
+import { TABLES } from '../../lib/supabaseTables';
 import { AdminProvider, useAdmin } from './AdminProvider';
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
@@ -109,6 +111,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     lastDataRefreshAt,
     loading,
     inventoryBranchRows,
+    companyId,
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
@@ -133,6 +136,47 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     const fallback = (branches || []).find(b => b.id !== 'all' && b.company_id);
     return fallback?.company_id || null;
   }, [selectedBranch, branches]);
+
+  const [recipeInventoryItems, setRecipeInventoryItems] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!companyId || !isModalOpen) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from(TABLES.inventory_items)
+        .select('id, name, unit')
+        .eq('company_id', companyId)
+        .order('name');
+      if (cancelled) return;
+      if (error) {
+        console.warn('recipe inventory_items:', error);
+        setRecipeInventoryItems([]);
+        return;
+      }
+      setRecipeInventoryItems(data || []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, isModalOpen]);
+
+  const productRecipeInventoryOptions = React.useMemo(() => {
+    const stockMap = new Map(
+      (inventoryBranchRows || []).map((r) => [
+        String(r.inventory_item_id).toLowerCase(),
+        r.current_stock,
+      ]),
+    );
+    return (recipeInventoryItems || []).map((it) => ({
+      id: it.id,
+      name: String(it.name ?? '').trim() || 'Sin nombre',
+      unit: String(it.unit ?? 'un').trim() || 'un',
+      stock: stockMap.has(String(it.id).toLowerCase())
+        ? Number(stockMap.get(String(it.id).toLowerCase()))
+        : null,
+    }));
+  }, [recipeInventoryItems, inventoryBranchRows]);
 
   const [dragCategoryId, setDragCategoryId] = React.useState(null);
   const [dragOverCategoryId, setDragOverCategoryId] = React.useState(null);
@@ -877,6 +921,14 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </AdminErrorBoundary>
         )}
 
+        {activeTab === 'coupons' && (
+          <AdminErrorBoundary tabLabel={tabLabels.coupons || 'Cupones'} onRetry={() => loadData(true)}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminCoupons showNotify={showNotify} companyId={companyIdForClients} />
+            </React.Suspense>
+          </AdminErrorBoundary>
+        )}
+
         {/* EQUIPO (solo CEO): toolbar + tabla + modales bajo un mismo boundary */}
         {activeTab === 'users' && (
           <AdminErrorBoundary tabLabel={tabLabels.users || 'Equipo'} onRetry={() => void fetchTeamUsers()}>
@@ -1423,12 +1475,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       />
 
       {isModalOpen && (
-        <ProductModal 
-          onClose={() => setIsModalOpen(false)} 
-          onSave={handleSaveProduct} 
-          product={editingProduct} 
-          categories={categories} 
+        <ProductModal
+          key={`product-modal-${editingProduct?.id ?? 'new'}`}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSaveProduct}
+          product={editingProduct}
+          categories={categories}
           saving={refreshing}
+          companyId={companyId}
+          inventoryItems={productRecipeInventoryOptions}
         />
       )}
 

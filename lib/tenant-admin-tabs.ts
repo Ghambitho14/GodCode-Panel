@@ -18,6 +18,7 @@
  * 1. Añadirla en TENANT_ADMIN_TAB_OPTIONS y en DEFAULT_ROLE_NAV_PERMISSIONS si aplica.
  * 2. AdminSidebar + Admin.jsx.
  * 3. Actualizar el gestor del SaaS para mostrar/guardar el mismo `id`.
+ *    Incluir también el id en `panelAccess` / configuración de tema si la empresa debe ver la pestaña (`coupons`, etc.).
  */
 
 /** Roles de panel que suelen configurarse en theme_config (referencia para el SaaS). */
@@ -37,6 +38,7 @@ export const TENANT_ADMIN_TAB_OPTIONS = [
 	{ id: "clients", label: "Clientes" },
 	{ id: "users", label: "Equipo" },
 	{ id: "payment_methods", label: "Métodos de pago" },
+	{ id: "coupons", label: "Cupones" },
 ] as const;
 
 export const TENANT_ADMIN_TAB_IDS = TENANT_ADMIN_TAB_OPTIONS.map((t) => t.id);

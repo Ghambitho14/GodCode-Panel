@@ -704,6 +704,36 @@ export const AdminProvider = ({
 				.eq('id', productId)
 				.eq('company_id', companyId);
 			if (dishErr) console.warn('dish_kind:', dishErr);
+
+			// --- NUEVA LÓGICA DE RECETAS (BILL OF MATERIALS) ---
+			if (Array.isArray(formData.recipe)) {
+				// 1. Eliminar receta anterior
+				const { error: delErr } = await supabase
+					.from('product_inventory_recipe')
+					.delete()
+					.eq('product_id', productId)
+					.eq('company_id', companyId);
+				
+				if (delErr) console.warn('recipe delete:', delErr);
+
+				// 2. Insertar nueva receta (solo líneas válidas)
+				const rowsToInsert = formData.recipe
+					.filter(r => r.inventory_item_id && (Number(r.qty_per_sale) || 0) > 0)
+					.map(r => ({
+						product_id: productId,
+						inventory_item_id: r.inventory_item_id,
+						qty_per_sale: Number(r.qty_per_sale) || 0,
+						company_id: companyId
+					}));
+
+				if (rowsToInsert.length > 0) {
+					const { error: insErr } = await supabase
+						.from('product_inventory_recipe')
+						.insert(rowsToInsert);
+					if (insErr) console.warn('recipe insert:', insErr);
+				}
+			}
+
 			showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
 			setIsModalOpen(false);
 			loadData(true);
@@ -923,6 +953,7 @@ export const AdminProvider = ({
 	}), [products]);
 
 	const value = useMemo(() => ({
+		companyId,
 		navigate,
 		activeTab, setActiveTab: setActiveTabWithGuard,
 		products, setProducts,
@@ -992,6 +1023,7 @@ export const AdminProvider = ({
 		setProductToDelete,
 		confirmDeleteProduct,
 	}), [
+		companyId,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
 		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, sortOrder,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,

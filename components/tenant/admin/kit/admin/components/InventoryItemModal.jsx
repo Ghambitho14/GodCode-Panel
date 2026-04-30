@@ -61,10 +61,8 @@ const InventoryItemModal = ({
 		stock: 0,
 		unit: "un",
 		min_stock: 5,
-		category: "",
 		item_type: "kitchen",
 		beverage_kind: "",
-		tagsInput: "",
 		cost_per_unit: 0,
 		adjustment_note: "",
 	});
@@ -79,10 +77,8 @@ const InventoryItemModal = ({
 				stock: finiteNum(itemToEdit.stock, 0),
 				unit: itemToEdit.unit || "un",
 				min_stock: finiteNum(itemToEdit.min_stock, 0),
-				category: itemToEdit.category || "",
 				item_type: it,
 				beverage_kind: itemToEdit.beverage_kind || "",
-				tagsInput: tagsToInput(itemToEdit.tags),
 				cost_per_unit: finiteNum(itemToEdit.cost_per_unit, 0),
 				adjustment_note: "",
 			});
@@ -108,10 +104,8 @@ const InventoryItemModal = ({
 				stock: 0,
 				unit: "un",
 				min_stock: 5,
-				category: presetCat,
 				item_type: presetType,
 				beverage_kind: presetType === "beverage" ? presetBevKind : "",
-				tagsInput: "",
 				cost_per_unit: 0,
 				adjustment_note: "",
 			});
@@ -138,7 +132,6 @@ const InventoryItemModal = ({
 		try {
 			let itemId = itemToEdit?.id;
 
-			const tags = parseTagsInput(formData.tagsInput);
 			const item_type = ITEM_TYPES.some((t) => t.id === formData.item_type) ? formData.item_type : "kitchen";
 			const beverage_kind =
 				item_type === "beverage" && String(formData.beverage_kind || "").trim()
@@ -149,11 +142,11 @@ const InventoryItemModal = ({
 				name: formData.name,
 				unit: formData.unit,
 				min_stock: finiteNum(formData.min_stock, 0),
-				category: formData.category,
+				category: "", // Se elimina del UI, enviamos vacío
 				cost_per_unit: finiteNum(formData.cost_per_unit, 0),
 				item_type,
 				beverage_kind,
-				tags,
+				tags: [], // Se elimina del UI, enviamos vacío
 			};
 
 			const relevantBranches =
@@ -339,16 +332,6 @@ const InventoryItemModal = ({
 							</div>
 						) : null}
 
-						<div className="form-group">
-							<label htmlFor="inv-tags">Etiquetas (opcional)</label>
-							<input
-								id="inv-tags"
-								className="form-input"
-								value={formData.tagsInput}
-								onChange={(e) => setFormData({ ...formData, tagsInput: e.target.value })}
-								placeholder="exclusivo, sin_azúcar (separadas por coma)"
-							/>
-						</div>
 
 						<div className="inventory-form-row-2">
 							<div className="form-group">
@@ -356,13 +339,10 @@ const InventoryItemModal = ({
 								<input
 									id="inv-item-stock"
 									type="number"
+									step="any"
 									className="form-input"
-									value={finiteNum(formData.stock, 0)}
-									onChange={(e) => {
-										const v = e.target.value;
-										const n = v === "" ? 0 : parseFloat(v);
-										setFormData({ ...formData, stock: Number.isFinite(n) ? n : 0 });
-									}}
+									value={formData.stock}
+									onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
 								/>
 							</div>
 							<div className="form-group">
@@ -373,58 +353,25 @@ const InventoryItemModal = ({
 									className="form-input"
 									min={0}
 									step="any"
-									value={finiteNum(formData.cost_per_unit, 0)}
-									onChange={(e) => {
-										const v = e.target.value;
-										const n = v === "" ? 0 : parseFloat(v);
-										setFormData({ ...formData, cost_per_unit: Number.isFinite(n) ? n : 0 });
-									}}
+									value={formData.cost_per_unit}
+									onChange={(e) => setFormData({ ...formData, cost_per_unit: e.target.value })}
 								/>
 							</div>
 						</div>
-
-						<div className="inventory-form-row-2">
-							<div className="form-group">
-								<label htmlFor="inv-item-unit">Unidad</label>
-								<select
-									id="inv-item-unit"
-									className="form-select inventory-form-select"
-									value={formData.unit}
-									onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-								>
-									<option value="un">Unidades (un)</option>
-									<option value="kg">Kilos (kg)</option>
-									<option value="g">Gramos (g)</option>
-									<option value="lt">Litros (lt)</option>
-									<option value="ml">Mililitros (ml)</option>
-								</select>
-							</div>
-							<div className="form-group">
-								<label htmlFor="inv-item-category">Categoría (etiqueta libre)</label>
-								<input
-									id="inv-item-category"
-									className="form-input"
-									list={existingCategoryLabels.length > 0 ? categoryListId : undefined}
-									autoComplete="off"
-									value={formData.category}
-									onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-									placeholder="Escribe o elige una etiqueta existente…"
-								/>
-								{existingCategoryLabels.length > 0 ? (
-									<datalist id={categoryListId}>
-										{existingCategoryLabels.map((label) => (
-											<option key={label} value={label} />
-										))}
-									</datalist>
-								) : null}
-								<p className="form-hint inventory-form-hint">
-									{existingCategoryLabels.length > 0
-										? "Sugerencias desde insumos existentes y grupos del menú carrito (Menú → Bebidas/Extras) en esta sucursal. Puedes escribir una categoría nueva."
-										: branchId === "all"
-											? "Elige una sucursal concreta para sugerencias del menú carrito."
-											: "Añade categorías en otros insumos o configura grupos en Menú → Bebidas/Extras."}
-								</p>
-							</div>
+						<div className="form-group">
+							<label htmlFor="inv-item-unit">Unidad</label>
+							<select
+								id="inv-item-unit"
+								className="form-select inventory-form-select"
+								value={formData.unit}
+								onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+							>
+								<option value="un">Unidades (un)</option>
+								<option value="kg">Kilos (kg)</option>
+								<option value="g">Gramos (g)</option>
+								<option value="lt">Litros (lt)</option>
+								<option value="ml">Mililitros (ml)</option>
+							</select>
 						</div>
 
 						<div className="form-group">
@@ -432,13 +379,10 @@ const InventoryItemModal = ({
 							<input
 								id="inv-item-min"
 								type="number"
+								step="any"
 								className="form-input"
-								value={finiteNum(formData.min_stock, 0)}
-								onChange={(e) => {
-									const v = e.target.value;
-									const n = v === "" ? 0 : parseFloat(v);
-									setFormData({ ...formData, min_stock: Number.isFinite(n) ? n : 0 });
-								}}
+								value={formData.min_stock}
+								onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
 							/>
 						</div>
 

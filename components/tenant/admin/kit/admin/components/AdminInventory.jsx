@@ -23,12 +23,12 @@ import { TABLES } from "../../lib/supabaseTables";
 import InventoryItemModal from "./InventoryItemModal";
 import { downloadExcel } from "../../shared/utils/exportUtils";
 import { isTypingContext } from "../utils/keyboardAdmin";
+import { toNativeQty } from "@/lib/recipe-units";
 
 const SUB_TABS = [
 	{ id: "summary", label: "Resumen", icon: LayoutDashboard },
 	{ id: "supplies", label: "Insumos", icon: Package },
 	{ id: "movements", label: "Movimientos", icon: History },
-	{ id: "recipes", label: "Recetas", icon: ChefHat },
 ];
 
 function formatMovementType(t) {
@@ -131,7 +131,7 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 		const onKey = (e) => {
 			if (isModalOpen || recipeEditingProduct) return;
 			if (isTypingContext(e.target)) return;
-			const map = { 1: "summary", 2: "supplies", 3: "movements", 4: "recipes" };
+			const map = { 1: "summary", 2: "supplies", 3: "movements" };
 			const next = map[e.key];
 			if (!next) return;
 			e.preventDefault();
@@ -568,17 +568,26 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 	const openRecipeEditor = (product) => {
 		setRecipeEditingProduct(product);
 		const lines = recipesByProduct.get(product.id) || [];
+		const opts = companyInventoryItems.length > 0 ? companyInventoryItems : items;
 		setRecipeLines(
-			lines.map((l) => ({
-				id: l.id,
-				inventory_item_id: l.inventory_item_id,
-				qty_per_sale: Number(l.qty_per_sale) || 1,
-			})),
+			lines.map((l) => {
+				const item = opts.find((it) => String(it.id) === String(l.inventory_item_id));
+				const native = item?.unit || "un";
+				return {
+					id: l.id,
+					inventory_item_id: l.inventory_item_id,
+					qty_per_sale: Number(l.qty_per_sale) || 1,
+					input_unit: native,
+				};
+			}),
 		);
 	};
 
 	const addRecipeLine = () => {
-		setRecipeLines((prev) => [...prev, { id: null, inventory_item_id: "", qty_per_sale: 1 }]);
+		setRecipeLines((prev) => [
+			...prev,
+			{ id: null, inventory_item_id: "", qty_per_sale: 1, input_unit: "un" },
+		]);
 	};
 
 	const saveRecipes = async () => {
@@ -592,14 +601,24 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 				.eq("product_id", productId)
 				.eq("company_id", companyId);
 			if (delErr) throw delErr;
+			const itemOpts = recipeItemOptions;
 			const rows = recipeLines
 				.filter((l) => l.inventory_item_id && String(l.inventory_item_id).trim())
-				.map((l) => ({
-					company_id: companyId,
-					product_id: productId,
-					inventory_item_id: String(l.inventory_item_id).trim(),
-					qty_per_sale: Math.max(0.0001, Number(l.qty_per_sale) || 1),
-				}));
+				.map((l) => {
+					const inv = itemOpts.find((it) => String(it.id) === String(l.inventory_item_id));
+					const native = inv?.unit || "un";
+					const qtyNative = toNativeQty(
+						Number(l.qty_per_sale),
+						l.input_unit || native,
+						native,
+					);
+					return {
+						company_id: companyId,
+						product_id: productId,
+						inventory_item_id: String(l.inventory_item_id).trim(),
+						qty_per_sale: Math.max(0.0001, qtyNative || 0),
+					};
+				});
 			if (rows.length > 0) {
 				const { error: insErr } = await supabase.from(TABLES.product_inventory_recipe).insert(rows);
 				if (insErr) throw insErr;
@@ -862,12 +881,6 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 										</th>
 										<th>Tipo</th>
 										<th>
-											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("category")}>
-												Categoría {sortKey === "category" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</button>
-										</th>
-										<th>Etiquetas</th>
-										<th>
 											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
 												Stock {sortKey === "stock" ? (sortDir === "asc" ? "↑" : "↓") : ""}
 											</button>
@@ -929,17 +942,7 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 															<span className="inventory-beverage-kind"> · {item.beverage_kind}</span>
 														) : null}
 													</td>
-													<td>{item.category || "—"}</td>
-													<td className="inventory-td-tags">
-														{Array.isArray(item.tags) && item.tags.length > 0
-															? item.tags.map((t) => (
-																	<span key={t} className="inventory-tag-pill">
-																		{t}
-																	</span>
-																))
-															: "—"}
-													</td>
-													<td className="inventory-td-stock">{item.stock}</td>
+													<td className="inventory-td-stock">{Number(item.stock).toLocaleString("es-CL", { maximumFractionDigits: 3 })}</td>
 													<td className="inventory-td-unit">{item.unit}</td>
 													<td>{statusBadge}</td>
 													<td className="inventory-td-actions">
@@ -965,7 +968,7 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 												</tr>
 												{expanded && branchId !== "all" ? (
 													<tr className="inventory-expand-row">
-														<td colSpan={9}>
+														<td colSpan={7}>
 															<div className="inventory-expand-panel">
 																<strong>Últimos movimientos</strong>
 																{recent.length === 0 ? (
@@ -1058,185 +1061,7 @@ const AdminInventory = ({ showNotify, branchId, branches, companyId, products = 
 				</div>
 			)}
 
-			{subTab === "recipes" && (
-				<div className="inventory-recipes">
-					<p className="inventory-recipes__lead">
-						Vincula cada plato del menú con insumos y cantidades consumidas por unidad vendida. El descuento se
-						aplica al confirmar pedidos en esta sucursal.
-					</p>
-					<div className="inventory-toolbar inventory-toolbar--recipes">
-						<div className="search-inventory search-inventory--grow">
-							<Search size={18} className="inventory-search-icon" aria-hidden />
-							<input
-								type="search"
-								placeholder="Buscar plato…"
-								value={recipeSearch}
-								onChange={(e) => setRecipeSearch(e.target.value)}
-							/>
-						</div>
-					</div>
-					{recipesLoading ? (
-						<p className="inventory-muted">Cargando…</p>
-					) : !products || products.length === 0 ? (
-						<p className="inventory-recipes-empty">
-							No hay platos en el menú. Crea productos en la pestaña de menú y carta para definir recetas.
-						</p>
-					) : productsWithRecipes.length === 0 ? (
-						<p className="inventory-recipes-empty">Ningún plato coincide con la búsqueda.</p>
-					) : (
-						<div className="inventory-recipe-grid">
-							{productsWithRecipes.map((p) => {
-								const n = (recipesByProduct.get(p.id) || []).length;
-								return (
-									<button
-										key={p.id}
-										type="button"
-										className="inventory-recipe-card"
-										onClick={() => openRecipeEditor(p)}
-									>
-										<div className="inventory-recipe-card__head">
-											<div className="inventory-recipe-card__title-wrap">
-												<strong>{p.name}</strong>
-												<span
-													className={`inventory-recipe-card__badge ${
-														n === 0 ? "inventory-recipe-card__badge--empty" : "inventory-recipe-card__badge--ok"
-													}`}
-												>
-													{n === 0 ? "Sin receta" : `${n} insumo${n === 1 ? "" : "s"}`}
-												</span>
-											</div>
-											<ChefHat size={22} className="inventory-recipe-card__icon" aria-hidden />
-										</div>
-										<span className="inventory-recipe-card__meta">
-											Toca para editar consumo por venta
-										</span>
-									</button>
-								);
-							})}
-						</div>
-					)}
-				</div>
-			)}
 
-			{recipeEditingProduct ? (
-				<div
-					className="modal-overlay"
-					role="presentation"
-					onClick={() => !recipeSaving && setRecipeEditingProduct(null)}
-				>
-					<div
-						className="modal-content inventory-recipe-modal animate-scale-in"
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="recipe-modal-title"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<header className="modal-header">
-							<div>
-								<h3 id="recipe-modal-title">Receta: {recipeEditingProduct.name}</h3>
-								<p className="modal-subtitle inventory-modal-subtitle">
-									Cantidad de cada insumo que se descuenta por cada unidad vendida del plato.
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={() => !recipeSaving && setRecipeEditingProduct(null)}
-								className="btn-close"
-								disabled={recipeSaving}
-								aria-label="Cerrar"
-							>
-								<X size={22} />
-							</button>
-						</header>
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								void saveRecipes();
-							}}
-						>
-							<div className="modal-form-scroll">
-								{recipeLines.length === 0 ? (
-									<p className="inventory-recipe-empty-hint">
-										Añade insumos para descontar stock automáticamente al vender este plato. Puedes dejar la
-										receta vacía si no aplica.
-									</p>
-								) : null}
-								<div className="inventory-recipe-lines">
-									{recipeLines.map((line, idx) => (
-										<div key={line.id || `line-${idx}`} className="inventory-recipe-line">
-											<div className="inventory-recipe-line__field">
-												<label htmlFor={`recipe-item-${idx}`}>Insumo</label>
-												<select
-													id={`recipe-item-${idx}`}
-													className="form-select inventory-form-select"
-													value={line.inventory_item_id}
-													onChange={(e) => {
-														const v = e.target.value;
-														setRecipeLines((prev) =>
-															prev.map((x, i) => (i === idx ? { ...x, inventory_item_id: v } : x)),
-														);
-													}}
-												>
-													<option value="">Elegir insumo…</option>
-													{recipeItemOptions.map((it) => (
-														<option key={it.id} value={it.id}>
-															{it.name} ({it.unit})
-														</option>
-													))}
-												</select>
-											</div>
-											<div className="inventory-recipe-line__field">
-												<label htmlFor={`recipe-qty-${idx}`}>Cantidad por venta</label>
-												<input
-													id={`recipe-qty-${idx}`}
-													type="number"
-													className="form-input"
-													min={0.0001}
-													step={0.01}
-													value={line.qty_per_sale}
-													onChange={(e) => {
-														const v = parseFloat(e.target.value);
-														setRecipeLines((prev) =>
-															prev.map((x, i) => (i === idx ? { ...x, qty_per_sale: v } : x)),
-														);
-													}}
-												/>
-											</div>
-											<button
-												type="button"
-												className="inventory-recipe-line__remove"
-												onClick={() => setRecipeLines((prev) => prev.filter((_, i) => i !== idx))}
-												title="Quitar línea"
-												aria-label="Quitar línea"
-											>
-												<Trash2 size={18} />
-											</button>
-										</div>
-									))}
-								</div>
-								<div className="inventory-recipe-add-row">
-									<button type="button" className="btn btn-secondary btn-sm" onClick={addRecipeLine}>
-										<Plus size={16} /> Añadir insumo
-									</button>
-								</div>
-							</div>
-							<footer className="modal-footer">
-								<button
-									type="button"
-									className="btn btn-secondary"
-									onClick={() => setRecipeEditingProduct(null)}
-									disabled={recipeSaving}
-								>
-									Cancelar
-								</button>
-								<button type="submit" className="btn btn-primary" disabled={recipeSaving}>
-									{recipeSaving ? "Guardando…" : "Guardar receta"}
-								</button>
-							</footer>
-						</form>
-					</div>
-				</div>
-			) : null}
 
 			<InventoryItemModal
 				isOpen={isModalOpen}
