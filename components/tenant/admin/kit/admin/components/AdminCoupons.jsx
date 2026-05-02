@@ -43,19 +43,7 @@ function fromDatetimeLocal(s) {
 }
 
 function FieldLabel({ children }) {
-	return (
-		<label
-			style={{
-				display: "block",
-				fontSize: "0.75rem",
-				color: "var(--admin-text-muted, #475569)",
-				marginBottom: "0.2rem",
-				fontWeight: 600,
-			}}
-		>
-			{children}
-		</label>
-	);
+	return <label className="admin-coupons__label p">{children}</label>;
 }
 
 function formatCouponRowDates(row) {
@@ -249,57 +237,54 @@ export default function AdminCoupons({ showNotify, companyId }) {
 
 	if (!cid) {
 		return (
-			<p className="admin-toolbar-hint" style={{ padding: "1rem" }}>
+			<p className="admin-toolbar-hint admin-coupons__empty-company">
 				Selecciona una empresa válida para administrar cupones.
 			</p>
 		);
 	}
 
 	return (
-		<div className="admin-coupons" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-			<div className="admin-toolbar glass">
-				<div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-					<Tag size={22} strokeWidth={1.6} />
-					<h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800 }}>Cupones</h2>
+		<div className="admin-coupons">
+			<div className="admin-toolbar glass admin-coupons__toolbar">
+				<div className="admin-coupons__toolbar-head">
+					<div className="admin-coupons__toolbar-title">
+						<Tag size={22} strokeWidth={1.6} aria-hidden />
+						<h2>Cupones</h2>
+					</div>
+					<button
+						type="button"
+						className="admin-btn secondary admin-coupons__refresh-btn"
+						disabled={loading || saving}
+						onClick={() => void load()}
+					>
+						<Loader2 size={14} className={loading ? "animate-spin" : ""} aria-hidden /> Actualizar
+					</button>
 				</div>
-				<p className="admin-toolbar-hint" style={{ margin: "0.25rem 0 0" }}>
+				<p className="admin-toolbar-hint admin-coupons__toolbar-hint">
 					Los pedidos validan el código en servidor; el cliente del cupón debe existir antes del pedido si el
 					alcance es &quot;solo cliente&quot;.
 				</p>
-				<button
-					type="button"
-					className="form-input"
-					disabled={loading || saving}
-					onClick={() => void load()}
-					style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: "0.35rem", marginTop: "0.65rem", padding: "0.35rem 0.75rem" }}
-				>
-					<Loader2 size={14} className={loading ? "animate-spin" : ""} aria-hidden /> Actualizar
-				</button>
 			</div>
 
-			<div className="glass" style={{ padding: "1rem", borderRadius: "12px" }}>
-				<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", marginBottom: "0.65rem", flexWrap: "wrap" }}>
-					<strong style={{ fontSize: "0.95rem" }}>{editing ? "Editar cupón" : "Nuevo cupón"}</strong>
+			<div className="glass admin-coupons__form-card">
+				<div className="admin-coupons__form-card-head">
+					<span className="admin-coupons__form-card-title">{editing ? "Editar cupón" : "Nuevo cupón"}</span>
 					{editing ? (
 						<button type="button" className="btn-icon-toggle" onClick={resetForm}>
 							Cancelar edición
 						</button>
 					) : null}
 				</div>
-				<p style={{ fontSize: "0.8rem", color: "var(--admin-text-muted,#64748b)", marginTop: 0 }}>
-					{subtitle}
-				</p>
+				<p className="admin-coupons__form-subtitle">{subtitle}</p>
 
-				<div
-					style={{
-						display: "grid",
-						gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-						gap: "0.65rem",
-						alignItems: "end",
-						marginBottom: "0.65rem",
-					}}
-				>
-					<div>
+				<div className="admin-coupons__matrix">
+					<p
+						className="admin-coupons__grid-eyebrow titulo-cupon-section"
+						style={{ color: "#000", WebkitTextFillColor: "#000" }}
+					>
+						Descuento y alcance
+					</p>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
 						<FieldLabel>Código</FieldLabel>
 						<input
 							className="form-input"
@@ -307,23 +292,21 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							disabled={saving}
 							onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
 							placeholder="EJEMPLO15"
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
 						<FieldLabel>Tipo</FieldLabel>
 						<select
 							className="form-input"
 							value={draft.discount_type}
 							disabled={saving}
 							onChange={(e) => setDraft((d) => ({ ...d, discount_type: e.target.value }))}
-							style={{ width: "100%" }}
 						>
 							<option value="percent">Porcentaje</option>
 							<option value="fixed_amount">Monto fijo</option>
 						</select>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
 						<FieldLabel>{draft.discount_type === "percent" ? "Porcentaje" : "Monto (CLP)"}</FieldLabel>
 						<input
 							type="number"
@@ -333,10 +316,9 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							disabled={saving}
 							value={draft.discount_value}
 							onChange={(e) => setDraft((d) => ({ ...d, discount_value: e.target.value }))}
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
 						<FieldLabel>Alcance</FieldLabel>
 						<select
 							className="form-input"
@@ -350,22 +332,27 @@ export default function AdminCoupons({ showNotify, companyId }) {
 										e.target.value === "client_only" ? d.restricted_client_id : "",
 								}))
 							}
-							style={{ width: "100%" }}
 						>
 							<option value="global">Global</option>
 							<option value="client_only">Solo cliente</option>
 						</select>
 					</div>
-					<div style={{ gridColumn: "1 / -1" }}>
-						<FieldLabel>Cliente restringido (solo si alcance es «Solo cliente»)</FieldLabel>
+
+					<p
+						className="admin-coupons__grid-eyebrow titulo-cupon-section"
+						style={{ color: "#000", WebkitTextFillColor: "#000" }}
+					>
+						Cliente (cupones restringidos)
+					</p>
+					<div className="admin-coupons__form-field admin-coupons__cell-full">
+						<FieldLabel>Cliente restringido — solo si el alcance es «Solo cliente»</FieldLabel>
 						<select
-							className="form-input"
+							className="form-input admin-coupons__select-client"
 							disabled={saving || draft.scope !== "client_only"}
 							value={draft.restricted_client_id}
 							onChange={(e) =>
 								setDraft((d) => ({ ...d, restricted_client_id: e.target.value }))
 							}
-							style={{ width: "100%", maxWidth: "420px" }}
 						>
 							<option value="">— Elegir cliente —</option>
 							{clients.map((c) => (
@@ -375,7 +362,14 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							))}
 						</select>
 					</div>
-					<div>
+
+					<p
+						className="admin-coupons__grid-eyebrow titulo-cupon-section"
+						style={{ color: "#000", WebkitTextFillColor: "#000" }}
+					>
+						Límites y vigencia
+					</p>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
 						<FieldLabel>Mínimo pedido (subtotal ítems)</FieldLabel>
 						<input
 							type="number"
@@ -389,10 +383,9 @@ export default function AdminCoupons({ showNotify, companyId }) {
 									min_order_subtotal: e.target.value,
 								}))
 							}
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
 						<FieldLabel>Usos máx. totales</FieldLabel>
 						<input
 							type="number"
@@ -402,11 +395,10 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							placeholder="Sin límite"
 							value={draft.max_redemptions}
 							onChange={(e) => setDraft((d) => ({ ...d, max_redemptions: e.target.value }))}
-							style={{ width: "100%" }}
 						/>
-						<span style={{ fontSize: "10px", color: "#64748b" }}>Vacío = ilimitado</span>
+						<span className="admin-coupons__field-hint">Vacío = ilimitado</span>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
 						<FieldLabel>Por cliente</FieldLabel>
 						<input
 							type="number"
@@ -420,10 +412,9 @@ export default function AdminCoupons({ showNotify, companyId }) {
 									max_redemptions_per_client: e.target.value,
 								}))
 							}
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-6">
 						<FieldLabel>Válido desde</FieldLabel>
 						<input
 							type="datetime-local"
@@ -431,10 +422,9 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							disabled={saving}
 							value={draft.valid_from}
 							onChange={(e) => setDraft((d) => ({ ...d, valid_from: e.target.value }))}
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<div>
+					<div className="admin-coupons__form-field admin-coupons__cell-span-6">
 						<FieldLabel>Válido hasta</FieldLabel>
 						<input
 							type="datetime-local"
@@ -444,10 +434,10 @@ export default function AdminCoupons({ showNotify, companyId }) {
 							onChange={(e) =>
 								setDraft((d) => ({ ...d, valid_until: e.target.value }))
 							}
-							style={{ width: "100%" }}
 						/>
 					</div>
-					<label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem" }}>
+
+					<label className="admin-coupons__checkbox-row">
 						<input
 							type="checkbox"
 							checked={draft.is_active}
@@ -460,27 +450,26 @@ export default function AdminCoupons({ showNotify, companyId }) {
 					</label>
 				</div>
 
-				<button
-					type="button"
-					className="payment-connect-btn"
-					disabled={saving || loading}
-					onClick={() => void submit()}
-					style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
-				>
-					{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={16} />}
-					{saving ? "Guardando…" : editing ? "Actualizar cupón" : "Crear cupón"}
-				</button>
+				<div className="admin-coupons__form-footer">
+					<button
+						type="button"
+						className="admin-btn primary admin-coupons__submit-btn"
+						disabled={saving || loading}
+						onClick={() => void submit()}
+					>
+						{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
+						{saving ? "Guardando…" : editing ? "Actualizar cupón" : "Crear cupón"}
+					</button>
+				</div>
 			</div>
 
 			<div className="glass staff-table-glass admin-staff-panel">
 				{loading ? (
-					<div className="admin-staff-loading" style={{ padding: "2rem" }}>
-						<Loader2 size={32} className="animate-spin" />
+					<div className="admin-staff-loading admin-coupons__loading">
+						<Loader2 size={32} className="animate-spin" aria-hidden />
 					</div>
 				) : rows.length === 0 ? (
-					<p className="admin-staff-empty" style={{ padding: "1rem" }}>
-						No hay cupones aún.
-					</p>
+					<p className="admin-staff-empty admin-coupons__panel-empty">No hay cupones aún.</p>
 				) : (
 					<div className="staff-table-wrapper admin-staff-table-wrap">
 						<table className="staff-table admin-staff-table">
@@ -514,25 +503,23 @@ export default function AdminCoupons({ showNotify, companyId }) {
 												<strong>{String(row.code)}</strong>
 											</td>
 											<td>{dsc}</td>
-											<td style={{ maxWidth: "220px", fontSize: "0.8rem", color: "#475569" }}>
-												{scopeLbl}
-											</td>
+											<td className="admin-coupons__scope-cell">{scopeLbl}</td>
 											<td>
 												{row.is_active ? (
-													<span style={{ fontWeight: 700, color: "#15803d" }}>Activo</span>
+													<span className="admin-coupons__status admin-coupons__status--active">Activo</span>
 												) : (
-													<span style={{ fontWeight: 700, color: "#b91c1c" }}>Inactivo</span>
+													<span className="admin-coupons__status admin-coupons__status--inactive">Inactivo</span>
 												)}
 											</td>
 											<td>
 												{rc} / {mr}
 											</td>
-											<td style={{ fontSize: "0.72rem", color: "#64748b" }}>
+											<td className="admin-coupons__dates-cell">
 												{vd.from}
 												<br />
 												→ {vd.until}
 											</td>
-											<td style={{ whiteSpace: "nowrap" }}>
+											<td className="admin-coupons__actions-cell">
 												<button
 													type="button"
 													title="Editar"
@@ -548,7 +535,6 @@ export default function AdminCoupons({ showNotify, companyId }) {
 													className="btn-icon-toggle"
 													disabled={saving}
 													onClick={() => void toggleActive(row)}
-													style={{ marginLeft: "0.25rem" }}
 												>
 													{row.is_active ? <Ban size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
 												</button>

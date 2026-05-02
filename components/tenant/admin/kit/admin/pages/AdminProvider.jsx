@@ -19,6 +19,39 @@ import { playOrderNotificationSound, primeOrderNotificationAudio } from '../util
 const ALL_ADMIN_TABS = TENANT_ADMIN_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
 
+/** Tubería feliz: pending → active → completed → picked_up (cancelled se trata aparte). */
+const ORDER_PIPELINE_RANK = /** @type {const} */ ({ pending: 0, active: 1, completed: 2, picked_up: 3 });
+
+/** @returns {number} -1 si no aplica a la tubería (p. ej. cancelled u otro). */
+function orderPipelineRank(status) {
+	if (status === 'cancelled') return -1;
+	return ORDER_PIPELINE_RANK[/** @type {keyof typeof ORDER_PIPELINE_RANK} */ (status)] ?? -1;
+}
+
+/**
+ * Si loadData trae filas stale mientras la UI avanzó optimista, conserva el status más avanzado del cliente.
+ * Cancelled: si el servidor ya canceló, manda el servidor; si el cliente ya canceló y el servidor va atrasado, se mantiene cancelled.
+ */
+function mergeOrdersFromServer(prev, serverList) {
+	const serverById = new Map(serverList.map((o) => [o.id, o]));
+	const mergedCore = serverList.map((serverRow) => {
+		const p = prev.find((o) => o.id === serverRow.id);
+		if (!p) return serverRow;
+		const ps = p.status;
+		const ss = serverRow.status;
+		if (ss === 'cancelled') return serverRow;
+		if (ps === 'cancelled') return { ...serverRow, status: 'cancelled' };
+		const rp = orderPipelineRank(ps);
+		const rs = orderPipelineRank(ss);
+		if (rp >= 0 && rs >= 0 && rp > rs) return { ...serverRow, status: ps };
+		return serverRow;
+	});
+	const onlyPrev = prev.filter((p) => !serverById.has(p.id));
+	const combined = [...mergedCore, ...onlyPrev];
+	combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+	return combined;
+}
+
 const normalizePanelAccess = (raw) => {
 	const allowed = new Set(ALL_ADMIN_TABS);
 
@@ -93,6 +126,8 @@ export const AdminProvider = ({
 	const [lastDataRefreshAt, setLastDataRefreshAt] = useState(/** @type {number | null} */ (null));
 	const sessionRestoredRef = useRef(false);
 	const inventoryRefreshTimerRef = useRef(null);
+	/** Evita doble moveOrder al mismo pedido y coordina merge en loadData. */
+	const orderMoveInFlightRef = useRef(/** @type {Set<string>} */ (new Set()));
 	// Siempre false en el primer render (SSR = cliente) para evitar hydration mismatch;
 	// el valor real se aplica en useEffect tras montar (véase listener resize).
 	const [isMobile, setIsMobile] = useState(false);
@@ -506,7 +541,9 @@ export const AdminProvider = ({
 			}).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 			setCategories(categoriesData);
 			setProducts(mergedProducts);
-			setOrders(cleanOrders);
+			setOrders((prev) =>
+				orderMoveInFlightRef.current.size > 0 ? mergeOrdersFromServer(prev, cleanOrders) : cleanOrders
+			);
 			setClients(allClients);
 			setLastDataRefreshAt(Date.now());
 		} catch {
@@ -596,8 +633,10 @@ export const AdminProvider = ({
 	}, [loadData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
 
 	const moveOrder = useCallback(async (orderId, nextStatus) => {
-		const previousOrders = [...orders];
-		setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus } : o));
+		if (orderMoveInFlightRef.current.has(orderId)) return;
+		orderMoveInFlightRef.current.add(orderId);
+		const previousRow = orders.find((o) => o.id === orderId);
+		setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
 		try {
 			const { error } = await supabase
 				.from(TABLES.orders)
@@ -606,7 +645,7 @@ export const AdminProvider = ({
 				.eq('company_id', companyId);
 			if (error) throw error;
 			if (nextStatus === 'active') {
-				const targetOrder = previousOrders.find(o => o.id === orderId);
+				const targetOrder = previousRow;
 				if (targetOrder) {
 					const ok = await cashSystem.registerSale(targetOrder);
 					if (!ok) {
@@ -615,7 +654,7 @@ export const AdminProvider = ({
 				}
 			}
 			if (nextStatus === 'cancelled') {
-				const targetOrder = previousOrders.find(o => o.id === orderId);
+				const targetOrder = previousRow;
 				if (targetOrder && (targetOrder.status === 'active' || targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
 					const ok = await cashSystem.registerRefund(targetOrder);
 					if (!ok) {
@@ -625,8 +664,12 @@ export const AdminProvider = ({
 			}
 			showNotify('Pedido actualizado');
 		} catch {
-			setOrders(previousOrders);
-			showNotify("Error al actualizar", "error");
+			if (previousRow) {
+				setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...previousRow } : o)));
+			}
+			showNotify('Error al actualizar', 'error');
+		} finally {
+			orderMoveInFlightRef.current.delete(orderId);
 		}
 	}, [orders, cashSystem, showNotify, companyId]);
 
