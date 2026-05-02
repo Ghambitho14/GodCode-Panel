@@ -8,7 +8,7 @@ import {
     DollarSign, CreditCard, Smartphone, ChevronRight, Truck,
     MapPin, Calculator,
 } from 'lucide-react';
-import { useCashSystem } from '../../hooks/useCashSystem';
+import { useAdmin } from '../../pages/AdminProvider';
 import { isValidBranchId } from '../../../shared/utils/safeIds';
 import CashShiftModal from './CashShiftModal';
 import CashMovementModal from './CashMovementModal';
@@ -47,11 +47,12 @@ const ElapsedTime = ({ since }) => {
 };
 
 const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orders = [] }) => {
-    const { 
+    const { cashSystem } = useAdmin();
+    const {
         activeShift, loading: loadingSystem, movements,
-        openShift, closeShift, addManualMovement, 
-        getPastShifts, getTotals
-    } = useCashSystem(showNotify, selectedBranchId);
+        openShift, closeShift, addManualMovement,
+        getPastShifts, getTotals,
+    } = cashSystem;
 
     const [pastShifts, setPastShifts] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
