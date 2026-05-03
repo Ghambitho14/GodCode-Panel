@@ -1,0 +1,13 @@
+{
+	"ignores": [
+		"@tailwindcss/postcss",
+		"@types/node",
+		"@types/react",
+		"@types/react-dom",
+		"eslint-config-next",
+		"@capacitor/cli",
+		"@capacitor/core",
+		"@capacitor/android"
+	],
+	"ignorePatterns": ["android/**", ".next/**", "capacitor-www/**", "node_modules/**"]
+}

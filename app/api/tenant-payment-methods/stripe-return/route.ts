@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 		if (STRIPE_SECRET) {
 			const stripe = new Stripe(STRIPE_SECRET, {
-				apiVersion: "2025-02-24.acacia",
+				apiVersion: "2026-04-22.dahlia",
 			});
 			try {
 				const acc = await stripe.accounts.retrieve(accountRow.external_id);

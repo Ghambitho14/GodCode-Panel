@@ -1,4 +1,18 @@
 node_modules/
 .next/
+out/
+dist/
+
 .env.local
 .env
+
+# TypeScript incremental (regenerable)
+*.tsbuildinfo
+
+# Android / Capacitor artefactos locales (el proyecto `android/` sí se puede versionar)
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+*.apk
+*.aab

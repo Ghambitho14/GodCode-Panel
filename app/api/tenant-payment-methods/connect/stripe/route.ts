@@ -72,7 +72,7 @@ export async function POST() {
 			return NextResponse.json({ error: ctx.error }, { status: 403 });
 		}
 
-		const stripe = new Stripe(STRIPE_SECRET, { apiVersion: "2025-02-24.acacia" });
+		const stripe = new Stripe(STRIPE_SECRET, { apiVersion: "2026-04-22.dahlia" });
 
 		const existing = await supabaseAdmin
 			.from("tenant_connected_accounts")
