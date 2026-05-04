@@ -46,7 +46,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
                   <MapPin size={20} />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, color: 'white' }}>Solo en {branchName}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Solo en {branchName}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No afectará a otros locales</div>
                 </div>
               </button>
@@ -68,7 +68,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
                 <Globe size={20} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, color: 'white' }}>En todos los locales</div>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>En todos los locales</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Se aplicará a toda la cadena</div>
               </div>
             </button>

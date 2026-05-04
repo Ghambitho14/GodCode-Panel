@@ -308,6 +308,40 @@
   margin-bottom: 20px;
 }
 
+/* Filas con botón tipo carrusel/delivery (no checkbox + .slider) */
+.product-modal-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.product-modal-switch-row .switch-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.product-modal-switch-row--accent-on {
+  background: rgba(230, 57, 70, 0.05);
+  border-color: rgba(230, 57, 70, 0.3);
+}
+
+.product-modal-switch-row--offer-on {
+  background: rgba(37, 211, 102, 0.05);
+  border-color: rgba(37, 211, 102, 0.3);
+}
+
+/* Acento “Especial” fuera de .admin-layout (modal producto siempre con tokens) */
+.modal-content.product-modal-content .menu-carousel-switch.menu-carousel-switch--accent.is-on {
+  background: color-mix(in srgb, var(--accent-primary, #e63946) 35%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary, #e63946) 55%, transparent);
+}
+
 .custom-switch {
   display: flex;
   align-items: center;
@@ -541,6 +575,27 @@
 .admin-layout .modal-content .custom-switch:hover {
 	background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 90%, var(--admin-text) 10%);
 	border-color: var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .product-modal-switch-row {
+	background: var(--admin-icon-bg, #f8fafc);
+	border: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .modal-content .product-modal-switch-row--accent-on {
+	background: rgba(230, 57, 70, 0.07);
+	border-color: rgba(230, 57, 70, 0.28);
+}
+
+.admin-layout .modal-content .product-modal-switch-row--offer-on {
+	background: rgba(22, 163, 74, 0.08);
+	border-color: rgba(22, 163, 74, 0.32);
+}
+
+/* “Especial”: track encendido con acento de marca (no el verde por defecto del admin) */
+.admin-layout .modal-content .menu-carousel-switch.menu-carousel-switch--accent.is-on {
+	background: color-mix(in srgb, var(--accent-primary, #e63946) 30%, transparent);
+	border-color: color-mix(in srgb, var(--accent-primary, #e63946) 52%, transparent);
 }
 
 .admin-layout .modal-content .slider {
@@ -831,4 +886,4 @@
     padding: 0 20px;
     gap: 16px;
   }
-}
+}

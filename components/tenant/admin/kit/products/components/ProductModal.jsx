@@ -6,6 +6,7 @@ import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign, Plus } from '
 import { supabase } from '../../lib/supabase';
 import { TABLES } from '../../lib/supabaseTables';
 import { getInputUnitOptions, recipeUnitSelectLabel, toNativeQty } from '@/lib/recipe-units';
+import '../../admin/styles/AdminMenuCarousel.css';
 
 const DISH_KIND_PRESETS = ['Plato principal', 'Acompañamiento', 'Entrada', 'Postre', 'Bebida (carta)', 'Otro'];
 
@@ -382,23 +383,51 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, invento
                   />
                 </div>
 
-                {/* SWITCHES MODERNOS */}
+                {/* Toggles: mismo patrón que delivery/carrusel (button + onClick) */}
                 <div className="switches-container">
-                  <label className={`custom-switch ${formData.is_special ? 'active' : ''}`}>
-                    <input type="checkbox" name="is_special" checked={formData.is_special} onChange={handleChange} />
+                  <div
+                    className={`product-modal-switch-row${formData.is_special ? ' product-modal-switch-row--accent-on' : ''}`}
+                  >
                     <div className="switch-content">
                       <span className="switch-title">Destacar como Especial</span>
                       <span className="switch-desc">Aparecerá con una estrella en el menú</span>
                     </div>
-                  </label>
+                    <button
+                      type="button"
+                      className={`menu-carousel-switch menu-carousel-switch--sm menu-carousel-switch--accent${formData.is_special ? ' is-on' : ''}`}
+                      role="switch"
+                      aria-checked={formData.is_special}
+                      aria-label={formData.is_special ? 'Quitar destacado especial' : 'Destacar como especial'}
+                      onClick={() => {
+                        setFormData((prev) => ({ ...prev, is_special: !prev.is_special }));
+                        setIsDirty(true);
+                      }}
+                    >
+                      <span className="menu-carousel-switch-knob" aria-hidden />
+                    </button>
+                  </div>
 
-                  <label className={`custom-switch ${formData.has_discount ? 'active-green' : ''}`}>
-                    <input type="checkbox" name="has_discount" checked={formData.has_discount} onChange={handleChange} />
+                  <div
+                    className={`product-modal-switch-row${formData.has_discount ? ' product-modal-switch-row--offer-on' : ''}`}
+                  >
                     <div className="switch-content">
                       <span className="switch-title">Activar Oferta</span>
                       <span className="switch-desc">Mostrará un precio rebajado</span>
                     </div>
-                  </label>
+                    <button
+                      type="button"
+                      className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
+                      role="switch"
+                      aria-checked={formData.has_discount}
+                      aria-label={formData.has_discount ? 'Desactivar oferta' : 'Activar oferta'}
+                      onClick={() => {
+                        setFormData((prev) => ({ ...prev, has_discount: !prev.has_discount }));
+                        setIsDirty(true);
+                      }}
+                    >
+                      <span className="menu-carousel-switch-knob" aria-hidden />
+                    </button>
+                  </div>
                 </div>
 
                 {formData.has_discount && (

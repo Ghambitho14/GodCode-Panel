@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Loader2, Save, Trash2, X, Image as ImageIcon } from "lucide-react";
 import { parseTagList } from "@/lib/inventory-taxonomy";
+import "../styles/AdminMenuCarousel.css";
 
 const BEVERAGE_CATEGORY_PRESETS = [
 	"Aguas",
@@ -433,18 +434,6 @@ export default function AdminCartUpsellItemModal({
 							</div>
 						) : null}
 
-						<div className="form-group">
-							<label htmlFor="cart-upsell-tags">Etiquetas en carrito (opcional)</label>
-							<input
-								id="cart-upsell-tags"
-								className="form-input"
-								name="tagsInput"
-								value={formData.tagsInput}
-								onChange={handleChange}
-								placeholder="exclusivo, edición_limitada (separadas por coma)"
-							/>
-						</div>
-
 						{!item && errors.id && <p className="error-text" role="alert">{errors.id}</p>}
 						</div>
 
@@ -536,18 +525,27 @@ export default function AdminCartUpsellItemModal({
 
 						<div className="admin-cart-upsell-modal-section">
 							<h4 className="admin-cart-upsell-modal-section__title">Visibilidad</h4>
-						<label className={`custom-switch ${formData.active ? "active" : ""}`}>
-							<input
-								type="checkbox"
-								name="active"
-								checked={formData.active}
-								onChange={handleChange}
-							/>
-							<div className="switch-content">
-								<span className="switch-title">Visible en carrito</span>
-								<span className="switch-desc">Si está apagado, el cliente no lo verá en la lista</span>
+							<div
+								className={`product-modal-switch-row${formData.active ? " product-modal-switch-row--offer-on" : ""}`}
+							>
+								<div className="switch-content">
+									<span className="switch-title">Visible en carrito</span>
+									<span className="switch-desc">Si está apagado, el cliente no lo verá en la lista</span>
+								</div>
+								<button
+									type="button"
+									className={`menu-carousel-switch menu-carousel-switch--sm${formData.active ? " is-on" : ""}`}
+									role="switch"
+									aria-checked={formData.active}
+									aria-label={formData.active ? "Ocultar en carrito" : "Visible en carrito"}
+									onClick={() => {
+										setFormData((prev) => ({ ...prev, active: !prev.active }));
+										setIsDirty(true);
+									}}
+								>
+									<span className="menu-carousel-switch-knob" aria-hidden />
+								</button>
 							</div>
-						</label>
 						</div>
 					</div>
 
