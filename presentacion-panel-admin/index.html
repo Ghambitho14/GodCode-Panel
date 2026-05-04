@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guía del panel de administración</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/presentacion.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" aria-label="Índice de la guía">
+      <div class="sidebar__marca">Guía del panel</div>
+      <p class="sidebar__sub">Ejemplos visuales y texto breve para tu equipo.</p>
+      <nav>
+        <div class="nav-grupo">General</div>
+        <ul class="nav-lista">
+          <li><a href="#partes-comunes">Partes comunes</a></li>
+        </ul>
+        <div class="nav-grupo">Operación</div>
+        <ul class="nav-lista">
+          <li><a href="#pedidos">Pedidos</a></li>
+          <li><a href="#caja">Caja</a></li>
+          <li><a href="#reportes">Reportes</a></li>
+        </ul>
+        <div class="nav-grupo">Menú y existencias</div>
+        <ul class="nav-lista">
+          <li><a href="#categorias">Categorías</a></li>
+          <li><a href="#menu-platos">Menú y carta</a></li>
+          <li><a href="#inventario">Inventario</a></li>
+          <li><a href="#bebidas">Bebidas</a></li>
+          <li><a href="#extras">Extras</a></li>
+          <li><a href="#opciones-menu">Opciones de menú</a></li>
+          <li><a href="#cupones">Cupones</a></li>
+        </ul>
+        <div class="nav-grupo">Personas y cobros</div>
+        <ul class="nav-lista">
+          <li><a href="#clientes">Clientes</a></li>
+          <li><a href="#equipo">Equipo</a></li>
+          <li><a href="#pagos">Métodos de pago</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="cabecera-pagina">
+        <h1>Guía del panel</h1>
+        <p class="lead">Cómo se ve y para qué sirve cada parte. Las cajas grises son <strong>ejemplos</strong>, no datos reales.</p>
+      </header>
+
+      <section id="partes-comunes" class="section-compact">
+        <h2>Partes comunes</h2>
+        <p class="intro">Arriba sueles ver la sucursal con la que estás trabajando y, a veces, avisos.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de cabecera tipo panel">
+          <div class="guia-chrome">
+            <div class="guia-chrome__scroll">
+              <div class="guia-topbar">
+                <h3 class="guia-topbar__title">Tu pantalla</h3>
+                <div class="guia-topbar__tools">
+                  <span class="guia-time">00:46 · Lun, 4 may</span>
+                  <span class="guia-ico guia-ico--bell" title="Avisos" aria-hidden="true">🔔</span>
+                  <span class="guia-ico" title="Ayuda" aria-hidden="true">?</span>
+                  <span class="guia-ico" title="Recargar" aria-hidden="true">↻</span>
+                  <span class="guia-loc" aria-hidden="true">📍 San Joaquín</span>
+                </div>
+              </div>
+              <p style="margin:0.75rem 1rem 1rem;font-size:0.85rem;color:var(--texto-suave)">El contenido de abajo cambia según la sucursal que elijas.</p>
+            </div>
+          </div>
+          <figcaption>Arriba suelen ir hora, avisos, ayuda, recarga y la sucursal activa. El menú lateral agrupa el resto del panel.</figcaption>
+        </figure>
+        <p class="intro" style="margin-top:0.5rem">A la izquierda está el menú completo del panel; si falta una opción, puede no estar habilitada para tu perfil o para tu negocio.</p>
+      </section>
+
+      <section id="pedidos" class="section-compact">
+        <h2>Pedidos</h2>
+        <p class="intro">Tablero por etapas: nuevo, en preparación, listo. Arrastrar o tocar mueve el pedido.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de cocina en vivo con tres columnas">
+          <div class="guia-chrome">
+            <div class="guia-chrome__scroll">
+              <div class="guia-topbar">
+                <h3 class="guia-topbar__title">Cocina en vivo</h3>
+                <div class="guia-topbar__tools">
+                  <span class="guia-time">00:46 · Lun, 4 may</span>
+                  <span class="guia-ico guia-ico--bell" aria-hidden="true">🔔</span>
+                  <span class="guia-ico" aria-hidden="true">?</span>
+                  <span class="guia-ico" aria-hidden="true">↻</span>
+                  <span class="guia-loc" aria-hidden="true">📍 San Joaquín</span>
+                  <button type="button" class="guia-btn-sec" tabindex="-1">Ver historial</button>
+                  <button type="button" class="guia-btn-naranja" tabindex="-1">+ Pedido manual</button>
+                </div>
+              </div>
+              <div class="guia-kanban-head">
+                <span style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;color:var(--texto-suave)">Vista</span>
+                <div class="guia-vista" aria-hidden="true">
+                  <span class="on">Tres columnas</span>
+                  <span>Una columna</span>
+                </div>
+              </div>
+              <div class="guia-kanban">
+                <div class="guia-kcol guia-kcol--ent">
+                  <div class="guia-kcol__title"><i aria-hidden="true"></i> Entrantes</div>
+                  <div class="guia-kcol__empty">Sin pedidos</div>
+                </div>
+                <div class="guia-kcol guia-kcol--coc">
+                  <div class="guia-kcol__title"><i aria-hidden="true"></i> Cocinando</div>
+                  <div class="guia-kcol__empty">Sin pedidos</div>
+                </div>
+                <div class="guia-kcol guia-kcol--lis">
+                  <div class="guia-kcol__title"><i aria-hidden="true"></i> Listos</div>
+                  <div class="guia-kcol__empty">Sin pedidos</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Tres etapas claras; puedes cambiar a una sola columna en pantallas chicas. El pedido manual y el historial suelen estar arriba a la derecha.</figcaption>
+        </figure>
+      </section>
+
+      <section id="caja" class="section-compact">
+        <h2>Caja</h2>
+        <p class="intro">Resumen del turno o del día en la sucursal activa.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de caja y turno activo">
+          <div class="guia-chrome">
+            <div class="guia-chrome__scroll">
+              <div class="guia-topbar">
+                <h3 class="guia-topbar__title">Caja y turnos</h3>
+                <div class="guia-topbar__tools">
+                  <span class="guia-time">00:46 · Lun, 4 may</span>
+                  <span class="guia-ico guia-ico--bell" aria-hidden="true">🔔</span>
+                  <span class="guia-ico" aria-hidden="true">?</span>
+                  <span class="guia-ico" aria-hidden="true">↻</span>
+                  <span class="guia-loc" aria-hidden="true">📍 San Joaquín</span>
+                </div>
+              </div>
+              <span class="guia-pill-turno">Turno activo · 4 h 34 m</span>
+              <div class="guia-caja-actions">
+                <button type="button" class="guia-btn-sec guia-btn-ingreso" tabindex="-1">Ingreso</button>
+                <button type="button" class="guia-btn-sec guia-btn-egreso" tabindex="-1">Egreso</button>
+                <button type="button" class="guia-btn-naranja guia-btn-cerrar" tabindex="-1">Cerrar caja</button>
+              </div>
+              <div class="guia-caja-grid">
+                <div class="guia-caja-card">
+                  <span>Balance esperado</span>
+                  <strong>$ 143.500</strong>
+                  <small>Base al abrir: $ 128.000</small>
+                </div>
+                <div class="guia-caja-card">
+                  <span>Ingresos</span>
+                  <strong>$ 24.000</strong>
+                  <small>12 ventas</small>
+                </div>
+                <div class="guia-caja-card">
+                  <span>Egresos</span>
+                  <strong>$ 0</strong>
+                  <small>Retiros / gastos del turno</small>
+                </div>
+                <div class="guia-caja-card">
+                  <span>Por método</span>
+                  <strong>Efectivo / Tarjeta / Transf.</strong>
+                  <small>Desglose del turno</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Ingreso y egreso registran movimientos de dinero; cerrar caja cierra el turno. Los totales son del local y turno que tengas seleccionados.</figcaption>
+        </figure>
+      </section>
+
+      <section id="reportes" class="section-compact">
+        <h2>Reportes</h2>
+        <p class="intro">Ventas por periodo para comparar y decidir promociones o compras.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de tabla de reporte">
+          <div class="guia-demo-wrap">
+            <table class="guia-demo-table">
+              <thead>
+                <tr><th>Periodo</th><th>Pedidos</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Esta semana</td><td>186</td><td>$ 4.120.000</td></tr>
+                <tr><td>Semana anterior</td><td>172</td><td>$ 3.890.000</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>Confirma siempre la sucursal y las fechas arriba para que los totales correspondan al local que te interesa.</figcaption>
+        </figure>
+      </section>
+
+      <section id="categorias" class="section-compact">
+        <h2>Categorías</h2>
+        <p class="intro">Grupos del menú (entradas, fuertes, postres…). El orden es el orden en que el cliente ve la carta.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de categorías con ventana editar">
+          <div class="guia-chrome" style="min-height:400px">
+            <div class="guia-chrome__scroll">
+              <div class="guia-topbar">
+                <h3 class="guia-topbar__title">Categorías</h3>
+                <div class="guia-topbar__tools">
+                  <span class="guia-time">00:46 · Lun, 4 may</span>
+                  <span class="guia-ico guia-ico--bell" aria-hidden="true">🔔</span>
+                  <span class="guia-ico" aria-hidden="true">?</span>
+                  <span class="guia-ico" aria-hidden="true">↻</span>
+                  <span class="guia-loc" aria-hidden="true">📍 San Joaquín</span>
+                  <button type="button" class="guia-btn-naranja" tabindex="-1">+ Nueva categ.</button>
+                </div>
+              </div>
+              <div class="guia-cat-grid">
+                <div class="guia-cat-card">
+                  <div class="guia-cat-card__top">
+                    <div class="guia-cat-card__tag" aria-hidden="true">🏷</div>
+                    <div class="guia-cat-card__status"><i aria-hidden="true"></i> Activa</div>
+                  </div>
+                  <h4>Promociones</h4>
+                  <div class="guia-cat-card__nums">
+                    <div><span>Productos</span><strong>18</strong></div>
+                    <div><span>Activos</span><strong>16</strong></div>
+                  </div>
+                  <div class="guia-cat-card__money">
+                    <span>Ingresos totales</span>
+                    <strong>$ 827.000</strong>
+                  </div>
+                  <div class="guia-cat-card__actions">
+                    <button type="button" tabindex="-1">Editar</button>
+                    <button type="button" tabindex="-1">Ver productos</button>
+                    <button type="button" tabindex="-1">Borrar</button>
+                  </div>
+                  <div class="guia-cat-card__bar" aria-hidden="true"></div>
+                </div>
+                <div class="guia-cat-card guia-cat-card--alt">
+                  <div class="guia-cat-card__top">
+                    <div class="guia-cat-card__tag" aria-hidden="true">🏷</div>
+                    <div class="guia-cat-card__status"><i aria-hidden="true"></i> Activa</div>
+                  </div>
+                  <h4>Hot rolls</h4>
+                  <div class="guia-cat-card__nums">
+                    <div><span>Productos</span><strong>24</strong></div>
+                    <div><span>Activos</span><strong>22</strong></div>
+                  </div>
+                  <div class="guia-cat-card__money">
+                    <span>Ingresos totales</span>
+                    <strong>$ 1.240.000</strong>
+                  </div>
+                  <div class="guia-cat-card__actions">
+                    <button type="button" tabindex="-1">Editar</button>
+                    <button type="button" tabindex="-1">Ver productos</button>
+                    <button type="button" tabindex="-1">Borrar</button>
+                  </div>
+                  <div class="guia-cat-card__bar" style="background:linear-gradient(90deg,var(--guia-naranja) 0%,var(--guia-naranja) 14%,#e2e8f0 14%,#e2e8f0 100%)" aria-hidden="true"></div>
+                </div>
+              </div>
+            </div>
+            <div class="guia-modal-dim" aria-hidden="true">
+              <div class="guia-modal-card">
+                <div class="guia-modal-card__head">
+                  <h4>Editar categoría</h4>
+                  <button type="button" class="guia-demo-close" style="margin:0" tabindex="-1" aria-hidden="true">×</button>
+                </div>
+                <div class="guia-modal-card__body">
+                  <div class="guia-demo-field">
+                    <label>Nombre de la categoría</label>
+                    <div class="guia-demo-fake-input">Promociones</div>
+                  </div>
+                  <div class="guia-demo-field" style="margin-top:0.65rem">
+                    <label>Orden de visualización</label>
+                    <div class="guia-demo-fake-input">1</div>
+                  </div>
+                  <div class="guia-toggle-row">
+                    <span>Categoría activa</span>
+                    <div class="guia-switch-sky guia-switch-sky--on" aria-hidden="true"></div>
+                  </div>
+                </div>
+                <div class="guia-modal-card__foot">
+                  <button type="button" class="guia-btn-sec" tabindex="-1">Cancelar</button>
+                  <button type="button" class="guia-btn-naranja" tabindex="-1">Guardar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>El orden es el que ve el cliente en la carta. Desde la tarjeta abres editar, ves productos o borras con cuidado.</figcaption>
+        </figure>
+      </section>
+
+      <section id="menu-platos" class="section-compact">
+        <h2>Menú y carta</h2>
+        <p class="intro">Listado de platos, filtros y acciones. Al cambiar disponibilidad u ofertas, a veces eliges si aplica <strong>solo a esta sucursal</strong> o a <strong>todos los locales</strong>.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de listado menú y carta">
+          <div class="guia-chrome">
+            <div class="guia-chrome__scroll">
+              <div class="guia-topbar">
+                <h3 class="guia-topbar__title">Menú y carta</h3>
+                <div class="guia-topbar__tools">
+                  <span class="guia-time">00:46 · Lun, 4 may</span>
+                  <span class="guia-ico guia-ico--bell" aria-hidden="true">🔔</span>
+                  <span class="guia-ico" aria-hidden="true">?</span>
+                  <span class="guia-ico" aria-hidden="true">↻</span>
+                  <span class="guia-loc" aria-hidden="true">📍 San Joaquín</span>
+                  <button type="button" class="guia-btn-naranja" tabindex="-1">+ Nuevo plato</button>
+                </div>
+              </div>
+              <div class="guia-stat-strip">
+                <div class="guia-stat-big"><span>Platos totales</span><strong>139</strong></div>
+                <div class="guia-stat-big"><span>Activos</span><strong class="ok">126</strong></div>
+                <div class="guia-stat-big"><span>Pausados</span><strong class="warn">13</strong></div>
+              </div>
+              <div class="guia-toolbar">
+                <div class="guia-fake-search">Buscar plato…</div>
+                <span class="guia-fake-select-sm" aria-hidden="true">Todos los estados</span>
+                <span class="guia-fake-select-sm" aria-hidden="true">Nombre (A-Z)</span>
+                <span style="font-size:0.85rem;color:var(--texto-suave);padding:0 0.25rem" aria-hidden="true">▦ ≡</span>
+              </div>
+              <div class="guia-product-grid">
+                <div class="guia-product-card">
+                  <div class="guia-product-card__img">Foto</div>
+                  <div class="guia-product-card__body">
+                    <span class="guia-product-card__badge">Disponible</span>
+                    <h5>2 hand roll</h5>
+                    <p style="margin:0.2rem 0 0;font-size:0.72rem;color:var(--texto-suave);line-height:1.35">Roll surtido · porción</p>
+                    <p class="precio" style="margin:0.45rem 0 0">$ 5.500</p>
+                  </div>
+                </div>
+                <div class="guia-product-card">
+                  <div class="guia-product-card__img">Foto</div>
+                  <div class="guia-product-card__body">
+                    <span class="guia-product-card__badge">Disponible</span>
+                    <h5>Hot roll pollo</h5>
+                    <p style="margin:0.2rem 0 0;font-size:0.72rem;color:var(--texto-suave);line-height:1.35">Tempura · salsa a elección</p>
+                    <p class="precio" style="margin:0.45rem 0 0">$ 7.200</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Los números resumen la carta; la búsqueda y los filtros acotan la lista sin tocar el menú público hasta que guardes.</figcaption>
+        </figure>
+
+        <figure class="guia-demo-fig" aria-label="Ejemplo ventana confirmar alcance">
+          <div class="guia-chrome" style="min-height:260px">
+            <div class="guia-modal-dim" aria-hidden="true">
+              <div class="guia-modal-card">
+                <div class="guia-modal-card__head">
+                  <h4>Confirmar cambio</h4>
+                  <button type="button" class="guia-demo-close" style="margin:0" tabindex="-1" aria-hidden="true">×</button>
+                </div>
+                <div class="guia-modal-card__body guia-scope">
+                  <p style="margin:0 0 0.85rem;font-size:0.88rem;font-weight:600">¿Dónde quieres aplicar este cambio?</p>
+                  <div class="guia-scope__opts">
+                    <div class="guia-scope-btn" role="presentation">
+                      <strong>Solo en San Joaquín</strong>
+                      <span>La carta de las demás sucursales no cambia.</span>
+                    </div>
+                    <div class="guia-scope-btn" role="presentation">
+                      <strong>En todos los locales</strong>
+                      <span>Misma visibilidad o precio en todas partes.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Aparece cuando el sistema necesita saber si el ajuste es local o corporativo.</figcaption>
+        </figure>
+
+        <p class="intro" style="margin-top:0.75rem">En <strong>Editar producto</strong>, la pestaña de inventario indica qué insumos bajan por cada venta.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de ventana editar plato con pestaña de consumo por venta">
+          <div class="guia-demo-wrap guia-demo-wrap--modal">
+            <div class="guia-demo-modal__head">
+              <div class="guia-demo-modal__titles">
+                <h4>Editar producto</h4>
+                <p>Modifica los detalles del plato</p>
+              </div>
+              <button type="button" class="guia-demo-close" tabindex="-1" aria-hidden="true">×</button>
+            </div>
+            <div class="guia-demo-tabs">
+              <div class="guia-demo-tab">Detalles generales</div>
+              <div class="guia-demo-tab guia-demo-tab--on">Mermas / Inventario</div>
+            </div>
+            <div class="guia-demo-modal__body">
+              <div class="guia-demo-row-title">
+                <div>
+                  <h5>Receta / Consumo por venta</h5>
+                  <p class="guia-demo-hint" style="margin:0.35rem 0 0">Cada vez que se venda este plato, se descontarán estos insumos del inventario de la sucursal. Puedes escribir la cantidad en gramos aunque el stock esté en kilos.</p>
+                </div>
+                <button type="button" class="guia-demo-btn guia-demo-btn--primary" tabindex="-1">+ Agregar insumo</button>
+              </div>
+
+              <div class="guia-demo-insumo">
+                <div class="guia-demo-grid">
+                  <div class="guia-demo-field">
+                    <label>Insumo</label>
+                    <div class="guia-demo-fake-select">Arroz (kg)</div>
+                  </div>
+                  <div class="guia-demo-field">
+                    <label>Cantidad por venta</label>
+                    <div class="guia-demo-fake-input">120</div>
+                  </div>
+                  <div class="guia-demo-field">
+                    <label>Cantidad en</label>
+                    <div class="guia-demo-fake-select">Gramos (g)</div>
+                  </div>
+                  <div class="guia-demo-field guia-demo-field--trash">
+                    <label style="opacity:0">.</label>
+                    <button type="button" class="guia-demo-btn guia-demo-btn--danger" tabindex="-1" title="Quitar">×</button>
+                  </div>
+                </div>
+                <p class="guia-demo-stock-hint">Stock en esta sucursal: 18 kg</p>
+              </div>
+
+              <div class="guia-demo-insumo">
+                <div class="guia-demo-grid">
+                  <div class="guia-demo-field">
+                    <label>Insumo</label>
+                    <div class="guia-demo-fake-select">Pollo (kg)</div>
+                  </div>
+                  <div class="guia-demo-field">
+                    <label>Cantidad por venta</label>
+                    <div class="guia-demo-fake-input">100</div>
+                  </div>
+                  <div class="guia-demo-field">
+                    <label>Cantidad en</label>
+                    <div class="guia-demo-fake-select">Gramos (g)</div>
+                  </div>
+                  <div class="guia-demo-field guia-demo-field--trash">
+                    <label style="opacity:0">.</label>
+                    <button type="button" class="guia-demo-btn guia-demo-btn--danger" tabindex="-1" title="Quitar">×</button>
+                  </div>
+                </div>
+                <p class="guia-demo-stock-hint">Stock en esta sucursal: 12 kg</p>
+              </div>
+            </div>
+            <div class="guia-demo-modal__foot">
+              <button type="button" class="guia-demo-btn guia-demo-btn--ghost guia-demo-btn--lg" tabindex="-1">Cancelar</button>
+              <button type="button" class="guia-demo-btn guia-demo-btn--primary guia-demo-btn--lg" tabindex="-1">Guardar producto</button>
+            </div>
+          </div>
+          <figcaption>El cliente no ve esta pantalla; solo sirve para que el inventario refleje lo que realmente gastas al vender el plato.</figcaption>
+        </figure>
+      </section>
+
+      <section id="inventario" class="section-compact">
+        <h2>Inventario</h2>
+        <p class="intro">Existencias por sucursal, historial de movimientos y coherencia con lo que definiste en cada plato.</p>
+
+        <figure class="guia-demo-fig" aria-label="Ejemplo de pestañas de inventario">
+          <div class="guia-demo-wrap">
+            <div style="padding:0.75rem">
+              <div class="guia-demo-subtabs">
+                <span class="guia-demo-subtab guia-demo-subtab--on">Resumen</span>
+                <span class="guia-demo-subtab">Insumos</span>
+                <span class="guia-demo-subtab">Movimientos</span>
+              </div>
+              <div class="guia-demo-stats">
+                <div class="guia-demo-stat"><span>Bajo mínimo</span><strong>5</strong></div>
+                <div class="guia-demo-stat"><span>Sin stock</span><strong>1</strong></div>
+                <div class="guia-demo-stat"><span>Ítems activos</span><strong>48</strong></div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Resumen: vista rápida antes de comprar o revisar. En <strong>Insumos</strong> editas cada materia prima; en <strong>Movimientos</strong> ves entradas, salidas por venta y ajustes.</figcaption>
+        </figure>
+
+        <figure class="guia-demo-fig" aria-label="Ejemplo de fila de historial de movimiento">
+          <div class="guia-demo-wrap">
+            <table class="guia-demo-table">
+              <thead>
+                <tr><th>Fecha</th><th>Insumo</th><th>Motivo</th><th>Cantidad</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>04/05 14:20</td><td>Arroz</td><td>Venta</td><td>−0,12 kg</td></tr>
+                <tr><td>04/05 09:05</td><td>Arroz</td><td>Compra proveedor</td><td>+10 kg</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>La <strong>merma</strong> (vencido, muestra de cocina, etc.) suele registrarse como un ajuste manual con una nota clara. La <strong>venta</strong> baja sola si el plato tenía consumos definidos como en el ejemplo anterior.</figcaption>
+        </figure>
+      </section>
+
+      <section id="bebidas" class="section-compact">
+        <h2>Bebidas</h2>
+        <p class="intro">Lo que el cliente agrega al carrito junto al menú principal (refrescos, jugos, cervezas).</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de ficha breve de bebida">
+          <div class="guia-demo-wrap">
+            <div style="padding:0.75rem">
+              <div class="guia-demo-grid" style="grid-template-columns:1fr 120px auto; align-items:end">
+                <div class="guia-demo-field"><label>Nombre</label><div class="guia-demo-fake-input">Cola 350 ml</div></div>
+                <div class="guia-demo-field"><label>Precio</label><div class="guia-demo-fake-input">$ 2.500</div></div>
+                <div class="guia-demo-field"><label>Visible</label><div class="guia-demo-switch guia-demo-switch--on" aria-hidden="true"></div></div>
+              </div>
+            </div>
+          </div>
+          <figcaption>Puedes enlazar la bebida a un insumo si quieres que cada venta descuente garrafas o latas del inventario.</figcaption>
+        </figure>
+      </section>
+
+      <section id="extras" class="section-compact">
+        <h2>Extras</h2>
+        <p class="intro">Salsas, toppings u otros complementos con precio propio.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de extra en lista">
+          <div class="guia-demo-wrap">
+            <div class="guia-demo-toggle-row">
+              <span><strong>Salsa teriyaki</strong> · +$ 800</span>
+              <div class="guia-demo-switch guia-demo-switch--on" aria-hidden="true"></div>
+            </div>
+          </div>
+          <figcaption>Mismo criterio que bebidas: visible u oculto, y opción de atar a inventario si aplica.</figcaption>
+        </figure>
+      </section>
+
+      <section id="opciones-menu" class="section-compact">
+        <h2>Opciones de menú</h2>
+        <p class="intro">Delivery, banners en la portada y sugerencias al finalizar el pedido.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de interruptor de envío a domicilio">
+          <div class="guia-demo-wrap">
+            <div class="guia-demo-toggle-row">
+              <span><strong>Envío a domicilio</strong> permitido en esta sucursal</span>
+              <div class="guia-demo-switch guia-demo-switch--on" aria-hidden="true"></div>
+            </div>
+            <div class="guia-demo-toggle-row">
+              <span><span class="guia-demo-muted">Tarifa base · km máx. · pedido mínimo</span></span>
+              <span class="guia-demo-muted">Editar en pantalla real</span>
+            </div>
+          </div>
+          <figcaption>Lo que ve el cliente en el menú público depende de cómo dejes estas opciones.</figcaption>
+        </figure>
+      </section>
+
+      <section id="cupones" class="section-compact">
+        <h2>Cupones</h2>
+        <p class="intro">Códigos de descuento con vigencia y reglas.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de cupón">
+          <div class="guia-demo-wrap">
+            <div style="padding:0.75rem">
+              <div class="guia-demo-field"><label>Código visible para el cliente</label><div class="guia-demo-fake-input">VERANO20</div></div>
+              <p class="guia-demo-muted" style="margin:0.5rem 0 0;font-size:0.8rem">−20% · válido hasta 31/03 · máx. 100 usos</p>
+            </div>
+          </div>
+          <figcaption>Revisa fechas y montos antes de publicitar el código en redes.</figcaption>
+        </figure>
+      </section>
+
+      <section id="clientes" class="section-compact">
+        <h2>Clientes</h2>
+        <p class="intro">Buscar personas y ver en qué sucursal compraron y qué pidieron.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de búsqueda de cliente">
+          <div class="guia-demo-wrap">
+            <div style="padding:0.75rem">
+              <div class="guia-demo-field"><label>Buscar</label><div class="guia-demo-fake-input">María · +56 9 …</div></div>
+              <div class="guia-demo-toggle-row" style="margin-top:0.5rem">
+                <span>María P. · 6 pedidos · último: hace 3 días</span>
+                <button type="button" class="guia-demo-btn guia-demo-btn--ghost" tabindex="-1">Ver</button>
+              </div>
+            </div>
+          </div>
+          <figcaption>Usa estos datos con responsabilidad; son contactos de personas reales.</figcaption>
+        </figure>
+      </section>
+
+      <section id="equipo" class="section-compact">
+        <h2>Equipo</h2>
+        <p class="intro">Quién entra al panel y qué áreas puede tocar (cocina, caja, todo…).</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de listado de usuarios">
+          <div class="guia-demo-wrap">
+            <div style="padding:0.75rem">
+              <div class="guia-demo-toggle-row"><span>Ana · Caja y pedidos</span><span class="guia-demo-muted">Activo</span></div>
+              <div class="guia-demo-toggle-row"><span>Luis · Solo pedidos</span><span class="guia-demo-muted">Activo</span></div>
+            </div>
+          </div>
+          <figcaption>Retira acceso a quien ya no trabaje contigo.</figcaption>
+        </figure>
+      </section>
+
+      <section id="pagos" class="section-compact">
+        <h2>Métodos de pago</h2>
+        <p class="intro">Qué medios acepta cada sucursal y los datos que ve el cliente al pagar en línea.</p>
+        <figure class="guia-demo-fig" aria-label="Ejemplo de tabla por sucursal">
+          <div class="guia-demo-wrap">
+            <table class="guia-demo-table">
+              <thead>
+                <tr><th>Sucursal</th><th>Efectivo</th><th>Tarjeta</th><th>Transferencia</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Centro</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+                <tr><td>Norte</td><td>Sí</td><td>Sí</td><td>No</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figcaption>Algunas formas de pago pueden activarse solo por tu operador o plan; si falta algo, coordina con soporte.</figcaption>
+        </figure>
+      </section>
+
+      <footer class="pie">
+        Material de apoyo. Las pantallas reales pueden variar según tu negocio.
+      </footer>
+    </main>
+  </div>
+  <script src="js/presentacion.js" defer></script>
+</body>
+</html>

@@ -26,7 +26,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL?.trim();
 const config: CapacitorConfig = {
 	appId: "io.godcode.tenantpanel",
 	appName: "Panel del negocio",
-	webDir: "capacitor-www",
+	webDir: "out",
 	...(serverUrl
 		? {
 				server: {

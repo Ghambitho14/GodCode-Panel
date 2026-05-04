@@ -34,10 +34,8 @@ export const TENANT_ADMIN_TAB_OPTIONS = [
 	{ id: "inventory", label: "Inventario (insumos)" },
 	{ id: "menu_beverages", label: "Bebidas" },
 	{ id: "menu_extras", label: "Extras" },
-	{ id: "menu_options", label: "Opciones de menú" },
+	{ id: "menu_options", label: "Opciones de sucursal" },
 	{ id: "clients", label: "Clientes" },
-	{ id: "users", label: "Equipo" },
-	{ id: "payment_methods", label: "Métodos de pago" },
 	{ id: "coupons", label: "Cupones" },
 ] as const;
 

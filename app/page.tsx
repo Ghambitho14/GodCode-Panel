@@ -3,8 +3,6 @@ import { TenantShell } from "../components/tenant/tenant-shell";
 import "./[subdomain]/tenant.css";
 import "./[subdomain]/styles/Login.css";
 
-export const dynamic = "force-dynamic";
-
 const loginShellCss =
 	".login-shell,.login-container{--login-accent:#e63946;}";
 
