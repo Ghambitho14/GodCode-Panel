@@ -1,11 +1,6 @@
--- Reemplaza create_order_transaction añadiendo p_coupon_code (opcional).
--- order_type en orders es sale|refund; pickup/delivery va en channel (orders_channel_check).
-DROP FUNCTION IF EXISTS public.create_order_transaction(
-  p_client_name text, p_client_phone text, p_client_rut text, p_items jsonb, p_total numeric,
-  p_payment_type text, p_payment_ref text, p_note text, p_branch_id uuid, p_company_id uuid,
-  p_status text, p_payment_method_specific text, p_order_type text, p_delivery_address jsonb, p_delivery_fee numeric
-);
-
+-- Align create_order_transaction with public.orders constraints:
+-- orders_order_type_check allows sale|refund; fulfillment (pickup|delivery) lives in channel.
+-- p_order_type still drives v_fulfillment/v_channel only; INSERT must use literal sale for retail orders.
 CREATE OR REPLACE FUNCTION public.create_order_transaction(
   p_client_name text,
   p_client_phone text,

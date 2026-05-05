@@ -7,6 +7,12 @@ import {
     Upload, FileText, ChefHat, Banknote, CupSoda, Sparkles, MapPin, Truck, Tag,
 } from 'lucide-react';
 import { formatCurrency } from '../../shared/utils/formatters';
+import {
+    computeDeliveryFee,
+    effectiveDeliveryPricingMode,
+    normalizeDeliverySettings,
+} from '@/lib/delivery-settings';
+import { buildDeliveryAddressRecord } from '../../shared/utils/orderUtils';
 const logo = '/tenant/logo-placeholder.svg';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { printOrderTicket } from '../utils/receiptPrinting';
@@ -115,14 +121,17 @@ function groupProductsByCategory(items, categories = []) {
 }
 
 const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderSaved, showNotify, registerSale, branch, logoUrl }) => {
+    const [branchDeliveryCfg, setBranchDeliveryCfg] = useState(null);
+
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
         updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType, handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
-        updateOrderType, updateDeliveryAddress, updateDeliveryFee,
+        updateOrderType, updateDeliveryAddress, updateDeliveryReference, updateDeliveryKm,
+        updateDeliveryFee, updateDeliveryNamedAreaId,
         submitOrder, resetOrder, getInputStyle
-    } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale, branch);
+    } = useManualOrder(showNotify, onOrderSaved, onClose, registerSale, branch, branchDeliveryCfg);
 	
 	const [showCustomerFields, setShowCustomerFields] = useState(false);
 
@@ -191,6 +200,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
         if (!isOpen || !branch?.id || branch.id === 'all') {
             resetCatalogs();
+            setBranchDeliveryCfg(null);
             return undefined;
         }
 
@@ -204,6 +214,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                 if (!res.ok) throw new Error(data?.error || 'No se pudo cargar el catálogo de carrito');
                 if (cancelled) return;
 
+                setBranchDeliveryCfg(normalizeDeliverySettings(data));
                 setCartUpsellCatalogs({
                     beveragesEnabled: branchFlag(data.beveragesUpsellEnabledByBranch, branch.id, true),
                     extrasEnabled: branchFlag(data.extrasEnabledByBranch, branch.id, true),
@@ -211,7 +222,10 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                     extras: normalizeCartUpsellCatalog(data.cartGlobalExtrasCatalog, 'extras'),
                 });
             } catch {
-                if (!cancelled) resetCatalogs();
+                if (!cancelled) {
+                    resetCatalogs();
+                    setBranchDeliveryCfg(null);
+                }
             }
         };
 
@@ -221,6 +235,85 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
             cancelled = true;
         };
     }, [isOpen, branch?.id]);
+
+    useEffect(() => {
+        if (manualOrder.order_type !== 'delivery' || !branchDeliveryCfg) return;
+        if (effectiveDeliveryPricingMode(branchDeliveryCfg) !== 'named') return;
+        const id = String(manualOrder.delivery_named_area_id ?? '').trim();
+        if (!id) return;
+        const subtotal = Number(manualOrder.total) || 0;
+        const r = computeDeliveryFee(branchDeliveryCfg, 0, subtotal, { namedAreaId: id });
+        if (r.fee < 0) return;
+        const next = Math.round(r.fee * 100) / 100;
+        const cur = Number(manualOrder.delivery_fee) || 0;
+        if (Math.abs(next - cur) > 0.005) {
+            updateDeliveryFee(String(next));
+        }
+    }, [
+        branchDeliveryCfg,
+        manualOrder.order_type,
+        manualOrder.delivery_named_area_id,
+        manualOrder.total,
+        updateDeliveryFee,
+    ]);
+
+    useEffect(() => {
+        if (manualOrder.order_type !== 'delivery' || !branchDeliveryCfg) return;
+        if (effectiveDeliveryPricingMode(branchDeliveryCfg) !== 'distance') return;
+        const kmRaw = String(manualOrder.delivery_km ?? '').replace(',', '.').trim();
+        const km = kmRaw === '' ? 0 : Number(kmRaw);
+        const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
+        const subtotal = Number(manualOrder.total) || 0;
+        const r = computeDeliveryFee(branchDeliveryCfg, safeKm, subtotal);
+        if (r.fee < 0) return;
+        const next = Math.round(r.fee * 100) / 100;
+        const cur = Number(manualOrder.delivery_fee) || 0;
+        if (Math.abs(next - cur) > 0.005) {
+            updateDeliveryFee(String(next));
+        }
+    }, [
+        branchDeliveryCfg,
+        manualOrder.order_type,
+        manualOrder.delivery_km,
+        manualOrder.total,
+        updateDeliveryFee,
+    ]);
+
+    const showNamedZonePicker =
+        Boolean(
+            branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            effectiveDeliveryPricingMode(branchDeliveryCfg) === 'named' &&
+            (branchDeliveryCfg.namedAreas?.length ?? 0) > 0,
+        );
+
+    const showDistancePricing =
+        Boolean(
+            branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            effectiveDeliveryPricingMode(branchDeliveryCfg) === 'distance',
+        );
+
+    const manualOrderForTicket = React.useMemo(() => {
+        if (manualOrder.order_type !== 'delivery') return manualOrder;
+        const nid = String(manualOrder.delivery_named_area_id ?? '').trim();
+        const nlab =
+            nid && branchDeliveryCfg?.namedAreas?.length
+                ? String(branchDeliveryCfg.namedAreas.find((z) => z.id === nid)?.name ?? '')
+                : '';
+        const da = buildDeliveryAddressRecord({
+            rawAddress: manualOrder.delivery_address,
+            deliveryReference: manualOrder.delivery_reference,
+            namedAreaId: nid || null,
+            namedAreaLabel: nlab || null,
+        });
+        return {
+            ...manualOrder,
+            delivery_address: da,
+            delivery_fee: Number(manualOrder.delivery_fee) || 0,
+            channel: 'delivery',
+        };
+    }, [manualOrder, branchDeliveryCfg]);
 
     const getEffectivePrice = (product) => {
         const basePrice = Number(product?.price || 0);
@@ -261,12 +354,12 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
     });
 
     const printManualKitchen = () => {
-        printOrderTicket(manualOrder, branch?.name, logoUrl ?? null, ticketOpts('kitchen'));
+        printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('kitchen'));
         setPrintMenuOpen(false);
     };
 
     const printManualCaja = () => {
-        printOrderTicket(manualOrder, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
+        printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
         setPrintMenuOpen(false);
     };
 
@@ -331,7 +424,35 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
         const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
         const isPhoneStrictlyValid = phoneValid === true;
 
-        const isDeliveryValid = manualOrder.order_type !== 'delivery' || (manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
+        const namedAreasMode =
+            branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            effectiveDeliveryPricingMode(branchDeliveryCfg) === 'named' &&
+            (branchDeliveryCfg.namedAreas?.length ?? 0) > 0;
+        const distanceMode =
+            branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            effectiveDeliveryPricingMode(branchDeliveryCfg) === 'distance';
+        const hasNamedZoneOk =
+            !namedAreasMode || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+        const addrOk =
+            Boolean(manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
+        const isDeliveryValid =
+            manualOrder.order_type !== 'delivery'
+            || (namedAreasMode && hasNamedZoneOk)
+            || (distanceMode && addrOk)
+            || (
+                !namedAreasMode &&
+                !distanceMode &&
+                manualOrder.order_type === 'delivery' &&
+                branchDeliveryCfg &&
+                (addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0)
+            )
+            || (
+                manualOrder.order_type === 'delivery' &&
+                !branchDeliveryCfg &&
+                addrOk
+            );
 
         return hasItems && hasClientName && hasPaymentType && isPaymentValid && isRutRequiredAndValid && isPhoneStrictlyValid && isDeliveryValid;
     };
@@ -400,22 +521,95 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
 
             {manualOrder.order_type === 'delivery' && (
                 <div className="animate-fade-in" style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div className="manual-order-input-wrapper full-width">
-                        <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
-                        <input
-                            type="text"
-                            placeholder="DIRECCIÓN DE ENTREGA *"
-                            className="manual-order-input"
-                            style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
-                            value={manualOrder.delivery_address}
-                            onChange={e => updateDeliveryAddress(e.target.value)}
-                        />
-                    </div>
+                    {showNamedZonePicker ? (
+                        <div className="manual-order-input-wrapper full-width">
+                            <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(0,0,0,0.4)', zIndex: 1 }} />
+                            <select
+                                id="manual-order-delivery-zone"
+                                aria-label="Zona de entrega"
+                                className="manual-order-input"
+                                style={{
+                                    paddingLeft: '36px',
+                                    color: '#000000',
+                                    fontWeight: '600',
+                                    appearance: 'auto',
+                                    cursor: 'pointer',
+                                }}
+                                value={manualOrder.delivery_named_area_id || ''}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    updateDeliveryNamedAreaId(v);
+                                    if (v && branchDeliveryCfg) {
+                                        const subtotal = Number(manualOrder.total) || 0;
+                                        const r = computeDeliveryFee(branchDeliveryCfg, 0, subtotal, { namedAreaId: v });
+                                        if (r.fee >= 0) {
+                                            updateDeliveryFee(String(Math.round(r.fee * 100) / 100));
+                                        }
+                                    }
+                                }}
+                            >
+                                <option value="">ZONA DE ENTREGA *</option>
+                                {(branchDeliveryCfg?.namedAreas ?? []).map((z) => (
+                                    <option key={z.id} value={z.id}>
+                                        {z.name} — {formatCurrency(z.feeFlat)}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : null}
+                    {showNamedZonePicker ? (
+                        <div className="manual-order-input-wrapper full-width">
+                            <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(0,0,0,0.35)', zIndex: 1 }} />
+                            <input
+                                type="text"
+                                placeholder="REFERENCIA: CALLE, NÚMERO U OBSERVACIÓN (OPC.)"
+                                className="manual-order-input"
+                                style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
+                                value={manualOrder.delivery_reference}
+                                onChange={(e) => updateDeliveryReference(e.target.value)}
+                            />
+                        </div>
+                    ) : null}
+                    {showDistancePricing ? (
+                        <div className="manual-order-input-wrapper full-width">
+                            <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(0,0,0,0.35)', zIndex: 1 }} />
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="DISTANCIA APROX. (KM) — OPC., MEJORA LA TARIFA"
+                                className="manual-order-input"
+                                style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
+                                value={manualOrder.delivery_km}
+                                onChange={(e) => updateDeliveryKm(e.target.value)}
+                            />
+                        </div>
+                    ) : null}
+                    {!showNamedZonePicker ? (
+                        <div className="manual-order-input-wrapper full-width">
+                            <MapPin size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
+                            <input
+                                type="text"
+                                placeholder={
+                                    showDistancePricing
+                                        ? 'DIRECCIÓN DE ENTREGA *'
+                                        : 'DIRECCIÓN DE ENTREGA'
+                                }
+                                className="manual-order-input"
+                                style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
+                                value={manualOrder.delivery_address}
+                                onChange={e => updateDeliveryAddress(e.target.value)}
+                            />
+                        </div>
+                    ) : null}
                     <div className="manual-order-input-wrapper full-width">
                         <Banknote size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(0,0,0,0.4)' }} />
                         <input
                             type="number"
-                            placeholder="COSTO DE ENVÍO (OPCIONAL)"
+                            placeholder={
+                                showNamedZonePicker || showDistancePricing
+                                    ? 'COSTO ENVÍO (calculado; puedes ajustar)'
+                                    : 'COSTO DE ENVÍO (OPCIONAL)'
+                            }
                             className="manual-order-input"
                             style={{ paddingLeft: '36px', color: '#000000', fontWeight: '600' }}
                             value={manualOrder.delivery_fee || ''}

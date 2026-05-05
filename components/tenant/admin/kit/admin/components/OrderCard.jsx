@@ -9,6 +9,7 @@ import {
     shareDeliveryPackViaWhatsApp,
     getPaymentLabel,
     isOrderDelivery,
+    orderDeliveryKanbanSubtitle,
 } from '../../shared/utils/orderUtils';
 import { printOrderTicket } from '../utils/receiptPrinting';
 import OrderDetailModal from './OrderDetailModal';
@@ -18,6 +19,7 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
     const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
     const ticketMenuRef = useRef(null);
     const isDelivery = isOrderDelivery(order);
+    const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
     const ticketPrintOpts = (variant) => ({
         variant,
         branchAddress: branch?.address ?? null,
@@ -166,6 +168,22 @@ const OrderCard = ({ order, queueIndex, moveOrder, setReceiptModalOrder, branch,
                     Ver detalles
                 </button>
             </div>
+            {deliverySubtitle ? (
+                <div
+                    className="order-delivery-mini"
+                    style={{
+                        marginTop: 6,
+                        marginBottom: 2,
+                        fontSize: 11,
+                        lineHeight: 1.35,
+                        color: '#475569',
+                        wordBreak: 'break-word',
+                    }}
+                    title={deliverySubtitle}
+                >
+                    {deliverySubtitle}
+                </div>
+            ) : null}
 
             {/* CLIENTE */}
             <div className="card-client">

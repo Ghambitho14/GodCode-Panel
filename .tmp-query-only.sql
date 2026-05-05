@@ -1,11 +1,5 @@
--- Reemplaza create_order_transaction añadiendo p_coupon_code (opcional).
--- order_type en orders es sale|refund; pickup/delivery va en channel (orders_channel_check).
-DROP FUNCTION IF EXISTS public.create_order_transaction(
-  p_client_name text, p_client_phone text, p_client_rut text, p_items jsonb, p_total numeric,
-  p_payment_type text, p_payment_ref text, p_note text, p_branch_id uuid, p_company_id uuid,
-  p_status text, p_payment_method_specific text, p_order_type text, p_delivery_address jsonb, p_delivery_fee numeric
-);
-
+-- create_order_transaction insertaba order_type = 'sale', pero la mayoría de esquemas
+-- definen orders_order_type_check solo para pickup/delivery (fulfillment), no 'sale'.
 CREATE OR REPLACE FUNCTION public.create_order_transaction(
   p_client_name text,
   p_client_phone text,
@@ -249,7 +243,7 @@ begin
     v_items, v_final_total, v_subtotal, v_discount_amount, v_coupon_id,
     p_payment_type, p_payment_ref, p_payment_method_specific, p_note,
     p_status, p_branch_id, v_company_id, now(),
-    'sale', v_channel,
+    v_fulfillment, v_channel,
     case when v_fulfillment = 'delivery' then p_delivery_address else null end,
     case when v_fulfillment = 'delivery' then v_delivery_fee else 0 end,
     v_handoff

@@ -5,6 +5,7 @@ import { createManualOrder } from '../../orders/services/orders';
 import { supabase } from '../../lib/supabase';
 import { TABLES } from '../../lib/supabaseTables';
 import { buildCouponPreview } from '@/lib/discount-coupon';
+import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 
 const initialOrderState = {
     client_name: 'CAJA',
@@ -15,7 +16,10 @@ const initialOrderState = {
     payment_type: 'tienda',
     order_type: 'pickup',
     delivery_address: '',
+    delivery_reference: '',
+    delivery_km: '',
     delivery_fee: 0,
+    delivery_named_area_id: '',
     note: '',
     coupon_code: '',
 };
@@ -30,7 +34,7 @@ const PREVIEW_ERR_MSG = {
     coupon_usage_exhausted_client: 'Este cupón ya fue usado con este teléfono.',
 };
 
-export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, branch) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, branch, branchDeliveryCfg = null) => {
 
     // --- ESTADOS DE DATOS ---
     // Usar lazy initialization para evitar reset
@@ -66,9 +70,41 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
     const updateClientName = (val) => setManualOrder(prev => ({ ...prev, client_name: val }));
     const updateCouponCode = (val) => setManualOrder(prev => ({ ...prev, coupon_code: typeof val === 'string' ? val : '' }));
     const updateNote = (val) => setManualOrder(prev => ({ ...prev, note: val }));
-    const updateOrderType = (val) => setManualOrder(prev => ({ ...prev, order_type: val }));
+    const updateOrderType = (val) =>
+        setManualOrder((prev) => ({
+            ...prev,
+            order_type: val,
+            ...(val === 'pickup'
+                ? {
+                    delivery_named_area_id: '',
+                    delivery_fee: 0,
+                    delivery_address: '',
+                    delivery_reference: '',
+                    delivery_km: '',
+                  }
+                : {}),
+        }));
     const updateDeliveryAddress = (val) => setManualOrder(prev => ({ ...prev, delivery_address: val }));
-    const updateDeliveryFee = (val) => setManualOrder(prev => ({ ...prev, delivery_fee: Number(val) || 0 }));
+    const updateDeliveryReference = (val) =>
+        setManualOrder((prev) => ({
+            ...prev,
+            delivery_reference: typeof val === 'string' ? val : '',
+        }));
+    const updateDeliveryKm = (val) =>
+        setManualOrder((prev) => ({
+            ...prev,
+            delivery_km: val === '' || val == null ? '' : String(val),
+        }));
+    const updateDeliveryFee = useCallback(
+        (val) => setManualOrder((prev) => ({ ...prev, delivery_fee: Number(val) || 0 })),
+        [],
+    );
+    const updateDeliveryNamedAreaId = useCallback((val) => {
+        setManualOrder((prev) => ({
+            ...prev,
+            delivery_named_area_id: typeof val === 'string' ? val : '',
+        }));
+    }, []);
 
     const updatePaymentType = (type) => {
         setManualOrder(prev => ({ ...prev, payment_type: type }));
@@ -278,9 +314,39 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
             return;
         }
 
-        if (manualOrder.order_type === 'delivery' && (!manualOrder.delivery_address || manualOrder.delivery_address.trim().length < 5)) {
-            showNotify('La dirección de despacho es obligatoria para Delivery', 'error');
-            return;
+        if (manualOrder.order_type === 'delivery' && branchDeliveryCfg) {
+            const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
+            const areaCount = Array.isArray(branchDeliveryCfg.namedAreas) ? branchDeliveryCfg.namedAreas.length : 0;
+
+            if (pricing === 'named' && areaCount > 0) {
+                const zid = String(manualOrder.delivery_named_area_id ?? '').trim();
+                if (!zid) {
+                    showNotify('Selecciona la zona de entrega', 'error');
+                    return;
+                }
+            } else if (pricing === 'distance') {
+                const addr = String(manualOrder.delivery_address ?? '').trim();
+                if (addr.length < 5) {
+                    showNotify('La dirección de despacho es obligatoria para delivery por distancia.', 'error');
+                    return;
+                }
+            } else {
+                const addr = String(manualOrder.delivery_address ?? '').trim();
+                const zid = String(manualOrder.delivery_named_area_id ?? '').trim();
+                if (addr.length < 5 && !zid) {
+                    showNotify('Indica dirección de entrega u otra información de ubicación.', 'error');
+                    return;
+                }
+            }
+        } else if (
+            manualOrder.order_type === 'delivery' &&
+            !branchDeliveryCfg
+        ) {
+            const addr = String(manualOrder.delivery_address ?? '').trim();
+            if (addr.length < 5) {
+                showNotify('La dirección de despacho es obligatoria para Delivery', 'error');
+                return;
+            }
         }
         if (!manualOrder.client_rut || !validateRut(manualOrder.client_rut)) {
             showNotify('El RUT ingresado no es válido', 'error');
@@ -299,7 +365,25 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                 company_id: branch.company_id,
                 branch_name: branch.name,
                 order_type: manualOrder.order_type,
-                delivery_address: manualOrder.order_type === 'delivery' ? sanitizeInput(manualOrder.delivery_address) : null,
+                delivery_address:
+                    manualOrder.order_type === 'delivery'
+                        ? sanitizeInput(manualOrder.delivery_address) || ''
+                        : null,
+                delivery_reference:
+                    manualOrder.order_type === 'delivery'
+                        ? sanitizeInput(manualOrder.delivery_reference) || ''
+                        : '',
+                delivery_km:
+                    manualOrder.order_type === 'delivery'
+                        ? manualOrder.delivery_km === '' ||
+                          manualOrder.delivery_km == null
+                            ? null
+                            : Number(String(manualOrder.delivery_km).replace(',', '.'))
+                        : null,
+                delivery_named_area_id:
+                    manualOrder.order_type === 'delivery'
+                        ? String(manualOrder.delivery_named_area_id ?? '').trim() || null
+                        : null,
                 manual_delivery_fee: manualOrder.order_type === 'delivery' ? manualOrder.delivery_fee : 0,
                 coupon_code: sanitizeInput(manualOrder.coupon_code) || '',
             };
@@ -373,7 +457,10 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
         removeItem,
         updateOrderType,
         updateDeliveryAddress,
+        updateDeliveryReference,
+        updateDeliveryKm,
         updateDeliveryFee,
+        updateDeliveryNamedAreaId,
         submitOrder,
         resetOrder,
         isValid,

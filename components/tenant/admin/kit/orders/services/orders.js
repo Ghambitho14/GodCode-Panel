@@ -12,15 +12,25 @@ import {
     normalizeDeliverySettings,
     isOrderPaymentAllowedForDelivery,
 } from '@/lib/delivery-settings';
+import { buildDeliveryAddressRecord } from '../../shared/utils/orderUtils';
 
 function extractOrderId(newOrder) {
     if (newOrder == null) return null;
     if (typeof newOrder === 'string') return newOrder;
+    if (Array.isArray(newOrder) && newOrder.length > 0) {
+        return extractOrderId(newOrder[0]);
+    }
     if (typeof newOrder === 'object') {
         const id = newOrder.id ?? newOrder.order_id;
         return id != null ? String(id) : null;
     }
     return null;
+}
+
+function resolveNamedAreaLabelFromSettings(settings, namedId) {
+    if (!namedId || !settings?.namedAreas?.length) return '';
+    const hit = settings.namedAreas.find((a) => a.id === namedId);
+    return hit?.name ?? '';
 }
 
 function isDeliveryOrderType(raw) {
@@ -224,12 +234,18 @@ export const ordersService = {
                 const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
                 const priceMode = effectiveDeliveryPricingMode(deliverySettings);
 
-                if (priceMode === 'named' && deliverySettings.namedAreaResolution === 'address_matched') {
+                if (
+                    priceMode === 'named' &&
+                    deliverySettings.namedAreaResolution === 'address_matched' &&
+                    !namedId
+                ) {
                     const da = orderData.delivery_address;
-                    const addr =
-                        da && typeof da === 'object'
-                            ? String(da.address ?? da.formatted_address ?? '').trim()
-                            : '';
+                    let addr = '';
+                    if (da && typeof da === 'object') {
+                        addr = String(da.address ?? da.formatted_address ?? '').trim();
+                    } else if (typeof da === 'string') {
+                        addr = da.trim();
+                    }
                     if (addr.length < 8) {
                         throw new Error('Completa la dirección de entrega (calle, número y comuna o ciudad).');
                     }
@@ -254,6 +270,13 @@ export const ordersService = {
                     if (da && typeof da === 'object') {
                         orderData.delivery_address = {
                             ...da,
+                            named_area_id: namedId,
+                            named_area_label: geoJson.label,
+                        };
+                    } else if (typeof da === 'string') {
+                        orderData.delivery_address = {
+                            address: addr,
+                            formatted_address: addr,
                             named_area_id: namedId,
                             named_area_label: geoJson.label,
                         };
@@ -300,11 +323,8 @@ export const ordersService = {
             }
 
             const itemsSubtotal = Math.round(calculatedItemsTotal * 100) / 100;
-            // La RPC valida precios de ítems contra la BD y exige coherencia con el subtotal de productos
-            // (sin incluir el cargo de envío; el envío se confirma después en /api/public-order-delivery).
-            // Con cupón: p_total = subtotal − descuento (misma regla que la RPC); el cupón se valida de nuevo en servidor.
             const normCoupon = normalizeCouponCode(orderData.coupon_code);
-            let totalForRpc = itemsSubtotal;
+            let couponDisc = 0;
             let pCouponCode = null;
             if (normCoupon) {
                 pCouponCode = normCoupon;
@@ -318,10 +338,29 @@ export const ordersService = {
                     TABLES.discount_coupons,
                 );
                 if (couponRow) {
-                    const couponDisc = computeCouponDiscountAmount(itemsSubtotal, couponRow);
-                    totalForRpc = Math.round(Math.max(0, itemsSubtotal - couponDisc) * 100) / 100;
+                    couponDisc = computeCouponDiscountAmount(itemsSubtotal, couponRow);
                 }
             }
+            const netAfterCoupon = Math.round(Math.max(0, itemsSubtotal - couponDisc) * 100) / 100;
+            let totalForRpc = deliveryMode
+                ? Math.round((netAfterCoupon + deliveryFee) * 100) / 100
+                : netAfterCoupon;
+
+            const namedForAddr = String(
+                orderData.delivery_named_area_id ?? orderData.namedAreaId ?? '',
+            ).trim();
+            const namedLabelForAddr = resolveNamedAreaLabelFromSettings(
+                deliverySettings,
+                namedForAddr,
+            );
+            const pDeliveryPayload = deliveryMode
+                ? buildDeliveryAddressRecord({
+                      rawAddress: orderData.delivery_address,
+                      deliveryReference: orderData.delivery_reference,
+                      namedAreaId: namedForAddr || null,
+                      namedAreaLabel: namedLabelForAddr || null,
+                  })
+                : null;
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -366,6 +405,9 @@ export const ordersService = {
                 p_branch_id: orderData.branch_id,
                 p_company_id: orderData.company_id || null,
                 p_status: orderData.status || 'pending',
+                p_order_type: deliveryMode ? 'delivery' : 'pickup',
+                p_delivery_address: pDeliveryPayload,
+                p_delivery_fee: deliveryMode ? deliveryFee : 0,
                 p_coupon_code: pCouponCode,
             });
 
@@ -389,7 +431,13 @@ export const ordersService = {
                 if (rpcMessage.includes('coupon_usage_exhausted_client')) {
                     throw new Error('Este cupón ya fue usado con este teléfono.');
                 }
-                if (rpcMessage.includes('invalid_item_price')) {
+                if (
+                    rpcMessage.includes('invalid_item_price') ||
+                    rpcMessage.includes('delivery_address_required')
+                ) {
+                    if (rpcMessage.includes('delivery_address_required')) {
+                        throw new Error('Completa los datos de dirección o zona para el envío.');
+                    }
                     throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
                 }
                 if (rpcMessage.includes('no_items_available')) {
@@ -414,7 +462,7 @@ export const ordersService = {
                         orderType: 'delivery',
                         deliveryKm: Number(orderData.delivery_km),
                         deliveryFee,
-                        deliveryAddress: orderData.delivery_address ?? null,
+                        deliveryAddress: pDeliveryPayload ?? orderData.delivery_address ?? null,
                         deliveryLat: orderData.delivery_lat,
                         deliveryLng: orderData.delivery_lng,
                         namedAreaId:

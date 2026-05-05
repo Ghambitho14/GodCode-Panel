@@ -219,12 +219,121 @@ export function getPaymentSlug(order) {
 }
 
 /**
+ * Objeto JSON persistido en orders.delivery_address para panel / tickets.
+ * @param {{
+ *   rawAddress?: unknown;
+ *   deliveryReference?: unknown;
+ *   namedAreaId?: string | null;
+ *   namedAreaLabel?: string | null;
+ * }} p
+ * @returns {Record<string, unknown>}
+ */
+export function buildDeliveryAddressRecord(p) {
+	const ref =
+		typeof p.deliveryReference === 'string'
+			? p.deliveryReference.replace(/<[^>]*>?/gm, '').trim()
+			: '';
+	const raw = p.rawAddress;
+	if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+		const base = { ...(/** @type {Record<string, unknown>} */ (raw)) };
+		const lineAddr =
+			typeof base.address === 'string' ? base.address.trim() : '';
+		if (ref) {
+			base.reference = ref;
+			base.street_detail = ref;
+		}
+		const nid =
+			p.namedAreaId && String(p.namedAreaId).trim()
+				? String(p.namedAreaId).trim()
+				: typeof base.named_area_id === 'string'
+					? base.named_area_id.trim()
+					: '';
+		const nlab =
+			p.namedAreaLabel && String(p.namedAreaLabel).trim()
+				? String(p.namedAreaLabel).trim()
+				: typeof base.named_area_label === 'string'
+					? base.named_area_label.trim()
+					: '';
+		if (nid) base.named_area_id = nid;
+		if (nlab) base.named_area_label = nlab;
+
+		const parts = [];
+		if (nlab || base.named_area_label) {
+			parts.push(`Zona: ${String(base.named_area_label ?? nlab ?? '').trim()}`);
+		}
+		if (lineAddr) parts.push(lineAddr);
+		if (ref) parts.push(`Ref: ${ref}`);
+		const formatted =
+			parts.filter(Boolean).join(' · ') ||
+			(typeof base.formatted_address === 'string' &&
+			String(base.formatted_address).trim()
+				? String(base.formatted_address).trim()
+				: lineAddr || ref || 'Delivery');
+		base.formatted_address =
+			typeof base.formatted_address === 'string' && base.formatted_address.trim()
+				? base.formatted_address.trim()
+				: formatted;
+		if (!base.address || !String(base.address).trim()) {
+			base.address =
+				lineAddr || base.formatted_address;
+		}
+		return base;
+	}
+
+	const lineAddr = typeof raw === 'string' ? raw.replace(/<[^>]*>?/gm, '').trim() : '';
+	const nid =
+		p.namedAreaId && String(p.namedAreaId).trim()
+			? String(p.namedAreaId).trim()
+			: '';
+	const nlab =
+		p.namedAreaLabel && String(p.namedAreaLabel).trim()
+			? String(p.namedAreaLabel).trim()
+			: '';
+
+	const parts = [];
+	if (nlab) parts.push(`Zona: ${nlab}`);
+	if (lineAddr) parts.push(lineAddr);
+	if (ref) parts.push(`Ref: ${ref}`);
+	const formatted = parts.length > 0 ? parts.join(' · ') : lineAddr || nlab || ref || 'Delivery';
+
+	/** @type {Record<string, unknown>} */
+	const out = {
+		formatted_address: formatted,
+		address: lineAddr || formatted,
+	};
+	if (nid) out.named_area_id = nid;
+	if (nlab) out.named_area_label = nlab;
+	if (ref) {
+		out.reference = ref;
+		out.street_detail = ref;
+	}
+	return out;
+}
+
+/**
+ * Una línea corta para Kanban (zona + referencia / dirección).
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {string}
+ */
+export function orderDeliveryKanbanSubtitle(order) {
+	if (!order) return '';
+	const lines = deliveryAddressLines(order.delivery_address);
+	if (lines.length === 0) return '';
+	return lines.slice(0, 2).join(' · ');
+}
+
+/**
  * Pedido con envío a domicilio (tabla orders: order_type, delivery_address, delivery_fee).
  * @param {Record<string, unknown> | null | undefined} order
  * @returns {boolean}
  */
 export function isOrderDelivery(order) {
 	if (!order) return false;
+	const ch = String(order.channel ?? '')
+		.trim()
+		.toLowerCase();
+	if (ch === 'delivery') return true;
+
 	const t = String(order.order_type ?? '')
 		.trim()
 		.toLowerCase();
@@ -254,6 +363,8 @@ export function deliveryAddressLines(addr) {
 	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) return [];
 	const o = /** @type {Record<string, unknown>} */ (addr);
 	const prefer = [
+		'named_area_label',
+		'zone_label',
 		'formatted_address',
 		'label',
 		'address',
@@ -261,9 +372,8 @@ export function deliveryAddressLines(addr) {
 		'line1',
 		'line_1',
 		'description',
-		'named_area_label',
-		'zone_label',
 		'reference',
+		'street_detail',
 		'referencia',
 		'comuna',
 		'commune',

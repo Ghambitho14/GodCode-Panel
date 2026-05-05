@@ -38,6 +38,21 @@ function isDeliveryType(orderType: string): boolean {
 	return t === "delivery" || t === "envio" || t === "envío" || t === "despacho";
 }
 
+function normalizeDeliveryAddressInput(
+	raw: unknown,
+): Record<string, unknown> | null {
+	if (raw == null) return null;
+	if (typeof raw === "string") {
+		const t = raw.trim();
+		if (!t) return null;
+		return { address: t, formatted_address: t };
+	}
+	if (typeof raw === "object" && !Array.isArray(raw)) {
+		return { ...(raw as Record<string, unknown>) };
+	}
+	return null;
+}
+
 async function pickHandoffCode(): Promise<string> {
 	for (let i = 0; i < 15; i++) {
 		const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -83,7 +98,9 @@ export async function POST(req: NextRequest) {
 
 		const { data: order, error: orderErr } = await supabaseAdmin
 			.from("orders")
-			.select("id, branch_id, total, items, created_at, status")
+			.select(
+				"id, branch_id, total, items, created_at, status, discount_total, handoff_code, delivery_fee, delivery_address, channel",
+			)
 			.eq("id", orderId)
 			.maybeSingle();
 
@@ -136,36 +153,45 @@ export async function POST(req: NextRequest) {
 				r = computeDeliveryFee(settings, 0, subtotal);
 			} else if (pricingMode === "named") {
 				if (settings.namedAreaResolution === "address_matched") {
-					const draftAddr =
-						body.deliveryAddress &&
-						typeof body.deliveryAddress === "object" &&
-						!Array.isArray(body.deliveryAddress)
-							? (body.deliveryAddress as Record<string, unknown>)
-							: null;
-					const addrLine = String(
-						draftAddr?.address ?? draftAddr?.formatted_address ?? "",
-					).trim();
-					const resolved = await resolveNamedAreaFromAddress(
-						settings,
-						addrLine,
-						subtotal,
-					);
-					if (!resolved.ok) {
-						return NextResponse.json(
-							{ error: resolved.message },
-							{
-								status:
-									resolved.code === "ambiguous"
-										? 409
-										: resolved.code === "short_address"
-											? 400
-											: 400,
-							},
+					const explicitNamed =
+						namedAreaIdRaw &&
+						settings.namedAreas.some((a) => a.id === namedAreaIdRaw);
+					if (explicitNamed) {
+						r = computeDeliveryFee(settings, 0, subtotal, {
+							namedAreaId: namedAreaIdRaw,
+						});
+					} else {
+						const draftAddr =
+							body.deliveryAddress &&
+							typeof body.deliveryAddress === "object" &&
+							!Array.isArray(body.deliveryAddress)
+								? (body.deliveryAddress as Record<string, unknown>)
+								: null;
+						const addrLine = String(
+							draftAddr?.address ?? draftAddr?.formatted_address ?? "",
+						).trim();
+						const resolved = await resolveNamedAreaFromAddress(
+							settings,
+							addrLine,
+							subtotal,
 						);
+						if (!resolved.ok) {
+							return NextResponse.json(
+								{ error: resolved.message },
+								{
+									status:
+										resolved.code === "ambiguous"
+											? 409
+											: resolved.code === "short_address"
+												? 400
+												: 400,
+								},
+							);
+						}
+						r = computeDeliveryFee(settings, 0, subtotal, {
+							namedAreaId: resolved.namedAreaId,
+						});
 					}
-					r = computeDeliveryFee(settings, 0, subtotal, {
-						namedAreaId: resolved.namedAreaId,
-					});
 				} else {
 					r = computeDeliveryFee(settings, 0, subtotal, {
 						namedAreaId: namedAreaIdRaw || null,
@@ -223,7 +249,11 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Tarifa de envío no válida" }, { status: 400 });
 		}
 
-		const expectedTotal = Math.round((subtotal + expectedFee) * 100) / 100;
+		const discountTotal = Number((order as { discount_total?: unknown }).discount_total) || 0;
+		const netAfterDiscount =
+			Math.round((subtotal - discountTotal) * 100) / 100;
+		const expectedTotal =
+			Math.round((netAfterDiscount + expectedFee) * 100) / 100;
 		const orderTotal = Number(order.total) || 0;
 		const subtotalRounded = Math.round(subtotal * 100) / 100;
 		const matchesItemsPlusFee =
@@ -231,9 +261,12 @@ export async function POST(req: NextRequest) {
 		// Tras create_order_transaction el total suele ser solo ítems; el envío se confirma aquí.
 		const matchesItemsOnly =
 			Math.abs(orderTotal - subtotalRounded) <= TOTAL_EPS;
+		const matchesNetAfterDiscount =
+			Math.abs(orderTotal - netAfterDiscount) <= TOTAL_EPS;
 		if (
 			!matchesItemsPlusFee &&
-			!(matchesItemsOnly && isDeliveryType(orderTypeRaw))
+			!(matchesItemsOnly && isDeliveryType(orderTypeRaw)) &&
+			!(matchesNetAfterDiscount && isDeliveryType(orderTypeRaw))
 		) {
 			return NextResponse.json(
 				{ error: "Total del pedido no coincide con ítems + envío" },
@@ -241,13 +274,18 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		let deliveryAddress: Record<string, unknown> | null =
-			isDeliveryType(orderTypeRaw) &&
-			body.deliveryAddress &&
-			typeof body.deliveryAddress === "object" &&
-			!Array.isArray(body.deliveryAddress)
-				? { ...(body.deliveryAddress as Record<string, unknown>) }
-				: null;
+		const fromBody = normalizeDeliveryAddressInput(body.deliveryAddress);
+		const existingAddr = normalizeDeliveryAddressInput(
+			(order as { delivery_address?: unknown }).delivery_address,
+		);
+		let deliveryAddress: Record<string, unknown> | null = null;
+		if (isDeliveryType(orderTypeRaw)) {
+			if (fromBody && existingAddr) {
+				deliveryAddress = { ...existingAddr, ...fromBody };
+			} else {
+				deliveryAddress = fromBody ?? existingAddr;
+			}
+		}
 
 		if (
 			deliveryAddress &&
@@ -261,18 +299,48 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const handoff =
-			isDeliveryType(orderTypeRaw) ? await pickHandoffCode() : null;
+		const existingHandoffRaw = (order as { handoff_code?: unknown })
+			.handoff_code;
+		const existingHandoff =
+			existingHandoffRaw != null &&
+			String(existingHandoffRaw).trim() !== ""
+				? String(existingHandoffRaw).trim()
+				: null;
+		const pricingModeAfter = effectiveDeliveryPricingMode(settings);
+		let newHandoff: string | null = null;
+		if (
+			isDeliveryType(orderTypeRaw) &&
+			!existingHandoff &&
+			!(
+				pricingModeAfter === "external" && isUberDirectConfigured()
+			)
+		) {
+			newHandoff = await pickHandoffCode();
+		}
+
+		const existingFeeRow = Number(
+			(order as { delivery_fee?: unknown }).delivery_fee,
+		);
+		const feeMatchesExpected =
+			Number.isFinite(existingFeeRow) &&
+			Math.abs(existingFeeRow - expectedFee) <= FEE_EPS;
+
+		// orders.order_type cumple orders_order_type_check (sale|refund); pickup/delivery = channel.
+		const patch: Record<string, unknown> = {
+			channel: isDeliveryType(orderTypeRaw) ? "delivery" : "pickup",
+			total: isDeliveryType(orderTypeRaw) ? expectedTotal : orderTotal,
+			...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
+		};
+		if (!feeMatchesExpected) {
+			patch.delivery_fee = expectedFee;
+		}
+		if (newHandoff) {
+			patch.handoff_code = newHandoff;
+		}
 
 		const { error: upErr } = await supabaseAdmin
 			.from("orders")
-			.update({
-				order_type: isDeliveryType(orderTypeRaw) ? "delivery" : "pickup",
-				delivery_fee: expectedFee,
-				delivery_address: deliveryAddress,
-				total: expectedTotal,
-				...(handoff ? { handoff_code: handoff } : {}),
-			})
+			.update(patch)
 			.eq("id", orderId)
 			.eq("branch_id", order.branch_id);
 
@@ -280,10 +348,15 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: upErr.message }, { status: 400 });
 		}
 
+		const handoffOut =
+			isDeliveryType(orderTypeRaw)
+				? existingHandoff || newHandoff || null
+				: null;
+
 		return NextResponse.json({
 			ok: true,
 			delivery_fee: expectedFee,
-			handoff_code: handoff,
+			handoff_code: handoffOut,
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error en el servidor";

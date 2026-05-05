@@ -1,5 +1,9 @@
 import { formatCurrency } from '../../shared/utils/formatters';
-import { getPaymentLabel, isOrderDelivery } from '../../shared/utils/orderUtils';
+import {
+	deliveryAddressLines,
+	getPaymentLabel,
+	isOrderDelivery,
+} from '../../shared/utils/orderUtils';
 
 /**
  * Impresión térmica desde el navegador: mm + pt evitan preview borroso.
@@ -100,6 +104,48 @@ function formatOrderNumberForTicket(order) {
 /** Texto central del ticket cliente: «En el local» vs domicilio (como Oishi). */
 function whereLabelForClientTicket(order) {
 	return isOrderDelivery(order) ? 'Domicilio' : 'En el local';
+}
+
+/** Bloque compacto dirección/envío para tickets térmicos. */
+function deliveryShipmentSectionHtml(order) {
+	if (!isOrderDelivery(order)) return '';
+	const feeNum = Number(order?.delivery_fee);
+	const feeLbl =
+		Number.isFinite(feeNum) && feeNum > 0 ? formatCurrency(feeNum) : 'GRATIS';
+	const hc = order?.handoff_code;
+	const codeLine =
+		hc != null && String(hc).trim() !== ''
+			? `<p class="c-delivery-meta">COD. VERIF: ${escapeHtml(String(hc).trim())}</p>`
+			: '';
+	const lines = deliveryAddressLines(order?.delivery_address);
+	const addrInner = lines.length
+		? lines
+				.map((line) => `<p class="c-delivery-line">${escapeHtml(line)}</p>`)
+				.join('')
+		: '<p class="c-delivery-line">(Sin texto de ubicación guardado)</p>';
+	return `
+			<div class="c-delivery-box">
+				<p class="c-delivery-heading">DATOS ENVÍO</p>
+				<p class="c-delivery-meta">Cargo envío: ${escapeHtml(feeLbl)}</p>
+				${codeLine}
+				${addrInner}
+			</div>`;
+}
+
+function deliveryKitchenSectionHtml(order) {
+	if (!isOrderDelivery(order)) return '';
+	const lines = deliveryAddressLines(order?.delivery_address);
+	const inner = lines.length
+		? lines
+				.map((line) => `<p class="k-delivery-line">${escapeHtml(line)}</p>`)
+				.join('')
+		: '<p class="k-delivery-line">(Ubicación en sistema)</p>';
+	return `
+			<hr class="rule-dots k-rule-delivery-before" />
+			<div class="k-delivery">
+				<p class="k-delivery-title">ENTREGA A DOMICILIO</p>
+				${inner}
+			</div>`;
 }
 
 /**
@@ -387,6 +433,29 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					margin: 2mm 0 0;
 					line-height: 1.4;
 				}
+				.k-rule-delivery-before {
+					margin: 2mm 0 1.5mm !important;
+				}
+				.k-delivery {
+					margin-top: 2mm;
+					padding: 2.5mm;
+					border: 2px solid #000;
+					font-size: 9.5pt;
+					line-height: 1.35;
+					text-transform: none;
+					word-break: break-word;
+				}
+				.k-delivery-title {
+					margin: 0 0 2mm;
+					font-size: 10.5pt;
+					font-weight: 700;
+					text-align: center;
+					text-transform: uppercase;
+					letter-spacing: 0.04em;
+				}
+				.k-delivery-line {
+					margin: 0.8mm 0 0;
+				}
 			</style>
 		</head>
 		<body>
@@ -396,6 +465,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 				<p class="k-band-ref">${refLineHtml}</p>
 			</div>
 			<div class="k-list">${itemsKitchen}</div>
+			${deliveryKitchenSectionHtml(order)}
 			${safeOrderNote ? `<hr class="rule-dots" /><div class="k-note">NOTA: ${safeOrderNote}</div>` : ''}
 			<div class="k-foot-block">
 				<hr class="rule-dots k-rule-tight" />
@@ -466,6 +536,13 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 	`;
 	}).join('');
 
+	const deliveryFeeRow =
+		isOrderDelivery(order) && deliveryFee > 0
+			? `<div class="c-money-row"><span>Envío</span><span>${formatCurrency(deliveryFee)}</span></div>`
+			: isOrderDelivery(order)
+				? `<div class="c-money-row"><span>Envío</span><span>GRATIS</span></div>`
+				: '';
+
 	return `
 		<html>
 		<head>
@@ -499,6 +576,31 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					font-size: 9pt;
 					margin: 0 0 1.5mm;
 					line-height: 1.35;
+					text-transform: none;
+				}
+				.c-delivery-box {
+					margin: 2mm 0 3mm;
+					padding: 2.5mm 2mm;
+					border: 2px dashed #000;
+					text-align: center;
+				}
+				.c-delivery-heading {
+					margin: 0 0 1.5mm;
+					font-size: 11pt;
+					font-weight: 800;
+					letter-spacing: 0.05em;
+					text-transform: uppercase;
+				}
+				.c-delivery-meta {
+					margin: 0 0 1mm;
+					font-size: 9pt;
+					text-transform: none;
+				}
+				.c-delivery-line {
+					margin: 0.9mm 0 0;
+					font-size: 9pt;
+					line-height: 1.35;
+					word-break: break-word;
 					text-transform: none;
 				}
 				.c-band {
@@ -657,11 +759,12 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 				<p class="c-band-order">${orderBandLine}</p>
 				<p class="c-band-ref">${refLineHtml}</p>
 			</div>
+			${deliveryShipmentSectionHtml(order)}
 			<p class="c-client-name">${safeClientName}</p>
 			<div class="c-items">${itemsHtml}</div>
 			<div class="c-money-block">
 				<div class="c-money-row"><span>Subtotal</span><span>${formatCurrency(itemsSubtotal)}</span></div>
-				${deliveryRow}
+				${deliveryFeeRow}
 				<div class="c-total-big"><span>Total</span><span>${formatCurrency(grandTotal)}</span></div>
 				<p class="c-legal">Este documento no tiene valor fiscal.</p>
 			</div>
