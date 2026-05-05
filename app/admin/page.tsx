@@ -39,6 +39,13 @@ function deriveCompanyPanelAccess(themeConfig: DatabaseCompanyTheme | null | und
 	return normalizePanelAccess(flattened);
 }
 
+/** Subconjunto devuelto por `.select('id,role,company_id')` en `users`. */
+interface UserStaffLookupRow {
+	id: string;
+	role: string | null;
+	company_id: string | null;
+}
+
 interface DynamicAdminModule {
 	id: string;
 	tab_id: string;
@@ -69,7 +76,12 @@ interface AdminData {
 	}[];
 	resolvedTabLabels: Record<string, string>;
 	adminShortcutsEnabled: boolean;
-	company: { id: string; name: string | null; theme_config: unknown; public_slug: string | null };
+	company: {
+		id: string;
+		name: string | null;
+		theme_config: DatabaseCompanyTheme | null | undefined;
+		public_slug: string | null;
+	};
 }
 
 export default function TenantAdminPage() {
@@ -108,7 +120,8 @@ export default function TenantAdminPage() {
 				.ilike("email", user.email.trim())
 				.limit(10);
 
-			const candidateRows = (byEmail ?? []).filter((row) =>
+			const byEmailRows = (byEmail ?? []) as UserStaffLookupRow[];
+			const candidateRows = byEmailRows.filter((row) =>
 				allowedRoles.has(String(row.role ?? "").toLowerCase()),
 			);
 			const candidateCompanyIds = [
@@ -202,8 +215,8 @@ export default function TenantAdminPage() {
 			panelAccess,
 			dynamicModules,
 			resolvedTabLabels,
-			adminShortcutsEnabled: adminThemeExt.adminShortcutsEnabled,
-			company,
+			adminShortcutsEnabled: adminThemeExt.adminShortcutsEnabled ?? true,
+			company: { ...company, theme_config: themeConfig },
 		});
 		setLoading(false);
 	}, [router]);
