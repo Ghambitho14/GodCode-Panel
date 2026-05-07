@@ -336,7 +336,6 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			return `
 		<div class="k-item">
 			<div class="k-line">X${safeQuantity} ${safeName}</div>
-			${safeDescription ? `<div class="k-desc">${safeDescription}</div>` : ''}
 			${extrasHtml ? `<div class="k-extras-wrap">${extrasHtml}</div>` : ''}
 		</div>`;
 		}).join('');
@@ -380,6 +379,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					padding: 2.5mm 0;
 					border-bottom: 1px dashed #000;
 					page-break-inside: avoid;
+					color: #000;
 				}
 				.k-item:last-child { border-bottom: none; }
 				.k-line {
@@ -388,6 +388,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					text-transform: uppercase;
 					letter-spacing: 0.03em;
 					line-height: 1.3;
+					color: #000;
 				}
 				.k-desc {
 					font-size: 9.5pt;
@@ -404,6 +405,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					margin-left: 1mm;
 					padding-left: 2mm;
 					border-left: 2px dashed #000;
+					color: #000;
 				}
 				.k-extra {
 					font-size: 9pt;
@@ -530,7 +532,6 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 				<span class="c-line-text">${leftCol}</span>
 				<span class="c-price">${formatCurrency(lineTotal)}</span>
 			</div>
-			${safeDescription ? `<div class="c-detail">${safeDescription}</div>` : ''}
 		</div>
 		${extrasHtml}
 	`;

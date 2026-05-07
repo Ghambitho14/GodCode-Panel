@@ -638,7 +638,7 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                             border: '1px solid rgba(255,255,255,0.1)', 
                             borderRadius: '4px', 
                             padding: '4px 8px', 
-                            color: 'white', 
+                            color: '#111', 
                             cursor: 'pointer',
                             fontWeight: '600'
                         }}
