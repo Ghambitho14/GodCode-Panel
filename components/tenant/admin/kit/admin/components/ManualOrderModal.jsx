@@ -1491,26 +1491,32 @@ const ManualOrderModal = ({ isOpen, onClose, products, categories = [], onOrderS
                         </div>
                     </div>
 
-                    {/* COLUMNA DERECHA: SIDEBAR — en móvil/tablet el DOM va: resumen → cliente → nota → footer */}
-                    <div className="manual-order-sidebar">
-                        {isMobileLikeLayout ? (
-                            <>
-                                {summarySection}
+                    {/* COLUMNA DERECHA: SIDEBAR Y PANEL LATERAL */}
+                    {isMobileLikeLayout ? (
+                        <>
+                            <div className="manual-order-side-panel">
                                 {orderTypeSection}
                                 {customerSection}
                                 {noteSection}
+                            </div>
+                            <div className="manual-order-sidebar">
+                                {summarySection}
                                 {footerSection}
-                            </>
-                        ) : (
-                            <>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="manual-order-sidebar">
+                                {summarySection}
+                                {footerSection}
+                            </div>
+                            <div className="manual-order-side-panel">
                                 {orderTypeSection}
                                 {customerSection}
                                 {noteSection}
-                                {summarySection}
-                                {footerSection}
-                            </>
-                        )}
-                    </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

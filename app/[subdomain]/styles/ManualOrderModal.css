@@ -976,8 +976,9 @@
 
 
 
-/* === COLUMNA DERECHA: SIDEBAR === */
-.manual-order-sidebar {
+/* === COLUMNA DERECHA: SIDEBAR Y PANEL LATERAL === */
+.manual-order-sidebar,
+.manual-order-side-panel {
     width: 100%;
     background: linear-gradient(145deg, #121212 0%, #0d0d0d 100%);
     border-left: 1px solid var(--modal-border);
@@ -985,28 +986,38 @@
     flex-direction: column;
     overflow-y: auto;
     max-height: 100%;
+}
+
+.manual-order-sidebar {
+    box-shadow: none;
+}
+
+.manual-order-side-panel {
     box-shadow: -10px 0 30px rgba(0,0,0,0.5);
 }
 
 /* Desktop: Sidebar fijo */
 @media (min-width: 1025px) {
-    .manual-order-sidebar {
-        width: 420px;
-        min-width: 420px;
+    .manual-order-sidebar,
+    .manual-order-side-panel {
+        width: 320px;
+        min-width: 320px;
     }
 }
 
 /* Tablets / Desktop pequeño: Sidebar más estrecho */
 @media (min-width: 768px) and (max-width: 1024px) {
-    .manual-order-sidebar {
-        width: 360px;
-        min-width: 360px;
+    .manual-order-sidebar,
+    .manual-order-side-panel {
+        width: 320px;
+        min-width: 320px;
     }
 }
 
 /* Mobile: Sidebar ocupa todo el ancho */
 @media (max-width: 767px) {
-    .manual-order-sidebar {
+    .manual-order-sidebar,
+    .manual-order-side-panel {
         border-left: none;
         border-top: 1px solid var(--modal-border);
         flex: 1;
@@ -1032,7 +1043,8 @@
 
 /* Hasta tablet: mismo comportamiento */
 @media (max-width: 1024px) {
-    .manual-order-sidebar {
+    .manual-order-sidebar,
+    .manual-order-side-panel {
         border-left: none;
         border-top: 1px solid var(--modal-border);
         flex: 1;
@@ -1653,23 +1665,27 @@
 
 /* === SCROLLBAR PERSONALIZADO === */
 .manual-order-categories-scroll::-webkit-scrollbar,
-.manual-order-sidebar::-webkit-scrollbar {
+.manual-order-sidebar::-webkit-scrollbar,
+.manual-order-side-panel::-webkit-scrollbar {
     width: 8px;
 }
 
 .manual-order-categories-scroll::-webkit-scrollbar-track,
-.manual-order-sidebar::-webkit-scrollbar-track {
+.manual-order-sidebar::-webkit-scrollbar-track,
+.manual-order-side-panel::-webkit-scrollbar-track {
     background: #0a0a0a;
 }
 
 .manual-order-categories-scroll::-webkit-scrollbar-thumb,
-.manual-order-sidebar::-webkit-scrollbar-thumb {
+.manual-order-sidebar::-webkit-scrollbar-thumb,
+.manual-order-side-panel::-webkit-scrollbar-thumb {
     background: #1a1a1a;
     border-radius: 4px;
 }
 
 .manual-order-categories-scroll::-webkit-scrollbar-thumb:hover,
-.manual-order-sidebar::-webkit-scrollbar-thumb:hover {
+.manual-order-sidebar::-webkit-scrollbar-thumb:hover,
+.manual-order-side-panel::-webkit-scrollbar-thumb:hover {
     background: #2a2a2a;
 }
 
@@ -1848,14 +1864,23 @@
 	color: var(--admin-text-muted, #64748b);
 }
 
-.admin-layout .manual-order-sidebar {
+.admin-layout .manual-order-sidebar,
+.admin-layout .manual-order-side-panel {
 	background: linear-gradient(180deg, var(--admin-card-bg, #fff) 0%, var(--admin-icon-bg, #f8fafc) 100%);
 	border-left-color: var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .manual-order-sidebar {
+	box-shadow: none;
+}
+
+.admin-layout .manual-order-side-panel {
 	box-shadow: -8px 0 24px rgba(15, 23, 42, 0.06);
 }
 
 @media (max-width: 767px) {
-	.admin-layout .manual-order-sidebar {
+	.admin-layout .manual-order-sidebar,
+	.admin-layout .manual-order-side-panel {
 		border-top-color: var(--admin-border, #e2e8f0);
 	}
 }
