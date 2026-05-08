@@ -64,7 +64,10 @@ export const ordersService = {
             
             for (const item of orderData.items) {
                 if (!item?.id) continue;
-                const isExtra = item.manual_order_source === 'extras' || Boolean(item.is_extra);
+                const isExtra =
+                    item.manual_order_source === 'extras' ||
+                    item.manual_order_source === 'beverages' ||
+                    Boolean(item.is_extra);
                 if (isExtra) {
                     extraItems.push(item);
                 } else {

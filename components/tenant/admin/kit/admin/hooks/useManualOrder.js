@@ -182,7 +182,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, registerSale, 
                     description: product.description,
                     quantity: 1,
                     manual_order_source: product.manual_order_source || null,
-                    is_extra: product.manual_order_source === 'extras'
+                    is_extra:
+                        product.manual_order_source === 'extras' ||
+                        product.manual_order_source === 'beverages'
                 }];
             }
             // Recalcular total
