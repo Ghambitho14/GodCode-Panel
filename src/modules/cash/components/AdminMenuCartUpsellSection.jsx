@@ -12,7 +12,8 @@ import { parseTagList } from "@/lib/inventory-taxonomy";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
-import { PRODUCT_IMAGE_PLACEHOLDER } from "../constants/productImagePlaceholder";
+
+const PLACEHOLDER_IMG = "/tenant/logo-placeholder.svg";
 
 function branchFlag(map, branchId, defaultOn = true) {
 	if (!branchId || !map || typeof map !== "object") return defaultOn;
@@ -767,7 +768,7 @@ export default function AdminMenuCartUpsellSection({
 														/>
 													) : (
 														<img
-															src={PRODUCT_IMAGE_PLACEHOLDER}
+															src={PLACEHOLDER_IMG}
 															alt=""
 															className="admin-cart-upsell-card__img admin-cart-upsell-card__img--placeholder"
 														/>

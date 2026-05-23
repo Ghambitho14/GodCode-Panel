@@ -17,18 +17,6 @@ import { callGuardedRpc } from '../utils/rpcGuard';
 const ALL_ADMIN_TABS = ADMIN_PANEL_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
 
-const PRODUCT_PHOTOS_STORAGE_KEY = 'godcode-admin-products-show-photos';
-
-function readShowProductPhotosPreference() {
-	try {
-		const stored = localStorage.getItem(PRODUCT_PHOTOS_STORAGE_KEY);
-		if (stored === '0' || stored === 'false') return false;
-		return true;
-	} catch {
-		return true;
-	}
-}
-
 /** Tubería feliz: pending → active → completed → picked_up (cancelled se trata aparte). */
 const ORDER_PIPELINE_RANK = /** @type {const} */ ({ pending: 0, active: 1, completed: 2, picked_up: 3 });
 
@@ -130,18 +118,6 @@ export const AdminProvider = ({
 	const [filterCategory, setFilterCategory] = useState('all');
 	const [filterStatus, setFilterStatus] = useState('all');
 	const [viewMode, setViewMode] = useState('grid');
-	const [showProductPhotos, setShowProductPhotosState] = useState(readShowProductPhotosPreference);
-	const setShowProductPhotos = useCallback((next) => {
-		setShowProductPhotosState((prev) => {
-			const value = typeof next === 'function' ? next(prev) : next;
-			try {
-				localStorage.setItem(PRODUCT_PHOTOS_STORAGE_KEY, value ? '1' : '0');
-			} catch {
-				/* ignore quota / private mode */
-			}
-			return value;
-		});
-	}, []);
 	const [sortOrder, setSortOrder] = useState('name-asc');
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -1161,7 +1137,6 @@ export const AdminProvider = ({
 		filterCategory, setFilterCategory,
 		filterStatus, setFilterStatus,
 		viewMode, setViewMode,
-		showProductPhotos, setShowProductPhotos,
 		sortOrder, setSortOrder,
 		loading, setLoading,
 		refreshing, setRefreshing,
@@ -1217,7 +1192,7 @@ export const AdminProvider = ({
 	}), [
 		companyId,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
-		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, showProductPhotos, setShowProductPhotos, sortOrder,
+		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, sortOrder,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
 		notification, receiptModalOrder, receiptPreview, isManualOrderModalOpen, uploadingReceipt,
 		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, cashSystem,

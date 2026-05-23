@@ -57,6 +57,7 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
     const [viewingShift, setViewingShift] = useState(null);
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+    const [movementType, setMovementType] = useState('income');
     const [filterPeriod, setFilterPeriod] = useState('30');
     const [selectedMovementOrder, setSelectedMovementOrder] = useState(null);
 
@@ -185,15 +186,18 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                 <div className="cash-header-actions">
                     {activeShift ? (
                         <>
-                            <button type="button" className="btn btn-income" onClick={() => setIsMovementModalOpen(true)}>
+                            <button className="btn btn-income" onClick={() => { setMovementType('income'); setIsMovementModalOpen(true); }}>
                                 <ArrowUpCircle size={16} /> Ingreso
                             </button>
-                            <button type="button" className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
+                            <button className="btn btn-expense" onClick={() => { setMovementType('expense'); setIsMovementModalOpen(true); }}>
+                                <ArrowDownCircle size={16} /> Egreso
+                            </button>
+                            <button className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
                                 <Lock size={16} /> Cerrar caja
                             </button>
                         </>
                     ) : (
-                        <button type="button" className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
+                        <button className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
                             <Unlock size={18} /> Abrir caja
                         </button>
                     )}
@@ -249,15 +253,10 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                                         borderColor: 'rgba(220, 38, 38, 0.28)',
                                     }}
                                 />
-                                <span>Gastos del local</span>
+                                <span>Egresos</span>
                             </div>
-                            <div className="cash-kpi-value">{fmt(totals.manualExpenses ?? 0)}</div>
-                            <div className="cash-kpi-sub">
-                                {totals.manualExpenseCount ?? 0} manual
-                                {(totals.refundExpenseCount ?? 0) > 0
-                                    ? ` · Devoluciones en caja: ${totals.refundExpenseCount} (${fmt(totals.refundExpenses ?? 0)})`
-                                    : ''}
-                            </div>
+                            <div className="cash-kpi-value">{fmt(totals.expenses)}</div>
+                            <div className="cash-kpi-sub">{movements.filter(m => m.type === 'expense').length} movimientos</div>
                         </div>
 
                         <div className="cash-kpi methods">
@@ -467,20 +466,18 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
             </section>
 
             {/* MODALES */}
-            <CashShiftModal
-                isOpen={isShiftModalOpen}
+            <CashShiftModal 
+                isOpen={isShiftModalOpen} 
                 onClose={() => setIsShiftModalOpen(false)}
                 type={activeShift ? 'close' : 'open'}
                 activeShift={activeShift}
-                movements={movements}
-                getTotals={getTotals}
                 onConfirm={activeShift ? closeShift : openShift}
             />
 
             <CashMovementModal 
                 isOpen={isMovementModalOpen}
                 onClose={() => setIsMovementModalOpen(false)}
-                type="income"
+                type={movementType}
                 onConfirm={addManualMovement}
             />
 

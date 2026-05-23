@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowDownCircle, ArrowUpCircle, FileText, CreditCard, DollarSign } from 'lucide-react';
-import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 
 const CashMovementModal = ({ isOpen, onClose, type, onConfirm }) => {
     const [formData, setFormData] = useState({
@@ -21,8 +20,6 @@ const CashMovementModal = ({ isOpen, onClose, type, onConfirm }) => {
             setError('');
         }
     }, [isOpen]);
-
-    useLockBodyScroll(isOpen);
 
     if (!isOpen) return null;
 

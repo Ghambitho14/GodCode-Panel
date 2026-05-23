@@ -89,12 +89,12 @@ export const LocationProvider = ({ children, companyId }) => {
 
                 setSelectedBranch((prev) => {
                     if (!prev?.id) return prev;
-                    const fresh = mappedBranches.find((b) => b.id === prev.id);
-                    if (!fresh) {
+                    const valid = mappedBranches.some((b) => b.id === prev.id);
+                    if (!valid) {
                         try { window.localStorage.removeItem(storageKey); } catch {}
                         return null;
                     }
-                    return fresh;
+                    return prev;
                 });
             } catch {
                 /* ignore */

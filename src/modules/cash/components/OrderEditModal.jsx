@@ -25,7 +25,7 @@ import {
 	normalizeDeliverySettings,
 } from '@/lib/delivery-settings';
 import { buildDeliveryAddressRecord } from '@/shared/utils/orderUtils';
-import { PRODUCT_IMAGE_PLACEHOLDER } from '../constants/productImagePlaceholder';
+const logo = '/tenant/logo-placeholder.svg';
 import { useOrderEdit } from '../hooks/useOrderEdit';
 import { branchSettingsService } from '../services/branchSettingsService';
 import { geocodeAddress } from '../services/geocodeService';
@@ -1103,10 +1103,10 @@ const OrderEditModal = ({ isOpen, onClose, order, products, categories = [], onO
 								<div className="manual-order-cart-item-accent" aria-hidden />
 
 								<img
-									src={item.image_url || PRODUCT_IMAGE_PLACEHOLDER}
+									src={item.image_url || logo}
 									alt={item.name}
 									className="manual-order-cart-item-thumb"
-									onError={(e) => { e.target.src = PRODUCT_IMAGE_PLACEHOLDER; }}
+									onError={(e) => { e.target.src = logo; }}
 								/>
 
 								<div className="manual-order-cart-item-info">
@@ -1554,11 +1554,11 @@ const OrderEditModal = ({ isOpen, onClose, order, products, categories = [], onO
 				{showProductImages ? (
 					<div className="manual-order-image-wrapper">
 						<img
-							src={p.image_url || PRODUCT_IMAGE_PLACEHOLDER} alt={p.name}
+							src={p.image_url || logo} alt={p.name}
 							className={!p.image_url ? 'is-logo' : ''}
 							loading="lazy"
 							decoding="async"
-							onError={(e) => { e.target.onerror = null; e.target.src = PRODUCT_IMAGE_PLACEHOLDER; e.target.classList.add('is-logo'); }}
+							onError={(e) => { e.target.onerror = null; e.target.src = logo; e.target.classList.add('is-logo'); }}
 						/>
 					</div>
 				) : null}

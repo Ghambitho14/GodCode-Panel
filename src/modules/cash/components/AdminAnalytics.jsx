@@ -1,22 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    Chart as ChartJS,
+    CategoryScale, LinearScale, PointElement, LineElement, BarElement,
+    Title, Tooltip, Legend, Filler
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
 import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus
+    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { cashService } from '../services/cashService';
-import { expenseBucketKey, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
 import AdminIconSlot from './AdminIconSlot';
 import AdminMenuSelect from './AdminMenuSelect';
 import { formatCurrency } from '@/shared/utils/formatters';
 import { isOnlineOrder, getPaymentSlug, getPaymentLabel } from '@/shared/utils/orderUtils';
 import { downloadExcel } from '@/shared/utils/exportUtils';
-import { isValidBranchId } from '@/shared/utils/safeIds';
-import { useAdmin } from '../admin/pages/AdminProvider';
-import CashMovementModal from './caja/CashMovementModal';
-import RPTLightweightChart from './charts/RPTLightweightChart';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 const CHART_KIND_OPTIONS = [
     { value: 'area', label: 'Área', Icon: AreaChart },
@@ -31,51 +33,9 @@ const RPT_PERIOD_OPTIONS = [
     { value: 'all', label: 'Todo' },
 ];
 
-const EXPENSE_AGG_OPTIONS = [
-    { value: 'day', label: 'Día' },
-    { value: 'week', label: 'Semana' },
-    { value: 'month', label: 'Mes' },
-];
-
-const EXPENSE_RANGE_MODE_OPTIONS = [
-    { value: 'inform', label: 'Ventana del informe' },
-    { value: 'calendarMonth', label: 'Mes calendario' },
-];
-
 const fmt = (n) => {
     try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
 };
-
-/** Rango UTC half-open [start, end) para un mes calendario `yyyy-mm`. */
-function getMonthRangeUtc(yyyyMm) {
-    const [yearStr, monthStr] = String(yyyyMm).split('-');
-    const year = Number(yearStr);
-    const month = Number(monthStr);
-    if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-        return null;
-    }
-    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-    const nextMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-    return {
-        startIso: start.toISOString(),
-        endIso: nextMonth.toISOString(),
-    };
-}
-
-function getPrevMonthRangeUtc(yyyyMm) {
-    const [yearStr, monthStr] = String(yyyyMm).split('-');
-    let year = Number(yearStr);
-    let month = Number(monthStr);
-    if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-        return null;
-    }
-    month -= 1;
-    if (month < 1) {
-        month = 12;
-        year -= 1;
-    }
-    return getMonthRangeUtc(`${year}-${String(month).padStart(2, '0')}`);
-}
 
 
 const TrendBadge = ({ value }) => {
@@ -90,17 +50,12 @@ const TrendBadge = ({ value }) => {
 };
 
 /** `orders` desde el panel sigue limitado a 100 filas (kanban). Los KPIs usan fetch propio vía `analyticsOrders`. */
-const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch, view = 'full' }) => {
+const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch }) => {
     const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('area');
-    /** Pestaña principal del bloque informe: ventas (gráfico + barra lateral) o gastos del local. */
     const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0 });
     const [loadingExpenses, setLoadingExpenses] = useState(false);
-    const [manualExpenseRows, setManualExpenseRows] = useState([]);
-    const [expenseAgg, setExpenseAgg] = useState('day');
-    const [expenseRangeMode, setExpenseRangeMode] = useState('inform');
-    const [exportExpensesLoading, setExportExpensesLoading] = useState(false);
     const [analyticsDate, setAnalyticsDate] = useState(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -109,9 +64,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     /** Pedidos del rango para KPIs/gráficos (no el slice de 100 del provider). */
     const [analyticsOrders, setAnalyticsOrders] = useState([]);
     const [loadingAnalyticsOrders, setLoadingAnalyticsOrders] = useState(false);
-    const [expenseRefreshNonce, setExpenseRefreshNonce] = useState(0);
-    const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
-    const { cashSystem } = useAdmin();
 
     const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
 
@@ -160,150 +112,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return analyticsOrders;
     }, [loadingAnalyticsOrders, analyticsOrders, orders]);
 
-    const branchNameById = useMemo(() => {
-        const map = {};
-        (branches || []).forEach((b) => {
-            if (b?.id != null) map[String(b.id)] = b.name || b.label || String(b.id);
-        });
-        return map;
-    }, [branches]);
-
-    const { expenseLwSeries, expenseBucketsOrdered } = useMemo(() => {
-        const rows = manualExpenseRows || [];
-        const acc = new Map();
-        for (const row of rows) {
-            const iso = row.created_at;
-            if (!iso) continue;
-            const key = expenseBucketKey(iso, expenseAgg);
-            acc.set(key, (acc.get(key) || 0) + (Number(row.amount) || 0));
+    const getMonthRangeUtc = (yyyyMm) => {
+        const [yearStr, monthStr] = String(yyyyMm).split('-');
+        const year = Number(yearStr);
+        const month = Number(monthStr);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return null;
         }
-        const keys = [...acc.keys()].sort();
-        const expenseBucketsOrdered = keys.map((k) => ({
-            key: k,
-            label: labelForExpenseBucket(k, expenseAgg),
-            total: acc.get(k) || 0,
-        }));
-        const expenseLwSeries = keys.map((k) => ({
-            time: expenseAgg === 'month' ? `${k}-01` : k,
-            value: Number(acc.get(k)) || 0,
-        }));
-        return { expenseLwSeries, expenseBucketsOrdered };
-    }, [manualExpenseRows, expenseAgg]);
-
-    const handleExportManualExpensesExcel = async () => {
-        if (exportExpensesLoading) return;
-        if (!manualExpenseRows.length) {
-            if (showNotify) showNotify('No hay gastos del local en este período', 'info');
-            return;
-        }
-        setExportExpensesLoading(true);
-        try {
-            const rows = [...manualExpenseRows].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-            );
-            const dataToExport = rows.map((row) => {
-                const sh = row[TABLES.cash_shifts] || row.cash_shifts;
-                const bid = sh?.branch_id;
-                const branchName = bid != null ? (branchNameById[String(bid)] || String(bid)) : '';
-                const d = new Date(row.created_at);
-                const pm = row.payment_method;
-                const metodo =
-                    pm === 'cash' ? 'Efectivo' : pm === 'card' ? 'Tarjeta' : pm === 'online' ? 'Transferencia' : String(pm || '');
-                return {
-                    Fecha: d.toLocaleDateString('es-CL'),
-                    Hora: d.toLocaleTimeString('es-CL'),
-                    Sucursal: branchName,
-                    Monto: row.amount,
-                    Metodo: metodo,
-                    Descripcion: row.description || '',
-                };
-            });
-            const tag = expenseRangeMode === 'calendarMonth' ? analyticsDate : `ultimos_${days}d`;
-            downloadExcel(dataToExport, `Gastos_local_${tag}.xls`);
-            if (showNotify) showNotify('Excel de gastos generado', 'success');
-        } catch {
-            if (showNotify) showNotify('Error al exportar gastos', 'error');
-        } finally {
-            setExportExpensesLoading(false);
-        }
+        const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        const nextMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+        return {
+            startIso: start.toISOString(),
+            endIso: nextMonth.toISOString(),
+        };
     };
-
-    const handleExportMonthlyManualExpensesExcel = async () => {
-        if (exportExpensesLoading || !companyId) return;
-        const range = getMonthRangeUtc(analyticsDate);
-        if (!range) {
-            if (showNotify) showNotify('Mes inválido', 'error');
-            return;
-        }
-        setExportExpensesLoading(true);
-        try {
-            const rows = await cashService.getManualExpenseMovementsInRange({
-                companyId,
-                branchId: selectedBranch?.id,
-                startIso: range.startIso,
-                endIso: range.endIso,
-            });
-            if (!rows.length) {
-                if (showNotify) showNotify('No hay gastos del local en ese mes', 'info');
-                return;
-            }
-            const sorted = [...rows].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-            );
-            const dataToExport = sorted.map((row) => {
-                const sh = row[TABLES.cash_shifts] || row.cash_shifts;
-                const bid = sh?.branch_id;
-                const branchName = bid != null ? (branchNameById[String(bid)] || String(bid)) : '';
-                const d = new Date(row.created_at);
-                const pm = row.payment_method;
-                const metodo =
-                    pm === 'cash' ? 'Efectivo' : pm === 'card' ? 'Tarjeta' : pm === 'online' ? 'Transferencia' : String(pm || '');
-                return {
-                    Fecha: d.toLocaleDateString('es-CL'),
-                    Hora: d.toLocaleTimeString('es-CL'),
-                    Sucursal: branchName,
-                    Monto: row.amount,
-                    Metodo: metodo,
-                    Descripcion: row.description || '',
-                };
-            });
-            const [year, month] = String(analyticsDate).split('-');
-            downloadExcel(dataToExport, `Gastos_local_${year || '0000'}_${month || '00'}.xls`);
-            if (showNotify) showNotify('Excel de gastos del mes generado', 'success');
-        } catch {
-            if (showNotify) showNotify('Error al exportar gastos del mes', 'error');
-        } finally {
-            setExportExpensesLoading(false);
-        }
-    };
-
-    const tryOpenRegisterExpenseModal = useCallback(() => {
-        if (!selectedBranch?.id || selectedBranch.id === 'all' || !isValidBranchId(selectedBranch.id)) {
-            if (showNotify) showNotify('Selecciona una sucursal para registrar un gasto.', 'info');
-            return;
-        }
-        if (!cashSystem?.activeShift) {
-            if (showNotify) showNotify('Abre la caja en esta sucursal para registrar gastos del local.', 'info');
-            return;
-        }
-        setIsAddExpenseModalOpen(true);
-    }, [selectedBranch, cashSystem?.activeShift, showNotify]);
-
-    const handleConfirmRegisterLocalExpense = useCallback(
-        async (type, amount, description, paymentMethod) => {
-            const ok = await cashSystem.addManualMovement(type, amount, description, paymentMethod, {
-                successMessage: 'Gasto del local registrado',
-            });
-            if (ok) {
-                setExpenseRefreshNonce((n) => n + 1);
-                if (typeof cashSystem.refresh === 'function') {
-                    await cashSystem.refresh();
-                }
-            }
-            return ok;
-        },
-        [cashSystem],
-    );
 
     const handleExportMonthlyExcel = async () => {
         if (exportLoading) return;
@@ -370,95 +192,72 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     };
 
     /**
-     * Gastos manuales del local (`expense` sin `order_id`). Rango según expenseRangeMode
-     * o ventana del informe (últimos N días).
+     * Egresos de caja para analytics: solo movimientos `expense` manuales
+     * (`order_id` nulo). Las devoluciones de pedido usan el mismo tipo pero
+     * llevan `order_id` y no deben duplicarse con ventas ya excluidas por cancelación.
      */
     useEffect(() => {
-        let cancelled = false;
-
         const fetchExpenses = async () => {
             setLoadingExpenses(true);
             try {
                 const now = new Date();
-                let startIso;
-                let endIso;
-                let prevStartIso;
-                let prevEndIso;
+                const cutoff = new Date(now);
+                cutoff.setDate(now.getDate() - days);
 
-                if (expenseRangeMode === 'calendarMonth') {
-                    const range = getMonthRangeUtc(analyticsDate);
-                    if (!range) {
-                        if (!cancelled) {
-                            setManualExpenseRows([]);
-                            setExpensesData({ total: 0, prevTotal: 0 });
-                        }
-                        return;
+                const prevCutoff = new Date(cutoff);
+                prevCutoff.setDate(prevCutoff.getDate() - days);
+
+                const baseExpenseQuery = () => {
+                    let q = supabase
+                        .from(TABLES.cash_movements)
+                        .select(`amount, created_at, ${TABLES.cash_shifts}!inner(branch_id, company_id)`)
+                        .eq('type', 'expense')
+                        .is('order_id', null);
+                    if (companyId) {
+                        q = q.eq(`${TABLES.cash_shifts}.company_id`, companyId);
                     }
-                    startIso = range.startIso;
-                    endIso = range.endIso;
-                    const prevRange = getPrevMonthRangeUtc(analyticsDate);
-                    if (prevRange) {
-                        prevStartIso = prevRange.startIso;
-                        prevEndIso = prevRange.endIso;
+                    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+                        q = q.eq(`${TABLES.cash_shifts}.branch_id`, selectedBranch.id);
                     }
-                } else {
-                    const cutoff = new Date(now);
-                    cutoff.setDate(now.getDate() - days);
-                    startIso = cutoff.toISOString();
-                    endIso = undefined;
-                    if (filterPeriod !== 'all') {
-                        const prevCutoff = new Date(cutoff);
-                        prevCutoff.setDate(prevCutoff.getDate() - days);
-                        prevStartIso = prevCutoff.toISOString();
-                        prevEndIso = cutoff.toISOString();
-                    }
+                    return q;
+                };
+
+                const { data: currentMovements, error: currentError } = await baseExpenseQuery().gte(
+                    'created_at',
+                    cutoff.toISOString(),
+                );
+
+                if (currentError) throw currentError;
+
+                let prevMovements = [];
+                if (filterPeriod !== 'all') {
+                    const { data: prevData, error: prevError } = await baseExpenseQuery()
+                        .gte('created_at', prevCutoff.toISOString())
+                        .lt('created_at', cutoff.toISOString());
+                    if (prevError) throw prevError;
+                    prevMovements = prevData || [];
                 }
 
-                const currentRows = await cashService.getManualExpenseMovementsInRange({
-                    companyId: companyId || null,
-                    branchId: selectedBranch?.id,
-                    startIso,
-                    endIso,
-                });
-                if (cancelled) return;
+                const total = (currentMovements || []).reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+                const prevTotal = (prevMovements || []).reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
 
-                let prevRows = [];
-                if (prevStartIso != null && prevEndIso != null) {
-                    prevRows = await cashService.getManualExpenseMovementsInRange({
-                        companyId: companyId || null,
-                        branchId: selectedBranch?.id,
-                        startIso: prevStartIso,
-                        endIso: prevEndIso,
-                    });
-                }
-                if (cancelled) return;
-
-                const total = currentRows.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
-                const prevTotal = prevRows.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
-                setManualExpenseRows(currentRows);
                 setExpensesData({ total, prevTotal });
             } catch (err) {
                 console.error('Error fetching expenses for analytics:', err);
-                if (!cancelled) {
-                    setManualExpenseRows([]);
-                    setExpensesData({ total: 0, prevTotal: 0 });
-                }
+                setExpensesData({ total: 0, prevTotal: 0 });
             } finally {
-                if (!cancelled) setLoadingExpenses(false);
+                setLoadingExpenses(false);
             }
         };
 
         fetchExpenses();
-        return () => {
-            cancelled = true;
-        };
-    }, [days, filterPeriod, companyId, selectedBranch?.id, expenseRangeMode, analyticsDate, expenseRefreshNonce]);
+    }, [days, filterPeriod, companyId, selectedBranch?.id]);
 
     // --- CORE DATA ---
-    const { chartSeries, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
+    const { chartData, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
         if (!ordersForAnalytics || ordersForAnalytics.length === 0) {
             return {
-                chartSeries: [],
+                chartData: { labels: [], datasets: [] },
                 kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
                 trends: { total: 0, count: 0, delivery: 0, expenses: 0, net: 0 },
                 paymentBreakdown: { cash: 0, card: 0, online: 0 },
@@ -496,19 +295,21 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
-        // --- CHART DATA (serie diaria local YYYY-MM-DD) ---
+        // --- CHART DATA ---
         const salesByDate = {};
-        const chartDateKeys = [];
-
+        const labels = [];
+        
+        // Inicializar días
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(now.getDate() - i);
+            // [FIX] Usar fecha LOCAL para la clave, no UTC, para alinear con lo que ve el usuario
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             const key = `${year}-${month}-${day}`;
-
-            chartDateKeys.push(key);
+            
+            labels.push(d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }));
             salesByDate[key] = 0;
         }
 
@@ -593,7 +394,22 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             .sort((a, b) => b.total - a.total);
 
         return {
-            chartSeries: chartDateKeys.map((k) => ({ time: k, value: Number(salesByDate[k]) || 0 })),
+            chartData: {
+                labels,
+                datasets: [{
+                    label: 'Ventas',
+                    data: Object.values(salesByDate),
+                    borderColor: '#e63946',
+                    backgroundColor: 'rgba(230, 57, 70, 0.08)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#e63946',
+                    pointBorderWidth: 2,
+                    pointRadius: days > 30 ? 0 : 3,
+                    pointHoverRadius: 5,
+                }],
+            },
             kpis: {
                 total: totalSales,
                 count,
@@ -613,6 +429,51 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             branchStats: sortedBranches
         };
     }, [ordersForAnalytics, filterPeriod, chartTab, days, branches, expensesData]);
+
+    const chartRenderData = useMemo(() => {
+        const base = chartData;
+        if (!base.labels?.length || !base.datasets?.[0]) return base;
+        const src = base.datasets[0];
+        const labels = base.labels;
+        const data = src.data;
+        const pr = days > 30 ? 0 : 3;
+        const kind = chartKind === 'bar' ? 'bar' : 'area';
+
+        if (kind === 'bar') {
+            return {
+                labels,
+                datasets: [{
+                    label: 'Ventas',
+                    data,
+                    backgroundColor: 'rgba(230, 57, 70, 0.72)',
+                    borderColor: 'rgba(230, 57, 70, 0.95)',
+                    borderWidth: 0,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }],
+            };
+        }
+
+        /* Área: línea curva + relleno (sin escalones; dataset explícito para no arrastrar props raras) */
+        return {
+            labels,
+            datasets: [{
+                label: 'Ventas',
+                data,
+                fill: true,
+                tension: 0.4,
+                stepped: false,
+                borderWidth: 2,
+                borderColor: '#e63946',
+                backgroundColor: 'rgba(230, 57, 70, 0.14)',
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#e63946',
+                pointBorderWidth: 2,
+                pointRadius: pr,
+                pointHoverRadius: 5,
+            }],
+        };
+    }, [chartData, chartKind, days]);
 
     // --- NEW CLIENTS ---
     const newClientsInfo = useMemo(() => {
@@ -678,293 +539,51 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [ordersForAnalytics, filterPeriod, days]);
 
 
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(0,0,0,0.85)', padding: 12, cornerRadius: 10,
+                titleFont: { size: 13, weight: '600' }, bodyFont: { size: 13 },
+                displayColors: false,
+                callbacks: { label: (ctx) => fmt(ctx.raw) }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+                ticks: { color: '#666', font: { size: 11 }, callback: (v) => v >= 1000 ? `$${v / 1000}k` : `$${v}` },
+                border: { display: false },
+            },
+            x: {
+                grid: { display: false },
+                ticks: { color: '#4b5563', font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                border: { display: false }
+            }
+        }
+    };
+
     const activeChartKind = chartKind === 'bar' ? 'bar' : 'area';
-
-    const reportPeriodHeader = (
-        <header className="rpt-header rpt-header--actions-only">
-            <div className="rpt-header-actions">
-                <AdminMenuSelect
-                    className="rpt-period-menu-select"
-                    value={filterPeriod}
-                    onChange={setFilterPeriod}
-                    options={RPT_PERIOD_OPTIONS}
-                    aria-label="Rango de fechas del informe"
-                    icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
-                />
-            </div>
-        </header>
-    );
-
-    const gastosLocalSection = (
-        <div className={`rpt-chart-card rpt-expenses-card${view === 'expensesOnly' ? ' rpt-chart-card--expenses-solo' : ''}`}>
-            <div className="rpt-chart-header rpt-expenses-card-header">
-                <div className="rpt-expenses-title-block">
-                    <h3>Gastos del local</h3>
-                    <p className="rpt-expenses-subtitle">Gastos operativos registrados en caja. Se requiere sucursal concreta y turno abierto.</p>
-                </div>
-                <div className="rpt-expenses-toolbar">
-                    <button type="button" className="rpt-btn-register-expense" onClick={tryOpenRegisterExpenseModal}>
-                        <Plus size={17} strokeWidth={2.25} aria-hidden />
-                        Registrar gasto
-                    </button>
-                    <div className="rpt-expenses-toolbar-cluster" aria-label="Vista del informe de gastos">
-                        <AdminMenuSelect
-                            value={expenseRangeMode}
-                            onChange={setExpenseRangeMode}
-                            options={EXPENSE_RANGE_MODE_OPTIONS}
-                            aria-label="Rango de gastos del local"
-                            icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
-                        />
-                        <div className="rpt-expenses-agg" role="group" aria-label="Agrupar gastos por">
-                            <span className="rpt-expenses-agg-label">Agrupar</span>
-                            <div className="rpt-expenses-agg-tabs">
-                                {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`rpt-tab ${expenseAgg === value ? 'active' : ''}`}
-                                        onClick={() => setExpenseAgg(value)}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        className="rpt-tab rpt-tab--export-expenses"
-                        onClick={handleExportManualExpensesExcel}
-                        disabled={exportExpensesLoading || !manualExpenseRows.length}
-                    >
-                        {exportExpensesLoading ? (
-                            <Loader2 size={14} className="rpt-expenses-spin" aria-hidden />
-                        ) : (
-                            <Download size={14} aria-hidden />
-                        )}
-                        <span>Excel (vista)</span>
-                    </button>
-                </div>
-            </div>
-            {expenseRangeMode === 'calendarMonth' && (
-                <p className="rpt-expenses-calendar-hint">
-                    El mes calendario coincide con el selector de &quot;Descargar Reporte Mensual&quot; ({analyticsDate}).
-                </p>
-            )}
-            <div className="rpt-expenses-split">
-                <div className="rpt-chart-wrapper rpt-expenses-chart-wrap">
-                    {expenseLwSeries.length ? (
-                        <RPTLightweightChart data={expenseLwSeries} variant="histogram" height={240} />
-                    ) : (
-                        <div className="rpt-empty rpt-expenses-empty-chart">
-                            {loadingExpenses ? 'Cargando gastos…' : 'Sin gastos manuales en este período.'}
-                        </div>
-                    )}
-                </div>
-                <div className="rpt-expense-panel rpt-expense-panel--totals">
-                    <table className="rpt-expense-table">
-                        <thead>
-                            <tr>
-                                <th>Período</th>
-                                <th className="rpt-expense-table__num">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {expenseBucketsOrdered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={2} className="rpt-expense-table__empty">
-                                        Sin datos agregados.
-                                    </td>
-                                </tr>
-                            ) : (
-                                expenseBucketsOrdered.map((row) => (
-                                    <tr key={row.key}>
-                                        <td>{row.label}</td>
-                                        <td className="rpt-expense-table__num rpt-expense-table__amount">{fmt(row.total)}</td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div className="rpt-expenses-recent-head">
-                <h4 className="rpt-expenses-section-title">Movimientos recientes</h4>
-                <span className="rpt-expenses-recent-meta">Últimos 80</span>
-            </div>
-            <div className="rpt-expense-panel rpt-expense-panel--movements">
-                <table className="rpt-expense-table rpt-expense-table--movements">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Sucursal</th>
-                            <th>Método</th>
-                            <th>Detalle</th>
-                            <th className="rpt-expense-table__num">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {!manualExpenseRows || manualExpenseRows.length === 0 ? (
-                            <tr>
-                                <td colSpan={5} className="rpt-expense-table__empty">
-                                    {loadingExpenses ? 'Cargando…' : 'Sin movimientos.'}
-                                </td>
-                            </tr>
-                        ) : (
-                            [...manualExpenseRows]
-                                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                                .slice(0, 80)
-                                .map((row) => {
-                                    const sh = row[TABLES.cash_shifts] || row.cash_shifts;
-                                    const bid = sh?.branch_id;
-                                    const branchName = bid != null ? (branchNameById[String(bid)] || String(bid)) : '—';
-                                    const d = new Date(row.created_at);
-                                    const pm = row.payment_method;
-                                    const metodo =
-                                        pm === 'cash'
-                                            ? 'Efectivo'
-                                            : pm === 'card'
-                                              ? 'Tarjeta'
-                                              : pm === 'online'
-                                                ? 'Transf.'
-                                                : String(pm || '—');
-                                    return (
-                                        <tr key={row.id}>
-                                            <td className="rpt-expense-table__nowrap">
-                                                {d.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                                            </td>
-                                            <td>{branchName}</td>
-                                            <td>{metodo}</td>
-                                            <td className="rpt-expense-table__ellipsis">{row.description || '—'}</td>
-                                            <td className="rpt-expense-table__num rpt-expense-table__amount">{fmt(row.amount)}</td>
-                                        </tr>
-                                    );
-                                })
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-
-    const monthlyExportBlock = (
-        <div
-            style={{
-                marginTop: '2rem',
-                padding: '1.5rem',
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: 12,
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-        >
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text, #0f172a)' }}>
-                Descargar Reporte Mensual
-            </h3>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted, #6b7280)', fontWeight: 500 }}>Seleccionar mes</label>
-                    <input
-                        type="month"
-                        value={analyticsDate}
-                        onChange={(e) => setAnalyticsDate(e.target.value)}
-                        style={{
-                            padding: '8px 12px',
-                            background: 'rgba(0, 0, 0, 0.2)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: 6,
-                            color: 'var(--admin-text, #0f172a)',
-                            fontFamily: 'inherit',
-                            fontSize: '0.9rem',
-                            minWidth: 180,
-                        }}
-                    />
-                </div>
-                <button
-                    type="button"
-                    onClick={handleExportMonthlyExcel}
-                    disabled={exportLoading}
-                    style={{
-                        padding: '10px 16px',
-                        background: 'var(--accent-primary, #3b82f6)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        cursor: exportLoading ? 'not-allowed' : 'pointer',
-                        opacity: exportLoading ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: '0.9rem',
-                        fontWeight: 500,
-                        transition: 'opacity 0.2s',
-                    }}
-                >
-                    {exportLoading ? (
-                        <>
-                            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                            Generando...
-                        </>
-                    ) : (
-                        <>
-                            <Download size={16} />
-                            Descargar Excel
-                        </>
-                    )}
-                </button>
-                <button
-                    type="button"
-                    onClick={handleExportMonthlyManualExpensesExcel}
-                    disabled={exportExpensesLoading || !companyId}
-                    style={{
-                        padding: '10px 16px',
-                        background: 'rgba(5, 150, 105, 0.95)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        cursor: exportExpensesLoading || !companyId ? 'not-allowed' : 'pointer',
-                        opacity: exportExpensesLoading || !companyId ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: '0.9rem',
-                        fontWeight: 500,
-                    }}
-                >
-                    {exportExpensesLoading ? (
-                        <>
-                            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                            Generando...
-                        </>
-                    ) : (
-                        <>
-                            <Download size={16} />
-                            Excel gastos del mes
-                        </>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
-
-    if (view === 'expensesOnly') {
-        return (
-            <div className="rpt-container rpt-container--compact-toolbar animate-fade">
-                {reportPeriodHeader}
-                {gastosLocalSection}
-                {monthlyExportBlock}
-                <CashMovementModal
-                    isOpen={isAddExpenseModalOpen}
-                    onClose={() => setIsAddExpenseModalOpen(false)}
-                    type="expense"
-                    onConfirm={handleConfirmRegisterLocalExpense}
-                />
-            </div>
-        );
-    }
 
     return (
         <div className="rpt-container rpt-container--compact-toolbar animate-fade">
-            {reportPeriodHeader}
+            {/* HEADER */}
+            <header className="rpt-header rpt-header--actions-only">
+                <div className="rpt-header-actions">
+                    <AdminMenuSelect
+                        className="rpt-period-menu-select"
+                        value={filterPeriod}
+                        onChange={setFilterPeriod}
+                        options={RPT_PERIOD_OPTIONS}
+                        aria-label="Rango de fechas del informe"
+                        icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
+                    />
+                </div>
+            </header>
 
             {/* KPI ROW */}
             <div className="rpt-kpi-row">
@@ -1019,7 +638,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="rpt-kpi">
                     <div className="rpt-kpi-icon expenses"><Wallet size={20} /></div>
                     <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Gastos del local</span>
+                        <span className="rpt-kpi-label">Egresos totales</span>
                         <span className="rpt-kpi-value">{fmt(expensesData.total)}</span>
                         {loadingExpenses && <span className="rpt-kpi-meta">Cargando...</span>}
                     </div>
@@ -1036,7 +655,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 </div>
             </div>
 
-            {/* Bloque principal Reportes: ventas (gráfico + lateral). Gastos del local: menú Ventas → Gastos del local */}
+            {/* CHART + SIDEBAR */}
             <div className="rpt-main-grid">
                 <div className="rpt-chart-card">
                     <div className="rpt-chart-header">
@@ -1068,16 +687,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </div>
                     </div>
                     <div className="rpt-chart-wrapper">
-                        {chartSeries.length ? (
-                            <RPTLightweightChart
-                                data={chartSeries}
-                                variant={activeChartKind === 'bar' ? 'histogram' : 'area'}
-                                height={days > 90 ? 260 : 280}
-                            />
+                        {activeChartKind === 'bar' ? (
+                            <Bar data={chartRenderData} options={chartOptions} />
                         ) : (
-                            <div className="rpt-empty" style={{ padding: '3rem', textAlign: 'center' }}>
-                                Sin datos de ventas
-                            </div>
+                            <Line data={chartRenderData} options={chartOptions} />
                         )}
                     </div>
                 </div>
@@ -1201,13 +814,61 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 )}
             </div>
 
-            {monthlyExportBlock}
-            <CashMovementModal
-                isOpen={isAddExpenseModalOpen}
-                onClose={() => setIsAddExpenseModalOpen(false)}
-                type="expense"
-                onConfirm={handleConfirmRegisterLocalExpense}
-            />
+            {/* MONTHLY EXPORT SECTION */}
+            <div style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 12, border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text, #0f172a)' }}>Descargar Reporte Mensual</h3>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted, #6b7280)', fontWeight: 500 }}>Seleccionar mes</label>
+                        <input
+                            type="month"
+                            value={analyticsDate}
+                            onChange={(e) => setAnalyticsDate(e.target.value)}
+                            style={{
+                                padding: '8px 12px',
+                                background: 'rgba(0, 0, 0, 0.2)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: 6,
+                                color: 'var(--admin-text, #0f172a)',
+                                fontFamily: 'inherit',
+                                fontSize: '0.9rem',
+                                minWidth: 180
+                            }}
+                        />
+                    </div>
+                    <button
+                        onClick={handleExportMonthlyExcel}
+                        disabled={exportLoading}
+                        style={{
+                            padding: '10px 16px',
+                            background: 'var(--accent-primary, #3b82f6)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: exportLoading ? 'not-allowed' : 'pointer',
+                            opacity: exportLoading ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontSize: '0.9rem',
+                            fontWeight: 500,
+                            transition: 'opacity 0.2s'
+                        }}
+                    >
+                        {exportLoading ? (
+                            <>
+                                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                Generando...
+                            </>
+                        ) : (
+                            <>
+                                <Download size={16} />
+                                Descargar Excel
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
