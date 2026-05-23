@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Panel del negocio</string>
-    <string name="title_activity_main">Panel del negocio</string>
-    <string name="package_name">io.godcode.tenantpanel</string>
-    <string name="custom_url_scheme">io.godcode.tenantpanel</string>
-</resources>
