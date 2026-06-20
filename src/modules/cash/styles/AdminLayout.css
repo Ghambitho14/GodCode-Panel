@@ -115,7 +115,7 @@
 	max-width: min(100%, 560px);
 }
 
-/* Cabecera compacta sin título visible: no ocupa hueco en la fila */
+/* Cabecera compacta (p. ej. Cocina en vivo en móvil): no ocupa hueco en la fila */
 .admin-layout .content-header-title-block--visually-collapsed {
 	flex: 0 0 0;
 	width: 0;
@@ -784,11 +784,6 @@
 		padding-right: max(0px, env(safe-area-inset-right, 0px));
 	}
 
-	/* Pedidos en vivo: sin hueco de título; acciones arrancan arriba */
-	.admin-layout .content-header:has(.content-header-title-block--visually-collapsed) {
-		row-gap: 0;
-	}
-
 	/* Sin título visible en móvil/tablet; el h1 queda solo para lectores de pantalla */
 	.admin-layout .content-header-title-block {
 		flex: 0 0 0;
@@ -932,75 +927,15 @@
 		grid-row: 2;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		grid-template-rows: auto auto auto;
 		gap: clamp(8px, 2vw, 12px);
 		width: 100%;
 		min-width: 0;
-		align-items: stretch;
-	}
-
-	/* Columna izquierda: badge de estado + botón pausar apilados */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause {
-		grid-column: 1;
-		grid-row: 1 / 3;
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: clamp(8px, 2vw, 12px);
-		min-width: 0;
-		flex-wrap: nowrap;
-	}
-
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__badge,
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__btn {
-		width: 100%;
-		min-height: 42px;
-		justify-content: center;
-		box-sizing: border-box;
-	}
-
-	/* Historial: columna derecha, misma altura que estado + pausar */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-history {
-		grid-column: 2;
-		grid-row: 1 / 3;
-		width: 100%;
-		min-width: 0;
-		justify-content: center;
-		align-self: stretch;
-	}
-
-	/* Abrir mesa: ancho completo en la última fila */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-manual {
-		grid-column: 1 / -1;
-		grid-row: 3;
-		width: 100%;
-		min-width: 0;
-		justify-content: center;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row > .btn {
 		width: 100%;
 		min-width: 0;
 		justify-content: center;
-	}
-
-	/* Diálogo pausa: anclar a la izquierda para no salir del viewport en columna estrecha */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__confirm {
-		left: 0;
-		right: auto;
-		width: min(320px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 32px));
-		max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px);
-		box-sizing: border-box;
-	}
-
-	/* Badge estado: texto más compacto en pantallas muy estrechas */
-	@media (max-width: 400px) {
-		.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__badge {
-			font-size: 0.65rem;
-			padding: 6px 8px;
-			text-align: center;
-			line-height: 1.25;
-		}
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-action-generic {

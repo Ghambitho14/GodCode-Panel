@@ -3,7 +3,7 @@ import {
 	EXPENSE_KIND_CASH_WITHDRAWAL,
 	EXPENSE_KIND_OPERATING,
 } from "@/modules/cash/utils/cashMovementKinds";
-import { computeShiftTotals, isCourierPayoutMovement } from "@/modules/cash/utils/cashTotals";
+import { computeShiftTotals } from "@/modules/cash/utils/cashTotals";
 
 describe("computeShiftTotals", () => {
 	it("sums cash from order sales", () => {
@@ -119,23 +119,5 @@ describe("computeShiftTotals", () => {
 		const deliveryNet = Math.max(0, totals.deliveryCollected - totals.deliveryRefunded);
 		const deliveryPending = Math.max(0, deliveryNet - totals.deliveryPaidToCourier);
 		expect(deliveryPending).toBe(0);
-	});
-
-	it("detects courier payout movements by description", () => {
-		expect(
-			isCourierPayoutMovement({
-				type: "expense",
-				amount: 5000,
-				description: "Pago repartidor turno",
-			}),
-		).toBe(true);
-		expect(
-			isCourierPayoutMovement({
-				type: "expense",
-				amount: 5000,
-				order_id: "ord-1",
-				description: "Pago repartidor turno",
-			}),
-		).toBe(false);
 	});
 });

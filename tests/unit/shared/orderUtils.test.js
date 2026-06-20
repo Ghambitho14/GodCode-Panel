@@ -14,12 +14,6 @@ import {
 	isPanelManualOrder,
 	resolveOrderCouponCode,
 	sanitizeOrder,
-	getOrderTileKind,
-	isOrderPaymentDeferred,
-	isOrderPaymentSettled,
-	countOpenOrderSessions,
-	filterOpenOrderSessions,
-	ORDER_OPEN_STATUSES,
 } from "@/shared/utils/orderUtils";
 
 describe("orderUtils", () => {
@@ -216,43 +210,5 @@ describe("orderUtils", () => {
 	it("isMixedPaymentBreakdown detects multiple methods", () => {
 		expect(isMixedPaymentBreakdown({ cash: 2000, card: 1000, online: 0 })).toBe(true);
 		expect(isMixedPaymentBreakdown({ cash: 3000, card: 0, online: 0 })).toBe(false);
-	});
-
-	it("getOrderTileKind maps delivery to moto and pickup to mesa", () => {
-		expect(getOrderTileKind({ order_type: "delivery" })).toBe("moto");
-		expect(getOrderTileKind({ order_type: "pickup" })).toBe("mesa");
-		expect(getOrderTileKind({ channel: "menu", order_type: "pickup" })).toBe("mesa");
-	});
-
-	it("isOrderPaymentDeferred detects pendiente", () => {
-		expect(isOrderPaymentDeferred({ payment_type: "pendiente" })).toBe(true);
-		expect(isOrderPaymentDeferred({ payment_type: "tienda" })).toBe(false);
-		expect(getPaymentLabel({ payment_type: "pendiente" })).toBe("Pago pendiente");
-	});
-
-	it("isOrderPaymentSettled is false for deferred payment", () => {
-		expect(isOrderPaymentSettled({ payment_type: "pendiente", total: 5000 })).toBe(false);
-	});
-
-	it("countOpenOrderSessions counts only open statuses for branch", () => {
-		const orders = [
-			{ branch_id: "b1", status: "active" },
-			{ branch_id: "b1", status: "completed" },
-			{ branch_id: "b1", status: "picked_up" },
-			{ branch_id: "b2", status: "pending" },
-		];
-		expect(countOpenOrderSessions(orders, "b1")).toBe(2);
-		expect(countOpenOrderSessions(orders, "all")).toBe(0);
-		expect(ORDER_OPEN_STATUSES).toEqual(["pending", "active", "completed"]);
-	});
-
-	it("filterOpenOrderSessions sorts by shift_sequence", () => {
-		const sorted = filterOpenOrderSessions([
-			{ status: "active", shift_sequence: 3 },
-			{ status: "pending", shift_sequence: 1 },
-			{ status: "completed", shift_sequence: 2 },
-			{ status: "picked_up", shift_sequence: 9 },
-		]);
-		expect(sorted.map((o) => o.shift_sequence)).toEqual([1, 2, 3]);
 	});
 });

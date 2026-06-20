@@ -8,9 +8,8 @@ import {
 import { computeShiftTotals } from '../utils/cashTotals';
 import { getExpectedByMethod } from '../utils/shiftCloseReconciliation';
 import { planSaleMovements, planRefundMovements, planSaleResyncMovements } from '../utils/orderPaymentMovements';
-import { countOpenOrderSessions } from '@/shared/utils/orderUtils';
 
-export const useCashSystem = (showNotify, branchId, orders = []) => {
+export const useCashSystem = (showNotify, branchId) => {
     const [activeShift, setActiveShift] = useState(null);
     const [loading, setLoading] = useState(true);
     const [movements, setMovements] = useState([]);
@@ -241,16 +240,6 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
      */
     const closeShift = useCallback(async (payload) => {
         if (!activeShift) return false;
-        const openCount = countOpenOrderSessions(orders, activeShift.branch_id);
-        if (openCount > 0) {
-            if (showNotify) {
-                showNotify(
-                    `No puedes cerrar caja: hay ${openCount} mesa(s) o moto(s) abiertas. Ciérralas antes.`,
-                    'error',
-                );
-            }
-            return false;
-        }
         try {
             const totals = getTotals(movements);
             const expected = getExpectedByMethod(totals, activeShift);
@@ -272,7 +261,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
             }
             return false;
         }
-    }, [activeShift, movements, getTotals, showNotify, orders]);
+    }, [activeShift, movements, getTotals, showNotify]);
 
     /**
      * [MEJORA MULTI-NEGOCIO]

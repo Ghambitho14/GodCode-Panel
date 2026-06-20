@@ -15,15 +15,15 @@ import CashOrderDetailPanel from './CashOrderDetailPanel';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
-import ReportPeriodSelect from '../ReportPeriodSelect';
-import {
-    getCashShiftHistoryPeriodOptions,
-    isInReportRange,
-    resolveReportPeriodRange,
-} from '../../utils/reportPeriodRange';
+import AdminMenuSelect from '../AdminMenuSelect';
 import { getOrderForMovement } from '../../utils/getOrderForMovement';
 
-const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = getCashShiftHistoryPeriodOptions();
+const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = [
+    { value: '7', label: '7 días' },
+    { value: '30', label: '30 días' },
+    { value: '90', label: '3 meses' },
+    { value: '365', label: '1 año' },
+];
 
 const ElapsedTime = ({ since }) => {
     const [elapsed, setElapsed] = useState('');
@@ -94,17 +94,12 @@ const CashManager = ({
     const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
     const movementCount = movements.length;
 
-    const shiftHistoryRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod),
-        [filterPeriod],
-    );
-
     const filteredShifts = useMemo(() => {
-        return pastShifts.filter((s) => {
-            if (!s?.closed_at) return false;
-            return isInReportRange(new Date(s.closed_at), shiftHistoryRange);
-        });
-    }, [pastShifts, shiftHistoryRange]);
+        const days = parseInt(filterPeriod);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        return pastShifts.filter(s => new Date(s.closed_at) >= cutoff);
+    }, [pastShifts, filterPeriod]);
 
     const cancelledOrdersInShift = useMemo(() => {
         if (!activeShift || !selectedBranchId || selectedBranchId === 'all') return [];
@@ -399,12 +394,11 @@ const CashManager = ({
                 <div className="cash-section-header">
                     <h3 className="cash-section-title cash-section-title--with-icon"><AdminIconSlot Icon={History} slotSize="sm" tone="accent" /> Historial de turnos</h3>
                     <div className="cash-filters-inline">
-                        <ReportPeriodSelect
+                        <AdminMenuSelect
                             value={filterPeriod}
                             onChange={setFilterPeriod}
                             options={CASH_SHIFT_HISTORY_PERIOD_OPTIONS}
                             aria-label="Período del historial de turnos"
-                            dateInputAriaLabel="Fecha del historial de turnos"
                             icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
                         />
                     </div>
@@ -479,7 +473,6 @@ const CashManager = ({
                 type={activeShift ? 'close' : 'open'}
                 activeShift={activeShift}
                 movements={movements}
-                orders={orders}
                 getTotals={getTotals}
                 onConfirm={activeShift ? closeShift : openShift}
             />

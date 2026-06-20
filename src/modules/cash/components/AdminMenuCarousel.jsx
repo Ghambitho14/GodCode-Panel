@@ -3,7 +3,7 @@ import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, MoreVertical,
 	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles, WandSparkles,
 } from 'lucide-react';
-import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
+import { uploadImage } from '@/shared/utils/cloudinary';
 import {
 	listMenuCarousel,
 	createBanner,
@@ -12,16 +12,6 @@ import {
 	patchBanner as patchBannerService,
 	deleteBanner,
 } from '../services/menuCarouselService';
-import {
-	TARGET_RATIO,
-	OUTPUT_WIDTH,
-	OUTPUT_HEIGHT,
-	readImageDimensions,
-	buildInitialCrop,
-	fitCropRect,
-	canvasFromCrop,
-	autoFitCarouselImage,
-} from '../utils/carouselImageFit';
 import AdminIconSlot from './AdminIconSlot';
 import '../styles/AdminMenuCarousel.css';
 
@@ -42,8 +32,89 @@ const shortUrlSnippet = (url) => {
 };
 
 const isCloudinaryUrl = (url) => typeof url === 'string' && url.includes('res.cloudinary.com');
+const TARGET_RATIO = 2.35;
+const MIN_WIDTH = 1920;
+const MIN_HEIGHT = 817;
+const RATIO_TOLERANCE = 0.03;
 
 const humanSize = (n) => `${Math.round(n).toLocaleString('es-CL')}px`;
+
+const readImageDimensions = (file) => new Promise((resolve, reject) => {
+	const objectUrl = URL.createObjectURL(file);
+	const img = new Image();
+	img.onload = () => {
+		const dims = { width: img.naturalWidth, height: img.naturalHeight };
+		URL.revokeObjectURL(objectUrl);
+		resolve(dims);
+	};
+	img.onerror = () => {
+		URL.revokeObjectURL(objectUrl);
+		reject(new Error('No se pudieron leer las dimensiones de la imagen.'));
+	};
+	img.src = objectUrl;
+});
+
+const analyzeImage = ({ width, height }) => {
+	const ratio = width / Math.max(1, height);
+	const ratioDiff = Math.abs(ratio - TARGET_RATIO);
+	const ratioOk = ratioDiff <= RATIO_TOLERANCE;
+	const minOk = width >= MIN_WIDTH && height >= MIN_HEIGHT;
+	const valid = ratioOk && minOk;
+	return { ratio, ratioOk, minOk, valid };
+};
+
+const fitCropRect = (dims, crop) => {
+	const maxX = Math.max(0, dims.width - crop.width);
+	const maxY = Math.max(0, dims.height - crop.height);
+	return {
+		x: Math.min(Math.max(0, crop.x), maxX),
+		y: Math.min(Math.max(0, crop.y), maxY),
+		width: crop.width,
+		height: crop.height,
+	};
+};
+
+const buildInitialCrop = ({ width, height }) => {
+	const srcRatio = width / Math.max(1, height);
+	let cropWidth = width;
+	let cropHeight = Math.round(width / TARGET_RATIO);
+	if (srcRatio < TARGET_RATIO) {
+		cropHeight = height;
+		cropWidth = Math.round(height * TARGET_RATIO);
+	}
+	const x = Math.max(0, Math.round((width - cropWidth) / 2));
+	const y = Math.max(0, Math.round((height - cropHeight) / 2));
+	return { x, y, width: cropWidth, height: cropHeight };
+};
+
+const canvasFromCrop = async (previewUrl, crop) => {
+	const img = new Image();
+	img.crossOrigin = 'anonymous';
+	const loaded = new Promise((resolve, reject) => {
+		img.onload = resolve;
+		img.onerror = reject;
+	});
+	img.src = previewUrl;
+	await loaded;
+	const out = document.createElement('canvas');
+	out.width = Math.max(MIN_WIDTH, Math.round(crop.width));
+	out.height = Math.max(MIN_HEIGHT, Math.round(crop.height));
+	const ctx = out.getContext('2d');
+	if (!ctx) throw new Error('No se pudo preparar el editor.');
+	ctx.imageSmoothingQuality = 'high';
+	ctx.drawImage(
+		img,
+		crop.x,
+		crop.y,
+		crop.width,
+		crop.height,
+		0,
+		0,
+		out.width,
+		out.height,
+	);
+	return out;
+};
 
 const filenameFromUrl = (url) => {
 	try {
@@ -283,6 +354,24 @@ export default function AdminMenuCarousel({
 		setEditing(false);
 	};
 
+	const continueWithoutEditing = async () => {
+		if (!pendingUpload?.file) return;
+		if (pendingUpload.mode !== 'create') {
+			dismissPendingUpload();
+			return;
+		}
+		setUploading(true);
+		try {
+			await uploadAndCreateBanner(pendingUpload.file);
+			showNotify('Imagen subida al carrusel.');
+			dismissPendingUpload();
+		} catch (err) {
+			showNotify(err instanceof Error ? err.message : 'Error al subir', 'error');
+		} finally {
+			setUploading(false);
+		}
+	};
+
 	const saveEditedImage = async () => {
 		if (!pendingUpload?.file || !pendingUpload?.dimensions) return;
 		setEditing(true);
@@ -300,8 +389,8 @@ export default function AdminMenuCarousel({
 				img.src = pendingUpload.previewUrl;
 				await loaded;
 				const out = document.createElement('canvas');
-				out.width = OUTPUT_WIDTH;
-				out.height = OUTPUT_HEIGHT;
+				out.width = MIN_WIDTH;
+				out.height = MIN_HEIGHT;
 				const ctx = out.getContext('2d');
 				if (!ctx) throw new Error('No se pudo preparar el editor.');
 				const baseScale = Math.max(out.width / img.naturalWidth, out.height / img.naturalHeight);
@@ -340,7 +429,8 @@ export default function AdminMenuCarousel({
 				await uploadAndReplaceBannerImage(pendingUpload.bannerId, edited);
 				showNotify('Imagen ajustada y actualizada.');
 			} else {
-				throw new Error('No se pudo actualizar la imagen del banner.');
+				await uploadAndCreateBanner(edited);
+				showNotify('Imagen editada y subida al carrusel.');
 			}
 			dismissPendingUpload();
 		} catch (err) {
@@ -362,6 +452,7 @@ export default function AdminMenuCarousel({
 			const fallbackType = blob.type || 'image/jpeg';
 			const file = new File([blob], filenameFromUrl(banner.image_url), { type: fallbackType });
 			const dimensions = await readImageDimensions(file);
+			const analysis = analyzeImage(dimensions);
 			const initialCrop = buildInitialCrop(dimensions);
 			const previewUrl = URL.createObjectURL(file);
 			setPendingUpload({
@@ -371,6 +462,7 @@ export default function AdminMenuCarousel({
 				dimensions,
 				previewUrl,
 				previewSource: 'file',
+				result: analysis,
 			});
 			const ratio = dimensions.width / Math.max(1, dimensions.height);
 			const minZoom = Math.max(TARGET_RATIO / ratio, 1);
@@ -389,13 +481,34 @@ export default function AdminMenuCarousel({
 		const file = e.target.files?.[0];
 		e.target.value = '';
 		if (!file || !branchId) return;
-		setUploading(true);
 		try {
-			const validation = validateImageFile(file);
-			if (!validation.valid) throw new Error(validation.error);
-			const fitted = await autoFitCarouselImage(file);
-			await uploadAndCreateBanner(fitted);
-			showNotify('Imagen subida al carrusel.');
+			const dimensions = await readImageDimensions(file);
+			const result = analyzeImage(dimensions);
+			if (result.valid) {
+				setUploading(true);
+				await uploadAndCreateBanner(file);
+				showNotify('Imagen subida al carrusel.');
+				return;
+			}
+			const ratioTxt = `${result.ratio.toFixed(2)}:1`;
+			const reasonRatio = result.ratioOk ? null : `proporción actual ${ratioTxt}, objetivo 2.35:1`;
+			const reasonMin = result.minOk ? null : `mínimo ${MIN_WIDTH}x${MIN_HEIGHT}, actual ${dimensions.width}x${dimensions.height}`;
+			const reasons = [reasonRatio, reasonMin].filter(Boolean).join(' · ');
+			showNotify(`La imagen no calza: ${reasons}. Puedes editarla o subirla igual.`, 'error');
+			const previewUrl = URL.createObjectURL(file);
+			setPendingUpload({
+				mode: 'create',
+				file,
+				dimensions,
+				previewUrl,
+				previewSource: 'file',
+				result,
+			});
+			const minZoom = Math.max(TARGET_RATIO / result.ratio, 1);
+			setEditorZoom(Number(minZoom.toFixed(2)));
+			setEditorMode('cover');
+			setEditorOffsetX(0.5);
+			setEditorOffsetY(0.5);
 		} catch (err) {
 			showNotify(err instanceof Error ? err.message : 'Error al subir', 'error');
 		} finally {
@@ -508,7 +621,7 @@ export default function AdminMenuCarousel({
 						{uploading ? 'Subiendo…' : 'Añadir imagen'}
 						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
 					</label>
-					<span className="menu-carousel-upload-hint"> · Cualquier JPG, PNG o WebP (máx. 20 MB). Se ajusta automáticamente al formato del carrusel.</span>
+					<span className="menu-carousel-upload-hint"> · JPG, PNG o WebP, máx. 20 MB</span>
 				</div>
 			</div>
 
@@ -710,7 +823,7 @@ export default function AdminMenuCarousel({
 						<div className="menu-carousel-editor-head">
 							<h4>Editor opcional de imagen</h4>
 							<p>
-								Objetivo: 2.35:1, mínimo {OUTPUT_WIDTH}x{OUTPUT_HEIGHT}.
+								Objetivo: 2.35:1, mínimo {MIN_WIDTH}x{MIN_HEIGHT}.
 								Actual: {humanSize(pendingUpload.dimensions.width)} x {humanSize(pendingUpload.dimensions.height)}.
 							</p>
 						</div>
@@ -801,8 +914,13 @@ export default function AdminMenuCarousel({
 							<button type="button" className="btn btn-ghost" onClick={dismissPendingUpload} disabled={uploading || editing}>
 								Cancelar
 							</button>
+							{pendingUpload.mode === 'create' ? (
+								<button type="button" className="btn btn-secondary" onClick={() => void continueWithoutEditing()} disabled={uploading || editing}>
+									Continuar sin editar
+								</button>
+							) : null}
 							<button type="button" className="btn btn-primary" onClick={() => void saveEditedImage()} disabled={uploading || editing}>
-								{editing ? 'Aplicando…' : 'Guardar ajustes'}
+								{editing ? 'Aplicando…' : pendingUpload.mode === 'replace' ? 'Guardar ajustes' : 'Editar y subir'}
 							</button>
 						</div>
 					</div>

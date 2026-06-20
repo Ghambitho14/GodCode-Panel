@@ -7,7 +7,6 @@ import {
 import {
     MANUAL_ORDER_INITIAL_FORM_STATE,
     mergeAddressIntoForm,
-    OPEN_MESA_DEFAULT_CLIENT_NAMES,
 } from './manualOrderShared';
 
 const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
@@ -235,19 +234,6 @@ export const useManualOrderForm = () => {
         setPhoneValid(true);
     }, []);
 
-    const resetOpenMesaForm = useCallback(() => {
-        setForm({
-            ...initialFormState,
-            client_name: OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup,
-            client_rut: '',
-            client_phone: '',
-            order_type: 'pickup',
-            payment_type: 'pendiente',
-        });
-        setRutValid(true);
-        setPhoneValid(true);
-    }, []);
-
     const getInputStyle = useCallback((isValid) => {
         if (isValid === true) return { borderColor: '#25d366', boxShadow: '0 0 0 1px #25d366' };
         if (isValid === false) return { borderColor: '#ff4444', boxShadow: '0 0 0 1px #ff4444' };
@@ -277,7 +263,6 @@ export const useManualOrderForm = () => {
         applyClientRecord,
         applySavedAddress,
         resetForm,
-        resetOpenMesaForm,
         getInputStyle
     };
 };

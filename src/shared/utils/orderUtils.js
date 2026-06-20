@@ -97,10 +97,6 @@ export function inferBreakdownMethodFromOrder(order) {
 export function getOrderPaymentBreakdown(order) {
 	if (!order) return { cash: 0, card: 0, online: 0 };
 
-	if (String(order.payment_type ?? '').trim().toLowerCase() === 'pendiente') {
-		return { cash: 0, card: 0, online: 0 };
-	}
-
 	const stored = normalizePaymentBreakdown(order.payment_breakdown);
 	if (isMixedPaymentBreakdown(stored)) {
 		return stored;
@@ -233,7 +229,6 @@ export function getPaymentLabel(order) {
 	if (type === 'online') return 'Transf.';
 	if (type === 'tarjeta') return 'Tarjeta';
 	if (type === 'tienda') return 'Efectivo';
-	if (type === 'pendiente') return 'Pago pendiente';
 	return type || '—';
 }
 
@@ -703,42 +698,6 @@ export function isOrderDelivery(order) {
 		return true;
 	}
 	return false;
-}
-
-export const ORDER_OPEN_STATUSES = ['pending', 'active', 'completed'];
-
-/** @param {{ payment_type?: string }} order */
-export function isOrderPaymentDeferred(order) {
-	if (!order) return false;
-	return String(order.payment_type ?? '').trim().toLowerCase() === 'pendiente';
-}
-
-/** @param {Record<string, unknown>} order */
-export function getOrderTileKind(order) {
-	return isOrderDelivery(order) ? 'moto' : 'mesa';
-}
-
-/** Pedido con pago ya definido (menú online u otro) listo para confirmar al cerrar. */
-export function isOrderPaymentSettled(order) {
-	if (!order || isOrderPaymentDeferred(order)) return false;
-	const breakdown = getOrderPaymentBreakdown(order);
-	const total = breakdown.cash + breakdown.card + breakdown.online;
-	return total > 0 || (order.payment_type && order.payment_type !== 'pendiente');
-}
-
-/** @param {Array<{ status?: string; branch_id?: string }>} orders @param {string | null | undefined} branchId */
-export function countOpenOrderSessions(orders, branchId) {
-	if (!branchId || branchId === 'all') return 0;
-	return (orders || []).filter(
-		(o) => o?.branch_id === branchId && ORDER_OPEN_STATUSES.includes(String(o?.status ?? '')),
-	).length;
-}
-
-/** @param {Array<Record<string, unknown>>} orders */
-export function filterOpenOrderSessions(orders) {
-	return (orders || [])
-		.filter((o) => ORDER_OPEN_STATUSES.includes(String(o?.status ?? '')))
-		.sort((a, b) => (Number(a.shift_sequence) || 0) - (Number(b.shift_sequence) || 0));
 }
 
 /**

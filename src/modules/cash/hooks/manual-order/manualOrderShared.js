@@ -1,4 +1,4 @@
-import { computeDeliveryFee, effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
+import { computeDeliveryFee } from '@/lib/delivery-settings';
 import { mapAddressToFormFields } from '../../services/clientService';
 
 /** Estado inicial del formulario de pedido manual / edición. */
@@ -23,21 +23,6 @@ export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	saved_addresses: [],
 	selected_address_id: '',
 };
-
-/** Nombres predeterminados al abrir mesa/moto (salón vs delivery). */
-export const OPEN_MESA_DEFAULT_CLIENT_NAMES = {
-	pickup: 'Salón',
-	delivery: 'Delivery',
-};
-
-/** Resuelve el nombre de sesión en modo abrir mesa (fallback por tipo de pedido). */
-export function resolveOpenMesaClientName(orderType, override = '') {
-	const custom = String(override ?? '').trim();
-	if (custom) return custom;
-	return orderType === 'delivery'
-		? OPEN_MESA_DEFAULT_CLIENT_NAMES.delivery
-		: OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup;
-}
 
 /** Mensajes de error al previsualizar cupones (manual order + edición). */
 export const COUPON_PREVIEW_ERR_MSG = {
@@ -72,33 +57,6 @@ export function resolveDeliveryFeeForAddress(branchDeliveryCfg, subtotal, namedA
 	const r = computeDeliveryFee(branchDeliveryCfg, 0, Number(subtotal) || 0, {
 		namedAreaId,
 	});
-	return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
-}
-
-/**
- * Calcula tarifa de envío según config de sucursal y campos del formulario.
- * @returns {number|null} fee >= 0, null si no aplica o error de pricing (-1..-4)
- */
-export function computeDeliveryFeeForForm(branchDeliveryCfg, subtotal, {
-	orderType = 'pickup',
-	namedAreaId = '',
-	deliveryKm = '',
-} = {}) {
-	if (!branchDeliveryCfg || orderType !== 'delivery') return null;
-
-	const safeSubtotal = Number(subtotal) || 0;
-	const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
-	const zoneId = String(namedAreaId ?? '').trim();
-
-	if (pricing === 'named') {
-		if (!zoneId) return null;
-		const r = computeDeliveryFee(branchDeliveryCfg, 0, safeSubtotal, { namedAreaId: zoneId });
-		return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
-	}
-
-	const kmRaw = deliveryKm === '' || deliveryKm == null ? 0 : Number(String(deliveryKm).replace(',', '.'));
-	const safeKm = Number.isFinite(kmRaw) && kmRaw >= 0 ? kmRaw : 0;
-	const r = computeDeliveryFee(branchDeliveryCfg, safeKm, safeSubtotal);
 	return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
 }
 

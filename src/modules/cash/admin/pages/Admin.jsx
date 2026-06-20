@@ -21,7 +21,6 @@ import AdminBroadcastsBanner from '../../components/AdminBroadcastsBanner';
 import AdminTopBar from '../../components/AdminTopBar';
 import AdminNotificationCenter from '../../components/AdminNotificationCenter';
 import AdminBranchSelector from '../../components/AdminBranchSelector';
-import AdminTablesGrid from '../../components/AdminTablesGrid';
 import AdminHeaderClock from '../../components/AdminHeaderClock';
 import OrderIntakePauseControl from '../../components/OrderIntakePauseControl';
 import OrderNotificationSoundControl from '../../components/OrderNotificationSoundControl';
@@ -54,10 +53,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     selectedBranch, setSelectedBranch,
     isBranchLocked,
     isHistoryView, setIsHistoryView,
-    ordersViewMode,
-    historyPeriod, setHistoryPeriod,
-    historyOrders, historyLoading,
-    isOpenMesaModal, setIsOpenMesaModal,
     mobileTab, setMobileTab,
     searchQuery, setSearchQuery,
     filterCategory, setFilterCategory,
@@ -74,6 +69,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     notification,
     receiptModalOrder, setReceiptModalOrder,
     receiptPreview, setReceiptPreview,
+    isManualOrderModalOpen, setIsManualOrderModalOpen,
     uploadingReceipt,
     selectedClient, setSelectedClient,
     selectedClientOrders,
@@ -85,7 +81,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     refreshBranches,
     handleSelectClient,
     moveOrder,
-    closeOrderSession,
     uploadReceiptToOrder,
     handleReceiptFileChange,
     handleSaveProduct,
@@ -174,10 +169,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const activeDynamicModule = dynamicModuleByTab.get(activeTab) || null;
 
-  const hideOrdersHeaderTitle = activeTab === 'orders' && !isHistoryView;
+  const hideKitchenTitleOnMobile = isMobile && activeTab === 'orders' && !isHistoryView;
 
   const pageTitle = React.useMemo(() => {
-    if (activeTab === 'orders') return isHistoryView ? 'Historial' : (tabLabels.orders || 'Pedidos');
+    if (activeTab === 'orders') return isHistoryView ? 'Historial' : 'Cocina en Vivo';
     if (activeTab === 'caja') {
       const c = tabLabels.caja || 'Caja';
       return `${c} y Turnos`;
@@ -398,7 +393,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       <main className="admin-content">
         <AdminTopBar
           title={pageTitle}
-          hideTitleVisual={hideOrdersHeaderTitle}
+          hideTitleVisual={hideKitchenTitleOnMobile}
         >
             <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
             <div className="header-actions-leading">
@@ -473,12 +468,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsOpenMesaModal(true)}
+                  onClick={() => setIsManualOrderModalOpen(true)}
                   className="btn btn-primary header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <PlusCircle size={18} /> Abrir mesa
+                  <PlusCircle size={18} /> Pedido Manual
                 </button>
               </div>
             )}
@@ -539,23 +534,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
           !isHistoryView ? (
-            ordersViewMode === 'mesas' ? (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
-              <AdminTablesGrid
-                orders={orders}
-                moveOrder={moveOrder}
-                closeOrderSession={closeOrderSession}
-                branch={selectedBranch}
-                clients={clients}
-                logoUrl={logoUrl}
-                companyName={companyName}
-                showNotify={showNotify}
-                products={products}
-                categories={categories}
-                onOrderSaved={() => loadData(true)}
-              />
-            </AdminErrorBoundary>
-            ) : (
             <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <AdminKanban
                 columns={kanbanColumns}
@@ -574,17 +552,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 onOrderSaved={() => loadData(true)}
               />
             </AdminErrorBoundary>
-            )
           ) : (
             <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <React.Suspense fallback={<AdminTabFallback />}>
-                <AdminHistoryTable
-                  orders={historyOrders}
-                  historyLoading={historyLoading}
-                  historyPeriod={historyPeriod}
-                  onPeriodChange={setHistoryPeriod}
-                  setReceiptModalOrder={setReceiptModalOrder}
-                />
+                <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
               </React.Suspense>
             </AdminErrorBoundary>
           )
@@ -1104,17 +1075,17 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
 
       <ManualOrderModal
-        isOpen={isOpenMesaModal}
-        onClose={() => setIsOpenMesaModal(false)}
+        isOpen={isManualOrderModalOpen}
+        onClose={() => setIsManualOrderModalOpen(false)}
         products={products}
         categories={categories}
         clients={clients}
         onOrderSaved={() => loadData(true)}
+        isMobile={isMobile}
         showNotify={showNotify}
         branch={selectedBranch}
         logoUrl={logoUrl}
         companyName={companyName}
-        openMesaMode
       />
 
       {isModalOpen && (

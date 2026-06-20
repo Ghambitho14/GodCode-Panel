@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
-import { expenseBucketKey, expenseBucketKeysForRange, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
+import { expenseBucketKey, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
 import {
     labelForManualExpenseKind,
     isCashWithdrawal,
@@ -17,19 +17,6 @@ import {
 } from '../utils/cashMovementKinds';
 import AdminIconSlot from './AdminIconSlot';
 import AdminMenuSelect from './AdminMenuSelect';
-import ReportPeriodSelect from './ReportPeriodSelect';
-import {
-    addLocalDays,
-    CUSTOM_DAY_MENU_VALUE,
-    formatReportPeriodLabel,
-    getReportPeriodOptions,
-    isCustomDayPeriod,
-    isInReportRange,
-    parseCustomDay,
-    reportPeriodExportSlug,
-    resolveReportPeriodRange,
-    ymdLocal,
-} from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel } from '@/shared/utils/orderUtils';
 import { downloadExcel, openSpreadsheetInNewTab } from '@/shared/utils/exportUtils';
@@ -55,28 +42,24 @@ function formatSalesChartLabel(isoDate, dayCount) {
     return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'numeric' });
 }
 
+const RPT_PERIOD_OPTIONS = [
+    { value: '7', label: '7 días' },
+    { value: '15', label: '15 días' },
+    { value: '30', label: '30 días' },
+    { value: '90', label: '3 meses' },
+    { value: 'all', label: 'Todo' },
+];
+
 const EXPENSE_AGG_OPTIONS = [
     { value: 'day', label: 'Día' },
     { value: 'week', label: 'Semana' },
     { value: 'month', label: 'Mes' },
 ];
 
-const EXPENSE_PERIOD_TABS = [
-    { value: 'month', label: 'Mes actual' },
-    { value: '7', label: '7 días' },
-    { value: '30', label: '30 días' },
-    { value: 'week', label: 'Semana' },
+const EXPENSE_RANGE_MODE_OPTIONS = [
+    { value: 'inform', label: 'Ventana del informe' },
+    { value: 'calendarMonth', label: 'Mes calendario' },
 ];
-
-const EXPENSE_PERIOD_TAB_VALUES = new Set(EXPENSE_PERIOD_TABS.map((o) => o.value));
-
-const EXPENSE_PERIOD_MORE_OPTIONS = getReportPeriodOptions().filter(
-    (o) => !EXPENSE_PERIOD_TAB_VALUES.has(o.value),
-);
-
-function isExpensePeriodTab(value) {
-    return EXPENSE_PERIOD_TAB_VALUES.has(value);
-}
 
 /** Rango UTC half-open [start, end) para un mes calendario `yyyy-mm`. */
 function getMonthRangeUtc(yyyyMm) {
@@ -94,48 +77,19 @@ function getMonthRangeUtc(yyyyMm) {
     };
 }
 
-function formatCalendarMonthLabel(yyyyMm) {
+function getPrevMonthRangeUtc(yyyyMm) {
     const [yearStr, monthStr] = String(yyyyMm).split('-');
-    const year = Number(yearStr);
-    const month = Number(monthStr);
+    let year = Number(yearStr);
+    let month = Number(monthStr);
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-        return yyyyMm;
+        return null;
     }
-    return new Date(year, month - 1, 1).toLocaleDateString('es-CL', {
-        month: 'long',
-        year: 'numeric',
-    });
-}
-
-function currentMonthYyyyMm(date = new Date()) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-}
-
-/** Rango local [start, end) para un año calendario completo. */
-function getCalendarYearRangeLocal(year) {
-    if (!Number.isFinite(year)) return null;
-    return {
-        start: new Date(year, 0, 1),
-        end: new Date(year + 1, 0, 1),
-    };
-}
-
-function resolveExpenseReferenceYear(analyticsDate, reportRange) {
-    if (reportRange.end instanceof Date && !Number.isNaN(reportRange.end.getTime())) {
-        const probe = addLocalDays(reportRange.end, -1);
-        return probe.getFullYear();
+    month -= 1;
+    if (month < 1) {
+        month = 12;
+        year -= 1;
     }
-    if (reportRange.chartDateKeys?.length) {
-        const last = reportRange.chartDateKeys[reportRange.chartDateKeys.length - 1];
-        const year = Number(String(last).split('-')[0]);
-        if (Number.isFinite(year)) return year;
-    }
-    if (reportRange.start instanceof Date && !Number.isNaN(reportRange.start.getTime())) {
-        return reportRange.start.getFullYear();
-    }
-    const year = Number(String(analyticsDate).split('-')[0]);
-    if (Number.isFinite(year)) return year;
-    return new Date().getFullYear();
+    return getMonthRangeUtc(`${year}-${String(month).padStart(2, '0')}`);
 }
 
 
@@ -150,7 +104,7 @@ const TrendBadge = ({ value }) => {
     );
 };
 
-function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
+function buildExpenseChartData(rows, expenseAgg) {
     const acc = new Map();
     for (const row of rows || []) {
         const iso = row.created_at;
@@ -158,7 +112,7 @@ function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
         const key = expenseBucketKey(iso, expenseAgg);
         acc.set(key, (acc.get(key) || 0) + (Number(row.amount) || 0));
     }
-    const keys = bucketKeys?.length ? bucketKeys : [...acc.keys()].sort();
+    const keys = [...acc.keys()].sort();
     return {
         expenseBucketsOrdered: keys.map((k) => ({
             key: k,
@@ -170,43 +124,7 @@ function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
             label: labelForExpenseBucket(k, expenseAgg),
             value: Number(acc.get(k)) || 0,
         })),
-        periodTotal: keys.reduce((sum, k) => sum + (Number(acc.get(k)) || 0), 0),
     };
-}
-
-/** Rango local [start, end) para gráficos/tablas de gastos según período del informe. */
-function resolveFromReportRange(reportRange) {
-    let start = reportRange.start;
-    let end = reportRange.end;
-
-    if (!start && reportRange.chartDateKeys?.length) {
-        const [y, mo, d] = reportRange.chartDateKeys[0].split('-').map(Number);
-        if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(d)) {
-            start = new Date(y, mo - 1, d);
-        }
-    }
-
-    if (!end && reportRange.chartDateKeys?.length) {
-        const last = reportRange.chartDateKeys[reportRange.chartDateKeys.length - 1];
-        const [y, mo, d] = last.split('-').map(Number);
-        if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(d)) {
-            end = addLocalDays(new Date(y, mo - 1, d), 1);
-        }
-    }
-
-    if (!start || !end) {
-        return null;
-    }
-
-    return { start, end };
-}
-
-function resolveExpenseChartRange(reportRange, expenseAgg, analyticsDate) {
-    if (expenseAgg === 'month') {
-        const year = resolveExpenseReferenceYear(analyticsDate, reportRange);
-        return getCalendarYearRangeLocal(year);
-    }
-    return resolveFromReportRange(reportRange);
 }
 
 /** `orders` desde el panel sigue limitado a 100 filas (kanban). Los KPIs usan fetch propio vía `analyticsOrders`. */
@@ -215,7 +133,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         () => createMoneyFormatter(selectedBranch),
         [selectedBranch],
     );
-    const [filterPeriod, setFilterPeriod] = useState(() => (view === 'expensesOnly' ? 'month' : '7'));
+    const [filterPeriod, setFilterPeriod] = useState('7');
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('bar-gradient');
     /** Pestaña principal del bloque informe: ventas (gráfico + barra lateral) o gastos del local. */
@@ -224,6 +142,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [manualExpenseRows, setManualExpenseRows] = useState([]);
     const [refundExpenseRows, setRefundExpenseRows] = useState([]);
     const [expenseAgg, setExpenseAgg] = useState('day');
+    const [expenseRangeMode, setExpenseRangeMode] = useState('inform');
     const [exportExpensesLoading, setExportExpensesLoading] = useState(false);
     const [analyticsDate, setAnalyticsDate] = useState(() => {
         const d = new Date();
@@ -240,28 +159,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [expenseKindFilter, setExpenseKindFilter] = useState('all');
     const { cashSystem, moveOrder } = useAdmin();
 
-    const reportRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod),
-        [filterPeriod],
-    );
-
-    const expenseChartRange = useMemo(
-        () => resolveExpenseChartRange(reportRange, expenseAgg, analyticsDate),
-        [reportRange, expenseAgg, analyticsDate],
-    );
-
-    const expenseReferenceYear = useMemo(
-        () => resolveExpenseReferenceYear(analyticsDate, reportRange),
-        [analyticsDate, reportRange],
-    );
-
-    const expenseCustomDay = parseCustomDay(filterPeriod) ?? ymdLocal(new Date());
-    const currentMonthBucketKey = currentMonthYyyyMm();
-
-    const expenseBucketKeys = useMemo(() => {
-        if (!expenseChartRange) return [];
-        return expenseBucketKeysForRange(expenseChartRange.start, expenseChartRange.end, expenseAgg);
-    }, [expenseChartRange, expenseAgg]);
+    const days = filterPeriod === 'all' ? 365 : parseInt(filterPeriod);
 
     useEffect(() => {
         if (!companyId) return;
@@ -270,11 +168,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         (async () => {
             try {
                 let q = supabase.from(TABLES.orders).select('*').eq('company_id', companyId);
-                if (reportRange.fetchStartIso) {
-                    q = q.gte('created_at', reportRange.fetchStartIso);
-                }
-                if (reportRange.fetchEndIso) {
-                    q = q.lt('created_at', reportRange.fetchEndIso);
+                if (filterPeriod !== 'all') {
+                    const cutoff = new Date();
+                    cutoff.setDate(cutoff.getDate() - days);
+                    q = q.gte('created_at', cutoff.toISOString());
                 }
                 if (selectedBranch?.id && selectedBranch.id !== 'all') {
                     q = q.eq('branch_id', selectedBranch.id);
@@ -293,7 +190,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return () => {
             cancelled = true;
         };
-    }, [companyId, selectedBranch?.id, reportRange.fetchStartIso, reportRange.fetchEndIso]);
+    }, [companyId, selectedBranch?.id, days, filterPeriod]);
 
     useEffect(() => {
         if (!companyId) {
@@ -328,18 +225,13 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     );
 
     const operatingChartData = useMemo(
-        () => buildExpenseChartData(operatingExpenseRows, expenseAgg, expenseBucketKeys),
-        [operatingExpenseRows, expenseAgg, expenseBucketKeys],
+        () => buildExpenseChartData(operatingExpenseRows, expenseAgg),
+        [operatingExpenseRows, expenseAgg],
     );
 
     const withdrawalChartData = useMemo(
-        () => buildExpenseChartData(withdrawalExpenseRows, expenseAgg, expenseBucketKeys),
-        [withdrawalExpenseRows, expenseAgg, expenseBucketKeys],
-    );
-
-    const refundChartData = useMemo(
-        () => buildExpenseChartData(refundExpenseRows, expenseAgg, expenseBucketKeys),
-        [refundExpenseRows, expenseAgg, expenseBucketKeys],
+        () => buildExpenseChartData(withdrawalExpenseRows, expenseAgg),
+        [withdrawalExpenseRows, expenseAgg],
     );
 
     const manualExpenseBreakdown = useMemo(() => {
@@ -388,34 +280,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         expenseKindFilter === 'all' || expenseKindFilter === 'operating';
     const showWithdrawalExpenseBlock =
         expenseKindFilter === 'all' || expenseKindFilter === 'cash_withdrawal';
-    const showRefundExpenseBlock =
-        expenseKindFilter === 'all' || expenseKindFilter === 'order_refund';
-
-    const expenseKindFilterOptions = useMemo(
-        () => [
-            {
-                value: 'all',
-                label: 'Todos',
-                count: (manualExpenseRows?.length || 0) + (refundExpenseRows?.length || 0),
-            },
-            {
-                value: 'operating',
-                label: 'Gastos operativos',
-                count: manualExpenseBreakdown.operatingCount,
-            },
-            {
-                value: 'cash_withdrawal',
-                label: 'Retiros caja',
-                count: manualExpenseBreakdown.withdrawalCount,
-            },
-            {
-                value: 'order_refund',
-                label: 'Devoluciones',
-                count: refundBreakdown.count,
-            },
-        ],
-        [manualExpenseRows, refundExpenseRows, manualExpenseBreakdown, refundBreakdown],
-    );
 
     const handleExportManualExpensesExcel = async () => {
         if (exportExpensesLoading) return;
@@ -447,7 +311,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     Descripcion: row.description || '',
                 };
             });
-            const tag = reportPeriodExportSlug(filterPeriod);
+            const tag = expenseRangeMode === 'calendarMonth' ? analyticsDate : `ultimos_${days}d`;
             downloadExcel(dataToExport, `Gastos_local_${tag}.xls`);
             if (showNotify) showNotify('Excel de gastos generado', 'success');
         } catch {
@@ -540,19 +404,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         setIsAddExpenseModalOpen(true);
     }, [selectedBranch, cashSystem?.activeShift, showNotify]);
 
-    const handleExpenseMorePeriodChange = useCallback((next) => {
-        if (next === CUSTOM_DAY_MENU_VALUE) {
-            setFilterPeriod(`day:${ymdLocal(new Date())}`);
-            return;
-        }
-        setFilterPeriod(String(next));
-    }, []);
-
-    const handleExpenseCustomDayChange = useCallback((e) => {
-        const ymd = e.target.value;
-        if (ymd) setFilterPeriod(`day:${ymd}`);
-    }, []);
-
     const handleAfterExpenseMovement = useCallback(async () => {
         setExpenseRefreshNonce((n) => n + 1);
         if (typeof cashSystem.refresh === 'function') {
@@ -635,7 +486,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     };
 
     /**
-     * Gastos manuales del local (`expense` sin `order_id`). Rango según período del informe.
+     * Gastos manuales del local (`expense` sin `order_id`). Rango según expenseRangeMode
+     * o ventana del informe (últimos N días).
      */
     useEffect(() => {
         let cancelled = false;
@@ -643,15 +495,15 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         const fetchExpenses = async () => {
             setLoadingExpenses(true);
             try {
+                const now = new Date();
                 let startIso;
                 let endIso;
                 let prevStartIso;
                 let prevEndIso;
 
-                if (expenseAgg === 'month') {
-                    const year = resolveExpenseReferenceYear(analyticsDate, reportRange);
-                    const yearRange = getCalendarYearRangeLocal(year);
-                    if (!yearRange) {
+                if (expenseRangeMode === 'calendarMonth') {
+                    const range = getMonthRangeUtc(analyticsDate);
+                    if (!range) {
                         if (!cancelled) {
                             setManualExpenseRows([]);
                             setRefundExpenseRows([]);
@@ -659,19 +511,23 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         }
                         return;
                     }
-                    startIso = yearRange.start.toISOString();
-                    endIso = yearRange.end.toISOString();
-                    const prevYearRange = getCalendarYearRangeLocal(year - 1);
-                    if (prevYearRange) {
-                        prevStartIso = prevYearRange.start.toISOString();
-                        prevEndIso = prevYearRange.end.toISOString();
+                    startIso = range.startIso;
+                    endIso = range.endIso;
+                    const prevRange = getPrevMonthRangeUtc(analyticsDate);
+                    if (prevRange) {
+                        prevStartIso = prevRange.startIso;
+                        prevEndIso = prevRange.endIso;
                     }
                 } else {
-                    startIso = reportRange.start?.toISOString();
-                    endIso = reportRange.end?.toISOString();
-                    if (reportRange.hasComparison && reportRange.prevStart && reportRange.prevEnd) {
-                        prevStartIso = reportRange.prevStart.toISOString();
-                        prevEndIso = reportRange.prevEnd.toISOString();
+                    const cutoff = new Date(now);
+                    cutoff.setDate(now.getDate() - days);
+                    startIso = cutoff.toISOString();
+                    endIso = undefined;
+                    if (filterPeriod !== 'all') {
+                        const prevCutoff = new Date(cutoff);
+                        prevCutoff.setDate(prevCutoff.getDate() - days);
+                        prevStartIso = prevCutoff.toISOString();
+                        prevEndIso = cutoff.toISOString();
                     }
                 }
 
@@ -725,7 +581,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return () => {
             cancelled = true;
         };
-    }, [reportRange, companyId, selectedBranch?.id, analyticsDate, expenseRefreshNonce, expenseAgg]);
+    }, [days, filterPeriod, companyId, selectedBranch?.id, expenseRangeMode, analyticsDate, expenseRefreshNonce]);
 
     // --- CORE DATA ---
     const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
@@ -738,11 +594,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 branchStats: []
             };
         }
-        const range = reportRange;
-        const prevRange = {
-            start: range.prevStart,
-            end: range.prevEnd,
-        };
+        const now = new Date();
+        const cutoff = new Date(now);
+        cutoff.setDate(now.getDate() - days);
+
+        const prevCutoff = new Date(cutoff);
+        prevCutoff.setDate(prevCutoff.getDate() - days);
 
         const filterByTab = (o) => {
             if (chartTab === 'all') return true;
@@ -758,23 +615,31 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         
         const current = valid.filter(o => {
             const d = new Date(o.created_at);
-            const matchesTime = isInReportRange(d, range) && filterByTab(o);
+            const matchesTime = (filterPeriod === 'all' ? true : d >= cutoff) && filterByTab(o);
             return matchesTime;
         });
 
         const prev = valid.filter(o => {
             const d = new Date(o.created_at);
-            const matchesTime = range.hasComparison && isInReportRange(d, prevRange) && filterByTab(o);
+            const matchesTime = filterPeriod === 'all' ? false : (d >= prevCutoff && d < cutoff) && filterByTab(o);
             return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
         // --- CHART DATA (serie diaria local YYYY-MM-DD) ---
         const salesByDate = {};
-        const chartDateKeys = [...range.chartDateKeys];
+        const chartDateKeys = [];
 
-        chartDateKeys.forEach((key) => {
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const key = `${year}-${month}-${day}`;
+
+            chartDateKeys.push(key);
             salesByDate[key] = 0;
-        });
+        }
 
         current.forEach(o => {
             // [FIX] Convertir created_at (UTC) a fecha local del navegador para agrupar correctamente
@@ -872,7 +737,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return {
             salesChartPoints: chartDateKeys.map((k) => ({
                 key: k,
-                label: formatSalesChartLabel(k, range.dayCount),
+                label: formatSalesChartLabel(k, days),
                 sales: Number(salesByDate[k]) || 0,
                 expenses: Number(expensesByDate[k]) || 0,
             })),
@@ -894,32 +759,32 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
-    }, [ordersForAnalytics, reportRange, chartTab, branches, expensesData, manualExpenseRows]);
+    }, [ordersForAnalytics, filterPeriod, chartTab, days, branches, expensesData, manualExpenseRows]);
 
     // --- NEW CLIENTS ---
     const newClientsInfo = useMemo(() => {
         if (!clients) return { count: 0, trend: 0, total: 0 };
-        const range = reportRange;
-        const prevRange = { start: range.prevStart, end: range.prevEnd };
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+        const prevCutoff = new Date(); prevCutoff.setDate(cutoff.getDate() - days);
         
-        const currentNew = clients.filter((c) => isInReportRange(new Date(c.created_at || new Date()), range)).length;
-        const prevNew = range.hasComparison
-            ? clients.filter((c) => isInReportRange(new Date(c.created_at || new Date()), prevRange)).length
-            : 0;
+        const currentNew = clients.filter(c => new Date(c.created_at || new Date()) >= cutoff).length;
+        const prevNew = filterPeriod === 'all' ? 0 : clients.filter(c => {
+            const d = new Date(c.created_at || new Date());
+            return d >= prevCutoff && d < cutoff;
+        }).length;
 
         return {
             count: currentNew,
             trend: prevNew === 0 ? (currentNew > 0 ? 100 : 0) : Math.round(((currentNew - prevNew) / prevNew) * 100),
             total: clients.length,
         };
-    }, [clients, reportRange]);
+    }, [clients, filterPeriod, days]);
 
     // --- TOP 5 PRODUCTS ---
     const topProducts = useMemo(() => {
         if (!ordersForAnalytics) return [];
-        const filtered = ordersForAnalytics.filter(
-            (o) => o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange),
-        );
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+        const filtered = ordersForAnalytics.filter(o => o.status !== 'cancelled' && (filterPeriod === 'all' || new Date(o.created_at) >= cutoff));
         
         const counts = {};
         const revenue = {};
@@ -938,14 +803,15 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             .sort(([, a], [, b]) => b - a)
             .slice(0, 5)
             .map(([name, qty]) => ({ name, qty, revenue: revenue[name] || 0 }));
-    }, [ordersForAnalytics, reportRange]);
+    }, [ordersForAnalytics, filterPeriod, days]);
 
     // --- PEAK HOUR ---
     const peakHour = useMemo(() => {
         if (!ordersForAnalytics || ordersForAnalytics.length === 0) return null;
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
         
         const hourCounts = {};
-        ordersForAnalytics.filter(o => o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
+        ordersForAnalytics.filter(o => o.status !== 'cancelled' && (filterPeriod === 'all' || new Date(o.created_at) >= cutoff))
             .forEach(o => {
                 const h = new Date(o.created_at).getHours();
                 hourCounts[h] = (hourCounts[h] || 0) + 1;
@@ -956,7 +822,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         
         const h = parseInt(sorted[0][0]);
         return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
-    }, [ordersForAnalytics, reportRange]);
+    }, [ordersForAnalytics, filterPeriod, days]);
 
 
     const activeChartKind =
@@ -969,10 +835,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const reportPeriodHeader = (
         <header className="rpt-header rpt-header--actions-only">
             <div className="rpt-header-actions">
-                <ReportPeriodSelect
+                <AdminMenuSelect
                     className="rpt-period-menu-select"
                     value={filterPeriod}
                     onChange={setFilterPeriod}
+                    options={RPT_PERIOD_OPTIONS}
                     aria-label="Rango de fechas del informe"
                     icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
                 />
@@ -995,85 +862,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <Plus size={17} strokeWidth={2.25} aria-hidden />
                         Registrar movimiento
                     </button>
-                    <button
-                        type="button"
-                        className="rpt-tab rpt-tab--export-expenses"
-                        onClick={handleExportManualExpensesExcel}
-                        disabled={exportExpensesLoading || !(manualExpenseRows.length || refundExpenseRows.length)}
-                    >
-                        {exportExpensesLoading ? (
-                            <Loader2 size={14} className="rpt-expenses-spin" aria-hidden />
-                        ) : (
-                            <Download size={14} aria-hidden />
-                        )}
-                        <span>Excel (vista)</span>
-                    </button>
-                </div>
-            </div>
-            <div className="rpt-expenses-controls">
-                <div className="rpt-expenses-controls-row rpt-expenses-controls-row--period">
-                    <div className="rpt-expenses-toolbar-cluster rpt-expenses-toolbar-cluster--compact" aria-label="Período y agrupación de gastos">
-                        <div className="rpt-expenses-period-bar">
-                            <span className="rpt-expenses-period-label">Período</span>
-                            <div className="rpt-expenses-period-tabs" role="group" aria-label="Período del informe">
-                                {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`rpt-tab${filterPeriod === value ? ' active' : ''}`}
-                                        onClick={() => setFilterPeriod(value)}
-                                        aria-pressed={filterPeriod === value}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                            <AdminMenuSelect
-                                className={`rpt-expenses-period-more admin-branch-select${
-                                    !isExpensePeriodTab(filterPeriod) || isCustomDayPeriod(filterPeriod)
-                                        ? ' rpt-expenses-period-more--active'
-                                        : ''
-                                }`}
-                                value={
-                                    isCustomDayPeriod(filterPeriod)
-                                        ? CUSTOM_DAY_MENU_VALUE
-                                        : isExpensePeriodTab(filterPeriod)
-                                          ? 'yesterday'
-                                          : filterPeriod
-                                }
-                                displayLabel={
-                                    isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)
-                                        ? 'Más'
-                                        : formatReportPeriodLabel(filterPeriod, getReportPeriodOptions())
-                                }
-                                isOptionActive={(optValue) => {
-                                    if (isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)) {
-                                        return false;
-                                    }
-                                    if (optValue === CUSTOM_DAY_MENU_VALUE) {
-                                        return isCustomDayPeriod(filterPeriod);
-                                    }
-                                    return String(optValue) === String(filterPeriod);
-                                }}
-                                options={EXPENSE_PERIOD_MORE_OPTIONS}
-                                onChange={handleExpenseMorePeriodChange}
-                                menuMinWidth={180}
-                                aria-label="Más períodos"
-                            />
-                            {isCustomDayPeriod(filterPeriod) ? (
-                                <input
-                                    type="date"
-                                    className="rpt-period-day-input rpt-expenses-day-input"
-                                    value={expenseCustomDay}
-                                    onChange={handleExpenseCustomDayChange}
-                                    aria-label="Día específico"
-                                />
-                            ) : null}
-                            {expenseAgg === 'month' ? (
-                                <span className="rpt-expenses-year-label">Año {expenseReferenceYear}</span>
-                            ) : null}
-                        </div>
-                        <div className="rpt-expenses-toolbar-divider" aria-hidden />
+                    <div className="rpt-expenses-toolbar-cluster" aria-label="Vista del informe de gastos">
+                        <AdminMenuSelect
+                            value={expenseRangeMode}
+                            onChange={setExpenseRangeMode}
+                            options={EXPENSE_RANGE_MODE_OPTIONS}
+                            aria-label="Rango de gastos del local"
+                            icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
+                        />
                         <div className="rpt-expenses-agg" role="group" aria-label="Agrupar gastos por">
                             <span className="rpt-expenses-agg-label">Agrupar</span>
                             <div className="rpt-expenses-agg-tabs">
@@ -1090,28 +886,42 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             </div>
                         </div>
                     </div>
+                    <button
+                        type="button"
+                        className="rpt-tab rpt-tab--export-expenses"
+                        onClick={handleExportManualExpensesExcel}
+                        disabled={exportExpensesLoading || !(manualExpenseRows.length || refundExpenseRows.length)}
+                    >
+                        {exportExpensesLoading ? (
+                            <Loader2 size={14} className="rpt-expenses-spin" aria-hidden />
+                        ) : (
+                            <Download size={14} aria-hidden />
+                        )}
+                        <span>Excel (vista)</span>
+                    </button>
                 </div>
-                <div className="rpt-expenses-controls-row rpt-expenses-controls-row--kinds">
-                    <span className="rpt-expenses-kind-label">Tipo</span>
-                    <div className="rpt-expenses-kind-filter" role="group" aria-label="Filtrar por tipo de egreso">
-                        {expenseKindFilterOptions.map(({ value, label, count }) => (
-                            <button
-                                key={value}
-                                type="button"
-                                className={`rpt-tab${expenseKindFilter === value ? ' active' : ''}`}
-                                onClick={() => setExpenseKindFilter(value)}
-                                aria-pressed={expenseKindFilter === value}
-                            >
-                                <span>{label}</span>
-                                {count > 0 ? (
-                                    <span className="rpt-expenses-kind-count" aria-hidden>
-                                        {count}
-                                    </span>
-                                ) : null}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+            </div>
+            {expenseRangeMode === 'calendarMonth' && (
+                <p className="rpt-expenses-calendar-hint">
+                    El mes calendario coincide con el selector de &quot;Descargar Reporte Mensual&quot; ({analyticsDate}).
+                </p>
+            )}
+            <div className="rpt-expenses-kind-filter" role="group" aria-label="Filtrar por tipo de egreso">
+                {[
+                    ['all', 'Todos'],
+                    ['operating', 'Gastos operativos'],
+                    ['cash_withdrawal', 'Retiros caja'],
+                    ['order_refund', 'Devoluciones'],
+                ].map(([value, label]) => (
+                    <button
+                        key={value}
+                        type="button"
+                        className={`rpt-tab${expenseKindFilter === value ? ' active' : ''}`}
+                        onClick={() => setExpenseKindFilter(value)}
+                    >
+                        {label}
+                    </button>
+                ))}
             </div>
             {(manualExpenseRows.length > 0 || refundExpenseRows.length > 0) && expenseKindFilter === 'all' ? (
                 <p className="rpt-expenses-breakdown">
@@ -1169,30 +979,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             </td>
                                         </tr>
                                     ) : (
-                                        <>
-                                            {operatingChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
-                                                >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
+                                        operatingChartData.expenseBucketsOrdered.map((row) => (
+                                            <tr key={row.key}>
+                                                <td>{row.label}</td>
                                                 <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(operatingChartData.periodTotal)}
+                                                    {fmt(row.total)}
                                                 </td>
                                             </tr>
-                                        </>
+                                        ))
                                     )}
                                 </tbody>
                             </table>
@@ -1243,103 +1037,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             </td>
                                         </tr>
                                     ) : (
-                                        <>
-                                            {withdrawalChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
-                                                >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
+                                        withdrawalChartData.expenseBucketsOrdered.map((row) => (
+                                            <tr key={row.key}>
+                                                <td>{row.label}</td>
                                                 <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(withdrawalChartData.periodTotal)}
+                                                    {fmt(row.total)}
                                                 </td>
                                             </tr>
-                                        </>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-                ) : null}
-
-                {showRefundExpenseBlock ? (
-                <section className="rpt-expenses-block rpt-expenses-block--refunds">
-                    <div className="rpt-expenses-block-head">
-                        <h4 className="rpt-expenses-section-title">Devoluciones</h4>
-                        <span className="rpt-expenses-block-meta">
-                            {refundBreakdown.count} mov. · {fmt(refundBreakdown.total)}
-                        </span>
-                    </div>
-                    <div className="rpt-expenses-split">
-                        <div className="rpt-chart-wrapper rpt-chart-wrapper--rosen rpt-expenses-chart-wrap">
-                            {refundChartData.expenseBarPoints.length ? (
-                                <RPTRosenBarChart
-                                    points={refundChartData.expenseBarPoints}
-                                    height={220}
-                                    ariaLabel="Devoluciones por período"
-                                    currency={currency}
-                                />
-                            ) : (
-                                <div className="rpt-empty rpt-expenses-empty-chart">
-                                    {loadingExpenses
-                                        ? 'Cargando…'
-                                        : 'Sin devoluciones en este período.'}
-                                </div>
-                            )}
-                        </div>
-                        <div className="rpt-expense-panel rpt-expense-panel--totals">
-                            <table className="rpt-expense-table">
-                                <thead>
-                                    <tr>
-                                        <th>Período</th>
-                                        <th className="rpt-expense-table__num">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {refundChartData.expenseBucketsOrdered.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={2} className="rpt-expense-table__empty">
-                                                Sin datos agregados.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        <>
-                                            {refundChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
-                                                >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
-                                                <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(refundChartData.periodTotal)}
-                                                </td>
-                                            </tr>
-                                        </>
+                                        ))
                                     )}
                                 </tbody>
                             </table>
@@ -1514,6 +1219,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     if (view === 'expensesOnly') {
         return (
             <div className="rpt-container rpt-container--compact-toolbar animate-fade">
+                {reportPeriodHeader}
                 {gastosLocalSection}
                 {monthlyExportBlock}
                 <LocalExpenseModal
@@ -1650,7 +1356,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             <RPTSalesLightweightChart
                                 points={salesChartPoints}
                                 variant={activeChartKind}
-                                height={reportRange.dayCount > 90 ? 260 : 280}
+                                height={days > 90 ? 260 : 280}
                                 showExpenses
                             />
                         ) : (
@@ -1730,7 +1436,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 <span className="rpt-quick-value">{newClientsInfo.total}</span>
                             </div>
                             <div className="rpt-quick-stat">
-                                <span className="rpt-quick-label">Nuevos ({reportRange.hasComparison ? reportRange.displayLabel : 'total'})</span>
+                                <span className="rpt-quick-label">Nuevos ({filterPeriod === 'all' ? 'total' : `${days}d`})</span>
                                 <span className="rpt-quick-value">{newClientsInfo.count}</span>
                             </div>
                         </div>

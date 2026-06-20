@@ -8,8 +8,6 @@ import {
     buildShiftOtherMovementRows,
 } from '../../utils/shiftCloseReconciliation';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
-import { filterOpenOrderSessions, getOrderTileKind } from '@/shared/utils/orderUtils';
-import DeliveryMotoIcon from '../DeliveryMotoIcon';
 
 function formatShiftDuration(openedAt) {
     if (!openedAt) return '—';
@@ -70,7 +68,7 @@ function MethodCountRow({ id, label, Icon, expected, value, onChange, fmt, curre
     );
 }
 
-const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movements = [], getTotals, orders = [] }) => {
+const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movements = [], getTotals }) => {
     const { formatMoney: fmt, currency } = useBranchMoney();
     const [amount, setAmount] = useState('');
     const [countedCash, setCountedCash] = useState('');
@@ -93,15 +91,6 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
 
     const salesRows = useMemo(() => buildShiftSalesRows(movements), [movements]);
     const otherRows = useMemo(() => buildShiftOtherMovementRows(movements), [movements]);
-
-    const openSessions = useMemo(() => {
-        if (!activeShift?.branch_id) return [];
-        return filterOpenOrderSessions(
-            (orders || []).filter((o) => o?.branch_id === activeShift.branch_id),
-        );
-    }, [orders, activeShift?.branch_id]);
-
-    const openCount = openSessions.length;
 
     useEffect(() => {
         if (isOpen) {
@@ -154,7 +143,7 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
     };
 
     const cashNum = parseFloat(countedCash);
-    const countsFilled =
+    const canClose =
         countedCash !== '' &&
         !Number.isNaN(cashNum) &&
         cashNum >= 0 &&
@@ -164,19 +153,6 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
         countedOnline !== '' &&
         !Number.isNaN(parseFloat(countedOnline)) &&
         parseFloat(countedOnline) >= 0;
-    const canClose = countsFilled && openCount === 0;
-
-    const describeOpenSession = (order) => {
-        const n = order.shift_sequence ?? '?';
-        const kind = getOrderTileKind(order);
-        const prefix = kind === 'moto' ? `Moto #${n}` : `#${n}`;
-        const statusLabel = {
-            pending: 'pendiente',
-            active: 'cocina',
-            completed: 'listo',
-        }[String(order.status ?? '')] || String(order.status ?? '');
-        return `${prefix} ${statusLabel}`;
-    };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -253,30 +229,6 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
                                         </div>
                                         <div className="cash-shift-close-summary__item">
                                             <span>Duración: {formatShiftDuration(activeShift.opened_at)}</span>
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                {openCount > 0 ? (
-                                    <div className="cash-shift-close-open-sessions" role="alert">
-                                        <AlertTriangle size={16} aria-hidden />
-                                        <div>
-                                            <strong>
-                                                {openCount} mesa{openCount === 1 ? '' : 's'} o moto{openCount === 1 ? '' : 's'} abiertas
-                                            </strong>
-                                            <ul className="cash-shift-close-open-sessions__list">
-                                                {openSessions.map((order) => (
-                                                    <li key={order.id}>
-                                                        {getOrderTileKind(order) === 'moto' ? (
-                                                            <DeliveryMotoIcon size={14} aria-hidden />
-                                                        ) : null}
-                                                        {describeOpenSession(order)}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            <p className="cash-shift-close-open-sessions__hint">
-                                                Cierra todas las sesiones antes de cerrar el turno.
-                                            </p>
                                         </div>
                                     </div>
                                 ) : null}

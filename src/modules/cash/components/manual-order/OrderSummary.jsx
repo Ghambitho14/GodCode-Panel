@@ -13,8 +13,7 @@ const OrderSummary = ({
     removeItem,
     updateItemNote,
     printManualKitchen,
-    printManualCaja,
-    showCheckoutTotals = false,
+    printManualCaja
 }) => {
     const { formatMoney } = useBranchMoney();
     // --- ESTADOS LOCALES ---
@@ -43,17 +42,6 @@ const OrderSummary = ({
     }, [printMenuOpen]);
 
     const totalQty = manualOrder.items.reduce((acc, i) => acc + i.quantity, 0);
-    const itemsSubtotal = Number(manualOrder.total ?? manualOrder.items_subtotal) || 0;
-    const deliveryFeeAmt =
-        manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
-    const checkoutTotal =
-        Number.isFinite(Number(manualOrder.checkout_total))
-            ? Number(manualOrder.checkout_total)
-            : Math.round((itemsSubtotal + deliveryFeeAmt) * 100) / 100;
-    const showTotals =
-        showCheckoutTotals &&
-        manualOrder.items.length > 0 &&
-        (manualOrder.order_type === 'delivery' || deliveryFeeAmt > 0);
 
     return (
         <div className="manual-order-section manual-order-summary-section">
@@ -221,27 +209,6 @@ const OrderSummary = ({
                     </div>
                 )}
             </div>
-
-            {showTotals ? (
-                <div className="manual-order-total-breakdown manual-order-summary-totals">
-                    <div className="manual-order-total-breakdown__rows">
-                        <div className="manual-order-total-breakdown__row">
-                            <span>Subtotal productos</span>
-                            <span>{formatMoney(itemsSubtotal)}</span>
-                        </div>
-                        {deliveryFeeAmt > 0 ? (
-                            <div className="manual-order-total-breakdown__row">
-                                <span>Envío</span>
-                                <span>{formatMoney(deliveryFeeAmt)}</span>
-                            </div>
-                        ) : null}
-                    </div>
-                    <div className="manual-order-total-breakdown__final">
-                        <span className="manual-order-total-label">TOTAL</span>
-                        <span className="manual-order-total-amount">{formatMoney(checkoutTotal)}</span>
-                    </div>
-                </div>
-            ) : null}
         </div>
     );
 };

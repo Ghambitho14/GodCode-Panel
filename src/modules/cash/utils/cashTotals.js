@@ -5,20 +5,6 @@ import {
 	isOrderLinkedExpense,
 } from './cashMovementKinds';
 
-/**
- * Pago manual a repartidor/conductor (egreso sin pedido vinculado).
- * @param {Record<string, unknown> | null | undefined} m
- * @returns {boolean}
- */
-export function isCourierPayoutMovement(m) {
-	if (!m || m.type !== 'expense') return false;
-	if (m.orders) return false;
-	const oid = m.order_id ?? m.orderId;
-	if (oid != null && String(oid).trim() !== '') return false;
-	const desc = String(m?.description || '').toLowerCase();
-	return desc.includes('delivery') || desc.includes('repartidor') || desc.includes('conductor');
-}
-
 export const EMPTY_SHIFT_TOTALS = {
 	cash: 0,
 	card: 0,
@@ -55,7 +41,11 @@ export function computeShiftTotals(movementsData = []) {
 		const amount = Number(m.amount) || 0;
 		const order = m?.orders ?? null;
 		const deliveryFee = Number(order?.delivery_fee) || 0;
-		const isCourierPayout = isCourierPayoutMovement(m);
+		const desc = String(m?.description || '').toLowerCase();
+		const isCourierPayout =
+			m.type === 'expense' &&
+			!order &&
+			(desc.includes('delivery') || desc.includes('repartidor') || desc.includes('conductor'));
 
 		if (m.type === 'expense') {
 			acc.expenses += amount;

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useManualOrderCart } from './manual-order/useManualOrderCart';
 import { useManualOrderForm } from './manual-order/useManualOrderForm';
 import { useCouponValidation } from './manual-order/useCouponValidation';
@@ -9,13 +9,13 @@ import { buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import { normalizeManualPhone } from '../services/clientService';
-import { sanitizeManualOrderInput, computeDeliveryFeeForForm, resolveOpenMesaClientName } from './manual-order/manualOrderShared';
+import { sanitizeManualOrderInput } from './manual-order/manualOrderShared';
 
 /**
  * Hook orquestador principal del pedido manual.
  * Delega lógicas específicas a sub-hooks especializados y expone una API unificada compatible.
  */
-export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null) => {
     
     // 1. Sub-hook para el Carrito
     const {
@@ -52,7 +52,6 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         applyClientRecord,
         applySavedAddress,
         resetForm,
-        resetOpenMesaForm,
         getInputStyle
     } = useManualOrderForm();
 
@@ -89,92 +88,17 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
     // Reseteo global de todo el flujo
     const resetOrder = useCallback(() => {
         resetCart();
-        if (openMesaMode) {
-            resetOpenMesaForm();
-        } else {
-            resetForm();
-        }
+        resetForm();
         resetCoupon();
         resetReceipt();
-    }, [resetCart, resetForm, resetOpenMesaForm, resetCoupon, resetReceipt, openMesaMode]);
-
-    const syncDeliveryFeeFromForm = useCallback((formState, itemsSubtotal) => {
-        if (!branchDeliveryCfg || formState.order_type !== 'delivery') return null;
-        return computeDeliveryFeeForForm(branchDeliveryCfg, itemsSubtotal, {
-            orderType: formState.order_type,
-            namedAreaId: formState.delivery_named_area_id,
-            deliveryKm: formState.delivery_km,
-        });
-    }, [branchDeliveryCfg]);
-
-    useEffect(() => {
-        if (form.order_type !== 'delivery' || !branchDeliveryCfg) return;
-        const nextFee = syncDeliveryFeeFromForm(form, total);
-        if (nextFee == null) return;
-        if (Number(form.delivery_fee) !== nextFee) {
-            updateDeliveryFee(nextFee);
-        }
-    }, [
-        form.order_type,
-        form.delivery_named_area_id,
-        form.delivery_km,
-        form.delivery_fee,
-        total,
-        branchDeliveryCfg,
-        syncDeliveryFeeFromForm,
-        updateDeliveryFee,
-    ]);
-
-    const handleUpdateOrderType = useCallback((val, cfg = branchDeliveryCfg, subtotal = total) => {
-        updateOrderType(val, cfg, subtotal);
-        if (openMesaMode) {
-            updateClientName(resolveOpenMesaClientName(val));
-        }
-        if (val === 'delivery' && cfg) {
-            const fee = computeDeliveryFeeForForm(cfg, subtotal, {
-                orderType: 'delivery',
-                namedAreaId: form.delivery_named_area_id,
-                deliveryKm: form.delivery_km,
-            });
-            if (fee != null) updateDeliveryFee(fee);
-        }
-    }, [updateOrderType, updateClientName, updateDeliveryFee, branchDeliveryCfg, total, form.delivery_named_area_id, form.delivery_km, openMesaMode]);
-
-    const handleUpdateDeliveryNamedAreaId = useCallback((val) => {
-        updateDeliveryNamedAreaId(val);
-        if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
-        const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
-            orderType: 'delivery',
-            namedAreaId: val,
-            deliveryKm: form.delivery_km,
-        });
-        updateDeliveryFee(fee != null ? fee : 0);
-    }, [updateDeliveryNamedAreaId, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_km, total]);
-
-    const handleUpdateDeliveryKm = useCallback((val) => {
-        updateDeliveryKm(val);
-        if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
-        if (effectiveDeliveryPricingMode(branchDeliveryCfg) !== 'distance') return;
-        const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
-            orderType: 'delivery',
-            namedAreaId: form.delivery_named_area_id,
-            deliveryKm: val,
-        });
-        if (fee != null) updateDeliveryFee(fee);
-    }, [updateDeliveryKm, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_named_area_id, total]);
+    }, [resetCart, resetForm, resetCoupon, resetReceipt]);
 
     // Modelo de datos unificado compatible con el modal
     const manualOrder = useMemo(() => {
-        const itemsSubtotal = total;
-        const deliveryFeeAmt = form.order_type === 'delivery' ? (Number(form.delivery_fee) || 0) : 0;
-        const checkoutTotal = Math.round((itemsSubtotal + deliveryFeeAmt) * 100) / 100;
         return {
             ...form,
             items,
-            total: itemsSubtotal,
-            items_subtotal: itemsSubtotal,
-            delivery_fee: deliveryFeeAmt,
-            checkout_total: checkoutTotal,
+            total
         };
     }, [form, items, total]);
 
@@ -185,22 +109,11 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
             return;
         }
 
-        if (openMesaMode) {
-            if (items.length === 0) {
-                showNotify('Agrega al menos un producto', 'error');
-                return;
-            }
-            const name = resolveOpenMesaClientName(form.order_type, form.client_name);
-            if (!name) {
-                showNotify('Indica un nombre para la mesa', 'error');
-                return;
-            }
-        } else {
-            const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
-            if (!form.client_name || form.client_name.trim().length < 3 || digitCount < 11 || items.length === 0) {
-                showNotify('Faltan datos obligatorios o son incorrectos', 'error');
-                return;
-            }
+
+        const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
+        if (!form.client_name || form.client_name.trim().length < 3 || digitCount < 11 || items.length === 0) {
+            showNotify('Faltan datos obligatorios o son incorrectos', 'error');
+            return;
         }
 
         if (form.order_type === 'delivery' && branchDeliveryCfg) {
@@ -238,25 +151,20 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
             }
         }
 
-        if (!openMesaMode) {
-            if (!form.client_rut || !validateRut(form.client_rut)) {
-                showNotify('El RUT ingresado no es válido', 'error');
-                return;
-            }
+        if (!form.client_rut || !validateRut(form.client_rut)) {
+            showNotify('El RUT ingresado no es válido', 'error');
+            return;
         }
 
         setLoading(true);
         try {
-            const clientName = openMesaMode
-                ? sanitizeManualOrderInput(resolveOpenMesaClientName(form.order_type, form.client_name))
-                : sanitizeManualOrderInput(form.client_name);
             const sanitizedOrder = {
                 ...form,
                 items,
                 total,
-                client_name: clientName,
-                client_phone: openMesaMode ? '' : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)),
-                client_rut: openMesaMode ? '' : sanitizeManualOrderInput(form.client_rut),
+                client_name: sanitizeManualOrderInput(form.client_name),
+                client_phone: normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)),
+                client_rut: sanitizeManualOrderInput(form.client_rut),
                 note: sanitizeManualOrderInput(form.note),
                 branch_id: branch.id,
                 company_id: branch.company_id,
@@ -307,44 +215,30 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
             }, 0);
 
             sanitizedOrder.items = itemsForOrder;
+            sanitizedOrder.total = totalForOrder;
 
             const couponDisc =
                 couponPreview?.variant === 'success' && Number(couponPreview.discount) > 0
                     ? Math.min(totalForOrder, Number(couponPreview.discount))
                     : 0;
             const deliveryFeeAmt =
-                form.order_type === 'delivery'
-                    ? (syncDeliveryFeeFromForm(form, totalForOrder) ?? Number(form.delivery_fee) || 0)
-                    : 0;
+                form.order_type === 'delivery' ? (Number(form.delivery_fee) || 0) : 0;
             const checkoutTotal = Math.round(
                 (Math.max(0, totalForOrder - couponDisc) + deliveryFeeAmt) * 100,
             ) / 100;
 
-            sanitizedOrder.delivery_fee = deliveryFeeAmt;
-            sanitizedOrder.total = checkoutTotal;
+            sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({
+                payment_mode: form.payment_mode,
+                payment_type: form.payment_type,
+                cash_amount: form.cash_amount,
+                card_amount: form.card_amount,
+                total: checkoutTotal,
+            });
 
-            if (openMesaMode) {
-                sanitizedOrder.payment_type = 'pendiente';
-                sanitizedOrder.payment_breakdown = null;
-            } else {
-                sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({
-                    payment_mode: form.payment_mode,
-                    payment_type: form.payment_type,
-                    cash_amount: form.cash_amount,
-                    card_amount: form.card_amount,
-                    total: checkoutTotal,
-                });
-            }
-
-            const result = await createManualOrder(sanitizedOrder, openMesaMode ? null : receiptFile);
+            const result = await createManualOrder(sanitizedOrder, receiptFile);
             const createdOrder = result?.order ?? result;
 
-            showNotify(
-                openMesaMode
-                    ? (form.order_type === 'delivery' ? 'Delivery abierto' : 'Mesa abierta')
-                    : 'Pedido creado con éxito',
-                'success',
-            );
+            showNotify('Pedido creado con éxito', 'success');
             resetOrder();
             if (onOrderSaved) onOrderSaved(createdOrder);
             if (onClose) onClose();
@@ -386,12 +280,12 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         updateQuantity,
         removeItem,
         updateItemNote,
-        updateOrderType: handleUpdateOrderType,
+        updateOrderType,
         updateDeliveryAddress,
         updateDeliveryReference,
-        updateDeliveryKm: handleUpdateDeliveryKm,
+        updateDeliveryKm,
         updateDeliveryFee,
-        updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId,
+        updateDeliveryNamedAreaId,
         submitOrder,
         resetOrder,
         isValid,

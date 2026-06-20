@@ -1,10 +1,3 @@
-import {
-	addLocalDays,
-	chartKeysBetween,
-	startOfLocalMonth,
-	startOfLocalWeek,
-} from './reportPeriodRange';
-
 /** @param {Date} d */
 function ymdLocal(d) {
 	const y = d.getFullYear();
@@ -41,51 +34,6 @@ export function expenseBucketKey(iso, agg) {
 	if (agg === 'week') return expenseWeekKeyLocal(iso);
 	if (agg === 'month') return expenseMonthKeyLocal(iso);
 	return expenseDayKeyLocal(iso);
-}
-
-/**
- * Todas las claves de bucket en [rangeStart, rangeEndExclusive) para el nivel de agregación.
- * @param {Date} rangeStart
- * @param {Date} rangeEndExclusive
- * @param {'day' | 'week' | 'month'} agg
- * @returns {string[]}
- */
-export function expenseBucketKeysForRange(rangeStart, rangeEndExclusive, agg) {
-	if (!(rangeStart instanceof Date) || !(rangeEndExclusive instanceof Date)) {
-		return [];
-	}
-	if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEndExclusive.getTime())) {
-		return [];
-	}
-	if (rangeStart >= rangeEndExclusive) {
-		return [];
-	}
-
-	if (agg === 'day') {
-		return chartKeysBetween(rangeStart, rangeEndExclusive);
-	}
-
-	if (agg === 'week') {
-		const keys = [];
-		let cursor = startOfLocalWeek(rangeStart);
-		while (cursor < rangeEndExclusive) {
-			keys.push(ymdLocal(cursor));
-			cursor = addLocalDays(cursor, 7);
-		}
-		return keys;
-	}
-
-	if (agg === 'month') {
-		const keys = [];
-		let cursor = startOfLocalMonth(rangeStart);
-		while (cursor < rangeEndExclusive) {
-			keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`);
-			cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-		}
-		return keys;
-	}
-
-	return [];
 }
 
 /**

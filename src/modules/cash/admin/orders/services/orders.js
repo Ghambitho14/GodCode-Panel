@@ -13,7 +13,7 @@ import {
     isOrderPaymentAllowedForDelivery,
 } from '@/lib/delivery-settings';
 import { formatMoney, branchCurrencyCode } from '@/shared/utils/money';
-import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isMixedPaymentBreakdown, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isMixedPaymentBreakdown } from '@/shared/utils/orderUtils';
 import { canOverrideDeliveryFee } from '@/modules/cash/utils/deliveryFeePermissions';
 import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -412,9 +412,7 @@ export const ordersService = {
                 }
 
                 const branchPm = branchCfg?.payment_methods;
-                const paymentDeferred = isOrderPaymentDeferred(orderData);
                 if (
-                    !paymentDeferred &&
                     !isOrderPaymentAllowedForDelivery(
                         orderData,
                         Array.isArray(branchPm) ? branchPm : [],

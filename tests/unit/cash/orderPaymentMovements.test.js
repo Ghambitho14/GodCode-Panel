@@ -31,14 +31,6 @@ describe("orderPaymentMovements", () => {
 		]);
 	});
 
-	it("planSaleMovements returns no sale for deferred payment without breakdown", () => {
-		const planned = planSaleMovements(
-			{ total: 5000, payment_type: "pendiente" },
-			[],
-		);
-		expect(planned).toEqual([]);
-	});
-
 	it("planSaleMovements skips already registered movements", () => {
 		const planned = planSaleMovements(
 			{

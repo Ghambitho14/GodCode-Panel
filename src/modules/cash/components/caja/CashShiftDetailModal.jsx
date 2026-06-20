@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, History, Clock, User, DollarSign, CreditCard, Smartphone, XCircle, Eye, Truck } from 'lucide-react';
+import { X, History, Clock, User, DollarSign, CreditCard, Smartphone, XCircle, Eye } from 'lucide-react';
 import { getOrderForMovement, isMovementOrderClickable } from '../../utils/getOrderForMovement';
 import { cashService } from '../../services/cashService';
 import {
@@ -10,7 +10,6 @@ import {
 import { supabase, TABLES } from '@/integrations/supabase';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
 import { getClosedShiftReconciliation, diffCounted } from '../../utils/shiftCloseReconciliation';
-import { isCourierPayoutMovement } from '../../utils/cashTotals';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import AdminIconSlot from '../AdminIconSlot';
@@ -36,7 +35,6 @@ function movementTypeLabel(m) {
     if (isCashWithdrawal(m)) return 'Retiro efectivo';
     if (isOperatingLocalExpense(m)) return 'Gasto operativo';
     if (isManualLocalExpense(m)) return 'Gasto local';
-    if (isCourierPayoutMovement(m)) return 'Pago repartidor';
     return 'Devolución';
 }
 
@@ -197,19 +195,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
             operatingExpenseCount: 0,
             refundExpenses: 0,
             refundExpenseCount: 0,
-            deliveryCollected: 0,
-            deliveryRefunded: 0,
-            deliveryPaidToCourier: 0,
         };
-
-    const deliveryNet = Math.max(
-        0,
-        (Number(totals.deliveryCollected) || 0) - (Number(totals.deliveryRefunded) || 0)
-    );
-    const deliveryPendingToPay = Math.max(
-        0,
-        deliveryNet - (Number(totals.deliveryPaidToCourier) || 0)
-    );
 
     const shiftOrdersCount = (() => {
         if (Number.isFinite(Number(shift?.orders_count))) {
@@ -357,37 +343,6 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                         {totals.refundExpenseCount ?? 0} mov.
                                     </span>
                                 </div>
-                            </div>
-                        </section>
-
-                        <section className="cash-shift-detail-card">
-                            <h4 className="cash-shift-detail-section-title">
-                                <Truck size={15} aria-hidden /> Resumen delivery
-                            </h4>
-                            <div className="cash-shift-detail-kpi-grid">
-                                <div className="cash-shift-detail-kpi cash-shift-detail-kpi--highlight cash-shift-detail-kpi--delivery">
-                                    <span className="cash-shift-detail-kpi__label">Delivery a pagar</span>
-                                    <span className="cash-shift-detail-kpi__value">{fmtHist(deliveryPendingToPay)}</span>
-                                    <span className="cash-shift-detail-kpi__sub">
-                                        Neto cobrado: {fmtHist(deliveryNet)}
-                                    </span>
-                                </div>
-                                <div className="cash-shift-detail-kpi">
-                                    <span className="cash-shift-detail-kpi__label">Cobrado en envíos</span>
-                                    <span className="cash-shift-detail-kpi__value">{fmtHist(totals.deliveryCollected || 0)}</span>
-                                </div>
-                                <div className="cash-shift-detail-kpi">
-                                    <span className="cash-shift-detail-kpi__label">Pagado a repartidor</span>
-                                    <span className="cash-shift-detail-kpi__value">{fmtHist(totals.deliveryPaidToCourier || 0)}</span>
-                                </div>
-                                {(Number(totals.deliveryRefunded) || 0) > 0 ? (
-                                    <div className="cash-shift-detail-kpi">
-                                        <span className="cash-shift-detail-kpi__label">Envíos devueltos</span>
-                                        <span className="cash-shift-detail-kpi__value cash-shift-detail-kpi__value--warn">
-                                            −{fmtHist(totals.deliveryRefunded)}
-                                        </span>
-                                    </div>
-                                ) : null}
                             </div>
                         </section>
 

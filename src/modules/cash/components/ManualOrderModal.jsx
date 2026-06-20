@@ -5,8 +5,7 @@ import { createMoneyFormatter } from '@/shared/utils/money';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { useOrderEdit } from '../hooks/useOrderEdit';
 import { branchSettingsService } from '../services/branchSettingsService';
-import { normalizeDeliverySettings, effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
-import { resolveOpenMesaClientName } from '../hooks/manual-order/manualOrderShared';
+import { normalizeDeliverySettings } from '@/lib/delivery-settings';
 import { buildDeliveryAddressRecord, validateCheckoutPayment } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
@@ -73,14 +72,12 @@ const ManualOrderModal = ({
     logoUrl,
     companyName,
     resyncOrderSale = null,
-    openMesaMode = false,
 }) => {
     const { userRole } = useAdmin();
     const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
     const isEditMode = Boolean(editOrder?.id);
     // --- ESTADOS LOCALES DE CONFIGURACIÓN Y CATÁLOGO DE UPSELL ---
     const [branchDeliveryCfg, setBranchDeliveryCfg] = useState(null);
-    const [branchDeliveryCfgLoading, setBranchDeliveryCfgLoading] = useState(false);
     const [cartUpsellCatalogs, setCartUpsellCatalogs] = useState({
         beveragesEnabled: false,
         extrasEnabled: false,
@@ -96,7 +93,6 @@ const ManualOrderModal = ({
         branch,
         branchDeliveryCfg,
         userRole,
-        openMesaMode,
     );
 
     const editHook = useOrderEdit(
@@ -136,9 +132,7 @@ const ManualOrderModal = ({
     const [touchEnd, setTouchEnd] = useState(null);
     const wasOpenRef = useRef(false);
 
-    const wizardStepCount = openMesaMode
-        ? 2
-        : (isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
+    const wizardStepCount = isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS;
 
     const resolveOpenStep = (compact) => {
         if (!isEditMode) return 1;
@@ -193,12 +187,10 @@ const ManualOrderModal = ({
         if (!isOpen || !branch?.id || branch.id === 'all') {
             resetCatalogs();
             setBranchDeliveryCfg(null);
-            setBranchDeliveryCfgLoading(false);
             return undefined;
         }
 
         const loadCatalogs = async () => {
-            setBranchDeliveryCfgLoading(true);
             try {
                 const data = await branchSettingsService.getDeliveryConfig(branch.id);
                 if (cancelled) return;
@@ -224,8 +216,6 @@ const ManualOrderModal = ({
                     resetCatalogs();
                     setBranchDeliveryCfg(null);
                 }
-            } finally {
-                if (!cancelled) setBranchDeliveryCfgLoading(false);
             }
         };
 
@@ -300,30 +290,6 @@ const ManualOrderModal = ({
         manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
     const totalToPay = Math.max(0, (manualOrder.total ?? 0) - couponDiscountApplied + deliveryFeeAmt);
 
-    const openMesaSubmitLabel = loading
-        ? 'ABRIENDO…'
-        : (manualOrder.order_type === 'delivery' ? 'ABRIR DELIVERY' : 'ABRIR MESA');
-
-    const isDeliveryValidForOrder = () => {
-        if (manualOrder.order_type !== 'delivery') return true;
-
-        if (branchDeliveryCfgLoading) return false;
-
-        const addrOk = Boolean(manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
-
-        if (!branchDeliveryCfg) return addrOk;
-
-        const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
-
-        if (pricing === 'named') {
-            return String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
-        }
-
-        if (pricing === 'distance') return addrOk;
-
-        return addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
-    };
-
     const isPaymentValid = () => {
         if (totalToPay <= 0) return true;
         return validateCheckoutPayment({
@@ -339,32 +305,81 @@ const ManualOrderModal = ({
     // --- VALIDACIÓN GLOBAL DEL FORMULARIO ---
     const isFormValid = () => {
         const hasItems = manualOrder.items && manualOrder.items.length > 0;
-        const hasClientName = openMesaMode
-            ? Boolean(resolveOpenMesaClientName(manualOrder.order_type, manualOrder.client_name))
-            : Boolean(manualOrder.client_name && manualOrder.client_name.trim().length >= 3);
+        const hasClientName = manualOrder.client_name && manualOrder.client_name.trim().length >= 3;
         const hasPaymentType = !!manualOrder.payment_type;
-        const paymentOk = openMesaMode ? true : isPaymentValid();
+        const paymentOk = isPaymentValid();
 
         if (isEditMode) {
             return hasItems && hasClientName && hasPaymentType && paymentOk;
-        }
-
-        if (openMesaMode) {
-            return hasItems && hasClientName && isDeliveryValidForOrder();
         }
 
         const exactRutLength = manualOrder.client_rut?.trim().length || 0;
         const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
         const isPhoneStrictlyValid = phoneValid === true;
 
-        return hasItems && hasClientName && hasPaymentType && paymentOk && isRutRequiredAndValid && isPhoneStrictlyValid && isDeliveryValidForOrder();
+        const namedAreasMode = branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            String(branchDeliveryCfg.pricingMode).toLowerCase() === 'named' &&
+            (branchDeliveryCfg.namedAreas?.length ?? 0) > 0;
+            
+        const distanceMode = branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            String(branchDeliveryCfg.pricingMode).toLowerCase() === 'distance';
+
+        const hasNamedZoneOk = !namedAreasMode || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+        const addrOk = Boolean(manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
+        
+        const isDeliveryValid = manualOrder.order_type !== 'delivery'
+            || (namedAreasMode && hasNamedZoneOk)
+            || (distanceMode && addrOk)
+            || (
+                !namedAreasMode &&
+                !distanceMode &&
+                manualOrder.order_type === 'delivery' &&
+                branchDeliveryCfg &&
+                (addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0)
+            )
+            || (
+                manualOrder.order_type === 'delivery' &&
+                !branchDeliveryCfg &&
+                addrOk
+            );
+
+        return hasItems && hasClientName && hasPaymentType && paymentOk && isRutRequiredAndValid && isPhoneStrictlyValid && isDeliveryValid;
+    };
+
+    const isDeliveryValidForOrder = () => {
+        const namedAreasMode = branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            String(branchDeliveryCfg.pricingMode).toLowerCase() === 'named' &&
+            (branchDeliveryCfg.namedAreas?.length ?? 0) > 0;
+
+        const distanceMode = branchDeliveryCfg &&
+            manualOrder.order_type === 'delivery' &&
+            String(branchDeliveryCfg.pricingMode).toLowerCase() === 'distance';
+
+        const hasNamedZoneOk = !namedAreasMode || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+        const addrOk = Boolean(manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
+
+        return manualOrder.order_type !== 'delivery'
+            || (namedAreasMode && hasNamedZoneOk)
+            || (distanceMode && addrOk)
+            || (
+                !namedAreasMode &&
+                !distanceMode &&
+                manualOrder.order_type === 'delivery' &&
+                branchDeliveryCfg &&
+                (addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0)
+            )
+            || (
+                manualOrder.order_type === 'delivery' &&
+                !branchDeliveryCfg &&
+                addrOk
+            );
     };
 
     const isClientStepValid = () => {
-        const hasClientName = openMesaMode
-            ? Boolean(resolveOpenMesaClientName(manualOrder.order_type, manualOrder.client_name))
-            : Boolean(manualOrder.client_name && manualOrder.client_name.trim().length >= 3);
-        if (openMesaMode) return hasClientName && isDeliveryValidForOrder();
+        const hasClientName = manualOrder.client_name && manualOrder.client_name.trim().length >= 3;
         return Boolean(hasClientName && isDeliveryValidForOrder());
     };
 
@@ -383,7 +398,7 @@ const ManualOrderModal = ({
             return;
         }
 
-        if (isCompactNav && orderStep === 2 && !openMesaMode) {
+        if (isCompactNav && orderStep === 2) {
             if (!isClientStepValid()) {
                 showNotify?.('Completa el nombre del cliente y los datos de entrega.', 'warning');
                 return;
@@ -432,11 +447,9 @@ const ManualOrderModal = ({
         return text.replace(/[<>]/g, '');
     };
 
-    const stepLabels = openMesaMode
-        ? (isCompactNav ? ['Productos', 'Mesa'] : ['Productos', 'Abrir mesa'])
-        : (isCompactNav
-            ? ['Productos', 'Cliente', 'Pago']
-            : ['Productos', 'Cliente y pago']);
+    const stepLabels = isCompactNav
+        ? ['Productos', 'Cliente', 'Pago']
+        : ['Productos', 'Cliente y pago'];
 
     const noteSection = (
         <div className="manual-order-section manual-order-section--note">
@@ -491,8 +504,6 @@ const ManualOrderModal = ({
             branch={branch}
             showNotify={showNotify}
             canOverrideDeliveryFee={canEditDeliveryFee}
-            openMesaMode={openMesaMode}
-            branchDeliveryCfgLoading={branchDeliveryCfgLoading}
         />
     );
 
@@ -554,7 +565,6 @@ const ManualOrderModal = ({
         updateItemNote,
         printManualKitchen,
         printManualCaja,
-        showCheckoutTotals: openMesaMode,
     };
 
     const paymentDetailsProps = {
@@ -655,25 +665,14 @@ const ManualOrderModal = ({
                     >
                         Atrás
                     </button>
-                    {openMesaMode ? (
-                        <button
-                            type="button"
-                            className="manual-order-confirm-btn manual-order-mobile-dock__confirm"
-                            onClick={submitOrder}
-                            disabled={loading || !isFormValid()}
-                        >
-                            {openMesaSubmitLabel}
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
-                            onClick={goNextStep}
-                            disabled={!isClientStepValid()}
-                        >
-                            Siguiente
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                        onClick={goNextStep}
+                        disabled={!isClientStepValid()}
+                    >
+                        Siguiente
+                    </button>
                 </div>
             ) : null}
             {orderStep === 3 ? (
@@ -723,7 +722,7 @@ const ManualOrderModal = ({
                     </div>
                 </>
             ) : (
-                <div className={`manual-order-checkout-stage${openMesaMode ? ' manual-order-checkout-stage--open-mesa' : ''}`}>
+                <div className="manual-order-checkout-stage">
                     <div className="manual-order-checkout-col manual-order-checkout-col--client">
                         <div className="manual-order-client-stage">
                             {clientSection}
@@ -733,22 +732,9 @@ const ManualOrderModal = ({
                     <div className="manual-order-checkout-col manual-order-checkout-col--summary">
                         <OrderSummary {...orderSummaryProps} />
                     </div>
-                    {openMesaMode ? (
-                        <div className="manual-order-checkout-col manual-order-checkout-col--payment">
-                            <button
-                                type="button"
-                                className="manual-order-confirm-btn"
-                                onClick={submitOrder}
-                                disabled={loading || !isFormValid()}
-                            >
-                                {openMesaSubmitLabel}
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="manual-order-checkout-col manual-order-checkout-col--payment">
-                            <PaymentDetails {...paymentDetailsProps} />
-                        </div>
-                    )}
+                    <div className="manual-order-checkout-col manual-order-checkout-col--payment">
+                        <PaymentDetails {...paymentDetailsProps} />
+                    </div>
                 </div>
             )}
         </div>
@@ -757,7 +743,7 @@ const ManualOrderModal = ({
     const modalUi = (
         <div className="manual-order-overlay" onClick={onClose}>
             <div
-                className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${openMesaMode ? ' manual-order--open-mesa' : ''}`}
+                className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}`}
                 onClick={e => e.stopPropagation()}
             >
                 {/* ÁREA INVISIBLE PARA GESTOS */}

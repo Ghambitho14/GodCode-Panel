@@ -55,34 +55,6 @@
     max-width: min(100%, 280px);
 }
 
-.admin-layout .rpt-header-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.admin-layout .rpt-period-select {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.admin-layout .rpt-period-select--with-day .rpt-period-menu-select.admin-branch-select {
-    max-width: min(100%, 220px);
-}
-
-.admin-layout .rpt-period-day-input {
-    min-width: 140px;
-    padding: 10px 12px;
-    background: var(--admin-surface, #fff);
-    border: 1px solid var(--admin-border, #e2e8f0);
-    border-radius: 10px;
-}
-
 .admin-layout .rpt-month-label {
     font-size: 0.78rem;
     font-weight: 700;
@@ -545,73 +517,10 @@
 }
 
 .admin-layout .rpt-expenses-kind-filter {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 3px;
-    border-radius: 10px;
-    background: var(--admin-card-bg, #fff);
-    border: 1px solid var(--admin-border, #e8ecf1);
-}
-
-.admin-layout .rpt-expenses-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.admin-layout .rpt-expenses-controls-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 12px;
-}
-
-.admin-layout .rpt-expenses-controls-row--period {
-    align-items: center;
-}
-
-.admin-layout .rpt-expenses-controls-row--kinds {
-    padding-top: 2px;
-    border-top: 1px solid color-mix(in srgb, var(--admin-border, #e8ecf1) 72%, transparent);
-}
-
-.admin-layout .rpt-expenses-kind-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
-    flex-shrink: 0;
-}
-
-.admin-layout .rpt-expenses-kind-filter .rpt-tab {
-    display: inline-flex;
-    align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 7px;
-    white-space: nowrap;
-}
-
-.admin-layout .rpt-expenses-kind-count {
-    min-width: 18px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 0.66rem;
-    font-weight: 800;
-    line-height: 1.35;
-    font-variant-numeric: tabular-nums;
-    color: var(--admin-text-muted, #6b7280);
-    background: var(--admin-page-bg, #f4f6f9);
-    border: 1px solid var(--admin-border, #e8ecf1);
-}
-
-.admin-layout .rpt-expenses-kind-filter .rpt-tab.active .rpt-expenses-kind-count {
-    color: #e63946;
-    background: rgba(230, 57, 70, 0.1);
-    border-color: rgba(230, 57, 70, 0.22);
+    margin-bottom: 10px;
 }
 
 .admin-layout .rpt-expenses-breakdown {
@@ -694,192 +603,14 @@
 }
 
 .admin-layout .rpt-expenses-toolbar-cluster {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px 12px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 6px 8px 6px 10px;
     border-radius: 12px;
     background: var(--admin-page-bg, #f4f6f9);
     border: 1px solid var(--admin-border, #e8ecf1);
-    flex: 1 1 100%;
-    min-width: 0;
-    width: 100%;
-}
-
-.admin-layout .rpt-expenses-toolbar-cluster--compact {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px 14px;
-    padding: 8px 10px;
-}
-
-.admin-layout .rpt-expenses-toolbar-divider {
-    width: 1px;
-    align-self: stretch;
-    min-height: 32px;
-    background: color-mix(in srgb, var(--admin-border, #e8ecf1) 80%, transparent);
-    flex-shrink: 0;
-}
-
-.admin-layout .rpt-expenses-period-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
-    min-width: 0;
-    flex: 1 1 280px;
-}
-
-.admin-layout .rpt-expenses-period-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
-    flex-shrink: 0;
-}
-
-.admin-layout .rpt-expenses-period-tabs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 3px;
-    padding: 2px;
-    border-radius: 8px;
-    background: var(--admin-card-bg, #fff);
-    border: 1px solid var(--admin-border, #e8ecf1);
-}
-
-.admin-layout .rpt-expenses-period-tabs .rpt-tab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 5px 10px;
-    border-radius: 6px;
-    white-space: nowrap;
-    font-size: 0.76rem;
-}
-
-.admin-layout .rpt-expenses-period-more.admin-branch-select {
-    flex: 0 0 auto;
-    max-width: min(100%, 160px);
-}
-
-.admin-layout .rpt-expenses-period-more .admin-branch-select__trigger {
-    min-height: 34px;
-    padding: 0 10px;
-    font-size: 0.76rem;
-}
-
-.admin-layout .rpt-expenses-period-more--active .admin-branch-select__trigger {
-    background: rgba(230, 57, 70, 0.12);
-    border-color: rgba(230, 57, 70, 0.35);
-    color: #e63946;
-}
-
-.admin-layout .rpt-expenses-day-input {
-    min-width: 130px;
-    padding: 6px 8px;
-    flex: 0 0 auto;
-}
-
-.admin-layout .rpt-expenses-toolbar-cluster--compact .rpt-expenses-agg {
-    flex: 0 1 auto;
-    margin-left: auto;
-}
-
-.admin-layout .rpt-expenses-toolbar-cluster--compact .rpt-expenses-year-label {
-    min-height: 34px;
-    padding: 4px 10px;
-    font-size: 0.76rem;
-}
-
-.admin-layout .rpt-expenses-month-controls {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-.admin-layout .rpt-expenses-year-label {
-    display: inline-flex;
-    align-items: center;
-    min-height: 36px;
-    padding: 6px 12px;
-    border-radius: 10px;
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: var(--admin-text, #1a1d21);
-    background: var(--admin-card-bg, #fff);
-    border: 1px solid var(--admin-border, #e8ecf1);
-    white-space: nowrap;
-}
-
-.admin-layout .rpt-btn-current-month {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 36px;
-    padding: 6px 14px;
-    border-radius: 10px;
-    border: 1px solid color-mix(in srgb, var(--accent-primary, #3b82f6) 40%, var(--admin-border, #e8ecf1));
-    background: color-mix(in srgb, var(--accent-primary, #3b82f6) 8%, var(--admin-card-bg, #fff));
-    color: var(--admin-text, #1a1d21);
-    font-size: 0.78rem;
-    font-weight: 700;
-    font-family: inherit;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.admin-layout .rpt-btn-current-month:hover {
-    border-color: var(--accent-primary, #3b82f6);
-    color: var(--accent-primary, #2563eb);
-}
-
-.admin-layout .rpt-btn-current-month.active {
-    background: rgba(230, 57, 70, 0.12);
-    border-color: rgba(230, 57, 70, 0.35);
-    color: #e63946;
-}
-
-.admin-layout .rpt-expense-table__current-month td {
-    background: color-mix(in srgb, var(--accent-primary, #3b82f6) 8%, var(--admin-card-bg, #fff));
-    font-weight: 700;
-}
-
-.admin-layout .rpt-expenses-month-field {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px 4px 10px;
-    border-radius: 10px;
-    background: var(--admin-card-bg, #fff);
-    border: 1px solid var(--admin-border, #e8ecf1);
-}
-
-.admin-layout .rpt-expenses-month-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
-    white-space: nowrap;
-}
-
-.admin-layout .rpt-expenses-month-input {
-    min-width: 132px;
-    padding: 6px 4px;
-}
-
-.admin-layout .rpt-expenses-period-select.rpt-period-select {
-    flex: 0 1 auto;
-}
-
-.admin-layout .rpt-expenses-period-select .rpt-period-menu-select.admin-branch-select {
-    max-width: min(100%, 220px);
 }
 
 .admin-layout .rpt-expenses-agg {
@@ -909,9 +640,6 @@
 }
 
 .admin-layout .rpt-expenses-agg-tabs .rpt-tab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     padding: 5px 11px;
     border-radius: 6px;
 }
@@ -938,12 +666,10 @@
 }
 
 .admin-layout .rpt-expenses-calendar-hint {
-    margin: 0;
-    flex: 1 1 220px;
-    min-width: min(100%, 220px);
-    padding: 8px 12px;
-    font-size: 0.74rem;
-    line-height: 1.4;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.45;
     color: var(--admin-text-muted, #6b7280);
     background: color-mix(in srgb, var(--admin-page-bg, #f4f6f9) 85%, var(--admin-card-bg, #fff));
     border: 1px solid var(--admin-border, #e8ecf1);
@@ -986,10 +712,6 @@
 
 .admin-layout .rpt-expenses-block--withdrawals .rpt-expenses-section-title {
     color: color-mix(in srgb, var(--admin-text, #1a1d21) 88%, #b45309);
-}
-
-.admin-layout .rpt-expenses-block--refunds .rpt-expenses-section-title {
-    color: color-mix(in srgb, var(--admin-text, #1a1d21) 88%, #6d28d9);
 }
 
 .admin-layout .rpt-expenses-split {
@@ -1065,16 +787,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-.admin-layout .rpt-expense-table__total-row td {
-    border-top: 2px solid var(--admin-border, #e8ecf1);
-    font-weight: 800;
-    background: color-mix(in srgb, var(--admin-page-bg, #f4f6f9) 65%, var(--admin-card-bg, #fff));
-}
-
-.admin-layout .rpt-expense-table__total-row .rpt-expense-table__amount {
-    color: var(--admin-text, #0f172a);
-}
-
 .admin-layout .rpt-expense-table__empty {
     padding: 18px 14px !important;
     text-align: center;
@@ -1134,35 +846,10 @@
     }
 }
 
-@media (max-width: 1024px) {
-    .admin-layout .rpt-expenses-toolbar-cluster--compact {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-divider {
-        width: 100%;
-        height: 1px;
-        min-height: 0;
-        align-self: auto;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-cluster--compact .rpt-expenses-agg {
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .admin-layout .rpt-expenses-period-bar {
-        flex: 1 1 100%;
-        width: 100%;
-    }
-}
-
 @media (max-width: 768px) {
     .admin-layout .rpt-expenses-card-header {
         flex-direction: column;
         align-items: stretch;
-        gap: 12px;
     }
 
     .admin-layout .rpt-expenses-title-block {
@@ -1170,200 +857,23 @@
     }
 
     .admin-layout .rpt-expenses-toolbar {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
         margin-left: 0;
-        width: 100%;
+        justify-content: stretch;
     }
 
     .admin-layout .rpt-btn-register-expense {
         width: 100%;
         justify-content: center;
-        min-height: 44px;
+    }
+
+    .admin-layout .rpt-expenses-toolbar-cluster {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .admin-layout .rpt-tab--export-expenses {
         width: 100%;
         justify-content: center;
-        min-height: 44px;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-cluster--compact {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-        padding: 10px;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-divider {
-        width: 100%;
-        height: 1px;
-        min-height: 0;
-    }
-
-    .admin-layout .rpt-expenses-period-bar {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        width: 100%;
-    }
-
-    .admin-layout .rpt-expenses-period-label {
-        grid-column: 1 / -1;
-    }
-
-    .admin-layout .rpt-expenses-period-tabs {
-        grid-column: 1 / -1;
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .admin-layout .rpt-expenses-period-tabs .rpt-tab {
-        min-height: 40px;
-        padding: 6px 4px;
-        font-size: 0.72rem;
-    }
-
-    .admin-layout .rpt-expenses-period-more.admin-branch-select {
-        grid-column: 1 / -1;
-        max-width: none;
-        width: 100%;
-    }
-
-    .admin-layout .rpt-expenses-period-more.admin-branch-select:has(+ .rpt-expenses-day-input) {
-        grid-column: 1;
-    }
-
-    .admin-layout .rpt-expenses-period-more .admin-branch-select__trigger {
-        min-height: 40px;
-        width: 100%;
-    }
-
-    .admin-layout .rpt-expenses-day-input {
-        grid-column: 2;
-        width: 100%;
-        min-width: 0;
-        min-height: 40px;
-    }
-
-    .admin-layout .rpt-expenses-year-label {
-        grid-column: 1 / -1;
-        width: fit-content;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-cluster--compact .rpt-expenses-agg {
-        margin-left: 0;
-        width: 100%;
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .admin-layout .rpt-expenses-agg-tabs {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        width: 100%;
-    }
-
-    .admin-layout .rpt-expenses-agg-tabs .rpt-tab {
-        min-height: 40px;
-        padding: 6px 8px;
-        font-size: 0.74rem;
-    }
-
-    .admin-layout .rpt-expenses-controls-row--period {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .admin-layout .rpt-expenses-controls-row--kinds {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-    }
-
-    .admin-layout .rpt-expenses-kind-filter {
-        display: flex;
-        flex-wrap: wrap;
-        width: 100%;
-        gap: 6px;
-    }
-
-    .admin-layout .rpt-expenses-kind-filter .rpt-tab {
-        flex: 1 1 calc(50% - 6px);
-        justify-content: center;
-        min-width: 0;
-        min-height: 40px;
-        padding: 8px 10px;
-        font-size: 0.72rem;
-    }
-}
-
-@media (min-width: 480px) and (max-width: 768px) {
-    .admin-layout .rpt-expenses-toolbar {
-        grid-template-columns: 1fr auto;
-        align-items: stretch;
-    }
-
-    .admin-layout .rpt-btn-register-expense {
-        width: auto;
-    }
-
-    .admin-layout .rpt-tab--export-expenses {
-        width: auto;
-        white-space: nowrap;
-    }
-}
-
-@media (max-width: 520px) {
-    .admin-layout .rpt-expenses-period-tabs {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .admin-layout .rpt-expenses-period-tabs .rpt-tab {
-        min-height: 42px;
-        padding: 8px 6px;
-    }
-
-    .admin-layout .rpt-expenses-kind-filter {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overscroll-behavior-x: contain;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        padding-bottom: 2px;
-    }
-
-    .admin-layout .rpt-expenses-kind-filter::-webkit-scrollbar {
-        display: none;
-    }
-
-    .admin-layout .rpt-expenses-kind-filter .rpt-tab {
-        flex: 0 0 auto;
-        min-width: max-content;
-    }
-
-    .admin-layout .rpt-expenses-controls {
-        gap: 10px;
-        margin-bottom: 12px;
-    }
-
-    .admin-layout .rpt-expenses-toolbar-cluster--compact {
-        padding: 8px;
-        gap: 10px;
-    }
-}
-
-@media (max-width: 400px) {
-    .admin-layout .rpt-expenses-subtitle {
-        font-size: 0.74rem;
-    }
-
-    .admin-layout .rpt-expenses-period-tabs .rpt-tab {
-        font-size: 0.68rem;
     }
 }
 
