@@ -1,0 +1,1737 @@
+/* =========================================
+   KANBAN ORDER CARD - UI/UX PREMIUM EDITION
+   ========================================= */
+
+.admin-layout {
+    /* Tarjetas cuadradas en cuadrícula Kanban */
+    --card-radius: 8px;
+    --inner-radius: 6px;
+    --shadow-soft: 0 6px 20px -8px rgba(15, 23, 42, 0.12);
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --kanban-card-compact-h: 176px;
+}
+
+/* Altura natural por defecto; fichas cuadradas solo en vista «Una columna» (focus) */
+.admin-layout .kanban-card {
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: var(--card-radius);
+    padding: 8px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    transition: var(--transition-bounce);
+    position: relative;
+    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.08));
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-height: min-content;
+    aspect-ratio: auto;
+    overflow: visible;
+}
+
+/* Secciones internas: no encoger el bloque central (evita solapamiento con header/footer) */
+.admin-layout .kanban-card-top,
+.admin-layout .kanban-card-foot {
+    flex-shrink: 0;
+}
+
+.admin-layout .kanban-card-scroll {
+    flex-shrink: 0;
+    min-height: min-content;
+}
+
+/* Vista compacta: altura uniforme por defecto (excluye cuadrícula «Una columna») */
+.admin-layout .kanban-card:not(.kanban-card--expanded):not(.kanban-card--grid-tile) {
+    min-height: var(--kanban-card-compact-h);
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded):not(.kanban-card--grid-tile) .kanban-card-scroll {
+    flex: 0 0 auto;
+    overflow: hidden;
+}
+
+/* Vista cuadrícula (Una columna): altura natural, sin ficha compacta 176px */
+.admin-layout .kanban-card.kanban-card--grid-tile {
+    position: relative;
+    z-index: 1;
+    min-height: unset;
+    height: auto;
+    overflow: visible;
+    gap: 6px;
+}
+
+.admin-layout .kanban-card.kanban-card--grid-tile:hover,
+.admin-layout .kanban-card.kanban-card--grid-tile.kanban-card--menu-open {
+    z-index: 20;
+}
+
+.admin-layout .kanban-card.kanban-card--grid-tile .kanban-card-scroll {
+    overflow: visible;
+    flex: 1 1 auto;
+    min-height: unset;
+}
+
+.admin-layout .kanban-card.kanban-card--grid-tile .kanban-card-top,
+.admin-layout .kanban-card.kanban-card--grid-tile .kanban-card-foot {
+    flex-shrink: 0;
+}
+
+.admin-layout .kanban-card--expanded {
+    min-height: unset;
+    height: auto;
+    gap: 6px;
+}
+
+.admin-layout .kanban-card--expanded .kanban-card-scroll {
+    overflow: visible;
+}
+
+.admin-layout .kanban-card .card-client-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.admin-layout .card-items-summary {
+    background: var(--admin-icon-bg);
+    padding: 6px 8px;
+    border-radius: var(--inner-radius);
+    border: 1px solid var(--admin-border);
+    min-height: 44px;
+}
+
+.admin-layout .card-items-summary__text {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--admin-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.admin-layout .card-items-summary__delivery {
+    margin: 4px 0 0;
+    font-size: 0.68rem;
+    line-height: 1.3;
+    color: var(--admin-text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.admin-layout .kanban-card-expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    margin: 4px 0 0;
+    padding: 5px 8px;
+    border: 1px dashed var(--admin-border);
+    border-radius: var(--inner-radius);
+    background: transparent;
+    color: var(--admin-text-muted);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.admin-layout .kanban-card-expand-toggle--inline {
+    width: 100%;
+    margin: 6px 0 0;
+    padding: 6px 0 0;
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--admin-border) 85%, transparent);
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.65rem;
+}
+
+.admin-layout .card-items--expanded .kanban-card-expand-toggle--inline {
+    margin-top: 8px;
+}
+
+.admin-layout .kanban-card-expand-toggle:hover {
+    color: var(--admin-text);
+    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
+    background: var(--admin-icon-bg);
+}
+
+.admin-layout .order-delivery-mini {
+    margin-top: 4px;
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: var(--admin-text-muted);
+    word-break: break-word;
+}
+
+.admin-layout .order-item-row--stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+}
+
+.admin-layout .order-item-row__main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+}
+
+.admin-layout .order-item-extras {
+    margin-top: 2px;
+    margin-left: 4px;
+    font-size: 0.68rem;
+    opacity: 0.75;
+    line-height: 1.3;
+}
+
+.admin-layout .order-item-extra-line {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.admin-layout .order-item-extra-plus {
+    opacity: 0.6;
+}
+
+.admin-layout .receipt-container--kanban {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.admin-layout .receipt-container__row {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-layout .receipt-container__row .receipt-link {
+    flex: 1;
+    text-decoration: none;
+}
+
+.admin-layout .receipt-link--optional {
+    background: rgba(148, 163, 184, 0.12);
+    color: #64748b;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.admin-layout .btn-action--deliver {
+    background: var(--accent-primary);
+    color: #fff;
+    flex: 1;
+    margin: 0;
+}
+
+/* Compacto: tipografía e iconos más pequeños en kanban */
+.admin-layout .kanban-card:not(.kanban-card--expanded) {
+    padding: 8px 10px;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .card-client h4,
+.admin-layout .kanban-card:not(.kanban-card--expanded) .card-client-name {
+    font-size: 0.88rem;
+}
+
+.admin-layout .kanban-card .order-card-header-tools .admin-icon-btn--sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .order-detail-trigger {
+    font-size: 0.62rem;
+    padding: 4px 8px;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .btn-action {
+    font-size: 0.65rem;
+    padding: 7px 6px;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .kanban-card .btn-icon-action,
+.admin-layout .kanban-card:not(.kanban-card--expanded) .btn-icon-action {
+    width: 34px;
+    height: 34px;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .total-amount {
+    font-size: 0.92rem !important;
+}
+
+/* Vista una etapa: altura según contenido (sin ficha cuadrada ni recortes) */
+.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
+    aspect-ratio: auto;
+}
+
+/* Escritorio + vista una columna: misma lectura que split — texto completo, sin scroll interno */
+@media (min-width: 769px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
+        padding: 12px 14px;
+        border-radius: 12px;
+        gap: 8px;
+        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-top {
+        flex-shrink: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-scroll {
+        flex: 0 0 auto;
+        min-height: 0;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--grid-tile {
+        min-height: unset;
+        height: auto;
+        overflow: visible;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--grid-tile .kanban-card-scroll {
+        overflow: visible;
+        flex: 0 0 auto;
+        min-height: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-foot {
+        flex-shrink: 0;
+        margin-top: 0;
+        padding-top: 8px;
+        border-top: 1px solid var(--admin-border);
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-header-row {
+        font-size: 0.68rem;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-client h4.card-client-name {
+        font-size: 0.88rem;
+        line-height: 1.25;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        word-break: break-word;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .client-phone {
+        font-size: 0.78rem;
+        margin-top: 4px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-divider {
+        margin: 6px 0 !important;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-items {
+        padding: 9px 11px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .item-name {
+        font-size: 0.82rem;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        min-width: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .card-note {
+        font-size: 0.78rem;
+        padding: 8px 10px;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .receipt-container .receipt-link {
+        padding: 8px;
+        font-size: 0.75rem;
+    }
+}
+
+/* Escritorio + tres columnas: tarjeta a ancho de columna, tipografía legible, sin miniatura */
+@media (min-width: 769px) {
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card {
+        padding: 12px 14px;
+        border-radius: 12px;
+        gap: 8px;
+        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-top {
+        flex-shrink: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-scroll {
+        flex: 0 0 auto;
+        overflow: visible;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 0;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-foot {
+        flex-shrink: 0;
+        margin-top: 0;
+        padding-top: 8px;
+        border-top: 1px solid var(--admin-border);
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-header-row {
+        font-size: 0.68rem;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-client h4.card-client-name {
+        font-size: 0.88rem;
+        line-height: 1.25;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .client-phone {
+        font-size: 0.78rem;
+        margin-top: 4px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-items {
+        padding: 9px 11px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .item-name {
+        font-size: 0.82rem;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+
+    .admin-layout .kanban-board.kanban-board--split-desktop .card-note {
+        font-size: 0.78rem;
+        padding: 8px 10px;
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+    }
+}
+
+/* Efecto al presionar (Mobile Haptics) */
+.admin-layout .kanban-card:active {
+    transform: scale(0.97);
+}
+
+/* Indicador de urgencia tipo "Glow" sutil */
+.admin-layout .urgent-pulse {
+    border-color: rgba(255, 68, 68, 0.5);
+    animation: urgent-glow 2s infinite alternate;
+}
+
+@keyframes urgent-glow {
+    from {
+        box-shadow: 0 0 5px rgba(255, 68, 68, 0.2);
+    }
+
+    to {
+        box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    }
+}
+
+/* --- CABECERA ESTILO DASHBOARD --- */
+.admin-layout .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.admin-layout .order-queue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 5px;
+    margin-right: 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent-primary) 18%, var(--admin-icon-bg));
+    color: var(--accent-primary);
+    font-weight: 900;
+    font-size: 0.72rem;
+    line-height: 1;
+}
+
+.admin-layout .order-time {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
+    padding: 2px 6px;
+    border-radius: 999px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.admin-layout .payment-badge {
+    background: var(--admin-icon-bg);
+    color: var(--admin-text-muted);
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--admin-border);
+    font-size: 0.65rem;
+}
+
+.admin-layout .payment-badge.online {
+    background: color-mix(in srgb, var(--accent-primary) 10%, var(--admin-icon-bg));
+    color: var(--admin-text);
+    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
+}
+
+/* --- CLIENTE --- */
+.admin-layout .card-client {
+    margin-top: 5px;
+}
+
+.admin-layout .card-client h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--admin-text, #1a1d21);
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+/* Cliente habitual (≥5 pedidos): texto discreto, sin icono llamativo */
+.admin-layout .order-card-vip-badge {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border-radius: 4px;
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
+}
+
+.admin-layout .client-phone {
+    font-size: 0.75rem;
+    color: var(--admin-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.admin-layout .client-phone a,
+.admin-layout .client-phone-wa {
+    color: inherit;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.admin-layout .client-phone a:hover,
+.admin-layout .client-phone-wa:hover {
+    color: var(--admin-text);
+}
+
+/* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
+.admin-layout .card-items {
+    background: var(--admin-icon-bg);
+    padding: 8px 10px;
+    border-radius: var(--inner-radius);
+    border: 1px solid var(--admin-border);
+    position: relative;
+}
+
+/* Decoración de ticket */
+.admin-layout .card-items::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 20px;
+    right: 20px;
+    height: 10px;
+}
+
+.admin-layout .order-item-row {
+    display: flex;
+    gap: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+    align-items: center;
+}
+
+.admin-layout .order-item-row:last-child {
+    margin-bottom: 0;
+}
+
+.admin-layout .qty-circle {
+    background: var(--admin-card-bg);
+    color: var(--admin-text);
+    border: 1px solid var(--admin-border);
+    font-weight: 800;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.admin-layout .item-name {
+    color: var(--admin-text);
+    font-weight: 500;
+}
+
+/* Comentario por item en la card del kanban. Lo mostramos como badge ambar
+   discreto: "NOTA <texto>". El badge ocupa una linea propia debajo del
+   nombre + extras y se trunca a una sola linea si el texto es largo (el
+   tooltip via title= muestra el contenido completo). */
+.admin-layout .order-item-note {
+    margin-top: 2px;
+    margin-left: 28px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.72rem;
+    line-height: 1.25;
+}
+
+.admin-layout .order-item-note-tag {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(202, 138, 4, 0.16);
+    border: 1px solid rgba(202, 138, 4, 0.45);
+    color: #b45309;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-size: 0.65rem;
+}
+
+.admin-layout .order-item-note-text {
+    color: #92400e;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.admin-layout .kanban-card-divider {
+    border: none;
+    border-top: 1px solid var(--admin-border, #e2e8f0);
+    margin: 4px 0;
+}
+
+.admin-layout .order-card-meta-sep {
+    margin: 0 6px;
+    color: var(--admin-text-muted, #64748b);
+    opacity: 0.55;
+    user-select: none;
+}
+
+.admin-layout .order-card-receipt-secondary {
+    background: var(--admin-icon-bg, #f8fafc);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    color: var(--admin-text-muted, #64748b);
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 0 12px;
+    min-height: 36px;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.admin-layout .order-card-receipt-secondary:hover {
+    background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 75%, var(--admin-border));
+    color: var(--admin-text, #0f172a);
+}
+
+/* --- NOTAS: mismo lenguaje visual que el resto de la tarjeta --- */
+.admin-layout .card-note {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-style: normal;
+    font-weight: 500;
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
+    padding: 8px 10px;
+    border-radius: var(--inner-radius);
+    border: 1px solid var(--admin-border);
+    border-left: 3px solid color-mix(in srgb, var(--accent-primary) 45%, var(--admin-border));
+}
+
+.admin-layout .card-note .card-note-label {
+    font-weight: 800;
+    margin-right: 4px;
+    color: var(--admin-text-muted);
+    letter-spacing: 0.04em;
+}
+
+.admin-layout .receipt-link {
+    font-size: 0.75rem;
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
+    padding: 8px;
+    border-radius: var(--inner-radius);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--admin-border);
+    font-weight: 600;
+}
+
+.admin-layout .receipt-link:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 30%, var(--admin-border));
+    color: var(--admin-text);
+}
+
+/* --- TOTAL SECCION --- */
+.admin-layout .card-total {
+    font-size: 1.1rem;
+    font-weight: 900;
+    text-align: right;
+    color: var(--admin-text);
+    margin-top: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-layout .card-total .total-label {
+    font-size: 0.65rem;
+    color: var(--admin-text-muted, #64748b);
+    letter-spacing: 0.12em;
+    font-weight: 700;
+}
+
+.admin-layout .card-total-amounts {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 5px;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.admin-layout .card-total-before {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.admin-layout .card-total-before-price {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--admin-text-muted, #64748b);
+    text-decoration: line-through;
+    opacity: 0.85;
+}
+
+.admin-layout .card-total-before-pct {
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1.2;
+    padding: 1px 4px;
+    border-radius: 4px;
+    color: color-mix(in srgb, var(--accent-primary, #25d366) 88%, #fff);
+    background: color-mix(in srgb, var(--accent-primary, #25d366) 14%, transparent);
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .card-total-before-price {
+    font-size: 0.58rem;
+}
+
+.admin-layout .kanban-card:not(.kanban-card--expanded) .card-total-before-pct {
+    font-size: 0.54rem;
+    padding: 0 3px;
+}
+
+/* --- ACCIONES (GRID SYSTEM) --- */
+.admin-layout .card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 40px;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+/* Para órdenes muy pequeñas, que no se vea vacío */
+@media (max-width: 350px) {
+    .admin-layout .card-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .admin-layout .btn-icon-action {
+        grid-column: span 2;
+        width: 100% !important;
+    }
+}
+
+.admin-layout .btn-action {
+    border: none;
+    padding: 9px 8px;
+    border-radius: var(--inner-radius);
+    cursor: pointer;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #fff;
+    transition: var(--transition-bounce);
+}
+
+.admin-layout .btn-action.primary {
+    background: var(--accent-primary);
+    box-shadow: 0 4px 15px var(--accent-shadow, rgba(255, 71, 87, 0.3));
+}
+
+.admin-layout .btn-action.success {
+    background: #10b981;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.admin-layout .kanban-card .btn-icon-action {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--inner-radius);
+    color: var(--admin-text-muted);
+    transition: all 0.2s;
+}
+
+.admin-layout .btn-icon-action.cancel:hover,
+.admin-layout .btn-icon-action.cancel:active {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+/* Animación de entrada fluida */
+.admin-layout .animate-slide-up {
+    animation: slideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Móvil: tarjetas a ancho completo, altura natural (sin cuadrado ni scroll interno forzado) */
+@media (max-width: 768px) {
+    .admin-layout .kanban-card {
+        aspect-ratio: auto;
+        overflow-y: visible;
+        overflow-x: hidden;
+        gap: 6px;
+    }
+
+    .admin-layout .kanban-card-scroll {
+        flex: none;
+        overflow: visible;
+        min-height: 0;
+    }
+}
+
+/* Fila meta: badge delivery + ver detalles */
+.admin-layout .card-kanban-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.admin-layout .order-detail-trigger {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 6px 10px;
+    border-radius: var(--inner-radius);
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.admin-layout .order-detail-trigger:hover {
+    color: var(--admin-text);
+    background: var(--admin-card-bg);
+    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
+}
+
+/* Menú impresión: reimprimir ticket cocina o ticket caja */
+.admin-layout .order-ticket-menu {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.admin-layout .order-ticket-menu-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 40;
+    min-width: 200px;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    box-shadow: var(--admin-shadow-md, 0 8px 24px rgba(15, 23, 42, 0.15));
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-layout .order-ticket-menu-panel--portal {
+    position: fixed;
+    top: auto;
+    right: auto;
+    z-index: var(--z-admin-menu-portal, 13000);
+    margin: 0;
+}
+
+/*
+ * Portal (hijo de .admin-layout o body): fixed + z-index alto para no quedar
+ * bajo otras cards ni recortado por overflow del main.
+ * Sin prefijo .admin-layout: el nodo portal debe llevar estas reglas siempre.
+ */
+.order-ticket-menu-panel--portal {
+    position: fixed;
+    top: auto;
+    right: auto;
+    z-index: var(--z-admin-menu-portal, 13000);
+    margin: 0;
+    min-width: 200px;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    box-shadow: var(--admin-shadow-md, 0 8px 24px rgba(15, 23, 42, 0.15));
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--admin-text, #0f172a);
+    font-family: var(--admin-font, inherit);
+}
+
+.order-ticket-menu-panel--portal.manual-order-edit-menu-panel {
+    min-width: 220px;
+}
+
+.order-ticket-menu-panel--portal .order-ticket-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--admin-text, #0f172a);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    font-family: inherit;
+}
+
+.order-ticket-menu-panel--portal .order-ticket-menu-item:hover {
+    background: var(--admin-icon-bg, #f8fafc);
+    color: var(--accent-primary, #25d366);
+}
+
+.order-ticket-menu-panel--portal .manual-order-edit-menu-title {
+    margin: 0;
+    padding: 6px 10px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #64748b);
+    border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .kanban-card--menu-open {
+    position: relative;
+    z-index: 10;
+}
+
+.admin-layout .order-ticket-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--admin-text);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-layout .order-ticket-menu-item:hover {
+    background: var(--admin-icon-bg);
+    color: var(--accent-primary);
+}
+
+.admin-layout .order-edit-menu-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.admin-layout .manual-order-edit-menu-panel {
+    min-width: 220px;
+}
+
+.admin-layout .manual-order-edit-menu-title {
+    margin: 0;
+    padding: 6px 10px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #64748b);
+    border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.admin-layout .order-fulfillment-pill--delivery {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--admin-text-muted);
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
+    padding: 4px 8px;
+    border-radius: var(--inner-radius);
+}
+
+/* Modal detalle pedido (portal en body) */
+.admin-layout.order-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.58)) !important;
+    background-image: none !important;
+    backdrop-filter: blur(8px);
+    min-height: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    flex: none !important;
+}
+
+.admin-layout .order-detail-panel {
+    width: 100%;
+    max-width: min(640px, 96vw);
+    max-height: min(92vh, 820px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 18px;
+    background: var(--admin-card-bg);
+    border: 1px solid var(--admin-border);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+    overflow: hidden;
+}
+
+.admin-layout .order-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--admin-border);
+    flex-shrink: 0;
+    background: var(--admin-icon-bg);
+}
+
+.admin-layout .order-detail-head-text {
+    min-width: 0;
+}
+
+.admin-layout .order-detail-eyebrow {
+    margin: 0 0 6px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .order-detail-title {
+    margin: 0;
+    font-size: clamp(1.35rem, 3vw, 1.65rem);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--admin-text);
+}
+
+.admin-layout .order-detail-close {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-card-bg);
+    color: var(--admin-text-muted);
+    border-radius: 12px;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.admin-layout .order-detail-close:hover {
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
+    border-color: color-mix(in srgb, var(--admin-text-muted) 40%, var(--admin-border));
+}
+
+.admin-layout .order-detail-body {
+    padding: 20px 24px 24px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.admin-layout .order-detail-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: stretch;
+}
+
+@media (min-width: 520px) {
+    .admin-layout .order-detail-meta-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+}
+
+.admin-layout .order-detail-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    margin-bottom: 0;
+    padding: 0;
+    border-radius: 12px;
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
+    overflow: hidden;
+}
+
+.admin-layout .order-detail-card .order-detail-label {
+    margin: 0;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--admin-border);
+    background: color-mix(in srgb, var(--admin-card-bg) 55%, var(--admin-icon-bg));
+}
+
+.admin-layout .order-detail-card-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    min-height: 88px;
+}
+
+.admin-layout .order-detail-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 44px;
+    margin-top: auto;
+    padding: 10px 14px;
+    border-top: 1px solid var(--admin-border);
+    background: color-mix(in srgb, var(--admin-card-bg) 40%, var(--admin-icon-bg));
+}
+
+.admin-layout .order-detail-card-foot[aria-hidden] {
+    min-height: 44px;
+    padding: 0;
+    border-top: 1px solid var(--admin-border);
+    visibility: hidden;
+}
+
+.admin-layout .order-detail-kv-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .order-detail-kv-value {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--admin-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .order-detail-facts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-layout .order-detail-facts li {
+    font-size: 0.88rem;
+    line-height: 1.35;
+    color: var(--admin-text-muted, #64748b);
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-value-sep {
+    margin: 0 0.35em;
+    opacity: 0.45;
+    font-weight: 500;
+}
+
+.admin-layout .order-detail-block {
+    padding: 0;
+    border-radius: 12px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    overflow: hidden;
+}
+
+.admin-layout .order-detail-block .order-detail-label {
+    margin: 0;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--admin-border);
+    background: color-mix(in srgb, var(--admin-card-bg) 55%, var(--admin-icon-bg));
+}
+
+.admin-layout .order-detail-block--address .order-detail-maps-link {
+    margin: 0 14px 14px;
+    width: calc(100% - 28px);
+}
+
+.admin-layout .order-detail-address-grid {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-layout .order-detail-address-row {
+    display: grid;
+    grid-template-columns: minmax(88px, 32%) 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-layout .order-detail-address-row:last-child {
+    border-bottom: none;
+}
+
+.admin-layout .order-detail-address-row dt {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--admin-text-muted, #64748b);
+    line-height: 1.35;
+}
+
+.admin-layout .order-detail-address-row dd {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--admin-text);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.admin-layout .order-detail-link-icon {
+    margin-left: auto;
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+
+.admin-layout .order-detail-handoff-block {
+    margin-bottom: 16px;
+}
+
+.admin-layout .order-detail-handoff-code {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: linear-gradient(145deg, rgba(148, 163, 184, 0.1), rgba(71, 85, 105, 0.12));
+    border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.admin-layout .order-detail-handoff-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+}
+
+.admin-layout .order-detail-handoff-digits {
+    font-size: 1.65rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    font-family: ui-monospace, "Cascadia Code", monospace;
+    color: var(--admin-text);
+    user-select: all;
+}
+
+.admin-layout .order-detail-handoff-hint {
+    margin: 10px 0 0;
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+
+.admin-layout .order-detail-section {
+    margin-bottom: 18px;
+}
+
+.admin-layout .order-detail-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.admin-layout .order-detail-label {
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--admin-text-muted, #475569);
+    margin-bottom: 8px;
+}
+
+.admin-layout .order-detail-label--inline {
+    margin-bottom: 0;
+    font-size: 0.85rem;
+}
+
+.admin-layout .order-detail-value {
+    margin: 0;
+    color: var(--admin-text);
+    font-size: 1.02rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.admin-layout .order-detail-muted {
+    margin: 6px 0 0;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: var(--admin-text-muted, #475569);
+}
+
+.admin-layout .order-detail-fulfillment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    font-size: 0.98rem;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border);
+    box-sizing: border-box;
+}
+
+.admin-layout .order-detail-fulfillment.is-delivery {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+.admin-layout .order-detail-fulfillment.is-pickup {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+    border-color: rgba(167, 139, 250, 0.25);
+}
+
+.admin-layout .order-detail-address {
+    margin: 6px 0 0;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+    color: var(--admin-text);
+    background: var(--admin-icon-bg);
+    border-radius: var(--inner-radius);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border: 1px solid var(--admin-border);
+}
+
+.admin-layout .order-detail-address-list {
+    margin: 6px 0 0;
+    padding: 8px;
+    list-style: none;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--inner-radius);
+    background: var(--admin-icon-bg);
+    display: grid;
+    gap: 6px;
+}
+
+.admin-layout .order-detail-address-item {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--admin-text);
+    font-size: 0.94rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-address-single {
+    margin: 8px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-products {
+    margin-bottom: 20px;
+}
+
+.admin-layout .order-detail-items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-layout .order-detail-item-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 4px 16px;
+    align-items: start;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
+    font-size: 0.98rem;
+    line-height: 1.4;
+}
+
+.admin-layout .order-detail-item-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    grid-column: 1;
+}
+
+.admin-layout .order-detail-item-qty {
+    flex-shrink: 0;
+    font-weight: 800;
+    color: var(--accent-primary, #e63946);
+    font-size: 1rem;
+}
+
+.admin-layout .order-detail-item-name {
+    font-weight: 700;
+    color: var(--admin-text);
+    word-break: break-word;
+}
+
+.admin-layout .order-detail-item-price {
+    grid-column: 2;
+    grid-row: 1;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--admin-text);
+    white-space: nowrap;
+}
+
+.admin-layout .order-detail-item-desc {
+    grid-column: 1 / -1;
+    color: var(--admin-text-muted, #64748b);
+    font-weight: 500;
+    font-size: 0.88rem;
+    padding-left: 2rem;
+}
+
+.admin-layout .order-detail-item-note {
+    font-style: italic;
+}
+
+.admin-layout .order-detail-note {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--admin-text);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--admin-icon-bg);
+    border: 1px solid var(--admin-border);
+}
+
+.admin-layout .order-detail-total-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    margin-top: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--admin-border);
+    background: color-mix(in srgb, var(--accent-primary, #e63946) 6%, var(--admin-icon-bg));
+}
+
+.admin-layout .order-detail-total {
+    font-size: clamp(1.35rem, 3vw, 1.55rem);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: var(--admin-text);
+}
+
+.admin-layout .order-detail-date {
+    margin-top: 0;
+    font-size: 0.88rem;
+}
+
+.admin-layout .order-detail-ticket-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+@media (min-width: 480px) {
+    .admin-layout .order-detail-ticket-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.admin-layout .order-detail-ticket-btn {
+    width: 100%;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    border-radius: 11px;
+    border: 1px solid var(--admin-border);
+    background: var(--admin-icon-bg);
+    color: var(--admin-text);
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-layout .order-detail-receipt-link {
+    margin-top: 10px;
+}
+
+.admin-layout .order-detail-ticket-btn:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--admin-border));
+    background: var(--admin-card-bg);
+}
+
+.admin-layout .order-detail-ticket-btn--primary {
+    border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--admin-border));
+    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
+    color: var(--accent-primary);
+}
+
+.admin-layout .order-detail-ticket-btn--whatsapp {
+    border-color: rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+}
+
+.admin-layout .order-detail-ticket-btn--whatsapp:hover {
+    border-color: rgba(34, 197, 94, 0.55);
+    background: rgba(34, 197, 94, 0.18);
+}
+
+.admin-layout .order-detail-phone-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-layout .order-detail-wa-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+    text-decoration: none;
+}
+
+.admin-layout .order-detail-wa-btn:hover {
+    background: rgba(34, 197, 94, 0.18);
+}
+
+.admin-layout .order-detail-wa-glyph {
+    width: 16px;
+    height: 16px;
+}
+
+.admin-layout .order-detail-wa-glyph--btn {
+    width: 18px;
+    height: 18px;
+}
+
+.admin-layout .order-detail-foot {
+    padding: 16px 24px 22px;
+    border-top: 1px solid var(--admin-border);
+    flex-shrink: 0;
+    background: var(--admin-icon-bg);
+}
+
+.admin-layout .order-detail-done {
+    width: 100%;
+    min-height: 48px;
+    font-size: 1rem;
+    font-weight: 800;
+    border-radius: 12px;
+}
+
+@media (max-width: 480px) {
+    .admin-layout .order-detail-address-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .admin-layout.order-detail-overlay {
+        padding: 12px;
+        align-items: flex-end;
+    }
+
+    .admin-layout .order-detail-panel {
+        max-height: 94vh;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .admin-layout .order-detail-head,
+    .admin-layout .order-detail-body,
+    .admin-layout .order-detail-foot {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+}
