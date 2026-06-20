@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoginForm } from "./login-form";
+import { resetDocumentMeta } from "@/shared/utils/documentMeta";
 
 interface LoginShellProps {
   displayName: string;
@@ -9,6 +10,10 @@ type AccessMode = "caja" | "admin";
 
 export function LoginShell({ displayName }: LoginShellProps) {
   const [accessMode, setAccessMode] = useState<AccessMode>("caja");
+
+  useEffect(() => {
+    resetDocumentMeta();
+  }, []);
 
   const panelCopy =
     accessMode === "caja"
@@ -28,7 +33,7 @@ export function LoginShell({ displayName }: LoginShellProps) {
   return (
     <main className="login-shell login-shell--split" data-mode={accessMode}>
       <div className="login-slide-card glass animate-fade" data-mode={accessMode}>
-        <p className="login-slide-brand">{displayName}</p>
+        <h1 className="login-slide-brand">{displayName}</h1>
 
         <div className="login-slide-forms" aria-live="polite">
           <div className="login-form-plate">

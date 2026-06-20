@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getAccessToken } from "./auth-session";
 
 const CONFIG_WARN =
   "[GodCode] Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. Copiá .env.example a .env y pegá URL + anon key del proyecto (Supabase → Settings → API).";
@@ -25,7 +26,53 @@ function resolveConfig(): { url: string; anonKey: string } {
   throw new Error(CONFIG_WARN);
 }
 
+/**
+ * Quita sesiones Supabase viejas guardadas en el navegador. Con el BFF de cookies
+ * httpOnly el access token vive solo en memoria y el refresh token en la cookie
+ * `gc_rt`, asi que ya no debe quedar nada de `sb-*-auth-token` en local/session storage.
+ */
+function clearLegacyAuthStorage(): void {
+  if (typeof window === "undefined") return;
+  for (const store of [window.localStorage, window.sessionStorage]) {
+    try {
+      for (let i = store.length - 1; i >= 0; i -= 1) {
+        const key = store.key(i);
+        if (key?.startsWith("sb-") && key.includes("auth-token")) {
+          store.removeItem(key);
+        }
+      }
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+}
+
+clearLegacyAuthStorage();
+
 const { url, anonKey } = resolveConfig();
 
-/** Shared browser Supabase client (Vite). */
-export const supabase: SupabaseClient = createClient(url, anonKey);
+/**
+ * Cliente Supabase del navegador (Vite).
+ *
+ * Auth gestionada por el BFF: el access token se inyecta vía el callback
+ * `accessToken` (lo provee `auth-session`), que se encarga de renovarlo contra
+ * `/api/auth/*`. Por eso NO usamos el namespace `supabase.auth` (queda
+ * inhabilitado al pasar `accessToken`) ni persistimos sesión en el navegador.
+ */
+export const supabase: SupabaseClient = createClient(url, anonKey, {
+  accessToken: () => getAccessToken(),
+});
+
+/**
+ * Cliente sin persistencia para validaciones puntuales (p. ej. re-auth en zona peligro)
+ * sin rotar ni invalidar la sesión del panel principal.
+ */
+export function createEphemeralSupabaseClient(): SupabaseClient {
+  return createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

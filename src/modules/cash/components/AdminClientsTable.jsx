@@ -1,6 +1,8 @@
 import React from 'react';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 
 const AdminClientsTable = ({ clients, handleSelectClient }) => {
+    const { formatMoney } = useBranchMoney();
     return (
         <div className="clients-view glass animate-fade">
             <div className="admin-toolbar clients-toolbar-fix">
@@ -45,7 +47,7 @@ const AdminClientsTable = ({ clients, handleSelectClient }) => {
                             <td data-label="RUT">{c.rut || '-'}</td>
                             <td data-label="Teléfono">{c.phone}</td>
                             <td data-label="Último Pedido">{c.last_order_at ? new Date(c.last_order_at).toLocaleDateString() : 'N/A'}</td>
-                            <td data-label="Total" className="client-total-amount">${(c.total_spent || 0).toLocaleString('es-CL')}</td>
+                            <td data-label="Total" className="client-total-amount">{formatMoney(c.total_spent || 0)}</td>
                         </tr>
                     ))}
                 </tbody>

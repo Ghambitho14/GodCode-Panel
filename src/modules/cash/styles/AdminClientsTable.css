@@ -82,9 +82,63 @@
 }
 
 .admin-layout .history-view .clients-header > .admin-history-meta {
-	margin: 0;
+	margin: 0 0 12px;
 	color: var(--admin-text-muted, #5a6169);
 	font-size: 0.85rem;
+}
+
+.admin-layout .history-view .admin-history-period-select {
+	min-width: 160px;
+}
+
+.admin-layout .history-view .admin-history-loading {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 16px 0;
+	color: var(--admin-text-muted, #5a6169);
+	font-size: 0.88rem;
+}
+
+.admin-layout .history-view .admin-history-empty-block {
+	text-align: center;
+	padding: 32px 16px;
+	color: var(--admin-text-muted, #5a6169);
+}
+
+.admin-layout .history-view .admin-history-day-group {
+	margin-bottom: 24px;
+}
+
+.admin-layout .history-view .admin-history-day-group__title {
+	margin: 0 0 10px;
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--admin-text, #12151a);
+	text-transform: capitalize;
+	letter-spacing: -0.01em;
+}
+
+.admin-layout .history-view .admin-history-session {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-width: 2.25rem;
+	padding: 4px 8px;
+	border-radius: 8px;
+	font-size: 0.82rem;
+	font-weight: 700;
+}
+
+.admin-layout .history-view .admin-history-session--mesa {
+	background: rgba(37, 211, 102, 0.12);
+	color: #128c7e;
+}
+
+.admin-layout .history-view .admin-history-session--moto {
+	background: rgba(230, 57, 70, 0.1);
+	color: #c1121f;
 }
 
 .admin-layout .history-view .select-wrapper {
@@ -540,6 +594,37 @@
 
 .admin-layout .history-card:hover {
     border-color: color-mix(in srgb, var(--accent-primary) 25%, var(--admin-border));
+}
+
+.admin-layout .history-card--clickable {
+    cursor: pointer;
+}
+
+.admin-layout .history-card--clickable:hover {
+    border-color: color-mix(in srgb, var(--accent-primary) 40%, var(--admin-border));
+    background: color-mix(in srgb, var(--accent-primary) 4%, var(--admin-card-bg, #fff));
+    box-shadow: var(--admin-shadow-md, 0 4px 12px rgba(15, 23, 42, 0.08));
+    transform: translateY(-1px);
+}
+
+.admin-layout .history-card--clickable:active {
+    transform: translateY(0);
+}
+
+.admin-layout .history-card--clickable:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.admin-layout .history-card__view-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin-right: auto;
+    margin-left: 8px;
 }
 
 .admin-layout .history-card-header {

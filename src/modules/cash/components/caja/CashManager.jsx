@@ -12,21 +12,18 @@ import CashShiftModal from './CashShiftModal';
 import CashMovementModal from './CashMovementModal';
 import CashShiftDetailModal from './CashShiftDetailModal';
 import CashOrderDetailPanel from './CashOrderDetailPanel';
-import { formatCurrency } from '@/shared/utils/formatters';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
-import AdminMenuSelect from '../AdminMenuSelect';
+import ReportPeriodSelect from '../ReportPeriodSelect';
+import {
+    getCashShiftHistoryPeriodOptions,
+    isInReportRange,
+    resolveReportPeriodRange,
+} from '../../utils/reportPeriodRange';
+import { getOrderForMovement } from '../../utils/getOrderForMovement';
 
-const fmt = (n) => {
-    try { return formatCurrency(n); } catch { return `$${(n || 0).toLocaleString('es-CL')}`; }
-};
-
-const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = [
-    { value: '7', label: '7 días' },
-    { value: '30', label: '30 días' },
-    { value: '90', label: '3 meses' },
-    { value: '365', label: '1 año' },
-];
+const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = getCashShiftHistoryPeriodOptions();
 
 const ElapsedTime = ({ since }) => {
     const [elapsed, setElapsed] = useState('');
@@ -44,8 +41,16 @@ const ElapsedTime = ({ since }) => {
     return <span>{elapsed}</span>;
 };
 
-const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orders = [] }) => {
+const CashManager = ({
+    showNotify,
+    selectedBranchId,
+    selectedBranch = null,
+    orders = [],
+    logoUrl = null,
+    companyName = null,
+}) => {
     const { cashSystem } = useAdmin();
+    const { formatMoney: fmt } = useBranchMoney();
     const {
         activeShift, loading: loadingSystem, movements,
         openShift, closeShift, addManualMovement,
@@ -57,36 +62,10 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
     const [viewingShift, setViewingShift] = useState(null);
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-    const [movementType, setMovementType] = useState('income');
+    /** @type {'income' | 'cash_withdrawal'} */
+    const [movementModalVariant, setMovementModalVariant] = useState('income');
     const [filterPeriod, setFilterPeriod] = useState('30');
     const [selectedMovementOrder, setSelectedMovementOrder] = useState(null);
-
-    const getOrderForMovement = useCallback(
-        (movement, ordersList) => {
-            const list = ordersList || orders || [];
-            const fromJoin = movement?.orders;
-            if (fromJoin?.id) return fromJoin;
-            const id = movement?.order_id ?? movement?.orderId;
-            if (id != null) {
-                const found = list.find((o) => String(o.id) === String(id));
-                if (found) return found;
-            }
-            const desc = String(movement?.description || '');
-            const match = desc.match(/#(\d{1,8})/);
-            if (!match) return null;
-            const num = match[1].replace(/^0+/, '') || '0';
-            return (
-                list.find((o) => {
-                    const sid = String(o.id);
-                    return (
-                        sid.replace(/^0+/, '') === num ||
-                        sid.slice(-4).replace(/^0+/, '') === num
-                    );
-                }) ?? null
-            );
-        },
-        [orders]
-    );
 
     const loadHistory = useCallback(async () => {
         setLoadingHistory(true);
@@ -115,12 +94,17 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
     const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
     const movementCount = movements.length;
 
+    const shiftHistoryRange = useMemo(
+        () => resolveReportPeriodRange(filterPeriod),
+        [filterPeriod],
+    );
+
     const filteredShifts = useMemo(() => {
-        const days = parseInt(filterPeriod);
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - days);
-        return pastShifts.filter(s => new Date(s.closed_at) >= cutoff);
-    }, [pastShifts, filterPeriod]);
+        return pastShifts.filter((s) => {
+            if (!s?.closed_at) return false;
+            return isInReportRange(new Date(s.closed_at), shiftHistoryRange);
+        });
+    }, [pastShifts, shiftHistoryRange]);
 
     const cancelledOrdersInShift = useMemo(() => {
         if (!activeShift || !selectedBranchId || selectedBranchId === 'all') return [];
@@ -145,13 +129,10 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
             .slice(0, 8);
     }, [movements, cancelledOrdersInShift]);
 
-    const handleMovementClick = useCallback(
-        (m) => {
-            const order = getOrderForMovement(m, orders);
-            if (order) setSelectedMovementOrder(order);
-        },
-        [getOrderForMovement, orders]
-    );
+    const handleMovementClick = useCallback((m) => {
+        const order = getOrderForMovement(m, orders);
+        if (order) setSelectedMovementOrder(order);
+    }, [orders]);
 
     if (loadingSystem) return (
         <div className="cash-loading">
@@ -186,18 +167,33 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                 <div className="cash-header-actions">
                     {activeShift ? (
                         <>
-                            <button className="btn btn-income" onClick={() => { setMovementType('income'); setIsMovementModalOpen(true); }}>
+                            <button
+                                type="button"
+                                className="btn btn-income"
+                                onClick={() => {
+                                    setMovementModalVariant('income');
+                                    setIsMovementModalOpen(true);
+                                }}
+                            >
                                 <ArrowUpCircle size={16} /> Ingreso
                             </button>
-                            <button className="btn btn-expense" onClick={() => { setMovementType('expense'); setIsMovementModalOpen(true); }}>
-                                <ArrowDownCircle size={16} /> Egreso
+                            <button
+                                type="button"
+                                className="btn btn-expense btn-cash-withdrawal"
+                                onClick={() => {
+                                    setMovementModalVariant('cash_withdrawal');
+                                    setIsMovementModalOpen(true);
+                                }}
+                                title="Retiro de efectivo del turno (compras menores, vuelto). Gastos grandes: Ventas → Gastos del local."
+                            >
+                                <ArrowDownCircle size={16} /> Sacar efectivo
                             </button>
-                            <button className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
+                            <button type="button" className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
                                 <Lock size={16} /> Cerrar caja
                             </button>
                         </>
                     ) : (
-                        <button className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
+                        <button type="button" className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
                             <Unlock size={18} /> Abrir caja
                         </button>
                     )}
@@ -253,10 +249,19 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                                         borderColor: 'rgba(220, 38, 38, 0.28)',
                                     }}
                                 />
-                                <span>Egresos</span>
+                                <span>Retiros de efectivo</span>
                             </div>
-                            <div className="cash-kpi-value">{fmt(totals.expenses)}</div>
-                            <div className="cash-kpi-sub">{movements.filter(m => m.type === 'expense').length} movimientos</div>
+                            <div className="cash-kpi-value">{fmt(Number(totals.cashWithdrawals) || 0)}</div>
+                            <div className="cash-kpi-sub">
+                                {Number(totals.cashWithdrawalCount) || 0} retiro
+                                {(Number(totals.cashWithdrawalCount) || 0) === 1 ? '' : 's'}
+                                {(totals.operatingExpenseCount ?? 0) > 0
+                                    ? ` · Gastos operativos: ${totals.operatingExpenseCount} (${fmt(totals.operatingExpenses ?? 0)})`
+                                    : ''}
+                                {(totals.refundExpenseCount ?? 0) > 0
+                                    ? ` · Devoluciones: ${totals.refundExpenseCount} (${fmt(totals.refundExpenses ?? 0)})`
+                                    : ''}
+                            </div>
                         </div>
 
                         <div className="cash-kpi methods">
@@ -270,7 +275,7 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                                         borderColor: 'var(--admin-border)',
                                     }}
                                 />
-                                <span>Por Método</span>
+                                <span>Cobros por método</span>
                             </div>
                             <div className="cash-methods-grid">
                                 <div className="cash-method-row">
@@ -289,6 +294,7 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                                     <strong>{fmt(totals.online)}</strong>
                                 </div>
                             </div>
+                            <div className="cash-kpi-sub">Solo ventas de pedidos</div>
                         </div>
 
                         <div className="cash-kpi delivery">
@@ -393,11 +399,12 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
                 <div className="cash-section-header">
                     <h3 className="cash-section-title cash-section-title--with-icon"><AdminIconSlot Icon={History} slotSize="sm" tone="accent" /> Historial de turnos</h3>
                     <div className="cash-filters-inline">
-                        <AdminMenuSelect
+                        <ReportPeriodSelect
                             value={filterPeriod}
                             onChange={setFilterPeriod}
                             options={CASH_SHIFT_HISTORY_PERIOD_OPTIONS}
                             aria-label="Período del historial de turnos"
+                            dateInputAriaLabel="Fecha del historial de turnos"
                             icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
                         />
                     </div>
@@ -466,33 +473,48 @@ const CashManager = ({ showNotify, selectedBranchId, selectedBranch = null, orde
             </section>
 
             {/* MODALES */}
-            <CashShiftModal 
-                isOpen={isShiftModalOpen} 
+            <CashShiftModal
+                isOpen={isShiftModalOpen}
                 onClose={() => setIsShiftModalOpen(false)}
                 type={activeShift ? 'close' : 'open'}
                 activeShift={activeShift}
+                movements={movements}
+                orders={orders}
+                getTotals={getTotals}
                 onConfirm={activeShift ? closeShift : openShift}
             />
 
-            <CashMovementModal 
+            <CashMovementModal
                 isOpen={isMovementModalOpen}
                 onClose={() => setIsMovementModalOpen(false)}
-                type={movementType}
-                onConfirm={addManualMovement}
+                variant={movementModalVariant}
+                onConfirm={async (type, amount, description, paymentMethod) => {
+                    const opts =
+                        movementModalVariant === 'cash_withdrawal'
+                            ? {
+                                  expenseKind: 'cash_withdrawal',
+                                  successMessage: 'Retiro de efectivo registrado',
+                              }
+                            : {};
+                    return addManualMovement(type, amount, description, paymentMethod, opts);
+                }}
             />
 
-            <CashShiftDetailModal 
+            <CashShiftDetailModal
                 isOpen={!!viewingShift}
                 onClose={() => setViewingShift(null)}
                 shift={viewingShift}
                 getTotals={getTotals}
                 orders={orders}
+                onMovementClick={handleMovementClick}
             />
 
             <CashOrderDetailPanel
                 order={selectedMovementOrder}
                 branch={selectedBranch}
                 showNotify={showNotify}
+                logoUrl={logoUrl}
+                companyName={companyName}
                 onClose={() => setSelectedMovementOrder(null)}
             />
         </div>

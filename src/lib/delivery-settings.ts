@@ -373,6 +373,10 @@ export type DeliverySettingsNormalized = {
 	customerNotes: string;
 	zones: DeliveryZoneNormalized[];
 	namedAreas: DeliveryNamedArea[];
+	/** Porcentaje de IVA (0–100); null = sin impuesto configurado. */
+	taxRate: number | null;
+	/** Si true, los precios del catálogo ya incluyen IVA. */
+	taxIncluded: boolean;
 };
 
 export type DeliverySettingsPublic = DeliverySettingsNormalized;
@@ -396,6 +400,8 @@ const DEFAULTS: DeliverySettingsNormalized = {
 	customerNotes: "",
 	zones: [],
 	namedAreas: [],
+	taxRate: null,
+	taxIncluded: true,
 };
 
 function clampNonNeg(n: number, max: number): number {
@@ -408,6 +414,13 @@ function parseOptionalCap(raw: unknown): number | null {
 	const n = Number(raw);
 	if (!Number.isFinite(n) || n < 0) return null;
 	return Math.min(DELIVERY_MAX_FEE_CAP, n);
+}
+
+function parseOptionalTaxRate(raw: unknown): number | null {
+	if (raw === null || raw === undefined || raw === "") return null;
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0 || n > 100) return null;
+	return Math.round(n * 100) / 100;
 }
 
 function parseBool(raw: unknown, defaultVal: boolean): boolean {
@@ -744,6 +757,8 @@ export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormali
 			return Math.min(DELIVERY_MAX_FEE_CAP, n);
 		})(),
 		customerNotes: parseNotes(notes),
+		taxRate: parseOptionalTaxRate(o.taxRate ?? o.tax_rate),
+		taxIncluded: parseBool(o.taxIncluded ?? o.tax_included, DEFAULTS.taxIncluded),
 	};
 }
 
@@ -892,6 +907,23 @@ export function mergeDeliverySettingsJson(
 			}
 		}
 	}
+	if ("taxRate" in patch) {
+		const v = patch.taxRate;
+		if (v === null || v === "") {
+			next.taxRate = null;
+			delete next.tax_rate;
+		} else {
+			const parsed = parseOptionalTaxRate(v);
+			if (parsed != null) {
+				next.taxRate = parsed;
+				delete next.tax_rate;
+			}
+		}
+	}
+	if ("taxIncluded" in patch && typeof patch.taxIncluded === "boolean") {
+		next.taxIncluded = patch.taxIncluded;
+		delete next.tax_included;
+	}
 
 	/** Solo panel staff; no forma parte del contrato público de cotización. */
 	if ("trustedDriverWhatsApp" in patch) {
@@ -949,7 +981,24 @@ export function mergeDeliverySettingsJson(
 		next.maxFee = t;
 	}
 
+	if ("inventoryEnforceOnSale" in patch && typeof patch.inventoryEnforceOnSale === "boolean") {
+		next.inventoryEnforceOnSale = patch.inventoryEnforceOnSale;
+		delete next.inventory_enforce_on_sale;
+	}
+
 	return next;
+}
+
+/**
+ * Control de stock en ventas por sucursal (JSONB `delivery_settings`).
+ * `true` (default): bloquea venta sin stock y puede pausar productos; `false`: permite vender en configuración.
+ */
+export function parseInventoryEnforceOnSale(raw: unknown): boolean {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return true;
+	const o = raw as Record<string, unknown>;
+	if (typeof o.inventoryEnforceOnSale === "boolean") return o.inventoryEnforceOnSale;
+	if (typeof o.inventory_enforce_on_sale === "boolean") return o.inventory_enforce_on_sale;
+	return true;
 }
 
 /** Modo efectivo para UI y APIs: `named` solo si estrategia + lista no vacía; `external` con Uber Direct. */

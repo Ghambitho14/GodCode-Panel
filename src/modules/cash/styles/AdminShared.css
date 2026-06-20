@@ -184,13 +184,22 @@
 	color: var(--accent-primary);
 }
 
+/* Capas z-index (toasts por encima de pedido manual portaleado en ManualOrderModal.css) */
+.admin-layout {
+	--z-admin-modal: 9999;
+	--z-admin-manual-order: 11050;
+	--z-admin-popover: 10060;
+	--z-admin-menu-portal: 13000;
+	--z-admin-toast: 14000;
+}
+
 /* Toasts */
 .admin-layout .admin-notification {
 	position: fixed;
 	left: 50%;
 	top: calc(16px + env(safe-area-inset-top));
 	transform: translateX(-50%);
-	z-index: 4000;
+	z-index: var(--z-admin-toast, 14000);
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -704,6 +713,34 @@
 	height: 36px;
 	background: var(--admin-border, #e2e8f0);
 	flex-shrink: 0;
+}
+
+.admin-layout .admin-stats-bar__photos-toggle {
+	margin-left: auto;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 14px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-icon-bg, #f8fafc);
+	color: var(--admin-text-muted, #64748b);
+	font-size: 0.8rem;
+	font-weight: 700;
+	cursor: pointer;
+	transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+	white-space: nowrap;
+}
+
+.admin-layout .admin-stats-bar__photos-toggle.is-on {
+	background: color-mix(in srgb, var(--admin-accent, var(--accent-primary)) 12%, var(--admin-card-bg));
+	border-color: color-mix(in srgb, var(--admin-accent, var(--accent-primary)) 35%, var(--admin-border));
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .admin-stats-bar__photos-toggle:hover {
+	border-color: color-mix(in srgb, var(--admin-accent, var(--accent-primary)) 40%, var(--admin-border));
+	color: var(--admin-text, #0f172a);
 }
 
 /* Toolbar inventario: fila flexible */

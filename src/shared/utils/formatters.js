@@ -37,12 +37,10 @@ export const validateRut = (rut) => {
     return dv === calculatedDv;
 };
 
-export const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-CL', {
-        style: 'currency',
-        currency: 'CLP'
-    }).format(amount);
-};
+import { formatMoney } from '@/shared/utils/money';
+
+/** @deprecated Use formatMoney or useBranchMoney().formatMoney */
+export const formatCurrency = (amount) => formatMoney(amount, { currency: 'CLP' });
 
 export const formatTimeElapsed = (dateString) => {
     const diff = new Date() - new Date(dateString);

@@ -1,7 +1,7 @@
 import React from "react";
 /**
  * Cabecera de página del admin: título + acciones (campana / notificaciones va en `children`).
- * hideTitleVisual: oculta el H1 en pantalla (p. ej. móvil en Cocina en vivo); mantiene texto para lectores de pantalla.
+ * hideTitleVisual: oculta el H1 en pantalla; mantiene texto para lectores de pantalla.
  */
 export default function AdminTopBar({ title, children, hideTitleVisual = false }) {
 	return (

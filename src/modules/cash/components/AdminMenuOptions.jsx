@@ -1,13 +1,15 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Images, Truck } from "lucide-react";
+import { Images, Truck, LayoutGrid } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
 import AdminMenuCarousel from "./AdminMenuCarousel";
+import OrdersViewSwitch from "./OrdersViewSwitch";
+import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import "../styles/AdminMenuOptions.css";
 
-const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel"]);
+const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel", "orders_view"]);
 
 function normalizeStoredSubTab(raw) {
-	if (raw === "cart") return "delivery";
+	if (raw === "cart" || raw === "tax") return "delivery";
 	if (raw && SUB_TAB_IDS.includes(/** @type {typeof SUB_TAB_IDS[number]} */ (raw))) {
 		return /** @type {typeof SUB_TAB_IDS[number]} */ (raw);
 	}
@@ -27,11 +29,13 @@ function getStoredSubTab(storageKey) {
 }
 
 /**
- * Pestaña "Opciones de menú": sub-pestañas Envío y Carrusel.
+ * Pestaña "Opciones de menú": sub-pestañas Envío, Carrusel y Vista de pedidos.
  * Bebidas y Extras del carrito viven en entradas propias del sidebar (menu_beverages / menu_extras).
  */
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
+	const { ordersViewMode, setOrdersViewMode } = useAdmin();
 	const branchKey = selectedBranch?.id ?? "__none__";
+	const branchReady = Boolean(selectedBranch?.id && selectedBranch.id !== "all");
 	const storageKey = useMemo(
 		() =>
 			companyId
@@ -84,6 +88,18 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 					<Images size={18} strokeWidth={1.65} aria-hidden />
 					<span>Carrusel</span>
 				</button>
+				<button
+					type="button"
+					role="tab"
+					id="menu-options-subtab-orders-view"
+					aria-selected={activeSubTab === "orders_view"}
+					aria-controls="menu-options-panel-orders-view"
+					className={`admin-menu-options-subtab ${activeSubTab === "orders_view" ? "is-active" : ""}`}
+					onClick={() => persistSubTab("orders_view")}
+				>
+					<LayoutGrid size={18} strokeWidth={1.65} aria-hidden />
+					<span>Vista de pedidos</span>
+				</button>
 			</div>
 
 			<div
@@ -114,6 +130,38 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 						selectedBranch={selectedBranch}
 						companyId={companyId}
 					/>
+				</div>
+			</div>
+
+			<div
+				role="tabpanel"
+				id="menu-options-panel-orders-view"
+				aria-labelledby="menu-options-subtab-orders-view"
+				hidden={activeSubTab !== "orders_view"}
+				className="admin-menu-options-subpanel"
+			>
+				<div className="admin-menu-options-card admin-menu-options-orders-view">
+					<p className="admin-menu-options-section-label">Vista de pedidos por sucursal</p>
+					{branchReady ? (
+						<>
+							<p className="admin-menu-options-lead">
+								Define cómo se muestra la pestaña <strong>Pedidos</strong> para{" "}
+								<strong style={{ color: "white" }}>{selectedBranch.name}</strong>.
+							</p>
+							<OrdersViewSwitch
+								value={ordersViewMode}
+								onChange={setOrdersViewMode}
+								className="admin-menu-options-orders-view__switch"
+							/>
+							<p className="admin-menu-options-orders-view__hint">
+								<strong>Mesas</strong>: grilla de mesas y motos. <strong>Pedido</strong>: tablero clásico por columnas.
+							</p>
+						</>
+					) : (
+						<p className="admin-menu-options-lead">
+							Selecciona una <strong style={{ color: "white" }}>sucursal</strong> en el encabezado para configurar la vista de pedidos de ese local.
+						</p>
+					)}
 				</div>
 			</div>
 		</div>

@@ -1,13 +1,75 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { cashService } from '../services/cashService';
+import {
+	EXPENSE_KIND_CASH_WITHDRAWAL,
+} from '../utils/cashMovementKinds';
+import { computeShiftTotals } from '../utils/cashTotals';
+import { getExpectedByMethod } from '../utils/shiftCloseReconciliation';
+import { planSaleMovements, planRefundMovements, planSaleResyncMovements } from '../utils/orderPaymentMovements';
+import { countOpenOrderSessions } from '@/shared/utils/orderUtils';
 
-export const useCashSystem = (showNotify, branchId) => {
+export const useCashSystem = (showNotify, branchId, orders = []) => {
     const [activeShift, setActiveShift] = useState(null);
     const [loading, setLoading] = useState(true);
     const [movements, setMovements] = useState([]);
     const [loadingMovements, setLoadingMovements] = useState(false);
+    /** IDs de movimientos insertados localmente; el realtime los ignora para evitar refetch duplicado. */
+    const pendingLocalMovementIdsRef = useRef(new Set());
+    const movementsRefreshTimerRef = useRef(null);
+
+    const markLocalMovements = useCallback((rows) => {
+        const list = Array.isArray(rows) ? rows : [rows];
+        for (const row of list) {
+            if (row?.id != null) pendingLocalMovementIdsRef.current.add(String(row.id));
+        }
+    }, []);
+
+    const consumeLocalRealtimeInsert = useCallback((id) => {
+        if (id == null) return false;
+        const key = String(id);
+        if (!pendingLocalMovementIdsRef.current.has(key)) return false;
+        pendingLocalMovementIdsRef.current.delete(key);
+        return true;
+    }, []);
+
+    const prependMovement = useCallback((row) => {
+        if (!row?.id) return;
+        setMovements((prev) => {
+            if (prev.some((m) => m.id === row.id)) return prev;
+            return [row, ...prev];
+        });
+    }, []);
+
+    /**
+     * Actualiza solo metadatos del turno abierto (p. ej. expected_balance) sin recargar movimientos.
+     */
+    const refreshShiftMeta = useCallback(async (shiftId) => {
+        const sid = shiftId ?? activeShift?.id;
+        if (!sid) return null;
+        try {
+            const { data, error } = await supabase
+                .from(TABLES.cash_shifts)
+                .select('*')
+                .eq('id', sid)
+                .eq('status', 'open')
+                .maybeSingle();
+            if (error) throw error;
+            if (data) {
+                setActiveShift((prev) => {
+                    if (!prev || prev.id !== data.id) return data;
+                    if (Number(prev.expected_balance) === Number(data.expected_balance)) {
+                        return prev;
+                    }
+                    return { ...prev, ...data };
+                });
+            }
+            return data;
+        } catch {
+            return null;
+        }
+    }, [activeShift?.id]);
 
     /**
      * Carga los movimientos de un turno específico
@@ -23,6 +85,27 @@ export const useCashSystem = (showNotify, branchId) => {
             setLoadingMovements(false);
         }
     }, []);
+
+    const debouncedLoadMovements = useCallback((shiftId) => {
+        if (!shiftId) return;
+        if (movementsRefreshTimerRef.current) clearTimeout(movementsRefreshTimerRef.current);
+        movementsRefreshTimerRef.current = setTimeout(() => {
+            movementsRefreshTimerRef.current = null;
+            void loadMovements(shiftId);
+        }, 400);
+    }, [loadMovements]);
+
+    const applyLocalMovementInserts = useCallback(async (shiftId, rows) => {
+        const created = (Array.isArray(rows) ? rows : [rows]).filter((r) => r?.id);
+        if (created.length === 0) {
+            await refreshShiftMeta(shiftId);
+            return;
+        }
+        markLocalMovements(created);
+        await refreshShiftMeta(shiftId);
+        for (const row of created) prependMovement(row);
+        debouncedLoadMovements(shiftId);
+    }, [markLocalMovements, prependMovement, refreshShiftMeta, debouncedLoadMovements]);
 
     /**
      * Carga el turno activo para la sucursal seleccionada
@@ -77,36 +160,42 @@ export const useCashSystem = (showNotify, branchId) => {
     useEffect(() => {
         if (!activeShift) return;
 
+        const shiftId = activeShift.id;
+
         // Subscribe a cambios en cash_movements para este shift
         const channel = supabase
-            .channel(`cash_movements:shift_id=eq.${activeShift.id}`)
+            .channel(`cash_movements:shift_id=eq.${shiftId}`)
             .on(
                 'postgres_changes',
                 {
                     event: '*', // Escuchar INSERT, UPDATE, DELETE
                     schema: 'public',
                     table: TABLES.cash_movements,
-                    filter: `shift_id=eq.${activeShift.id}`
+                    filter: `shift_id=eq.${shiftId}`
                 },
                 (payload) => {
                     if (payload.eventType === 'INSERT') {
-                        // Re-fetchear para tener el mismo shape (con join orders) que loadMovements
-                        loadMovements(activeShift.id);
+                        const newRow = payload.new;
+                        if (newRow && consumeLocalRealtimeInsert(newRow.id)) return;
+                        void refreshShiftMeta(shiftId);
+                        debouncedLoadMovements(shiftId);
                     } else if (payload.eventType === 'DELETE') {
-                        // Remover si se borra
-                        setMovements(prev => prev.filter(m => m.id !== payload.old.id));
+                        debouncedLoadMovements(shiftId);
                     } else if (payload.eventType === 'UPDATE') {
-                        // Actualizar si cambia
-                        setMovements(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+                        debouncedLoadMovements(shiftId);
                     }
                 }
             )
             .subscribe();
 
         return () => {
+            if (movementsRefreshTimerRef.current) {
+                clearTimeout(movementsRefreshTimerRef.current);
+                movementsRefreshTimerRef.current = null;
+            }
             channel.unsubscribe();
         };
-    }, [activeShift, loadMovements]);
+    }, [activeShift, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta]);
 
     /**
      * Abre un nuevo turno
@@ -142,33 +231,48 @@ export const useCashSystem = (showNotify, branchId) => {
         }
     }, [branchId, showNotify]);
 
-    /**
-     * Cierra el turno actual
-     */
-    const closeShift = useCallback(async (actualBalance) => {
-        if (!activeShift) return false;
-        try {
-            const { error } = await supabase
-                .from(TABLES.cash_shifts)
-                .update({
-                    actual_balance: actualBalance,
-                    closed_at: new Date().toISOString(),
-                    status: 'closed'
-                })
-                .eq('id', activeShift.id)
-                .eq('status', 'open');
+    const getTotals = useCallback((movementsData = movements) => {
+        return computeShiftTotals(movementsData);
+    }, [movements]);
 
-            if (error) throw error;
+    /**
+     * Cierra el turno actual con cuadre por método.
+     * @param {{ cash: number; card: number; online: number }} payload
+     */
+    const closeShift = useCallback(async (payload) => {
+        if (!activeShift) return false;
+        const openCount = countOpenOrderSessions(orders, activeShift.branch_id);
+        if (openCount > 0) {
+            if (showNotify) {
+                showNotify(
+                    `No puedes cerrar caja: hay ${openCount} mesa(s) o moto(s) abiertas. Ciérralas antes.`,
+                    'error',
+                );
+            }
+            return false;
+        }
+        try {
+            const totals = getTotals(movements);
+            const expected = getExpectedByMethod(totals, activeShift);
+            await cashService.closeShift(activeShift.id, {
+                cash: Number(payload.cash),
+                card: Number(payload.card),
+                online: Number(payload.online),
+                expectedCard: expected.card,
+                expectedOnline: expected.online,
+            });
 
             setActiveShift(null);
             setMovements([]);
             if (showNotify) showNotify('Caja cerrada correctamente');
             return true;
-        } catch {
-            if (showNotify) showNotify('Error al cerrar caja', 'error');
+        } catch (err) {
+            if (showNotify) {
+                showNotify(err?.message || 'Error al cerrar caja', 'error');
+            }
             return false;
         }
-    }, [activeShift, showNotify]);
+    }, [activeShift, movements, getTotals, showNotify, orders]);
 
     /**
      * [MEJORA MULTI-NEGOCIO]
@@ -197,7 +301,7 @@ export const useCashSystem = (showNotify, branchId) => {
     /**
      * Agrega un movimiento manual (Ingreso/Egreso)
      */
-    const addManualMovement = useCallback(async (type, amount, description, paymentMethod = 'cash') => {
+    const addManualMovement = useCallback(async (type, amount, description, paymentMethod = 'cash', opts = {}) => {
         if (!activeShift) return false;
         try {
             const numericAmount = Number(amount);
@@ -208,18 +312,41 @@ export const useCashSystem = (showNotify, branchId) => {
                 throw new Error("Es obligatorio indicar el motivo del egreso (mínimo 3 letras).");
             }
 
-            const { error } = await supabase.rpc('cash_add_movement', {
+            const expenseKind =
+                type === 'expense' && opts?.expenseKind != null && String(opts.expenseKind).trim() !== ''
+                    ? String(opts.expenseKind).trim()
+                    : null;
+
+            if (expenseKind === EXPENSE_KIND_CASH_WITHDRAWAL && paymentMethod !== 'cash') {
+                throw new Error('Los retiros de efectivo solo pueden registrarse en efectivo.');
+            }
+
+            const rpcPayload = {
                 p_shift_id: activeShift.id,
                 p_type: type,
                 p_amount: numericAmount,
                 p_description: description,
                 p_payment_method: paymentMethod,
-                p_order_id: null
-            });
+                p_order_id: null,
+            };
+            if (expenseKind) {
+                rpcPayload.p_expense_kind = expenseKind;
+            }
+
+            const { data, error } = await supabase.rpc('cash_add_movement', rpcPayload);
             if (error) throw error;
-            
-            await loadActiveShift();
-            if (showNotify) showNotify(type === 'income' ? 'Ingreso registrado' : 'Egreso registrado');
+
+            await applyLocalMovementInserts(activeShift.id, data);
+            if (showNotify) {
+                const custom = opts && typeof opts.successMessage === 'string' && opts.successMessage.trim() !== '';
+                showNotify(
+                    custom
+                        ? opts.successMessage.trim()
+                        : type === 'income'
+                          ? 'Ingreso registrado'
+                          : 'Egreso registrado'
+                );
+            }
             return true;
         } catch (error) {
             if (showNotify) {
@@ -231,13 +358,12 @@ export const useCashSystem = (showNotify, branchId) => {
             }
             return false;
         }
-    }, [activeShift, showNotify, loadActiveShift]);
+    }, [activeShift, showNotify, applyLocalMovementInserts]);
 
     /**
      * Registra una venta automáticamente
      */
     const registerSale = useCallback(async (order) => {
-        // [ROBUSTEZ] Usar getTargetShift en lugar de depender solo de activeShift
         const targetShift = await getTargetShift(order.branch_id);
         if (!targetShift) {
             if (showNotify) showNotify('No hay caja abierta para esta sucursal', 'error');
@@ -245,57 +371,46 @@ export const useCashSystem = (showNotify, branchId) => {
         }
 
         try {
-            // [MEJORA ROBUSTEZ] Verificar balance neto de la orden en este turno
-            // Esto permite manejar casos de: Venta -> Cancelación -> Venta (Re-ingreso)
             const { data: movements } = await supabase
                 .from(TABLES.cash_movements)
-                .select('type, amount')
+                .select('type, amount, payment_method')
                 .eq('shift_id', targetShift.id)
                 .eq('order_id', order.id);
 
             const saleAmount = Math.round(Number(order.total) || 0);
-            if (saleAmount <= 0) return false; // No registrar ventas de valor 0 o inválidas
+            if (saleAmount <= 0) return false;
 
-            const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
+            const planned = planSaleMovements(order, movements || []);
+            if (planned.length === 0) return true;
 
-            // Si el balance neto ya es igual al total (o muy cercano), ya está registrada.
-            if (Math.abs(currentNet - saleAmount) < 5) return true;
+            const createdRows = [];
+            for (const movement of planned) {
+                const { data, error } = await supabase.rpc('cash_add_movement', {
+                    p_shift_id: targetShift.id,
+                    p_type: movement.type,
+                    p_amount: movement.amount,
+                    p_description: `Venta #${String(order.id).slice(-4)} - ${order.client_name}`,
+                    p_payment_method: movement.payment_method,
+                    p_order_id: order.id,
+                });
+                if (error) throw error;
+                if (data) createdRows.push(data);
+            }
 
-            const movement = {
-                shift_id: targetShift.id,
-                type: 'sale',
-                amount: saleAmount,
-                description: `Venta #${String(order.id).slice(-4)} - ${order.client_name}`,
-                payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
-                order_id: order.id
-            };
-
-            const { error } = await supabase.rpc('cash_add_movement', {
-                p_shift_id: movement.shift_id,
-                p_type: movement.type,
-                p_amount: movement.amount,
-                p_description: movement.description,
-                p_payment_method: movement.payment_method,
-                p_order_id: movement.order_id
-            });
-            if (error) throw error;
-
-            // Solo recargar si el turno afectado es el que estamos viendo
             if (activeShift && activeShift.id === targetShift.id) {
-                await loadActiveShift();
+                await applyLocalMovementInserts(targetShift.id, createdRows);
             }
             return true;
         } catch {
             if (showNotify) showNotify('Error registrando venta en caja', 'error');
             return false;
         }
-    }, [activeShift, loadActiveShift, getTargetShift, showNotify]);
+    }, [activeShift, applyLocalMovementInserts, getTargetShift, showNotify]);
 
     /**
      * Registra una devolución
      */
     const registerRefund = useCallback(async (order) => {
-        // [ROBUSTEZ] Usar getTargetShift para devoluciones también
         const targetShift = await getTargetShift(order.branch_id);
         if (!targetShift) {
             if (showNotify) showNotify('No hay caja abierta para esta sucursal', 'error');
@@ -303,42 +418,31 @@ export const useCashSystem = (showNotify, branchId) => {
         }
 
         try {
-            // [MEJORA ROBUSTEZ] Verificar si ya está reembolsada (Neto ~ 0)
             const { data: movements } = await supabase
                 .from(TABLES.cash_movements)
-                .select('type, amount')
+                .select('type, amount, payment_method')
                 .eq('shift_id', targetShift.id)
                 .eq('order_id', order.id);
 
-            const refundAmount = Math.round(Number(order.total) || 0);
-            if (refundAmount <= 0) return false;
+            const planned = planRefundMovements(order, movements || []);
+            if (planned.length === 0) return true;
 
-            const currentNet = (movements || []).reduce((acc, m) => acc + (m.type === 'sale' ? m.amount : -m.amount), 0);
-            
-            // Si el balance neto es 0 (o negativo), ya está reembolsada o nunca se cobró.
-            if (currentNet <= 5) return true;
-
-            const movement = {
-                shift_id: targetShift.id,
-                type: 'expense',
-                amount: refundAmount,
-                description: `Devolución #${String(order.id).slice(-4)} - ${order.client_name}`,
-                payment_method: order.payment_type === 'online' ? 'online' : (order.payment_type === 'tarjeta' ? 'card' : 'cash'),
-                order_id: order.id
-            };
-
-            const { error } = await supabase.rpc('cash_add_movement', {
-                p_shift_id: movement.shift_id,
-                p_type: movement.type,
-                p_amount: movement.amount,
-                p_description: movement.description,
-                p_payment_method: movement.payment_method,
-                p_order_id: movement.order_id
-            });
-            if (error) throw error;
+            const createdRows = [];
+            for (const movement of planned) {
+                const { data, error } = await supabase.rpc('cash_add_movement', {
+                    p_shift_id: targetShift.id,
+                    p_type: movement.type,
+                    p_amount: movement.amount,
+                    p_description: `Devolución #${String(order.id).slice(-4)} - ${order.client_name}`,
+                    p_payment_method: movement.payment_method,
+                    p_order_id: order.id,
+                });
+                if (error) throw error;
+                if (data) createdRows.push(data);
+            }
 
             if (activeShift && activeShift.id === targetShift.id) {
-                await loadActiveShift();
+                await applyLocalMovementInserts(targetShift.id, createdRows);
             }
             if (showNotify) showNotify('Devolución registrada en caja', 'success');
             return true;
@@ -346,7 +450,65 @@ export const useCashSystem = (showNotify, branchId) => {
             if (showNotify) showNotify('Error registrando devolución', 'error');
             return false;
         }
-    }, [activeShift, showNotify, loadActiveShift, getTargetShift]);
+    }, [activeShift, showNotify, applyLocalMovementInserts, getTargetShift]);
+
+    /**
+     * Re-sincroniza movimientos de venta cuando el pedido editado difiere de lo registrado en caja.
+     * @returns {Promise<{ ok: boolean; appliedCount: number }>}
+     */
+    const resyncOrderSale = useCallback(async (order) => {
+        try {
+            const { data: movements, error: movErr } = await supabase
+                .from(TABLES.cash_movements)
+                .select('shift_id, type, amount, payment_method')
+                .eq('order_id', order.id);
+
+            if (movErr) throw movErr;
+
+            const existingMovements = movements || [];
+            const shiftIdFromMovements = existingMovements.find((m) => m?.shift_id)?.shift_id ?? null;
+
+            let targetShiftId = shiftIdFromMovements;
+            if (!targetShiftId) {
+                const targetShift = await getTargetShift(order.branch_id);
+                targetShiftId = targetShift?.id ?? null;
+            }
+
+            if (!targetShiftId) {
+                if (showNotify) showNotify('No hay caja abierta para ajustar este pedido', 'error');
+                return { ok: false, appliedCount: 0 };
+            }
+
+            const shiftMovements = existingMovements.filter((m) => m.shift_id === targetShiftId);
+            const planned = planSaleResyncMovements(order, shiftMovements);
+            if (planned.length === 0) return { ok: true, appliedCount: 0 };
+
+            const orderLabel = String(order.id).slice(-4);
+            const clientName = order.client_name ?? '';
+
+            const createdRows = [];
+            for (const movement of planned) {
+                const { data, error } = await supabase.rpc('cash_add_movement', {
+                    p_shift_id: targetShiftId,
+                    p_type: movement.type,
+                    p_amount: movement.amount,
+                    p_description: `Ajuste venta #${orderLabel} - ${clientName}`,
+                    p_payment_method: movement.payment_method,
+                    p_order_id: order.id,
+                });
+                if (error) throw error;
+                if (data) createdRows.push(data);
+            }
+
+            if (activeShift && activeShift.id === targetShiftId) {
+                await applyLocalMovementInserts(targetShiftId, createdRows);
+            }
+            return { ok: true, appliedCount: planned.length };
+        } catch {
+            if (showNotify) showNotify('Error ajustando venta en caja', 'error');
+            return { ok: false, appliedCount: 0 };
+        }
+    }, [activeShift, applyLocalMovementInserts, getTargetShift, showNotify]);
 
     const getPastShifts = useCallback(async (limit = 20) => {
         if (!branchId || !isValidBranchId(branchId)) return [];
@@ -381,95 +543,12 @@ export const useCashSystem = (showNotify, branchId) => {
             return { ...shift, total_online: totalOnline, orders_count: ordersCount };
         });
 
-        // #region agent log
-        try {
-            fetch('http://127.0.0.1:7461/ingest/e68a46d1-59e8-49d9-bde5-733f5c55d988', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '502478' },
-                body: JSON.stringify({
-                    sessionId: '502478',
-                    runId: 'post-fix-cancelled-filter',
-                    hypothesisId: 'H1',
-                    location: 'useCashSystem.js:getPastShifts',
-                    message: 'getPastShifts result snapshot (cancelled excluded from count)',
-                    data: {
-                        branchId,
-                        shifts: result.slice(0, 5).map(s => ({
-                            id: s.id,
-                            opened_at: s.opened_at,
-                            closed_at: s.closed_at,
-                            orders_count: s.orders_count,
-                            embed_raw: s.orders,
-                        })),
-                    },
-                    timestamp: Date.now(),
-                }),
-            }).catch(() => {});
-        } catch (e) { void e; }
-        // #endregion
-
         return result;
     }, [branchId]);
 
     const getShiftMovements = useCallback(async (shiftId) => {
         return cashService.getShiftMovements(shiftId);
     }, []);
-
-    const getTotals = useCallback((movementsData = movements) => {
-        return movementsData.reduce((acc, m) => {
-            if (m.type === 'cancel') return acc;
-            const amount = Number(m.amount) || 0;
-            const order = m?.orders ?? null;
-            const deliveryFee = Number(order?.delivery_fee) || 0;
-            const desc = String(m?.description || '').toLowerCase();
-            const isCourierPayout =
-                m.type === 'expense' &&
-                !order &&
-                (desc.includes('delivery') || desc.includes('repartidor') || desc.includes('conductor'));
-
-            if (m.type === 'expense') {
-                acc.expenses += amount;
-                // [FIX] Restar egresos del balance del método de pago correspondiente
-                if (m.payment_method === 'cash') acc.cash -= amount;
-                else if (m.payment_method === 'card') acc.card -= amount;
-                else if (m.payment_method === 'online') acc.online -= amount;
-
-                if (deliveryFee > 0) {
-                    // Devolución/cancelación vinculada a pedido con delivery.
-                    acc.deliveryRefunded += deliveryFee;
-                }
-                if (isCourierPayout) {
-                    acc.deliveryPaidToCourier += amount;
-                }
-                // Devolución de venta (`registerRefund`): la venta sigue contada como `sale`
-                // en ingresos; restamos aquí para que el KPI "Ingresos" refleje efectivo neto
-                // que quedó por ventas (esa plata ya salió de caja).
-                const refundOrderId = m.order_id ?? m.orderId;
-                if (refundOrderId != null && String(refundOrderId).trim() !== '') {
-                    acc.income -= amount;
-                }
-            } else {
-                if (m.payment_method === 'cash') acc.cash += amount;
-                else if (m.payment_method === 'card') acc.card += amount;
-                else if (m.payment_method === 'online') acc.online += amount;
-                acc.income += amount; // Total Ingresos (Bruto)
-
-                if (m.type === 'sale' && deliveryFee > 0) {
-                    acc.deliveryCollected += deliveryFee;
-                }
-            }
-            return acc;
-        }, {
-            cash: 0,
-            card: 0,
-            online: 0,
-            expenses: 0,
-            income: 0,
-            deliveryCollected: 0,
-            deliveryRefunded: 0,
-            deliveryPaidToCourier: 0,
-        });
-    }, [movements]);
 
     // Memoizar el objeto de retorno para evitar re-renderizados infinitos en consumidores
     return useMemo(() => ({
@@ -482,13 +561,14 @@ export const useCashSystem = (showNotify, branchId) => {
         addManualMovement,
         registerSale,
         registerRefund,
+        resyncOrderSale,
         refresh: loadActiveShift,
         getPastShifts,
         getShiftMovements,
         getTotals
     }), [
         activeShift, loading, movements, loadingMovements,
-        openShift, closeShift, addManualMovement, registerSale, registerRefund,
+        openShift, closeShift, addManualMovement, registerSale, registerRefund, resyncOrderSale,
         loadActiveShift, getPastShifts, getShiftMovements, getTotals
     ]);
 };

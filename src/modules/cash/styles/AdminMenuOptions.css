@@ -1717,3 +1717,71 @@
 		max-height: 220px;
 	}
 }
+
+/* Vista de pedidos (Mesas | Pedido) en Opciones de sucursal */
+.admin-menu-options-orders-view {
+	display: flex;
+	flex-direction: column;
+	gap: clamp(12px, 2.5vw, 18px);
+}
+
+.admin-menu-options-orders-view__hint {
+	margin: 0;
+	font-size: clamp(12px, 2.6vw, 13px);
+	line-height: 1.5;
+	opacity: 0.72;
+	max-width: 36rem;
+}
+
+.admin-layout .admin-menu-options-orders-view .orders-view-switch,
+.admin-menu-options-orders-view .orders-view-switch {
+	display: inline-flex;
+	align-items: stretch;
+	gap: 4px;
+	padding: 4px;
+	border-radius: 12px;
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e5e5ea);
+	box-shadow: var(--admin-shadow-sm);
+	min-height: 42px;
+	box-sizing: border-box;
+	width: fit-content;
+	max-width: 100%;
+}
+
+.admin-layout .admin-menu-options-orders-view .orders-view-switch__btn,
+.admin-menu-options-orders-view .orders-view-switch__btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 14px;
+	border: none;
+	border-radius: 9px;
+	background: transparent;
+	font: inherit;
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--admin-text-muted);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+	white-space: nowrap;
+}
+
+.admin-layout .admin-menu-options-orders-view .orders-view-switch__btn--active,
+.admin-menu-options-orders-view .orders-view-switch__btn--active {
+	background: var(--admin-icon-bg, #f5f5f7);
+	color: var(--admin-text);
+	box-shadow: var(--admin-shadow-sm);
+}
+
+@media (max-width: 640px) {
+	.admin-menu-options-orders-view .orders-view-switch {
+		width: 100%;
+		justify-content: stretch;
+	}
+
+	.admin-menu-options-orders-view .orders-view-switch__btn {
+		flex: 1;
+		justify-content: center;
+	}
+}

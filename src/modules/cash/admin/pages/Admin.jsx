@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Loader2, Search, Filter, CheckCircle2, AlertCircle,
-  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store,
+  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store, Image, ImageOff,
 } from 'lucide-react';
 import ProductModal from '../products/components/ProductModal';
 import CategoryModal from '../products/components/CategoryModal';
@@ -10,6 +10,7 @@ import AdminKanban from '../../components/AdminKanban';
 import ManualOrderModal from '../../components/ManualOrderModal';
 import InventoryCard from '../../components/InventoryCard';
 import ClientDetailsPanel from '../../components/ClientDetailsPanel';
+import OrderDetailModal from '../../components/OrderDetailModal';
 import ScopeSelectionModal from '../../components/ScopeSelectionModal';
 import TenantTicketsPanel from '../../components/TenantTicketsPanel';
 import AdminErrorBoundary from '../../components/AdminErrorBoundary';
@@ -20,7 +21,10 @@ import AdminBroadcastsBanner from '../../components/AdminBroadcastsBanner';
 import AdminTopBar from '../../components/AdminTopBar';
 import AdminNotificationCenter from '../../components/AdminNotificationCenter';
 import AdminBranchSelector from '../../components/AdminBranchSelector';
+import AdminTablesGrid from '../../components/AdminTablesGrid';
 import AdminHeaderClock from '../../components/AdminHeaderClock';
+import OrderIntakePauseControl from '../../components/OrderIntakePauseControl';
+import OrderNotificationSoundControl from '../../components/OrderNotificationSoundControl';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { listBroadcasts, acknowledgeBroadcast as acknowledgeBroadcastService } from '../../services/broadcastsService';
@@ -34,7 +38,8 @@ const AdminCoupons = React.lazy(() => import('../../components/AdminCoupons'));
 const AdminMenuOptions = React.lazy(() => import('../../components/AdminMenuOptions'));
 const AdminMenuBeverages = React.lazy(() => import('../../components/AdminMenuBeverages'));
 const AdminMenuExtras = React.lazy(() => import('../../components/AdminMenuExtras'));
-import { supabase, TABLES } from '@/integrations/supabase';
+import { supabase, TABLES, logout } from '@/integrations/supabase';
+import { createMoneyFormatter } from '@/shared/utils/money';
 import { AdminProvider, useAdmin } from './AdminProvider';
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
@@ -49,11 +54,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     selectedBranch, setSelectedBranch,
     isBranchLocked,
     isHistoryView, setIsHistoryView,
+    ordersViewMode,
+    historyPeriod, setHistoryPeriod,
+    historyOrders, historyLoading,
+    isOpenMesaModal, setIsOpenMesaModal,
     mobileTab, setMobileTab,
     searchQuery, setSearchQuery,
     filterCategory, setFilterCategory,
     filterStatus, setFilterStatus,
     viewMode, setViewMode,
+    showProductPhotos, setShowProductPhotos,
     sortOrder, setSortOrder,
     refreshing,
     isMobile,
@@ -64,7 +74,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     notification,
     receiptModalOrder, setReceiptModalOrder,
     receiptPreview, setReceiptPreview,
-    isManualOrderModalOpen, setIsManualOrderModalOpen,
     uploadingReceipt,
     selectedClient, setSelectedClient,
     selectedClientOrders,
@@ -72,9 +81,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     showNotify,
     cashSystem,
     loadData,
+    refreshAllData,
     refreshBranches,
     handleSelectClient,
     moveOrder,
+    closeOrderSession,
     uploadReceiptToOrder,
     handleReceiptFileChange,
     handleSaveProduct,
@@ -109,6 +120,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
+  const [clientOrderDetail, setClientOrderDetail] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!selectedClient) setClientOrderDetail(null);
+  }, [selectedClient]);
 
   const nextCategoryOrder = React.useMemo(() => {
     const maxOrder = categories.reduce((maxValue, cat) => {
@@ -131,46 +147,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     return fallback?.company_id || null;
   }, [selectedBranch, branches]);
 
-  const [recipeInventoryItems, setRecipeInventoryItems] = React.useState([]);
-
-  React.useEffect(() => {
-    if (!companyId || !isModalOpen) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from(TABLES.inventory_items)
-        .select('id, name, unit')
-        .eq('company_id', companyId)
-        .order('name');
-      if (cancelled) return;
-      if (error) {
-        console.warn('recipe inventory_items:', error);
-        setRecipeInventoryItems([]);
-        return;
-      }
-      setRecipeInventoryItems(data || []);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId, isModalOpen]);
-
-  const productRecipeInventoryOptions = React.useMemo(() => {
-    const stockMap = new Map(
-      (inventoryBranchRows || []).map((r) => [
-        String(r.inventory_item_id).toLowerCase(),
-        r.current_stock,
-      ]),
-    );
-    return (recipeInventoryItems || []).map((it) => ({
-      id: it.id,
-      name: String(it.name ?? '').trim() || 'Sin nombre',
-      unit: String(it.unit ?? 'un').trim() || 'un',
-      stock: stockMap.has(String(it.id).toLowerCase())
-        ? Number(stockMap.get(String(it.id).toLowerCase()))
-        : null,
-    }));
-  }, [recipeInventoryItems, inventoryBranchRows]);
+  const { formatMoney: formatBranchMoney } = useMemo(
+    () => createMoneyFormatter(selectedBranch),
+    [selectedBranch],
+  );
 
   const [dragCategoryId, setDragCategoryId] = React.useState(null);
   const [dragOverCategoryId, setDragOverCategoryId] = React.useState(null);
@@ -194,15 +174,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const activeDynamicModule = dynamicModuleByTab.get(activeTab) || null;
 
-  const hideKitchenTitleOnMobile = isMobile && activeTab === 'orders' && !isHistoryView;
+  const hideOrdersHeaderTitle = activeTab === 'orders' && !isHistoryView;
 
   const pageTitle = React.useMemo(() => {
-    if (activeTab === 'orders') return isHistoryView ? 'Historial' : 'Cocina en Vivo';
+    if (activeTab === 'orders') return isHistoryView ? 'Historial' : (tabLabels.orders || 'Pedidos');
     if (activeTab === 'caja') {
       const c = tabLabels.caja || 'Caja';
       return `${c} y Turnos`;
     }
     if (activeTab === 'analytics') return tabLabels.analytics || 'Reportes';
+    if (activeTab === 'local_expenses') return tabLabels.local_expenses || 'Gastos del local';
     if (activeDynamicModule) return tabLabels[activeTab] || activeDynamicModule.label;
     return tabLabels[activeTab] || activeTab;
   }, [activeTab, activeDynamicModule, isHistoryView, tabLabels]);
@@ -242,11 +223,28 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     ];
     if (activeTab === 'inventory' && canAccessTab('inventory')) {
       base.push(
-        { keys: '1 · 2 · 3 · 4', description: 'Resumen, Insumos, Movimientos, Recetas (con foco en la página, sin escribir en un campo)', group: 'Inventario' },
+        { keys: '1 · 2 · 3 · 4', description: 'Resumen, Artículos, Movimientos, Recetas / Consumo', group: 'Inventario' },
       );
     }
     return base;
   }, [adminShortcutsEnabled, activeTab, canAccessTab]);
+
+  const loadBroadcasts = React.useCallback(async () => {
+    setBroadcastsLoading(true);
+    try {
+      const items = await listBroadcasts();
+      setBroadcasts(Array.isArray(items) ? items : []);
+    } catch {
+      setBroadcasts([]);
+    } finally {
+      setBroadcastsLoading(false);
+    }
+  }, []);
+
+  const handleRefreshAll = React.useCallback(() => {
+    void refreshAllData();
+    void loadBroadcasts();
+  }, [refreshAllData, loadBroadcasts]);
 
   React.useEffect(() => {
     if (!adminShortcutsEnabled) return undefined;
@@ -271,24 +269,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       }
       if (isModKey(e) && e.shiftKey && String(e.key).toLowerCase() === 'r') {
         e.preventDefault();
-        void loadData(true);
+        handleRefreshAll();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [adminShortcutsEnabled, loadData]);
-
-  const loadBroadcasts = React.useCallback(async () => {
-    setBroadcastsLoading(true);
-    try {
-      const items = await listBroadcasts();
-      setBroadcasts(Array.isArray(items) ? items : []);
-    } catch {
-      setBroadcasts([]);
-    } finally {
-      setBroadcastsLoading(false);
-    }
-  }, []);
+  }, [adminShortcutsEnabled, handleRefreshAll]);
 
   React.useEffect(() => {
     void loadBroadcasts();
@@ -404,7 +390,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         storefrontMenuUrl={storefrontMenuUrl}
         tabLabelsById={tabLabels}
         onLogout={async () => {
-          await supabase.auth.signOut();
+          await logout();
           navigate('/');
         }}
       />
@@ -412,23 +398,26 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       <main className="admin-content">
         <AdminTopBar
           title={pageTitle}
-          hideTitleVisual={hideKitchenTitleOnMobile}
+          hideTitleVisual={hideOrdersHeaderTitle}
         >
             <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
-            <AdminNotificationCenter
-              broadcasts={broadcasts}
-              broadcastsLoading={broadcastsLoading}
-              ackingId={ackingId}
-              onAcknowledge={acknowledgeBroadcast}
-              inventoryBranchRows={inventoryBranchRows}
-              products={products}
-              selectedBranch={selectedBranch}
-              setActiveTab={setActiveTab}
-              setEditingProduct={setEditingProduct}
-              setIsModalOpen={setIsModalOpen}
-              canAccessInventory={canAccessTab('inventory')}
-              canAccessProducts={canAccessTab('products')}
-            />
+            <div className="header-actions-leading">
+              <AdminNotificationCenter
+                broadcasts={broadcasts}
+                broadcastsLoading={broadcastsLoading}
+                ackingId={ackingId}
+                onAcknowledge={acknowledgeBroadcast}
+                inventoryBranchRows={inventoryBranchRows}
+                products={products}
+                selectedBranch={selectedBranch}
+                setActiveTab={setActiveTab}
+                setEditingProduct={setEditingProduct}
+                setIsModalOpen={setIsModalOpen}
+                canAccessInventory={canAccessTab('inventory')}
+                canAccessProducts={canAccessTab('products')}
+              />
+              <OrderNotificationSoundControl />
+            </div>
             {adminShortcutsEnabled ? (
               <button
                 type="button"
@@ -442,7 +431,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             ) : null}
             <button
               type="button"
-              onClick={() => loadData(true)}
+              onClick={handleRefreshAll}
               className="btn-icon-refresh admin-icon-btn header-action-refresh"
               disabled={refreshing}
               title="Actualizar datos (Mod+Shift+R)"
@@ -456,13 +445,25 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               selectedBranch={selectedBranch}
               onSelectBranch={setSelectedBranch}
               disabled={isBranchLocked}
-              allowAllOption={activeTab === 'analytics'}
+              allowAllOption={activeTab === 'analytics' || activeTab === 'local_expenses'}
               lockTitle="Tu correo está bloqueado a una sucursal específica."
               className="header-action-branch"
             />
 
             {activeTab === 'orders' && (
               <div className="header-actions-orders-row">
+                <OrderIntakePauseControl
+                  branchId={selectedBranch?.id}
+                  showNotify={showNotify}
+                  disabled={!selectedBranch || selectedBranch.id === 'all'}
+                  disabledReason={
+                    selectedBranch?.id === 'all'
+                      ? 'Selecciona una sucursal concreta para pausar pedidos online'
+                      : !selectedBranch
+                        ? 'Selecciona una sucursal'
+                        : ''
+                  }
+                />
                 <button
                   type="button"
                   className={`btn header-action-orders-history ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`}
@@ -472,12 +473,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsManualOrderModalOpen(true)}
+                  onClick={() => setIsOpenMesaModal(true)}
                   className="btn btn-primary header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <PlusCircle size={18} /> Pedido Manual
+                  <PlusCircle size={18} /> Abrir mesa
                 </button>
               </div>
             )}
@@ -489,7 +490,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
-                <Plus size={18} /> Nuevo Plato
+                <Plus size={18} /> Nuevo Producto
               </button>
             )}
             {activeTab === 'categories' && (
@@ -538,6 +539,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
           !isHistoryView ? (
+            ordersViewMode === 'mesas' ? (
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
+              <AdminTablesGrid
+                orders={orders}
+                moveOrder={moveOrder}
+                closeOrderSession={closeOrderSession}
+                branch={selectedBranch}
+                clients={clients}
+                logoUrl={logoUrl}
+                companyName={companyName}
+                showNotify={showNotify}
+                products={products}
+                categories={categories}
+                onOrderSaved={() => loadData(true)}
+              />
+            </AdminErrorBoundary>
+            ) : (
             <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <AdminKanban
                 columns={kanbanColumns}
@@ -556,16 +574,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 onOrderSaved={() => loadData(true)}
               />
             </AdminErrorBoundary>
+            )
           ) : (
             <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <React.Suspense fallback={<AdminTabFallback />}>
-                <AdminHistoryTable orders={kanbanColumns.history} setReceiptModalOrder={setReceiptModalOrder} />
+                <AdminHistoryTable
+                  orders={historyOrders}
+                  historyLoading={historyLoading}
+                  historyPeriod={historyPeriod}
+                  onPeriodChange={setHistoryPeriod}
+                  setReceiptModalOrder={setReceiptModalOrder}
+                />
               </React.Suspense>
             </AdminErrorBoundary>
           )
         )}
 
-        {/* 2. INVENTARIO (productos / platos) */}
+        {/* 2. INVENTARIO (productos) */}
         {activeTab === 'products' && (
           <AdminErrorBoundary
             tabLabel={tabLabels.products || 'Productos'}
@@ -578,7 +603,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               <div className="admin-stats-bar__item">
                 <div className="admin-stats-bar__icon"><Package size={18} /></div>
                 <div>
-                  <span className="admin-stats-bar__label">Total Platos</span>
+                  <span className="admin-stats-bar__label">Total Productos</span>
                   <strong className="admin-stats-bar__value">{productStats.total}</strong>
                 </div>
               </div>
@@ -598,13 +623,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                   <strong className="admin-stats-bar__value admin-stats-bar__value--danger">{productStats.paused}</strong>
                 </div>
               </div>
+              <button
+                type="button"
+                className={`admin-stats-bar__photos-toggle${showProductPhotos ? ' is-on' : ''}`}
+                onClick={() => setShowProductPhotos((v) => !v)}
+                aria-pressed={showProductPhotos}
+                title={showProductPhotos ? 'Ocultar fotos en la lista de productos' : 'Mostrar fotos en la lista de productos'}
+              >
+                {showProductPhotos ? <Image size={18} aria-hidden /> : <ImageOff size={18} aria-hidden />}
+                <span>{showProductPhotos ? 'Fotos visibles' : 'Fotos ocultas'}</span>
+              </button>
             </div>
 
             <div className="admin-toolbar glass">
               <div className="admin-toolbar-row">
                 <div className="search-box">
                   <Search size={18} />
-                  <input placeholder="Buscar plato..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                  <input placeholder="Buscar producto..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                 </div>
                 
                 <div className="filter-box">
@@ -643,12 +678,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               </div>
             </div>
             
-            <div className={`inventory-grid ${viewMode === 'list' ? 'list-mode' : ''}`}>
+            <div
+              className={`inventory-grid${viewMode === 'list' ? ' list-mode' : ''}${showProductPhotos ? '' : ' inventory-grid--no-photos'}`}
+            >
               {processedProducts.map(p => (
                   <InventoryCard
                     key={p.id}
                     product={p}
                     viewMode={viewMode}
+                    showPhotos={showProductPhotos}
                     toggleProductActive={toggleProductActive}
                     setEditingProduct={setEditingProduct}
                     setIsModalOpen={setIsModalOpen}
@@ -671,6 +709,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 branches={branches}
                 companyId={companyIdForClients}
                 products={products}
+                categories={categories}
+                onRefreshCatalog={() => loadData(true)}
               />
             </React.Suspense>
           </AdminErrorBoundary>
@@ -716,17 +756,25 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {/* 3. REPORTES */}
-        {activeTab === 'analytics' && (
-          <AdminErrorBoundary tabLabel={tabLabels.analytics || 'Reportes'} onRetry={() => loadData(true)}>
+        {(activeTab === 'analytics' || activeTab === 'local_expenses') && (
+          <AdminErrorBoundary
+            tabLabel={
+              activeTab === 'local_expenses'
+                ? tabLabels.local_expenses || 'Gastos del local'
+                : tabLabels.analytics || 'Reportes'
+            }
+            onRetry={() => loadData(true)}
+          >
             <React.Suspense fallback={<AdminTabFallback />}>
-              <AdminAnalytics 
-                orders={orders} 
-                products={products} 
-                clients={clients} 
+              <AdminAnalytics
+                orders={orders}
+                products={products}
+                clients={clients}
                 branches={branches.filter(b => b.id !== 'all')}
                 showNotify={showNotify}
                 companyId={companyIdForClients}
                 selectedBranch={selectedBranch}
+                view={activeTab === 'local_expenses' ? 'expensesOnly' : 'full'}
               />
             </React.Suspense>
           </AdminErrorBoundary>
@@ -782,13 +830,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 4.5 CAJA */}
         {activeTab === 'caja' && (
-          <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels.caja || 'Caja'} onRetry={handleRefreshAll}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <CashManager
                 showNotify={showNotify}
                 selectedBranchId={selectedBranch?.id}
                 selectedBranch={selectedBranch}
                 orders={orders}
+                logoUrl={logoUrl}
+                companyName={companyName}
               />
             </React.Suspense>
           </AdminErrorBoundary>
@@ -872,7 +922,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       
                       <div className="cat-revenue">
                         <span className="cat-revenue-label">Ingresos totales</span>
-                        <span className="cat-revenue-value">${totalRevenue.toLocaleString('es-CL')}</span>
+                        <span className="cat-revenue-value">{formatBranchMoney(totalRevenue)}</span>
                       </div>
                       
                       <div className="cat-progress-wrapper">
@@ -963,7 +1013,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         clientHistoryLoading={clientHistoryLoading}
         selectedClientOrders={selectedClientOrders}
         setReceiptModalOrder={setReceiptModalOrder}
+        onOrderClick={(order) => setClientOrderDetail(order)}
+        orderDetailOpen={Boolean(clientOrderDetail)}
       />
+
+      {clientOrderDetail ? (
+        <OrderDetailModal
+          order={clientOrderDetail}
+          onClose={() => setClientOrderDetail(null)}
+          branch={selectedBranch}
+          logoUrl={logoUrl}
+          companyName={companyName}
+          showNotify={showNotify}
+          setReceiptModalOrder={setReceiptModalOrder}
+        />
+      ) : null}
 
 
 
@@ -1040,17 +1104,17 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
 
       <ManualOrderModal
-        isOpen={isManualOrderModalOpen}
-        onClose={() => setIsManualOrderModalOpen(false)}
+        isOpen={isOpenMesaModal}
+        onClose={() => setIsOpenMesaModal(false)}
         products={products}
         categories={categories}
+        clients={clients}
         onOrderSaved={() => loadData(true)}
-        isMobile={isMobile}
         showNotify={showNotify}
-        registerSale={cashSystem.registerSale}
         branch={selectedBranch}
         logoUrl={logoUrl}
         companyName={companyName}
+        openMesaMode
       />
 
       {isModalOpen && (
@@ -1061,8 +1125,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           product={editingProduct}
           categories={categories}
           saving={refreshing}
-          companyId={companyId}
-          inventoryItems={productRecipeInventoryOptions}
         />
       )}
 

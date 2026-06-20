@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Tag, Plus, Loader2, Pencil, Ban, CircleCheck } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { formatCurrency } from "@/shared/utils/formatters";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
 
 const emptyDraft = () => ({
@@ -56,6 +56,7 @@ function formatCouponRowDates(row) {
 }
 
 export default function AdminCoupons({ showNotify, companyId }) {
+	const { formatMoney } = useBranchMoney();
 	const [rows, setRows] = useState([]);
 	const [clients, setClients] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -486,7 +487,7 @@ export default function AdminCoupons({ showNotify, companyId }) {
 									const pct = row.discount_type === "percent";
 									const dsc = pct
 										? `${Number(row.discount_value)} %`
-										: formatCurrency(Number(row.discount_value));
+										: formatMoney(Number(row.discount_value));
 									const vd = formatCouponRowDates(row);
 									const mr = row.max_redemptions != null ? String(row.max_redemptions) : "∞";
 									const rc = String(row.redemptions_count ?? 0);

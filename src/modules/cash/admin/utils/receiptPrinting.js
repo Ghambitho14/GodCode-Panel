@@ -1,9 +1,17 @@
-import { formatCurrency } from '@/shared/utils/formatters';
+import { formatMoney, formatMoneyOrFree, normalizeCurrencyCode } from '@/shared/utils/money';
 import {
 	deliveryAddressLines,
 	getPaymentLabel,
 	isOrderDelivery,
 } from '@/shared/utils/orderUtils';
+
+function orderCurrency(order) {
+	return normalizeCurrencyCode(order?.currency);
+}
+
+function fmtOrder(order, amount) {
+	return formatMoney(amount, { currency: orderCurrency(order) });
+}
 
 /**
  * Impresión térmica desde el navegador: mm + pt evitan preview borroso.
@@ -115,7 +123,9 @@ function deliveryShipmentSectionHtml(order) {
 	if (!isOrderDelivery(order)) return '';
 	const feeNum = Number(order?.delivery_fee);
 	const feeLbl =
-		Number.isFinite(feeNum) && feeNum > 0 ? formatCurrency(feeNum) : 'GRATIS';
+		Number.isFinite(feeNum) && feeNum > 0
+			? fmtOrder(order, feeNum)
+			: 'GRATIS';
 	const hc = order?.handoff_code;
 	const codeLine =
 		hc != null && String(hc).trim() !== ''
@@ -191,6 +201,13 @@ function clientReferenceLineHtml(order) {
 	return escapeHtml(compact.length > 12 ? `REF-${compact.slice(-10)}` : `REF-${compact}`);
 }
 
+/** Teléfono del cliente para ticket de caja (sin formatear de más: ya viene canonizado en BD). */
+function clientPhoneForTicket(order) {
+	const raw = order?.client_phone;
+	if (raw == null || raw === '') return '';
+	return String(raw).trim();
+}
+
 /**
  * @param {Record<string, unknown>} order
  * @returns {{ itemsSubtotal: number, deliveryFee: number, grandTotal: number }}
@@ -217,7 +234,8 @@ function summarizeAmounts(order) {
 	const deliveryFee = Number(order?.delivery_fee);
 	const fee = Number.isFinite(deliveryFee) && deliveryFee > 0 ? deliveryFee : 0;
 	const grandTotal = Number(order?.total) || 0;
-	return { itemsSubtotal, deliveryFee: fee, grandTotal };
+	const discountTotal = Number(order?.discount_total) || 0;
+	return { itemsSubtotal, deliveryFee: fee, grandTotal, discountTotal };
 }
 
 /**
@@ -505,14 +523,17 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 	const channelEsc = escapeHtml(orderChannelForTicket(order, printOptions.orderChannel));
 	const orderBandLine = `#${safeOrderId} - ${whereLblEsc} - ${channelEsc}`;
 	const refLineHtml = clientReferenceLineHtml(order);
-	const { itemsSubtotal, deliveryFee, grandTotal } = summarizeAmounts(order);
+	const { itemsSubtotal, deliveryFee, grandTotal, discountTotal } = summarizeAmounts(order);
 	const payStatusEsc = escapeHtml(ticketPaymentStatusLabel(order));
-	const totalPlain = Math.round(Number(grandTotal) || 0).toLocaleString('es-CL');
-	const payDetailLine = escapeHtml(`${getPaymentLabel(order)} ${totalPlain}`);
+	const payDetailLine = escapeHtml(`${getPaymentLabel(order)} ${fmtOrder(order, grandTotal)}`);
 
 	const footerRaw = printOptions.ticketFooterLine != null ? String(printOptions.ticketFooterLine).trim() : '';
 	const footerLine = footerRaw || 'panel administrativo GodCode';
 	const footerHtml = escapeHtml(footerLine);
+	const clientPhoneRaw = clientPhoneForTicket(order);
+	const clientPhoneHtml = clientPhoneRaw
+		? `<p class="c-client-phone">Tel: ${escapeHtml(clientPhoneRaw)}</p>`
+		: '';
 
 	const itemsHtml = (order.items || []).map((item) => {
 		const price = (item.has_discount && item.discount_price > 0)
@@ -536,7 +557,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			<div class="c-item c-item-extra">
 				<div class="c-row">
 					<span class="c-line-text">+ ${extraQty}x ${extraName}</span>
-					<span class="c-price">${formatCurrency(extraLineTotal)}</span>
+					<span class="c-price">${fmtOrder(order, extraLineTotal)}</span>
 				</div>
 			</div>
 			`;
@@ -555,7 +576,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 		<div class="c-item">
 			<div class="c-row">
 				<span class="c-line-text">${leftCol}</span>
-				<span class="c-price">${formatCurrency(lineTotal)}</span>
+				<span class="c-price">${fmtOrder(order, lineTotal)}</span>
 			</div>
 			${itemNoteHtml}
 		</div>
@@ -565,10 +586,15 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 
 	const deliveryFeeRow =
 		isOrderDelivery(order) && deliveryFee > 0
-			? `<div class="c-money-row"><span>Envío</span><span>${formatCurrency(deliveryFee)}</span></div>`
+			? `<div class="c-money-row"><span>Envío</span><span>${fmtOrder(order, deliveryFee)}</span></div>`
 			: isOrderDelivery(order)
 				? `<div class="c-money-row"><span>Envío</span><span>GRATIS</span></div>`
 				: '';
+
+	const discountRow =
+		discountTotal > 0
+			? `<div class="c-money-row"><span>Descuento</span><span>−${fmtOrder(order, discountTotal)}</span></div>`
+			: '';
 
 	return `
 		<html>
@@ -656,6 +682,13 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					margin: 3mm 0 0;
 					text-align: center;
 					text-transform: none;
+				}
+				.c-client-phone {
+					font-size: 10pt;
+					margin: 1mm 0 0;
+					text-align: center;
+					text-transform: none;
+					letter-spacing: 0.02em;
 				}
 				.c-items {
 					margin-top: 2mm;
@@ -800,16 +833,18 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			</div>
 			${deliveryShipmentSectionHtml(order)}
 			<p class="c-client-name">${safeClientName}</p>
+			${clientPhoneHtml}
 			<div class="c-items">${itemsHtml}</div>
 			<div class="c-money-block">
-				<div class="c-money-row"><span>Subtotal</span><span>${formatCurrency(itemsSubtotal)}</span></div>
+				<div class="c-money-row"><span>Subtotal</span><span>${fmtOrder(order, itemsSubtotal)}</span></div>
+				${discountRow}
 				${deliveryFeeRow}
-				<div class="c-total-big"><span>Total</span><span>${formatCurrency(grandTotal)}</span></div>
+				<div class="c-total-big"><span>Total</span><span>${fmtOrder(order, grandTotal)}</span></div>
 				<p class="c-legal">Este documento no tiene valor fiscal.</p>
 			</div>
 			<div class="c-pay-block">
 				<p class="c-pay-row">Estado de pago: ${payStatusEsc}</p>
-				<div class="c-pay-strong"><span>Total a pagar</span><span>${formatCurrency(grandTotal)}</span></div>
+				<div class="c-pay-strong"><span>Total a pagar</span><span>${fmtOrder(order, grandTotal)}</span></div>
 				<p class="c-pay-detail">${payDetailLine}</p>
 			</div>
 			${safeOrderNote ? `<div class="c-note">NOTA: ${safeOrderNote}</div>` : ''}

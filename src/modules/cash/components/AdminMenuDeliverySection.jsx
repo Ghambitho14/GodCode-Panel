@@ -8,6 +8,7 @@ import {
 	normalizeDeliverySettings,
 } from "@/lib/delivery-settings";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
+import { createMoneyFormatter } from "@/shared/utils/money";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
 import DeliveryPlaceSuggestInput from "./DeliveryPlaceSuggestInput";
@@ -387,6 +388,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 		return computeDeliveryFee(normalizedFromDraft, exKm, exSubtotal);
 	}, [normalizedFromDraft]);
 
+	const branchMoney = useMemo(
+		() => createMoneyFormatter(selectedBranch),
+		[selectedBranch],
+	);
+
 	const toggle = async (next) => {
 		if (!branchId) return;
 		setSaving(true);
@@ -520,11 +526,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				: effectiveDeliveryPricingMode(normalizedFromDraft) === "named" &&
 					  normalizedFromDraft.namedAreas?.length > 0
 					? previewFee.waivedFreeShipping
-						? "Ejemplo (primera zona, subtotal $15.000): envío gratuito por umbral."
-						: `Ejemplo (primera zona, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`
+						? `Ejemplo (primera zona, subtotal ${branchMoney.formatMoney(15000)}): envío gratuito por umbral.`
+						: `Ejemplo (primera zona, subtotal ${branchMoney.formatMoney(15000)}): envío ≈ ${branchMoney.formatMoney(Math.round(previewFee.fee))}.`
 					: previewFee.waivedFreeShipping
-						? "Ejemplo (3 km, subtotal $15.000): envío gratuito por umbral."
-						: `Ejemplo (3 km, subtotal $15.000): envío ≈ $${Math.round(previewFee.fee).toLocaleString("es-CL")}.`;
+						? `Ejemplo (3 km, subtotal ${branchMoney.formatMoney(15000)}): envío gratuito por umbral.`
+						: `Ejemplo (3 km, subtotal ${branchMoney.formatMoney(15000)}): envío ≈ ${branchMoney.formatMoney(Math.round(previewFee.fee))}.`;
 
 	return (
 		<section

@@ -8,30 +8,21 @@ import {
 import {
     computeDeliveryFee,
     effectiveDeliveryPricingMode,
+    extractCartUpsellSettings,
     normalizeDeliverySettings,
     isOrderPaymentAllowedForDelivery,
 } from '@/lib/delivery-settings';
-import { buildDeliveryAddressRecord } from '@/shared/utils/orderUtils';
+import { formatMoney, branchCurrencyCode } from '@/shared/utils/money';
+import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isMixedPaymentBreakdown, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { canOverrideDeliveryFee } from '@/modules/cash/utils/deliveryFeePermissions';
 import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
+import { normalizeManualPhone } from '@/modules/cash/services/clientService';
 
 function isFiniteLatLng(lat, lng) {
     const a = Number(lat);
     const b = Number(lng);
     return Number.isFinite(a) && Number.isFinite(b) && a >= -90 && a <= 90 && b >= -180 && b <= 180;
-}
-
-function extractOrderId(newOrder) {
-    if (newOrder == null) return null;
-    if (typeof newOrder === 'string') return newOrder;
-    if (Array.isArray(newOrder) && newOrder.length > 0) {
-        return extractOrderId(newOrder[0]);
-    }
-    if (typeof newOrder === 'object') {
-        const id = newOrder.id ?? newOrder.order_id;
-        return id != null ? String(id) : null;
-    }
-    return null;
 }
 
 function resolveNamedAreaLabelFromSettings(settings, namedId) {
@@ -50,6 +41,119 @@ function normalizePersistedItemNote(raw) {
     if (raw == null) return null;
     const s = String(raw).trim();
     return s ? s.slice(0, 140) : null;
+}
+
+function isCatalogUpsellItem(item) {
+    const source = String(item?.manual_order_source ?? '').toLowerCase();
+    return source === 'extras' || source === 'beverages' || Boolean(item?.is_extra);
+}
+
+function buildUpsellCatalogMap(deliverySettings) {
+    const map = new Map();
+    const { cartBeveragesCatalog, cartGlobalExtrasCatalog } =
+        extractCartUpsellSettings(deliverySettings);
+    for (const row of [
+        ...(cartGlobalExtrasCatalog || []),
+        ...(cartBeveragesCatalog || []),
+    ]) {
+        if (!row?.id || row.active === false) continue;
+        map.set(String(row.id), row);
+    }
+    return map;
+}
+
+function throwOrderRpcError(error) {
+    const rpcMessage = String(error?.message || '').toLowerCase();
+    if (rpcMessage.includes('invalid_coupon')) {
+        throw new Error('El código de descuento no es válido.');
+    }
+    if (rpcMessage.includes('coupon_expired')) {
+        throw new Error('Este cupón no está vigente.');
+    }
+    if (rpcMessage.includes('coupon_min_subtotal')) {
+        throw new Error('El subtotal del pedido no alcanza el mínimo de este cupón.');
+    }
+    if (rpcMessage.includes('coupon_wrong_client')) {
+        throw new Error('Este cupón solo aplica si el teléfono coincide con el cliente autorizado.');
+    }
+    if (rpcMessage.includes('coupon_usage_exhausted')) {
+        throw new Error('Este cupón ya no tiene usos disponibles.');
+    }
+    if (rpcMessage.includes('coupon_usage_exhausted_client')) {
+        throw new Error('Este cupón ya fue usado con este teléfono.');
+    }
+    if (rpcMessage.includes('delivery_address_required')) {
+        throw new Error('Completa los datos de dirección o zona para el envío.');
+    }
+    if (rpcMessage.includes('invalid_delivery_fee_override')) {
+        throw new Error('No tienes permiso para modificar el costo de envío.');
+    }
+    if (rpcMessage.includes('invalid_item_price') || rpcMessage.includes('no_items_available')) {
+        if (rpcMessage.includes('no_items_available')) {
+            throw new Error('Ningún producto del carrito está disponible en esta sucursal en este momento.');
+        }
+        throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
+    }
+    if (rpcMessage.includes('insufficient_inventory_stock')) {
+        throw new Error('Stock insuficiente en inventario para completar el pedido. Revisa recetas y existencias en la sucursal.');
+    }
+    if (rpcMessage.includes('inventory_branch_missing')) {
+        throw new Error('Falta configuración de stock en sucursal para un artículo del pedido. Completa el inventario por local.');
+    }
+    if (
+        rpcMessage.includes('auth_required')
+        || rpcMessage.includes('order_edit_not_allowed')
+        || rpcMessage.includes('order_not_found_or_not_allowed')
+        || String(error?.code) === '42501'
+        || rpcMessage.includes('row-level security')
+    ) {
+        throw new Error('No tienes permisos para editar este pedido.');
+    }
+    if (
+        rpcMessage.includes('duplicate_client_phone')
+        || rpcMessage.includes('clients_phone_key')
+        || (String(error?.code) === '23505' && rpcMessage.includes('phone'))
+    ) {
+        throw new Error('Ya existe un cliente con este teléfono. Selecciónalo del listado o elige otro número.');
+    }
+    if (rpcMessage.includes('client_not_found_or_not_allowed')) {
+        throw new Error('El cliente seleccionado no es válido para esta empresa. Vuelve a elegirlo del listado.');
+    }
+    throw error;
+}
+
+function buildDeliveryPayloadForRpc({
+    deliveryMode,
+    basePayload,
+    deliveryLat,
+    deliveryLng,
+}) {
+    if (!deliveryMode) return null;
+    let payload = basePayload && typeof basePayload === 'object' ? { ...basePayload } : basePayload;
+    if (isFiniteLatLng(deliveryLat, deliveryLng)) {
+        const lat = Number(deliveryLat);
+        const lng = Number(deliveryLng);
+        payload = {
+            ...(payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}),
+            lat,
+            lng,
+            maps_url: buildGoogleMapsDirectionsUrl(lat, lng),
+        };
+    }
+    return payload;
+}
+
+function resolvePaymentBreakdownForRpc(breakdown, total) {
+    if (!breakdown) return null;
+    const normalized = normalizePaymentBreakdown(breakdown);
+    const breakdownSum = normalized.cash + normalized.card + normalized.online;
+    if (
+        isMixedPaymentBreakdown(normalized)
+        && Math.abs(breakdownSum - Math.round(total)) <= 1
+    ) {
+        return normalized;
+    }
+    return null;
 }
 
 /**
@@ -72,19 +176,32 @@ export const ordersService = {
                 throw new Error("El pedido debe contener al menos un producto.");
             }
 
-            // Separar extras de productos normales
+            // Separar catálogo upsell (extras/bebidas) de productos del menú principal
             const regularItems = [];
-            const extraItems = [];
-            
+            const upsellItems = [];
+
             for (const item of orderData.items) {
                 if (!item?.id) continue;
-                const isExtra = item.manual_order_source === 'extras' || Boolean(item.is_extra);
-                if (isExtra) {
-                    extraItems.push(item);
+                if (isCatalogUpsellItem(item)) {
+                    upsellItems.push(item);
                 } else {
                     regularItems.push(item);
                 }
             }
+
+            const { data: branchCfg, error: branchCfgError } = await supabase
+                .from(TABLES.branches)
+                .select('delivery_settings, payment_methods, currency')
+                .eq('id', orderData.branch_id)
+                .maybeSingle();
+
+            if (branchCfgError) {
+                throw new Error('No se pudo validar la configuración de la sucursal. Intenta nuevamente.');
+            }
+
+            const deliverySettings = normalizeDeliverySettings(branchCfg?.delivery_settings);
+            const branchCurrency = branchCurrencyCode(branchCfg);
+            const upsellCatalogMap = buildUpsellCatalogMap(branchCfg?.delivery_settings);
 
             const requestedMap = new Map(
                 regularItems
@@ -98,7 +215,7 @@ export const ordersService = {
 
             const requestedIds = Array.from(requestedMap.keys());
             
-            if (requestedIds.length === 0 && extraItems.length === 0) {
+            if (requestedIds.length === 0 && upsellItems.length === 0) {
                 throw new Error('El pedido debe contener al menos un producto válido.');
             }
 
@@ -176,22 +293,30 @@ export const ordersService = {
                 });
             }
 
-            // Agregar extras sin validar contra BD (vienen del catálogo de carrito)
-            for (const extraItem of extraItems) {
-                const extraPrice = Number(extraItem.price) || 0;
-                if (!Number.isFinite(extraPrice) || extraPrice <= 0) continue;
-                
+            // Upsell: validar contra catálogo de sucursal (defensa en profundidad; RPC revalida)
+            for (const upsellItem of upsellItems) {
+                const catalogRow = upsellCatalogMap.get(String(upsellItem.id));
+                if (!catalogRow) {
+                    throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
+                }
+                const catalogPrice = Number(catalogRow.price);
+                if (!Number.isFinite(catalogPrice) || catalogPrice < 0) {
+                    throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
+                }
+                const source = String(upsellItem.manual_order_source ?? '').toLowerCase() || 'extras';
+                const isExtra = source === 'extras' || Boolean(upsellItem.is_extra);
+
                 normalizedItems.push({
-                    id: String(extraItem.id),
-                    name: String(extraItem.name || 'Extra'),
-                    quantity: Math.max(1, Number(extraItem.quantity) || 1),
-                    price: extraPrice,
-                    has_discount: Boolean(extraItem.has_discount) && Number(extraItem.discount_price) > 0,
-                    discount_price: Boolean(extraItem.has_discount) && Number(extraItem.discount_price) > 0 ? Number(extraItem.discount_price) : null,
-                    description: extraItem.description || null,
-                    note: normalizePersistedItemNote(extraItem.note),
-                    manual_order_source: 'extras',
-                    is_extra: true,
+                    id: String(upsellItem.id),
+                    name: String(catalogRow.name || upsellItem.name || 'Extra'),
+                    quantity: Math.max(1, Number(upsellItem.quantity) || 1),
+                    price: catalogPrice,
+                    has_discount: false,
+                    discount_price: null,
+                    description: upsellItem.description || null,
+                    note: normalizePersistedItemNote(upsellItem.note),
+                    manual_order_source: source,
+                    is_extra: isExtra,
                 });
             }
 
@@ -223,17 +348,6 @@ export const ordersService = {
                 return sum + (price * qty);
             }, 0);
 
-            const { data: branchCfg, error: branchCfgError } = await supabase
-                .from(TABLES.branches)
-                .select('delivery_settings, payment_methods')
-                .eq('id', orderData.branch_id)
-                .maybeSingle();
-
-            if (branchCfgError) {
-                throw new Error('No se pudo validar la configuración de la sucursal. Intenta nuevamente.');
-            }
-
-            const deliverySettings = normalizeDeliverySettings(branchCfg?.delivery_settings);
             const deliveryMode = isDeliveryOrderType(orderData.order_type);
 
             let deliveryFee = 0;
@@ -288,13 +402,19 @@ export const ordersService = {
                 }
                 deliveryFee = r.fee;
 
-                // Soporte para cobro de envío manual (ej: desde panel admin)
-                if (typeof orderData.manual_delivery_fee === 'number' && orderData.manual_delivery_fee >= 0) {
+                const callerRole = orderData.caller_role ?? orderData.user_role ?? null;
+                if (
+                    canOverrideDeliveryFee(callerRole)
+                    && typeof orderData.manual_delivery_fee === 'number'
+                    && orderData.manual_delivery_fee >= 0
+                ) {
                     deliveryFee = orderData.manual_delivery_fee;
                 }
 
                 const branchPm = branchCfg?.payment_methods;
+                const paymentDeferred = isOrderPaymentDeferred(orderData);
                 if (
+                    !paymentDeferred &&
                     !isOrderPaymentAllowedForDelivery(
                         orderData,
                         Array.isArray(branchPm) ? branchPm : [],
@@ -327,9 +447,9 @@ export const ordersService = {
                 }
             }
             const netAfterCoupon = Math.round(Math.max(0, itemsSubtotal - couponDisc) * 100) / 100;
-            let totalForRpc = deliveryMode
-                ? Math.round((netAfterCoupon + deliveryFee) * 100) / 100
-                : netAfterCoupon;
+            const totalForRpc = Math.round(
+                (netAfterCoupon + (deliveryMode ? deliveryFee : 0)) * 100,
+            ) / 100;
 
             const namedForAddr = String(
                 orderData.delivery_named_area_id ?? orderData.namedAreaId ?? '',
@@ -338,14 +458,19 @@ export const ordersService = {
                 deliverySettings,
                 namedForAddr,
             );
-            const pDeliveryPayload = deliveryMode
-                ? buildDeliveryAddressRecord({
-                      rawAddress: orderData.delivery_address,
-                      deliveryReference: orderData.delivery_reference,
-                      namedAreaId: namedForAddr || null,
-                      namedAreaLabel: namedLabelForAddr || null,
-                  })
-                : null;
+            const pDeliveryPayload = buildDeliveryPayloadForRpc({
+                deliveryMode,
+                basePayload: deliveryMode
+                    ? buildDeliveryAddressRecord({
+                          rawAddress: orderData.delivery_address,
+                          deliveryReference: orderData.delivery_reference,
+                          namedAreaId: namedForAddr || null,
+                          namedAreaLabel: namedLabelForAddr || null,
+                      })
+                    : null,
+                deliveryLat: orderData.delivery_lat,
+                deliveryLng: orderData.delivery_lng,
+            });
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
             let receiptUrl = null;
@@ -369,17 +494,23 @@ export const ordersService = {
                 finalNote = `[Sucursal: ${orderData.branch_name}] \n${finalNote}`.trim();
             }
             if (deliveryMode && deliveryFee > 0) {
-                finalNote = `${finalNote}\n[Envío: $${Math.round(deliveryFee).toLocaleString('es-CL')}]`.trim();
+                finalNote = `${finalNote}\n[Envío: ${formatMoney(deliveryFee, { currency: branchCurrency })}]`.trim();
             }
 
             const clientRut = String(orderData.client_rut ?? orderData.client_document ?? '').trim();
+            const clientPhone = normalizeManualPhone(
+                String(orderData.client_phone ?? '').trim(),
+            );
+            const selectedClientId = String(
+                orderData.selected_client_id ?? orderData.client_id ?? '',
+            ).trim() || null;
 
             // 3. EJECUTAR TRANSACCIÓN ATÓMICA (RPC)
             // Inventario: confirmar en Supabase que esta RPC descuenta product_inventory_recipe.qty_per_sale
             // multiplicado por la cantidad vendida de cada producto; si no, ajustar la función en SQL.
             const { data: newOrder, error: orderError } = await supabase.rpc('create_order_transaction', {
                 p_client_name: orderData.client_name,
-                p_client_phone: orderData.client_phone,
+                p_client_phone: clientPhone,
                 p_client_rut: clientRut,
                 p_items: normalizedItems,
                 p_total: totalForRpc,
@@ -394,109 +525,23 @@ export const ordersService = {
                 p_delivery_address: pDeliveryPayload,
                 p_delivery_fee: deliveryMode ? deliveryFee : 0,
                 p_coupon_code: pCouponCode,
+                p_payment_breakdown: resolvePaymentBreakdownForRpc(orderData.payment_breakdown, totalForRpc),
+                p_client_id: selectedClientId,
             });
 
             if (orderError) {
-                const rpcMessage = String(orderError.message || '').toLowerCase();
-                if (rpcMessage.includes('invalid_coupon')) {
-                    throw new Error('El código de descuento no es válido.');
-                }
-                if (rpcMessage.includes('coupon_expired')) {
-                    throw new Error('Este cupón no está vigente.');
-                }
-                if (rpcMessage.includes('coupon_min_subtotal')) {
-                    throw new Error('El subtotal del pedido no alcanza el mínimo de este cupón.');
-                }
-                if (rpcMessage.includes('coupon_wrong_client')) {
-                    throw new Error('Este cupón solo aplica si el teléfono coincide con el cliente autorizado.');
-                }
-                if (rpcMessage.includes('coupon_usage_exhausted')) {
-                    throw new Error('Este cupón ya no tiene usos disponibles.');
-                }
-                if (rpcMessage.includes('coupon_usage_exhausted_client')) {
-                    throw new Error('Este cupón ya fue usado con este teléfono.');
-                }
-                if (
-                    rpcMessage.includes('invalid_item_price') ||
-                    rpcMessage.includes('delivery_address_required')
-                ) {
-                    if (rpcMessage.includes('delivery_address_required')) {
-                        throw new Error('Completa los datos de dirección o zona para el envío.');
-                    }
-                    throw new Error('Hay productos del carrito que no están disponibles para esta sucursal. Actualiza el menú e intenta nuevamente.');
-                }
-                if (rpcMessage.includes('no_items_available')) {
-                    throw new Error('Ningún producto del carrito está disponible en esta sucursal en este momento.');
-                }
-                if (rpcMessage.includes('insufficient_inventory_stock')) {
-                    throw new Error('Stock insuficiente en inventario para completar el pedido. Revisa recetas y existencias en la sucursal.');
-                }
-                if (rpcMessage.includes('inventory_branch_missing')) {
-                    throw new Error('Falta configuración de stock en sucursal para un insumo del pedido. Completa el inventario por local.');
-                }
-                throw orderError;
+                throwOrderRpcError(orderError);
             }
 
-            // La RPC `create_order_transaction` ya setea: channel, total, delivery_fee,
-            // delivery_address y handoff_code. En algunos despliegues la RPC reconstruye
-            // `items` jsonb sin campos extra (p. ej. `note` por línea). Reescribimos `items`
-            // y `note` con lo ya validado en cliente para que cocina/caja vean las notas.
-            const orderId = extractOrderId(newOrder);
-            let persistedOrder = newOrder;
-            if (orderId) {
-                const postCreatePatch = {
-                    items: normalizedItems,
-                    note: finalNote,
-                };
-                if (
-                    deliveryMode &&
-                    isFiniteLatLng(orderData.delivery_lat, orderData.delivery_lng)
-                ) {
-                    const lat = Number(orderData.delivery_lat);
-                    const lng = Number(orderData.delivery_lng);
-                    postCreatePatch.delivery_address = {
-                        ...(pDeliveryPayload && typeof pDeliveryPayload === 'object' ? pDeliveryPayload : {}),
-                        lat,
-                        lng,
-                        maps_url: buildGoogleMapsDirectionsUrl(lat, lng),
-                    };
-                }
-                const { data: patchedRow, error: postCreateError } = await supabase
-                    .from(TABLES.orders)
-                    .update(postCreatePatch)
-                    .eq('id', orderId)
-                    .select()
-                    .maybeSingle();
-                if (postCreateError) {
-                    console.warn('createOrder: post-create sync (items/note/address) failed', postCreateError);
-                } else if (patchedRow) {
-                    persistedOrder = patchedRow;
-                }
-            }
-
-            return { order: persistedOrder, receiptUploadFailed };
+            return { order: newOrder, receiptUploadFailed };
         } catch (error) {
             throw error;
         }
     },
 
     /**
-     * Actualiza un pedido existente (UPDATE directo via RLS).
-     *
-     * No usa RPC `create_order_transaction` porque ese flujo asume creacion
-     * + descuento de inventario. Para edicion preservamos handoff_code,
-     * order_number, created_at, created_by, paid_status, status, branch_id
-     * y company_id; el caller llena el resto.
-     *
-     * Reglas operativas:
-     * - Recalcula `total` client-side con la misma logica que createOrder.
-     * - Si `itemsChanged === true` y existe el RPC `admin_resync_order_inventory`,
-     *   intenta llamarlo best-effort para mantener stock consistente.
-     * - Si `status === 'active'` y items cambiaron, reimprime ticket cocina.
-     * - Si `total` cambio respecto a `prevTotal` y el pedido ya estaba en
-     *   `active`/`completed`/`picked_up`, avisamos al cajero con `showNotify`
-     *   para que ajuste la caja manualmente (en esta version no hay ajuste
-     *   automatico de la venta registrada).
+     * Actualiza un pedido existente vía RPC `update_order_transaction`.
+     * Precios y totales se revalidan en servidor; preserva campos inmutables del pedido.
      */
     async updateOrder(orderId, patch, options = {}) {
         if (!orderId) throw new Error('orderId requerido');
@@ -507,20 +552,7 @@ export const ordersService = {
             throw new Error('El pedido debe contener al menos un producto.');
         }
 
-        // Recalcular subtotal client-side (mismas reglas que createOrder).
-        const itemsSubtotal = itemsForOrder.reduce((sum, item) => {
-            const price =
-                item.has_discount && item.discount_price && Number(item.discount_price) > 0
-                    ? Number(item.discount_price)
-                    : Number(item.price || 0);
-            const qty = Math.max(1, Number(item.quantity) || 1);
-            return sum + price * qty;
-        }, 0);
-
         const isDelivery = String(patch.order_type ?? '').toLowerCase() === 'delivery';
-
-        // Resolver label de zona para el JSONB delivery_address (consistencia
-        // con createOrder y con `manualOrderForTicket` del modal).
         const branchSettings = options.branchSettings ?? null;
         const namedId = isDelivery
             ? (String(patch.delivery_named_area_id ?? '').trim() || null)
@@ -529,9 +561,23 @@ export const ordersService = {
             ? resolveNamedAreaLabelFromSettings(branchSettings, namedId)
             : '';
 
+        const streetLine = isDelivery ? String(patch.delivery_address ?? '').trim() : '';
+        let rawForDelivery = patch.delivery_address_base ?? patch.delivery_address;
+        if (
+            isDelivery &&
+            patch.delivery_address_base &&
+            typeof patch.delivery_address_base === 'object' &&
+            !Array.isArray(patch.delivery_address_base)
+        ) {
+            rawForDelivery = {
+                ...(/** @type {Record<string, unknown>} */ (patch.delivery_address_base)),
+                ...(streetLine ? { address: streetLine } : {}),
+            };
+        }
+
         const deliveryAddressRecord = isDelivery
             ? buildDeliveryAddressRecord({
-                rawAddress: patch.delivery_address,
+                rawAddress: rawForDelivery,
                 deliveryReference: patch.delivery_reference,
                 namedAreaId: namedId,
                 namedAreaLabel: namedLabel || null,
@@ -539,39 +585,29 @@ export const ordersService = {
             : null;
 
         const deliveryFee = isDelivery ? Math.max(0, Number(patch.delivery_fee) || 0) : 0;
-        const totalRounded = Math.round((itemsSubtotal + deliveryFee) * 100) / 100;
+        const normCoupon = normalizeCouponCode(patch.coupon_code) || null;
 
-        // Note (preservar prefijos legibles que setea createOrder cuando aplique).
-        // En esta version mantenemos el texto plano que escribe el cajero; los
-        // prefijos [Sucursal: ...] / [Envío: ...] se gestionan al crear.
-        // orders.order_type es sale|refund (check orders_order_type_check).
-        // Pickup/delivery va en channel; no sobrescribir order_type al editar.
-        const updatePayload = {
-            client_name: String(patch.client_name ?? ''),
-            client_phone: String(patch.client_phone ?? ''),
-            client_rut: String(patch.client_rut ?? ''),
-            items: itemsForOrder,
-            total: totalRounded,
-            payment_type: String(patch.payment_type ?? 'tienda'),
-            note: typeof patch.note === 'string' ? patch.note : '',
-            channel: isDelivery ? 'delivery' : 'pickup',
-            delivery_address: deliveryAddressRecord,
-            delivery_fee: deliveryFee,
-        };
+        const paymentBreakdown = Object.prototype.hasOwnProperty.call(patch, 'payment_breakdown')
+            ? (patch.payment_breakdown || null)
+            : null;
 
-        const { data: updated, error } = await supabase
-            .from(TABLES.orders)
-            .update(updatePayload)
-            .eq('id', orderId)
-            .select('*')
-            .single();
+        const { data: updated, error } = await supabase.rpc('update_order_transaction', {
+            p_order_id: orderId,
+            p_client_name: String(patch.client_name ?? ''),
+            p_client_phone: normalizeManualPhone(String(patch.client_phone ?? '')),
+            p_client_rut: String(patch.client_rut ?? ''),
+            p_items: itemsForOrder,
+            p_payment_type: String(patch.payment_type ?? 'tienda'),
+            p_note: typeof patch.note === 'string' ? patch.note : '',
+            p_order_type: isDelivery ? 'delivery' : 'pickup',
+            p_delivery_address: deliveryAddressRecord,
+            p_delivery_fee: deliveryFee,
+            p_coupon_code: normCoupon,
+            p_payment_breakdown: paymentBreakdown,
+        });
 
         if (error) {
-            // RLS bloquea cuando el rol no es ceo/cashier para esta company.
-            if (String(error.code) === '42501' || String(error.message ?? '').toLowerCase().includes('row-level security')) {
-                throw new Error('No tienes permisos para editar este pedido.');
-            }
-            throw error;
+            throwOrderRpcError(error);
         }
 
         // Resync de inventario best-effort (si items cambiaron).
@@ -603,23 +639,7 @@ export const ordersService = {
             }
         }
 
-        // Warning de caja: si el total cambio y el pedido ya estaba en una
-        // etapa con venta registrada (active / completed / picked_up), avisamos
-        // al cajero para ajuste manual. Mantener en sync con la logica de
-        // `cashSystem.registerSale` (se registra al pasar a `active`).
-        const prevTotal = Number(options.prevTotal);
-        if (
-            Number.isFinite(prevTotal) &&
-            Math.abs(prevTotal - totalRounded) > 0.5 &&
-            ['active', 'completed', 'picked_up'].includes(status)
-        ) {
-            options.showNotify?.(
-                `El total cambió de $${Math.round(prevTotal).toLocaleString('es-CL')} a $${Math.round(totalRounded).toLocaleString('es-CL')}. Ajusta la caja manualmente.`,
-                'warning',
-            );
-        }
-
-        return updated;
+        return sanitizeOrder(updated);
     },
 };
 

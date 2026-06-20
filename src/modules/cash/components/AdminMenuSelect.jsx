@@ -14,6 +14,8 @@ export default function AdminMenuSelect({
 	disabled = false,
 	className = "",
 	menuMinWidth = 200,
+	displayLabel: displayLabelProp = null,
+	isOptionActive = null,
 	"aria-label": ariaLabel,
 }) {
 	const uid = React.useId();
@@ -24,7 +26,7 @@ export default function AdminMenuSelect({
 	const triggerId = `${uid}-menu-trigger`;
 
 	const selected = options.find((o) => String(o.value) === String(value));
-	const displayLabel = selected?.label ?? "—";
+	const displayLabel = displayLabelProp ?? selected?.label ?? "—";
 
 	const updateMenuPos = useCallback(() => {
 		const el = triggerRef.current;
@@ -123,7 +125,9 @@ export default function AdminMenuSelect({
 							}}
 						>
 							{options.map((opt) => {
-								const isActive = String(opt.value) === String(value);
+								const isActive = isOptionActive
+									? isOptionActive(opt.value, value)
+									: String(opt.value) === String(value);
 								return (
 									<li key={String(opt.value)} role="presentation">
 										<button

@@ -1,0 +1,492 @@
+/* Vista mesas / motos (reemplaza kanban en modo mesas) */
+
+.admin-layout .tables-view {
+	width: 100%;
+	min-width: 0;
+}
+
+.admin-layout .tables-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 12px;
+	width: 100%;
+}
+
+.admin-layout .table-tile {
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	align-items: center;
+	justify-items: center;
+	gap: 4px;
+	min-height: 132px;
+	padding: 10px 10px 12px;
+	border-radius: 14px;
+	border: 2px solid transparent;
+	background: var(--admin-card-bg, #fff);
+	box-shadow: var(--admin-shadow-sm);
+	cursor: pointer;
+	font-family: inherit;
+	text-align: center;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-layout .table-tile:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--admin-shadow-md);
+}
+
+.admin-layout .table-tile--pending {
+	border-color: rgba(234, 88, 12, 0.62);
+	background: color-mix(in srgb, #f97316 18%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .table-tile--pending .table-tile__kind-icon {
+	color: #1d1d1f;
+}
+
+.admin-layout .table-tile--active {
+	border-color: rgba(230, 57, 70, 0.55);
+	background: color-mix(in srgb, #e63946 8%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .table-tile--completed {
+	border-color: rgba(37, 211, 102, 0.55);
+	background: color-mix(in srgb, #25d366 10%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .table-tile__seq {
+	align-self: start;
+	justify-self: center;
+	font-size: 0.72rem;
+	font-weight: 800;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
+	color: var(--admin-text, #1d1d1f);
+	opacity: 0.88;
+}
+
+.admin-layout .table-tile__kind-icon {
+	grid-row: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	align-self: center;
+	justify-self: center;
+	width: 100%;
+	line-height: 0;
+	color: color-mix(in srgb, var(--admin-text, #1d1d1f) 78%, transparent);
+}
+
+.admin-layout .table-tile__kind-svg {
+	display: block;
+	flex-shrink: 0;
+}
+
+.admin-layout .table-tile__kind-svg--mesa {
+	width: 46px;
+	height: 46px;
+}
+
+.admin-layout .table-tile__kind-svg--moto {
+	width: 50px;
+	height: 50px;
+}
+
+.admin-layout .table-tile__meta {
+	grid-row: 3;
+	align-self: end;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	width: 100%;
+}
+
+.admin-layout .table-tile__client {
+	font-size: 0.72rem;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--admin-text);
+}
+
+.admin-layout .table-tile__sub {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	font-size: 0.65rem;
+	color: var(--admin-text-muted);
+}
+
+.admin-layout .tables-view__empty {
+	padding: 32px 20px;
+	text-align: center;
+	border-radius: 14px;
+}
+
+.admin-layout .tables-view__empty-hint {
+	margin: 8px 0 0;
+	font-size: 0.85rem;
+	color: var(--admin-text-muted);
+}
+
+/* Modal sesión / cerrar mesa */
+.admin-layout .table-session-modal-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 200;
+	background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.52));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+		max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+
+.admin-layout .table-session-modal {
+	position: relative;
+	width: min(440px, 100%);
+	max-height: min(90vh, 720px);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	border-radius: 18px;
+	border: 1px solid var(--admin-border);
+	box-shadow: var(--admin-shadow-lg, 0 18px 40px rgba(15, 23, 42, 0.18));
+}
+
+.admin-layout .table-session-modal__accent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 4px;
+	border-radius: 18px 18px 0 0;
+	background: #f4a261;
+}
+
+.admin-layout .table-session-modal--active .table-session-modal__accent {
+	background: #e63946;
+}
+
+.admin-layout .table-session-modal--completed .table-session-modal__accent {
+	background: #25d366;
+}
+
+.admin-layout .table-session-modal__head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 18px 18px 12px;
+}
+
+.admin-layout .table-session-modal__identity {
+	min-width: 0;
+}
+
+.admin-layout .table-session-modal__number-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.admin-layout .table-session-modal__kind-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.admin-layout .table-session-modal__head h2 {
+	margin: 0;
+	font-size: 1.45rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+	line-height: 1.1;
+}
+
+.admin-layout .table-session-modal__kind-label {
+	margin: 4px 0 0;
+	font-size: 0.68rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: color-mix(in srgb, var(--admin-text, #1d1d1f) 55%, var(--admin-text-muted, #64748b));
+}
+
+.admin-layout .table-session-modal__status {
+	font-size: 0.68rem;
+	font-weight: 700;
+	padding: 4px 10px;
+	border-radius: 999px;
+	white-space: nowrap;
+}
+
+.admin-layout .table-session-modal__status--pending {
+	background: rgba(244, 162, 97, 0.2);
+	color: #c05621;
+}
+
+.admin-layout .table-session-modal__status--active {
+	background: rgba(230, 57, 70, 0.15);
+	color: #b91c1c;
+}
+
+.admin-layout .table-session-modal__status--completed {
+	background: rgba(37, 211, 102, 0.15);
+	color: #15803d;
+}
+
+.admin-layout .table-session-modal__close {
+	flex-shrink: 0;
+}
+
+.admin-layout .table-session-modal__hero {
+	padding: 0 18px 14px;
+	border-bottom: 1px solid color-mix(in srgb, var(--admin-border) 70%, transparent);
+}
+
+.admin-layout .table-session-modal__client-row {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 10px;
+	font-size: 1rem;
+	font-weight: 700;
+	color: var(--admin-text);
+	min-width: 0;
+}
+
+.admin-layout .table-session-modal__client-row span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.admin-layout .table-session-modal__meta-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+
+.admin-layout .table-session-modal__meta-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 0.68rem;
+	font-weight: 700;
+	background: var(--admin-icon-bg, #eef0f4);
+	color: var(--admin-text, #1d1d1f);
+	border: 1px solid color-mix(in srgb, var(--admin-border, #d1d5db) 85%, transparent);
+}
+
+.admin-layout .table-session-modal__meta-chip svg {
+	opacity: 0.72;
+	flex-shrink: 0;
+}
+
+.admin-layout .table-session-modal__meta-chip--warn {
+	background: rgba(244, 162, 97, 0.16);
+	color: #c05621;
+}
+
+.admin-layout .table-session-modal__total {
+	margin: 0;
+	font-size: 1.65rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.03em;
+	line-height: 1.1;
+}
+
+.admin-layout .table-session-modal__items-wrap {
+	padding: 14px 18px 0;
+	min-height: 0;
+	flex: 1 1 auto;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.admin-layout .table-session-modal__items-title {
+	margin: 0 0 10px;
+	font-size: 0.68rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: color-mix(in srgb, var(--admin-text, #1d1d1f) 62%, var(--admin-text-muted, #64748b));
+}
+
+.admin-layout .table-session-modal__items {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	overflow-y: auto;
+	max-height: min(220px, 32vh);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.admin-layout .table-session-modal__item {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: var(--admin-icon-bg, #eef0f4);
+	border: 1px solid var(--admin-border, #d1d5db);
+}
+
+.admin-layout .table-session-modal__item-qty {
+	flex-shrink: 0;
+	min-width: 2rem;
+	font-size: 0.78rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .table-session-modal__item-body {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.admin-layout .table-session-modal__item-name {
+	font-size: 0.88rem;
+	font-weight: 600;
+	line-height: 1.35;
+	color: var(--admin-text);
+}
+
+.admin-layout .table-session-modal__item-note {
+	font-size: 0.72rem;
+	line-height: 1.35;
+	color: #c05621;
+	font-style: italic;
+}
+
+.admin-layout .table-session-modal__foot {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 16px 18px 18px;
+	margin-top: auto;
+	border-top: 1px solid var(--admin-border, #d1d5db);
+	background: var(--admin-icon-bg, #eef0f4);
+}
+
+.admin-layout .table-session-modal__primary .btn,
+.admin-layout .table-session-modal__secondary .btn {
+	width: 100%;
+	justify-content: center;
+	min-height: 44px;
+}
+
+.admin-layout .table-session-modal__secondary .btn.btn-secondary {
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #1d1d1f);
+	border: 1px solid color-mix(in srgb, var(--admin-border, #d1d5db) 90%, #64748b);
+	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+	font-weight: 700;
+}
+
+.admin-layout .table-session-modal__secondary .btn.btn-secondary:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--admin-icon-bg, #eef0f4) 55%, var(--admin-card-bg, #fff));
+	border-color: color-mix(in srgb, var(--admin-border, #d1d5db) 70%, var(--admin-text, #1d1d1f));
+}
+
+.admin-layout .table-session-modal__secondary {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.admin-layout .table-session-modal__cancel {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	width: 100%;
+	margin: 2px 0 0;
+	padding: 8px 12px;
+	border: none;
+	border-radius: 10px;
+	background: transparent;
+	font: inherit;
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--admin-danger-hover, #b91c1c);
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.admin-layout .table-session-modal__cancel:hover {
+	background: rgba(220, 38, 38, 0.08);
+}
+
+/* CloseTableModal reutiliza la shell base con padding clásico */
+.admin-layout .table-session-modal.close-table-modal {
+	display: block;
+	overflow-y: auto;
+	padding: 16px;
+}
+
+.admin-layout .table-session-modal.close-table-modal .table-session-modal__foot {
+	padding: 0;
+	margin-top: 16px;
+	border-top: none;
+	background: transparent;
+	flex-direction: row;
+	flex-wrap: wrap;
+}
+
+.admin-layout .table-session-modal.close-table-modal .table-session-modal__foot .btn {
+	width: auto;
+	flex: 1 1 auto;
+	min-width: min(100%, 120px);
+}
+
+/* Compat: footer genérico en CloseTableModal */
+.admin-layout .table-session-modal__foot--actions .btn {
+	flex: 1 1 auto;
+	min-width: min(100%, 120px);
+	justify-content: center;
+}
+
+.admin-layout .close-table-modal__summary {
+	margin-bottom: 12px;
+}
+
+.admin-layout .close-table-modal__total {
+	font-weight: 700;
+	margin: 4px 0 0;
+}
+
+.admin-layout .close-table-modal__confirm-only {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 12px;
+	border-radius: 12px;
+	background: rgba(37, 211, 102, 0.1);
+	border: 1px solid rgba(37, 211, 102, 0.25);
+	margin-bottom: 12px;
+}
+
+.admin-layout .close-table-modal__confirm-only p {
+	margin: 4px 0 0;
+	font-size: 0.85rem;
+	color: var(--admin-text-muted);
+}

@@ -1,23 +1,27 @@
 import React, { useEffect, useMemo } from 'react';
-import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock } from 'lucide-react';
+import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock, Eye } from 'lucide-react';
 import { getPaymentLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 
 const ClientDetailsPanel = ({
     selectedClient,
     setSelectedClient,
     clientHistoryLoading,
     selectedClientOrders,
-    setReceiptModalOrder
+    setReceiptModalOrder,
+    onOrderClick,
+    orderDetailOpen = false,
 }) => {
+    const { formatMoney } = useBranchMoney();
     
     // --- 1. CIERRE CON ESCAPE (UX) ---
     useEffect(() => {
         const handleEsc = (e) => {
-            if (e.key === 'Escape') setSelectedClient(null);
+            if (e.key === 'Escape' && !orderDetailOpen) setSelectedClient(null);
         };
         if (selectedClient) window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
-    }, [selectedClient, setSelectedClient]);
+    }, [selectedClient, setSelectedClient, orderDetailOpen]);
 
     // --- CÁLCULO DE MÉTRICAS CRM ---
     const stats = useMemo(() => {
@@ -47,18 +51,23 @@ const ClientDetailsPanel = ({
     const renderPaymentAction = (order) => {
         if (order.payment_ref && order.payment_ref.startsWith('http')) {
             return (
-                <div className="payment-actions">
+                <div className="payment-actions" onClick={(e) => e.stopPropagation()}>
                     <a 
                         href={order.payment_ref} 
                         target="_blank" 
                         rel="noreferrer" 
                         className="btn-link-icon"
                         title="Ver comprobante"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <ImageIcon size={14} /> <span>Ver</span>
                     </a>
                     <button 
-                        onClick={() => setReceiptModalOrder(order)} 
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setReceiptModalOrder(order);
+                        }} 
                         className="btn-text-sm"
                     >
                         Cambiar
@@ -71,7 +80,11 @@ const ClientDetailsPanel = ({
         if (isOnlineOrder(order)) {
             return (
                 <button 
-                    onClick={() => setReceiptModalOrder(order)} 
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setReceiptModalOrder(order);
+                    }} 
                     className="btn-upload-sm"
                 >
                     <Upload size={12} /> <span>Subir</span>
@@ -148,7 +161,7 @@ const ClientDetailsPanel = ({
                             <div>
                                 <span className="kpi-label">GASTO TOTAL</span>
                                 <span className="kpi-value text-accent-success">
-                                    ${(selectedClient.total_spent || 0).toLocaleString('es-CL')}
+                                    {formatMoney(selectedClient.total_spent || 0)}
                                 </span>
                             </div>
                         </div>
@@ -164,7 +177,7 @@ const ClientDetailsPanel = ({
                             <div>
                                 <span className="kpi-label">TICKET PROM.</span>
                                 <span className="kpi-value kpi-value-light">
-                                    ${stats.avgTicket.toLocaleString('es-CL')}
+                                    {formatMoney(stats.avgTicket)}
                                 </span>
                             </div>
                         </div>
@@ -194,8 +207,24 @@ const ClientDetailsPanel = ({
                                     <p>No hay compras registradas</p>
                                 </div>
                             ) : (
-                                selectedClientOrders.map(order => (
-                                    <div key={order.id} className="history-card">
+                                selectedClientOrders.map(order => {
+                                    const orderTotal = formatMoney(order.total ?? 0);
+                                    const orderDateLabel = formatDate(order.created_at);
+                                    return (
+                                    <div
+                                        key={order.id}
+                                        className="history-card history-card--clickable"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => onOrderClick?.(order)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                onOrderClick?.(order);
+                                            }
+                                        }}
+                                        aria-label={`Ver detalle del pedido del ${orderDateLabel}, total ${orderTotal}`}
+                                    >
                                         
                                         <div className="history-card-header">
                                             <div className="date-badge">
@@ -206,7 +235,7 @@ const ClientDetailsPanel = ({
                                                 {getPaymentLabel(order)}
                                             </span>
                                             <span className="order-total">
-                                                ${Number(order.total ?? 0).toLocaleString('es-CL')}
+                                                {formatMoney(order.total ?? 0)}
                                             </span>
                                         </div>
 
@@ -220,11 +249,15 @@ const ClientDetailsPanel = ({
 
                                         <div className="history-card-footer">
                                             {getStatusBadge(order.status)}
+                                            <span className="history-card__view-detail">
+                                                <Eye size={12} aria-hidden /> Ver detalle
+                                            </span>
                                             {renderPaymentAction(order)}
                                         </div>
                                         
                                     </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     )}

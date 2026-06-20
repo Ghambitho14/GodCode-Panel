@@ -14,6 +14,7 @@ import "./modules/cash/styles/AdminCategories.css";
 import "./modules/cash/styles/AdminCoupons.css";
 import "./modules/cash/styles/AdminInventory.css";
 import "./modules/cash/styles/AdminKanban.css";
+import "./modules/cash/styles/AdminTables.css";
 import "./modules/cash/styles/AdminSettings.css";
 import "./modules/cash/styles/ManualOrderModal.css";
 import "./modules/cash/styles/Modals.css";

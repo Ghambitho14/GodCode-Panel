@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase, TABLES } from '@/integrations/supabase';
+import { supabase, TABLES, bootstrapSession, getCurrentUser, logout, onAuthEvent } from '@/integrations/supabase';
 import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
 import { useCashSystem } from '../../hooks/useCashSystem';
-import { sanitizeOrder } from '@/shared/utils/orderUtils';
+import { ORDERS_SELECT_WITH_COUPON, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
+import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
+import { ordersService } from '../orders/services/orders';
 import { getAppScopedPath } from '@/shared/utils/app-route';
 import {
 	ADMIN_PANEL_TAB_IDS,
@@ -12,10 +14,57 @@ import {
 	normalizeStoredNavTabId,
 } from '@/shared/constants/admin-panel-tabs';
 import { playOrderNotificationSound, primeOrderNotificationAudio } from '../utils/playOrderNotificationSound';
+import { shouldPlayOrderSound } from '../../utils/orderNotificationPrefs';
 import { callGuardedRpc } from '../utils/rpcGuard';
 
 const ALL_ADMIN_TABS = ADMIN_PANEL_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
+
+const PRODUCT_PHOTOS_STORAGE_KEY = 'godcode-admin-products-show-photos';
+const ORDERS_VIEW_MODE_KEY = 'godcode-orders-view-mode';
+
+/** @returns {'mesas' | 'pedido'} */
+function normalizeOrdersViewMode(raw) {
+	if (raw === 'pedido' || raw === 'kanban') return 'pedido';
+	return 'mesas';
+}
+
+function ordersViewModeStorageKey(companyId, branchId) {
+	if (!branchId || branchId === 'all') return null;
+	return companyId
+		? `tenant-admin:${companyId}:ordersViewMode:${branchId}`
+		: `tenant-admin:local:ordersViewMode:${branchId}`;
+}
+
+/** @returns {'mesas' | 'pedido'} */
+function readOrdersViewModeForBranch(companyId, branchId) {
+	try {
+		const key = ordersViewModeStorageKey(companyId, branchId);
+		if (key) {
+			const stored = localStorage.getItem(key);
+			if (stored != null) return normalizeOrdersViewMode(stored);
+		}
+		const legacy = localStorage.getItem(ORDERS_VIEW_MODE_KEY);
+		if (legacy != null) {
+			const normalized = normalizeOrdersViewMode(legacy);
+			if (key) localStorage.setItem(key, normalized);
+			return normalized;
+		}
+	} catch {
+		/* ignore */
+	}
+	return 'mesas';
+}
+
+function readShowProductPhotosPreference() {
+	try {
+		const stored = localStorage.getItem(PRODUCT_PHOTOS_STORAGE_KEY);
+		if (stored === '0' || stored === 'false') return false;
+		return true;
+	} catch {
+		return true;
+	}
+}
 
 /** Tubería feliz: pending → active → completed → picked_up (cancelled se trata aparte). */
 const ORDER_PIPELINE_RANK = /** @type {const} */ ({ pending: 0, active: 1, completed: 2, picked_up: 3 });
@@ -113,11 +162,43 @@ export const AdminProvider = ({
 	const [branches, setBranches] = useState([]);
 	const [selectedBranch, setSelectedBranch] = useState(null);
 	const [isHistoryView, setIsHistoryView] = useState(false);
+	const [historyPeriod, setHistoryPeriod] = useState('week');
+	const [historyOrders, setHistoryOrders] = useState([]);
+	const [historyLoading, setHistoryLoading] = useState(false);
+	const [ordersViewMode, setOrdersViewModeState] = useState('mesas');
+	const setOrdersViewMode = useCallback((next) => {
+		const value = next === 'pedido' ? 'pedido' : 'mesas';
+		setOrdersViewModeState(value);
+		try {
+			const key = ordersViewModeStorageKey(companyId, selectedBranch?.id);
+			if (key) localStorage.setItem(key, value);
+		} catch {
+			/* ignore */
+		}
+	}, [companyId, selectedBranch?.id]);
+
+	useEffect(() => {
+		if (!selectedBranch?.id || selectedBranch.id === 'all') return;
+		setOrdersViewModeState(readOrdersViewModeForBranch(companyId, selectedBranch.id));
+	}, [companyId, selectedBranch?.id]);
+	const [isOpenMesaModal, setIsOpenMesaModal] = useState(false);
 	const [mobileTab, setMobileTab] = useState('pending');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filterCategory, setFilterCategory] = useState('all');
 	const [filterStatus, setFilterStatus] = useState('all');
 	const [viewMode, setViewMode] = useState('grid');
+	const [showProductPhotos, setShowProductPhotosState] = useState(readShowProductPhotosPreference);
+	const setShowProductPhotos = useCallback((next) => {
+		setShowProductPhotosState((prev) => {
+			const value = typeof next === 'function' ? next(prev) : next;
+			try {
+				localStorage.setItem(PRODUCT_PHOTOS_STORAGE_KEY, value ? '1' : '0');
+			} catch {
+				/* ignore quota / private mode */
+			}
+			return value;
+		});
+	}, []);
 	const [sortOrder, setSortOrder] = useState('name-asc');
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -295,20 +376,21 @@ export const AdminProvider = ({
 		showNotify('Tu correo está asignado a un local específico y no puedes cambiar de sucursal.', 'error');
 	}, [assignedBranchId, isBranchLocked, showNotify]);
 
-	const cashSystem = useCashSystem(showNotify, selectedBranch?.id);
+	const cashSystem = useCashSystem(showNotify, selectedBranch?.id, orders);
 
-	const verifyAdminAccess = useCallback(async () => {
-		const {
-			data: { user },
-			error: userError,
-		} = await supabase.auth.getUser();
+	const verifyAdminAccessTimerRef = useRef(null);
 
-		if (userError || !user?.email) {
-			setUserRole(null);
-			setUserEmail(null);
-			setAssignedBranchId(null);
-			navigate('/');
-			return;
+	const verifyAdminAccessCore = useCallback(async () => {
+		let user = getCurrentUser();
+		if (!user?.email) {
+			user = await bootstrapSession();
+			if (!user?.email) {
+				setUserRole(null);
+				setUserEmail(null);
+				setAssignedBranchId(null);
+				navigate('/');
+				return;
+			}
 		}
 
 		setUserEmail(user.email.trim().toLowerCase());
@@ -357,7 +439,7 @@ export const AdminProvider = ({
 		if (String(userRow.company_id) !== String(companyId)) {
 			setUserRole(null);
 			setAssignedBranchId(null);
-			await supabase.auth.signOut();
+			await logout();
 			navigate('/');
 			showNotify('Tu cuenta no pertenece a esta empresa.', 'error');
 			return;
@@ -371,7 +453,7 @@ export const AdminProvider = ({
 		if (!hasAllowedRole) {
 			setUserRole(null);
 			setAssignedBranchId(null);
-			await supabase.auth.signOut();
+			await logout();
 			navigate('/');
 			showNotify('No tienes permisos de administrador para este local', 'error');
 			return;
@@ -381,16 +463,24 @@ export const AdminProvider = ({
 		setAssignedBranchId(userRow?.branch_id || null);
 	}, [companyId, navigate, showNotify]);
 
+	const verifyAdminAccess = useCallback(() => {
+		if (verifyAdminAccessTimerRef.current) {
+			clearTimeout(verifyAdminAccessTimerRef.current);
+		}
+		verifyAdminAccessTimerRef.current = setTimeout(() => {
+			verifyAdminAccessTimerRef.current = null;
+			void verifyAdminAccessCore();
+		}, 400);
+	}, [verifyAdminAccessCore]);
+
 	useEffect(() => {
 		verifyAdminAccess();
 
-		const {
-			data: { subscription },
-		} = supabase.auth.onAuthStateChange((event) => {
-			if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+		const unsubscribe = onAuthEvent((event) => {
+			if (event === 'signed_in') {
 				verifyAdminAccess();
 			}
-			if (event === 'SIGNED_OUT') {
+			if (event === 'signed_out') {
 				setUserRole(null);
 				setUserEmail(null);
 				setAssignedBranchId(null);
@@ -399,7 +489,11 @@ export const AdminProvider = ({
 		});
 
 		return () => {
-			subscription.unsubscribe();
+			if (verifyAdminAccessTimerRef.current) {
+				clearTimeout(verifyAdminAccessTimerRef.current);
+				verifyAdminAccessTimerRef.current = null;
+			}
+			unsubscribe();
 		};
 	}, [navigate, verifyAdminAccess]);
 
@@ -458,13 +552,10 @@ export const AdminProvider = ({
 		setActiveTab(firstAllowedTab || 'orders');
 	}, [activeTab, allowedTabs, canAccessTab, dynamicModuleTabs, userRole]);
 
-	const loadData = useCallback(async (isRefresh = false) => {
+	const fetchPanelData = useCallback(async () => {
 		if (!selectedBranch) return;
 		if (!companyId) return;
-		if (isRefresh) setRefreshing(true);
-		else setLoading(true);
-		try {
-			const isAllBranches = selectedBranch.id === 'all';
+		const isAllBranches = selectedBranch.id === 'all';
 			// Cargar solo categorías del tenant actual; evita mezclar categorías legacy de otros tenants.
 			const categoriesQuery = supabase
 				.from(TABLES.categories)
@@ -475,8 +566,8 @@ export const AdminProvider = ({
 				categoriesQuery,
 				supabase.from(TABLES.products).select('*').eq('company_id', companyId).order('name'),
 				isAllBranches
-					? supabase.from(TABLES.orders).select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100)
-					: supabase.from(TABLES.orders).select('*').eq('company_id', companyId).eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }).limit(100),
+					? supabase.from(TABLES.orders).select(ORDERS_SELECT_WITH_COUPON).eq('company_id', companyId).order('created_at', { ascending: false }).limit(100)
+					: supabase.from(TABLES.orders).select(ORDERS_SELECT_WITH_COUPON).eq('company_id', companyId).eq('branch_id', selectedBranch.id).order('created_at', { ascending: false }).limit(100),
 				supabase.from(TABLES.clients).select('*').eq('company_id', companyId).order('last_order_at', { ascending: false }).limit(200)
 			];
 			if (!isAllBranches) {
@@ -557,13 +648,38 @@ export const AdminProvider = ({
 			);
 			setClients(allClients);
 			setLastDataRefreshAt(Date.now());
+	}, [selectedBranch, companyId]);
+
+	const loadData = useCallback(async (isRefresh = false) => {
+		if (!selectedBranch) return;
+		if (!companyId) return;
+		if (isRefresh) setRefreshing(true);
+		else setLoading(true);
+		try {
+			await fetchPanelData();
 		} catch {
-			showNotify("Error de conexión", 'error');
+			showNotify('Error de conexión', 'error');
 		} finally {
 			setLoading(false);
 			setRefreshing(false);
 		}
-	}, [showNotify, selectedBranch, companyId]);
+	}, [showNotify, selectedBranch, companyId, fetchPanelData]);
+
+	const refreshAllData = useCallback(async () => {
+		if (!selectedBranch || !companyId) return;
+		setRefreshing(true);
+		try {
+			await Promise.all([
+				fetchPanelData(),
+				refreshBranches(),
+				cashSystem.refresh?.() ?? Promise.resolve(),
+			]);
+		} catch {
+			showNotify('Error de conexión', 'error');
+		} finally {
+			setRefreshing(false);
+		}
+	}, [selectedBranch, companyId, fetchPanelData, refreshBranches, cashSystem, showNotify]);
 
 	const loadClientHistory = useCallback(async (client) => {
 		if (!client) return;
@@ -572,7 +688,7 @@ export const AdminProvider = ({
 		try {
 			const { data, error } = await supabase
 				.from(TABLES.orders)
-				.select('*')
+				.select(ORDERS_SELECT_WITH_COUPON)
 				.eq('client_id', client.id)
 				.eq('company_id', companyId)
 				.order('created_at', { ascending: false });
@@ -615,7 +731,9 @@ export const AdminProvider = ({
 
 			if (isSingleBranch) {
 				showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
-				playOrderNotificationSound();
+				if (shouldPlayOrderSound(newOrder)) {
+					playOrderNotificationSound();
+				}
 			} else {
 				const branchName =
 					(Array.isArray(branches) ? branches.find((b) => String(b.id) === bid)?.name : null) ||
@@ -636,7 +754,18 @@ export const AdminProvider = ({
 			const bid = orderRealtimeBranchId(raw);
 			if (isSingleBranch && bid != null && bid !== String(sid)) return;
 			if (!raw?.id) return;
-			setOrders((prev) => prev.map((o) => (o.id === raw.id ? sanitizeOrder(raw) : o)));
+			setOrders((prev) => prev.map((o) => {
+				if (o.id !== raw.id) return o;
+				const next = sanitizeOrder(raw);
+				if (
+					!next.coupon_code &&
+					o.coupon_code &&
+					next.discount_coupon_id === o.discount_coupon_id
+				) {
+					next.coupon_code = o.coupon_code;
+				}
+				return next;
+			}));
 			return;
 		}
 
@@ -666,7 +795,7 @@ export const AdminProvider = ({
 	useEffect(() => {
 		loadData();
 		const onVisibilityChange = () => {
-			if (document.visibilityState === 'visible' && !isModalOpen && !editingProduct) loadData(true);
+			if (document.visibilityState === 'visible' && !isModalOpen && !editingProduct) void refreshAllData();
 		};
 		document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -692,7 +821,7 @@ export const AdminProvider = ({
 			document.removeEventListener('visibilitychange', onVisibilityChange);
 			supabase.removeChannel(channel);
 		};
-	}, [loadData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
+	}, [loadData, refreshAllData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
 
 	const moveOrder = useCallback(async (orderId, nextStatus) => {
 		if (orderMoveInFlightRef.current.has(orderId)) return;
@@ -706,8 +835,26 @@ export const AdminProvider = ({
 				.eq('id', orderId)
 				.eq('company_id', companyId);
 			if (error) throw error;
+
+			const orderSelect =
+				'id, total, payment_type, payment_breakdown, payment_method_specific, client_name, branch_id, status';
+			const { data: freshOrder } = await supabase
+				.from(TABLES.orders)
+				.select(orderSelect)
+				.eq('id', orderId)
+				.eq('company_id', companyId)
+				.maybeSingle();
+			const targetOrder = freshOrder ?? previousRow;
+
 			if (nextStatus === 'active') {
-				const targetOrder = previousRow;
+				if (targetOrder && !isOrderPaymentDeferred(targetOrder)) {
+					const ok = await cashSystem.registerSale(targetOrder);
+					if (!ok) {
+						showNotify('No se pudo registrar la venta en caja', 'error');
+					}
+				}
+			}
+			if (nextStatus === 'picked_up') {
 				if (targetOrder) {
 					const ok = await cashSystem.registerSale(targetOrder);
 					if (!ok) {
@@ -716,11 +863,13 @@ export const AdminProvider = ({
 				}
 			}
 			if (nextStatus === 'cancelled') {
-				const targetOrder = previousRow;
-				if (targetOrder && (targetOrder.status === 'active' || targetOrder.status === 'completed' || targetOrder.status === 'picked_up')) {
+				if (targetOrder) {
 					const ok = await cashSystem.registerRefund(targetOrder);
 					if (!ok) {
-						showNotify('No se pudo registrar la devolucion en caja', 'error');
+						showNotify(
+							'Pedido cancelado, pero no se pudo registrar la devolución en caja. Revisa el turno y ajusta manualmente.',
+							'error',
+						);
 					}
 				}
 			}
@@ -734,6 +883,104 @@ export const AdminProvider = ({
 			orderMoveInFlightRef.current.delete(orderId);
 		}
 	}, [orders, cashSystem, showNotify, companyId]);
+
+	const loadHistoryOrders = useCallback(async () => {
+		if (!companyId || !selectedBranch?.id || selectedBranch.id === 'all') {
+			setHistoryOrders([]);
+			return;
+		}
+		setHistoryLoading(true);
+		try {
+			const range = resolveReportPeriodRange(historyPeriod);
+			let query = supabase
+				.from(TABLES.orders)
+				.select(ORDERS_SELECT_WITH_COUPON)
+				.eq('company_id', companyId)
+				.eq('branch_id', selectedBranch.id)
+				.in('status', ['picked_up', 'cancelled'])
+				.order('updated_at', { ascending: false });
+			if (range.fetchStartIso) {
+				query = query.gte('updated_at', range.fetchStartIso);
+			}
+			if (range.fetchEndIso) {
+				query = query.lt('updated_at', range.fetchEndIso);
+			}
+			const { data, error } = await query.limit(500);
+			if (error) throw error;
+			setHistoryOrders((data || []).map(sanitizeOrder));
+		} catch {
+			showNotify('No se pudo cargar el historial', 'error');
+			setHistoryOrders([]);
+		} finally {
+			setHistoryLoading(false);
+		}
+	}, [companyId, selectedBranch, historyPeriod, showNotify]);
+
+	useEffect(() => {
+		if (!isHistoryView) return;
+		void loadHistoryOrders();
+	}, [isHistoryView, loadHistoryOrders]);
+
+	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
+		if (!order?.id) return false;
+		try {
+			let nextOrder = order;
+			if (paymentPatch && !isOrderPaymentSettled(order)) {
+				const items = (order.items || []).map((item) => ({
+					id: item.id,
+					name: String(item.name ?? ''),
+					quantity: Number(item.quantity) || 1,
+					price: Number(item.price) || 0,
+					has_discount: Boolean(item.has_discount),
+					discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
+					description: item.description ? String(item.description) : null,
+					note: item.note ? String(item.note) : null,
+					manual_order_source: item.manual_order_source || null,
+					is_extra: Boolean(item.is_extra),
+				}));
+				const breakdown = buildPaymentBreakdownForOrder({
+					payment_mode: paymentPatch.payment_mode,
+					payment_type: paymentPatch.payment_type,
+					cash_amount: paymentPatch.cash_amount,
+					card_amount: paymentPatch.card_amount,
+					total: Number(order.total) || 0,
+				});
+				nextOrder = await ordersService.updateOrder(
+					order.id,
+					{
+						client_name: order.client_name,
+						client_phone: order.client_phone,
+						client_rut: order.client_rut,
+						items,
+						payment_type: paymentPatch.payment_type,
+						payment_breakdown: breakdown,
+						note: order.note,
+						order_type: order.order_type,
+						coupon_code: order.coupon_code,
+					},
+					{ prevStatus: order.status },
+				);
+				setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
+			}
+			const saleOk = await cashSystem.registerSale(nextOrder);
+			if (!saleOk) {
+				showNotify('No se pudo registrar la venta en caja', 'error');
+				return false;
+			}
+			const { error } = await supabase
+				.from(TABLES.orders)
+				.update({ status: 'picked_up' })
+				.eq('id', order.id)
+				.eq('company_id', companyId);
+			if (error) throw error;
+			setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...nextOrder, status: 'picked_up' } : o)));
+			showNotify('Mesa cerrada correctamente');
+			return true;
+		} catch (err) {
+			showNotify(err?.message || 'Error al cerrar la mesa', 'error');
+			return false;
+		}
+	}, [cashSystem, companyId, showNotify]);
 
 	const uploadReceiptToOrder = useCallback(async (orderId, file) => {
 		if (!file) return;
@@ -1132,11 +1379,16 @@ export const AdminProvider = ({
 		assignedBranchId,
 		isBranchLocked,
 		isHistoryView, setIsHistoryView,
+		historyPeriod, setHistoryPeriod,
+		historyOrders, historyLoading, loadHistoryOrders,
+		ordersViewMode, setOrdersViewMode,
+		isOpenMesaModal, setIsOpenMesaModal,
 		mobileTab, setMobileTab,
 		searchQuery, setSearchQuery,
 		filterCategory, setFilterCategory,
 		filterStatus, setFilterStatus,
 		viewMode, setViewMode,
+		showProductPhotos, setShowProductPhotos,
 		sortOrder, setSortOrder,
 		loading, setLoading,
 		refreshing, setRefreshing,
@@ -1157,9 +1409,11 @@ export const AdminProvider = ({
 		showNotify,
 		cashSystem,
 		loadData,
+		refreshAllData,
 		refreshBranches,
 		handleSelectClient,
 		moveOrder,
+		closeOrderSession,
 		uploadReceiptToOrder,
 		handleReceiptFileChange,
 		handleSaveProduct,
@@ -1192,11 +1446,12 @@ export const AdminProvider = ({
 	}), [
 		companyId,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
-		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, sortOrder,
+		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, showProductPhotos, setShowProductPhotos, sortOrder,
+		historyPeriod, historyOrders, historyLoading, ordersViewMode, isOpenMesaModal,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
 		notification, receiptModalOrder, receiptPreview, isManualOrderModalOpen, uploadingReceipt,
 		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, cashSystem,
-		loadData, refreshBranches, handleSelectClient, moveOrder, uploadReceiptToOrder, handleReceiptFileChange,
+		loadData, refreshAllData, refreshBranches, handleSelectClient, moveOrder, closeOrderSession, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
 		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, normalizedPanelAccess, kanbanColumns, processedProducts, productStats, inventoryBranchRows, normalizedDynamicModules,

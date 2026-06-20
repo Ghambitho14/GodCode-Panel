@@ -69,12 +69,6 @@ export const BusinessProvider = ({ children }) => {
 
     const loading = loadingBranches;
 
-    useEffect(() => {
-        if (typeof document !== 'undefined' && businessInfo.name) {
-            document.title = businessInfo.name;
-        }
-    }, [businessInfo.name]);
-
     const value = useMemo(() => ({
         businessInfo,
         loading,

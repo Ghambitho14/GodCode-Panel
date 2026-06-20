@@ -7,9 +7,10 @@ import AdminIconSlot from './AdminIconSlot';
 import { downloadExcel } from '@/shared/utils/exportUtils';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
-import { formatMoneyCl } from '@/shared/utils/numberSafe';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
+    const { formatMoney } = useBranchMoney();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -551,7 +552,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 </td>
                                 <td className="text-center" data-label="Gasto Total">
                                     <span className="text-success font-semibold">
-                                        ${formatMoneyCl(client.total_spent)}
+                                        {formatMoney(client.total_spent)}
                                     </span>
                                 </td>
                                 <td data-label="Última vez">

@@ -5,10 +5,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
-
+lerna-debug.log
+.pnpm-store
 node_modules
 dist
+dev-dist
 dist-ssr
 *.local
 
@@ -31,4 +32,12 @@ env.example
 docs
 dist
 AGENTS.es.md
-AGENTS.md
+AGENTS.md.pnpm-store/
+dev-dist/
+scripts/
+
+# Test artifacts
+coverage
+test-results
+playwright-report
+playwright/.cache
