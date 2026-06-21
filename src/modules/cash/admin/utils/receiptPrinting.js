@@ -3,6 +3,7 @@ import {
 	deliveryAddressLines,
 	getPaymentLabel,
 	isOrderDelivery,
+	isOrderPaymentDeferred,
 } from '@/shared/utils/orderUtils';
 
 function orderCurrency(order) {
@@ -243,17 +244,16 @@ function summarizeAmounts(order) {
  * @returns {string}
  */
 function ticketPaymentStatusLabel(order) {
+	if (isOrderPaymentDeferred(order)) {
+		return 'pendiente';
+	}
 	if (order?.payment_type === 'online') {
 		const ref = order?.payment_ref;
-		if (typeof ref === 'string' && ref.startsWith('http')) {
-			return 'Pagado (comprobante)';
+		if (!(typeof ref === 'string' && ref.startsWith('http'))) {
+			return 'pendiente';
 		}
-		return 'No pagado';
 	}
-	if (order?.payment_type === 'tarjeta') {
-		return 'Pago con tarjeta';
-	}
-	return 'Pago en local';
+	return `pagado con ${getPaymentLabel(order)}`;
 }
 
 /**
@@ -525,7 +525,6 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 	const refLineHtml = clientReferenceLineHtml(order);
 	const { itemsSubtotal, deliveryFee, grandTotal, discountTotal } = summarizeAmounts(order);
 	const payStatusEsc = escapeHtml(ticketPaymentStatusLabel(order));
-	const payDetailLine = escapeHtml(`${getPaymentLabel(order)} ${fmtOrder(order, grandTotal)}`);
 
 	const footerRaw = printOptions.ticketFooterLine != null ? String(printOptions.ticketFooterLine).trim() : '';
 	const footerLine = footerRaw || 'panel administrativo GodCode';
@@ -844,8 +843,6 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			</div>
 			<div class="c-pay-block">
 				<p class="c-pay-row">Estado de pago: ${payStatusEsc}</p>
-				<div class="c-pay-strong"><span>Total a pagar</span><span>${fmtOrder(order, grandTotal)}</span></div>
-				<p class="c-pay-detail">${payDetailLine}</p>
 			</div>
 			${safeOrderNote ? `<div class="c-note">NOTA: ${safeOrderNote}</div>` : ''}
 			<div class="c-foot">${footerHtml}</div>
