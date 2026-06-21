@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, TABLES, bootstrapSession, getCurrentUser, logout, onAuthEvent } from '@/integrations/supabase';
 import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
 import { useCashSystem } from '../../hooks/useCashSystem';
-import { ORDERS_SELECT_WITH_COUPON, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
+import { ORDERS_SELECT_WITH_COUPON, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
 import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
 import { ordersService } from '../orders/services/orders';
 import { getAppScopedPath } from '@/shared/utils/app-route';
@@ -1087,7 +1087,7 @@ export const AdminProvider = ({
 			cash_amount: paymentPatch.cash_amount,
 			card_amount: paymentPatch.card_amount,
 			total: Number(order.total) || 0,
-		});
+		}) ?? buildSettlementPaymentBreakdown(paymentPatch.payment_type, Number(order.total) || 0);
 		const nextOrder = await ordersService.updateOrder(
 			order.id,
 			{

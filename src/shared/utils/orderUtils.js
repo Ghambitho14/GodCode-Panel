@@ -101,6 +101,10 @@ export function getOrderPaymentBreakdown(order) {
 		return { cash: 0, card: 0, online: 0 };
 	}
 
+	if (isMenuOrderAwaitingPayment(order)) {
+		return { cash: 0, card: 0, online: 0 };
+	}
+
 	const stored = normalizePaymentBreakdown(order.payment_breakdown);
 	if (isMixedPaymentBreakdown(stored)) {
 		return stored;
@@ -728,10 +732,63 @@ export function isLocalOpenSessionOrder(order) {
 	return true;
 }
 
+/**
+ * Comprobante de transferencia subido (menú web).
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {boolean}
+ */
+function hasMenuOnlinePaymentReceipt(order) {
+	const ref = order?.payment_ref;
+	return typeof ref === 'string' && ref.startsWith('http');
+}
+
+/**
+ * Preferencia de pago presencial indicada en checkout del menú (`payment_method_specific`).
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {'tienda' | 'tarjeta' | ''}
+ */
+function menuInPersonPaymentPreferenceType(order) {
+	const specific = String(order?.payment_method_specific ?? '').trim().toLowerCase();
+	if (specific === 'efectivo') return 'tienda';
+	if (specific === 'tarjeta') return 'tarjeta';
+	return '';
+}
+
+/**
+ * Pedido del menú web que aún no fue cobrado en caja (o sin comprobante de transferencia).
+ * `payment_method_specific` es preferencia del cliente, no cobro real.
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {boolean}
+ */
+export function isMenuOrderAwaitingPayment(order) {
+	if (!isMenuOrder(order)) return false;
+
+	if (isOnlineOrder(order)) {
+		return !hasMenuOnlinePaymentReceipt(order);
+	}
+
+	const stored = order?.payment_breakdown;
+	if (stored != null && typeof stored === 'object' && !Array.isArray(stored)) {
+		const b = normalizePaymentBreakdown(stored);
+		if (b.cash > 0 || b.card > 0 || b.online > 0) {
+			return false;
+		}
+	}
+
+	const pt = String(order.payment_type ?? '').trim().toLowerCase();
+	const preference = menuInPersonPaymentPreferenceType(order);
+	if (preference && pt !== preference && pt !== 'pendiente') {
+		return false;
+	}
+
+	return true;
+}
+
 /** @param {{ payment_type?: string }} order */
 export function isOrderPaymentDeferred(order) {
 	if (!order) return false;
-	return String(order.payment_type ?? '').trim().toLowerCase() === 'pendiente';
+	if (String(order.payment_type ?? '').trim().toLowerCase() === 'pendiente') return true;
+	return isMenuOrderAwaitingPayment(order);
 }
 
 /** @param {Record<string, unknown>} order */
@@ -839,7 +896,24 @@ export function getOrderTileKind(order) {
 	return getOrderFulfillmentKind(order);
 }
 
-/** Pedido con pago ya definido (menú online u otro) listo para confirmar al cerrar. */
+/**
+ * Desglose a persistir al cobrar un pedido del menú en caja (método único).
+ * @param {string | null | undefined} paymentType
+ * @param {number | string | null | undefined} total
+ * @returns {PaymentBreakdown | null}
+ */
+export function buildSettlementPaymentBreakdown(paymentType, total) {
+	const amount = Math.round(Number(total) || 0);
+	if (amount <= 0) return null;
+	const method = paymentTypeToBreakdownMethod(paymentType);
+	return {
+		cash: method === 'cash' ? amount : 0,
+		card: method === 'card' ? amount : 0,
+		online: method === 'online' ? amount : 0,
+	};
+}
+
+/** Pedido con pago ya definido y listo para confirmar al cerrar. */
 export function isOrderPaymentSettled(order) {
 	if (!order || isOrderPaymentDeferred(order)) return false;
 	const breakdown = getOrderPaymentBreakdown(order);

@@ -25,6 +25,8 @@ import {
 	isCajaGenericIdentity,
 	isOrderPaymentDeferred,
 	isOrderPaymentSettled,
+	isMenuOrderAwaitingPayment,
+	buildSettlementPaymentBreakdown,
 	isLocalOpenSessionOrder,
 	countOpenOrderSessions,
 	filterOpenOrderSessions,
@@ -307,6 +309,81 @@ describe("orderUtils", () => {
 
 	it("isOrderPaymentSettled is false for deferred payment", () => {
 		expect(isOrderPaymentSettled({ payment_type: "pendiente", total: 5000 })).toBe(false);
+	});
+
+	it("menu web orders with card/cash preference are not settled until collected", () => {
+		const menuTarjeta = {
+			payment_method_specific: "tarjeta",
+			payment_type: "tarjeta",
+			total: 8000,
+		};
+		expect(isMenuOrderAwaitingPayment(menuTarjeta)).toBe(true);
+		expect(isOrderPaymentDeferred(menuTarjeta)).toBe(true);
+		expect(isOrderPaymentSettled(menuTarjeta)).toBe(false);
+		expect(getOrderPaymentBreakdown(menuTarjeta)).toEqual({ cash: 0, card: 0, online: 0 });
+
+		const menuEfectivo = {
+			payment_method_specific: "efectivo",
+			payment_type: "tienda",
+			total: 5000,
+		};
+		expect(isMenuOrderAwaitingPayment(menuEfectivo)).toBe(true);
+		expect(isOrderPaymentSettled(menuEfectivo)).toBe(false);
+
+		const cobradoEnCaja = {
+			payment_method_specific: "tarjeta",
+			payment_type: "tarjeta",
+			payment_breakdown: { cash: 0, card: 8000, online: 0 },
+			total: 8000,
+		};
+		expect(isMenuOrderAwaitingPayment(cobradoEnCaja)).toBe(false);
+		expect(isOrderPaymentSettled(cobradoEnCaja)).toBe(true);
+
+		const cobradoOtroMetodo = {
+			payment_method_specific: "tarjeta",
+			payment_type: "tienda",
+			total: 8000,
+		};
+		expect(isMenuOrderAwaitingPayment(cobradoOtroMetodo)).toBe(false);
+		expect(isOrderPaymentSettled(cobradoOtroMetodo)).toBe(true);
+	});
+
+	it("menu web transfer orders need receipt URL to be settled", () => {
+		const sinComprobante = {
+			payment_type: "online",
+			payment_method_specific: "transferencia_bancaria",
+			payment_ref: "Comprobante pendiente por WhatsApp",
+			total: 12000,
+		};
+		expect(isMenuOrderAwaitingPayment(sinComprobante)).toBe(true);
+		expect(isOrderPaymentSettled(sinComprobante)).toBe(false);
+
+		const conComprobante = {
+			payment_type: "online",
+			payment_method_specific: "transferencia_bancaria",
+			payment_ref: "https://cdn.example/receipt.jpg",
+			total: 12000,
+		};
+		expect(isMenuOrderAwaitingPayment(conComprobante)).toBe(false);
+		expect(isOrderPaymentSettled(conComprobante)).toBe(true);
+	});
+
+	it("panel manual orders stay settled without payment_method_specific", () => {
+		expect(isOrderPaymentSettled({ payment_type: "tienda", total: 3000 })).toBe(true);
+		expect(isMenuOrderAwaitingPayment({ payment_type: "tienda", total: 3000 })).toBe(false);
+	});
+
+	it("buildSettlementPaymentBreakdown maps single method to breakdown", () => {
+		expect(buildSettlementPaymentBreakdown("tarjeta", 5000)).toEqual({
+			cash: 0,
+			card: 5000,
+			online: 0,
+		});
+		expect(buildSettlementPaymentBreakdown("tienda", 3000)).toEqual({
+			cash: 3000,
+			card: 0,
+			online: 0,
+		});
 	});
 
 	it("countOpenOrderSessions counts only open statuses for branch", () => {
