@@ -15,7 +15,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
         <div className="modal-body" style={{ padding: '20px 0' }}>
           <div style={{ textAlign: 'center', marginBottom: 25 }}>
             <div style={{ 
-              width: 60, height: 60, borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', 
+              width: 60, height: 60, borderRadius: '50%', background: 'rgba(244, 162, 97, 0.1)', 
               color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' 
             }}>
               <AlertTriangle size={32} />

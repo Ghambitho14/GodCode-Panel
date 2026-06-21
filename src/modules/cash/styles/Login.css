@@ -906,7 +906,7 @@
 /* --- Login split: caja = tema oscuro + acento producto; admin = azul / blanco --- */
 
 .login-shell.login-shell--split[data-mode="admin"] {
-    --login-accent: #2563eb;
+    --login-accent: #3b82f6;
     background:
         radial-gradient(900px 480px at 12% 18%, rgba(147, 197, 253, 0.45), transparent 62%),
         radial-gradient(720px 420px at 88% 72%, rgba(191, 219, 254, 0.35), transparent 58%),
@@ -1134,7 +1134,7 @@
 .login-slide-card[data-mode="admin"] .login-sliding-panel {
     left: 58%;
     border-radius: 0 24px 24px 0;
-    background: linear-gradient(155deg, #1e40af 0%, #2563eb 42%, #0ea5e9 100%);
+    background: linear-gradient(155deg, #1e40af 0%, #3b82f6 42%, #0ea5e9 100%);
     border-right: none;
     border-left: none;
     box-shadow:
@@ -1267,7 +1267,7 @@
 }
 
 .login-slide-card[data-mode="admin"] .login-form .form-input:focus {
-    border-color: #2563eb;
+    border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
@@ -1287,7 +1287,7 @@
 }
 
 .login-slide-card[data-mode="admin"] .login-submit-button.btn-primary {
-    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 55%, #0ea5e9 100%);
+    background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #0ea5e9 100%);
     box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
 }
 

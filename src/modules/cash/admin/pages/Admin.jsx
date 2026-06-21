@@ -55,6 +55,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     isBranchLocked,
     isHistoryView, setIsHistoryView,
     ordersViewMode,
+    ordersPanelSettingsReady,
+    localOrderChannels,
     historyPeriod, setHistoryPeriod,
     historyOrders, historyLoading,
     isOpenMesaModal, setIsOpenMesaModal,
@@ -86,6 +88,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     handleSelectClient,
     moveOrder,
     closeOrderSession,
+    markOrderSessionPaid,
     uploadReceiptToOrder,
     handleReceiptFileChange,
     handleSaveProduct,
@@ -478,7 +481,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <PlusCircle size={18} /> Abrir mesa
+                  <PlusCircle size={18} /> {ordersViewMode === 'mesas' ? 'Abrir mesa' : 'Nuevo pedido'}
                 </button>
               </div>
             )}
@@ -539,12 +542,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
           !isHistoryView ? (
-            ordersViewMode === 'mesas' ? (
+            !ordersPanelSettingsReady ? (
+            <AdminTabFallback />
+            ) : ordersViewMode === 'mesas' ? (
             <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
               <AdminTablesGrid
                 orders={orders}
                 moveOrder={moveOrder}
                 closeOrderSession={closeOrderSession}
+                markOrderSessionPaid={markOrderSessionPaid}
                 branch={selectedBranch}
                 clients={clients}
                 logoUrl={logoUrl}
@@ -552,6 +558,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 showNotify={showNotify}
                 products={products}
                 categories={categories}
+                localOrderChannels={localOrderChannels}
                 onOrderSaved={() => loadData(true)}
               />
             </AdminErrorBoundary>
@@ -571,6 +578,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 showNotify={showNotify}
                 products={products}
                 categories={categories}
+                localOrderChannels={localOrderChannels}
                 onOrderSaved={() => loadData(true)}
               />
             </AdminErrorBoundary>
@@ -1034,7 +1042,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       {/* MODAL COMPROBANTE (EXISTENTE) */}
       {receiptModalOrder && (
         <div className="admin-panel-overlay" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }}>
-          <div className="admin-side-panel glass animate-slide-in" style={{ maxWidth: 450 }} onClick={e => e.stopPropagation()}>
+          <div className="admin-side-panel admin-receipt-side-panel glass animate-slide-in" onClick={e => e.stopPropagation()}>
             <div className="admin-side-header">
               <h3>Comprobante de Pago</h3>
               <button onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></button>
@@ -1115,6 +1123,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         logoUrl={logoUrl}
         companyName={companyName}
         openMesaMode
+        localOrderChannels={localOrderChannels}
       />
 
       {isModalOpen && (

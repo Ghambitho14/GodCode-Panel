@@ -154,6 +154,33 @@ describe('ordersService security refactor', () => {
 		}
 	});
 
+	it('createOrder passes p_order_type salon when local_fulfillment_mode is mesa', async () => {
+		setupCreateOrderMocks();
+		rpcMock.mockResolvedValueOnce({
+			data: { id: 103, total: 7500 },
+			error: null,
+		});
+
+		await ordersService.createOrder({
+			branch_id: BRANCH_ID,
+			company_id: 'company-1',
+			client_name: 'Pedro',
+			client_phone: '+56 9 0000 0000',
+			client_rut: '1-9',
+			payment_type: 'pendiente',
+			order_type: 'pickup',
+			local_fulfillment_mode: 'mesa',
+			items: [{ id: PRODUCT_ID, name: 'Pizza', price: 7500, quantity: 1 }],
+		});
+
+		expect(rpcMock).toHaveBeenCalledWith(
+			'create_order_transaction',
+			expect.objectContaining({
+				p_order_type: 'salon',
+			}),
+		);
+	});
+
 	it('createOrder passes selected_client_id to RPC when provided', async () => {
 		setupCreateOrderMocks();
 		rpcMock.mockResolvedValueOnce({

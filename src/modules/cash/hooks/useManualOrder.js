@@ -9,13 +9,21 @@ import { buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import { normalizeManualPhone } from '../services/clientService';
-import { sanitizeManualOrderInput, computeDeliveryFeeForForm, resolveOpenMesaClientName, OPEN_MESA_DEFAULT_CLIENT_NAMES } from './manual-order/manualOrderShared';
+import {
+    sanitizeManualOrderInput,
+    computeDeliveryFeeForForm,
+    resolveOpenMesaClientName,
+    resolveOpenMesaCheckoutPayment,
+    getLocalFulfillmentMode,
+    isOpenMesaMeseroMode,
+    OPEN_MESA_CAJA_DEFAULTS,
+} from './manual-order/manualOrderShared';
 
 /**
  * Hook orquestador principal del pedido manual.
  * Delega lógicas específicas a sub-hooks especializados y expone una API unificada compatible.
  */
-export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false, localOrderChannels = null) => {
     
     // 1. Sub-hook para el Carrito
     const {
@@ -37,6 +45,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         updateCouponCode,
         updateNote,
         updateOrderType,
+        updateLocalFulfillmentMode,
+        updateMesaPartyMode,
         updateDeliveryAddress,
         updateDeliveryReference,
         updateDeliveryKm,
@@ -47,6 +57,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         updateCashAmount,
         updateCardAmount,
         updateCashTendered,
+        updateChargeNow,
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,
@@ -54,7 +65,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         resetForm,
         resetOpenMesaForm,
         getInputStyle
-    } = useManualOrderForm();
+    } = useManualOrderForm(localOrderChannels);
 
     // 3. Sub-hook para Cupones
     const {
@@ -125,6 +136,25 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         updateDeliveryFee,
     ]);
 
+    const handleUpdateLocalFulfillmentMode = useCallback((mode) => {
+        updateLocalFulfillmentMode(mode, branchDeliveryCfg, total);
+        if (mode === 'delivery' && branchDeliveryCfg) {
+            const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
+                orderType: 'delivery',
+                namedAreaId: form.delivery_named_area_id,
+                deliveryKm: form.delivery_km,
+            });
+            if (fee != null) updateDeliveryFee(fee);
+        }
+    }, [
+        updateLocalFulfillmentMode,
+        updateDeliveryFee,
+        branchDeliveryCfg,
+        total,
+        form.delivery_named_area_id,
+        form.delivery_km,
+    ]);
+
     const handleUpdateOrderType = useCallback((val, cfg = branchDeliveryCfg, subtotal = total) => {
         updateOrderType(val, cfg, subtotal);
         if (openMesaMode && !String(form.selected_client_id ?? '').trim()) {
@@ -190,13 +220,27 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
                 showNotify('Agrega al menos un producto', 'error');
                 return;
             }
-            const isSalonPreset =
-                form.order_type !== 'delivery' &&
-                !String(form.selected_client_id ?? '').trim() &&
-                String(form.client_name ?? '').trim() === OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup;
-            if (!isSalonPreset && !String(form.selected_client_id ?? '').trim() && !String(form.client_name ?? '').trim()) {
-                showNotify('Busca y selecciona un cliente registrado o escribe un nombre', 'error');
-                return;
+            const isMesero = isOpenMesaMeseroMode(form);
+            if (isMesero) {
+                const meseroName = String(form.client_name ?? '').trim();
+                if (meseroName.length < 2) {
+                    showNotify('Indica el nombre del mesero', 'error');
+                    return;
+                }
+            } else {
+                const hasClient =
+                    Boolean(String(form.selected_client_id ?? '').trim()) ||
+                    Boolean(String(form.client_name ?? '').trim()) ||
+                    form.order_type === 'delivery';
+                if (!hasClient) {
+                    showNotify('Busca y selecciona un cliente registrado o escribe un nombre', 'error');
+                    return;
+                }
+                const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
+                if (!form.client_rut || !validateRut(form.client_rut) || digitCount < 11) {
+                    showNotify('Faltan datos de cliente o son incorrectos (RUT y teléfono)', 'error');
+                    return;
+                }
             }
         } else {
             const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
@@ -250,16 +294,32 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
 
         setLoading(true);
         try {
+            const openMesaMesero = openMesaMode && isOpenMesaMeseroMode(form);
             const clientName = openMesaMode
-                ? sanitizeManualOrderInput(resolveOpenMesaClientName(form.order_type, form.client_name))
+                ? sanitizeManualOrderInput(
+                    resolveOpenMesaClientName(
+                        form.order_type,
+                        form.client_name,
+                        getLocalFulfillmentMode(form),
+                    ),
+                )
                 : sanitizeManualOrderInput(form.client_name);
             const sanitizedOrder = {
                 ...form,
                 items,
                 total,
                 client_name: clientName,
-                client_phone: openMesaMode ? '' : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)),
-                client_rut: openMesaMode ? '' : sanitizeManualOrderInput(form.client_rut),
+                client_phone: openMesaMode
+                    ? (openMesaMesero
+                        ? OPEN_MESA_CAJA_DEFAULTS.client_phone
+                        : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)))
+                    : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)),
+                client_rut: openMesaMode
+                    ? (openMesaMesero
+                        ? OPEN_MESA_CAJA_DEFAULTS.client_rut
+                        : sanitizeManualOrderInput(form.client_rut))
+                    : sanitizeManualOrderInput(form.client_rut),
+                local_fulfillment_mode: getLocalFulfillmentMode(form),
                 note: sanitizeManualOrderInput(form.note),
                 branch_id: branch.id,
                 company_id: branch.company_id,
@@ -327,8 +387,9 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
             sanitizedOrder.total = checkoutTotal;
 
             if (openMesaMode) {
-                sanitizedOrder.payment_type = 'pendiente';
-                sanitizedOrder.payment_breakdown = null;
+                const paymentFields = resolveOpenMesaCheckoutPayment(form, checkoutTotal);
+                sanitizedOrder.payment_type = paymentFields.payment_type;
+                sanitizedOrder.payment_breakdown = paymentFields.payment_breakdown;
             } else {
                 sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({
                     payment_mode: form.payment_mode,
@@ -339,12 +400,19 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
                 });
             }
 
-            const result = await createManualOrder(sanitizedOrder, openMesaMode ? null : receiptFile);
+            const result = await createManualOrder(
+                sanitizedOrder,
+                openMesaMode && !form.charge_now ? null : receiptFile,
+            );
             const createdOrder = result?.order ?? result;
 
             showNotify(
                 openMesaMode
-                    ? (form.order_type === 'delivery' ? 'Delivery abierto' : 'Mesa abierta')
+                    ? ({
+                        mesa: 'Mesa abierta',
+                        retiro: 'Retiro abierto',
+                        delivery: 'Delivery abierto',
+                    }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta')
                     : 'Pedido creado con éxito',
                 'success',
             );
@@ -379,6 +447,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         updateCashAmount,
         updateCardAmount,
         updateCashTendered,
+        updateChargeNow,
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,
@@ -390,6 +459,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         removeItem,
         updateItemNote,
         updateOrderType: handleUpdateOrderType,
+        updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode,
+        updateMesaPartyMode,
         updateDeliveryAddress,
         updateDeliveryReference,
         updateDeliveryKm: handleUpdateDeliveryKm,

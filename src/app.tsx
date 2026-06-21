@@ -3,6 +3,7 @@ import { AppShell } from "./modules/cash/app-shell";
 import { AdminApp } from "./modules/cash/admin/admin-app";
 import { LoginShell } from "./modules/auth/login-shell";
 
+import "./modules/cash/styles/fulfillment-colors.css";
 import "./modules/cash/styles/AdminLayout.css";
 import "./modules/cash/styles/index.css";
 import "./modules/cash/styles/AdminShared.css";

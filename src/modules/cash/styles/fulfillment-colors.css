@@ -1,0 +1,17 @@
+/* Mesa violeta · Retiro verde · Delivery amarillo — tokens globales */
+:root,
+.tenant-theme-vars,
+.admin-layout,
+.admin-layout .cash-container,
+.table-session-modal-portal,
+.manual-order-portal-scope {
+	--fulfillment-delivery-fg: #d97706;
+	--fulfillment-delivery-bg: rgba(245, 158, 11, 0.12);
+	--fulfillment-delivery-border: rgba(245, 158, 11, 0.35);
+	--fulfillment-retiro-fg: #15803d;
+	--fulfillment-retiro-bg: rgba(37, 211, 102, 0.1);
+	--fulfillment-retiro-border: rgba(37, 211, 102, 0.28);
+	--fulfillment-mesa-fg: #7c3aed;
+	--fulfillment-mesa-bg: rgba(167, 139, 250, 0.12);
+	--fulfillment-mesa-border: rgba(167, 139, 250, 0.28);
+}

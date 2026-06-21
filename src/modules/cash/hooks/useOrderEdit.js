@@ -14,7 +14,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { validateImageFile } from '@/shared/utils/cloudinary';
 import { formatRut, validateRut } from '@/shared/utils/formatters';
-import { flattenDeliveryAddress, isOrderDelivery, isOrderPaymentDeferred, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
+import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { ordersService } from '../admin/orders/services/orders';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { buildCouponPreview } from '@/lib/discount-coupon';
@@ -27,8 +27,16 @@ import {
 	COUPON_PREVIEW_ERR_MSG,
 	getEffectiveItemPrice,
 	OPEN_MESA_DEFAULT_CLIENT_NAMES,
+	OPEN_MESA_CAJA_DEFAULTS,
+	applyLocalFulfillmentMode,
+	applyMesaPartyMode,
+	deriveLocalFulfillmentFromOrder,
+	deriveMesaPartyModeFromOrder,
+	getLocalFulfillmentMode,
+	isOpenMesaMeseroMode,
 	mergeAddressIntoForm,
 	normalizeManualOrderType,
+	resolveOpenMesaClientName,
 	sanitizeManualOrderInput,
 } from './manual-order/manualOrderShared';
 
@@ -92,6 +100,8 @@ function buildInitialState(initialOrder) {
 	const orderType = isOrderDelivery(initialOrder)
 		? 'delivery'
 		: normalizeManualOrderType(initialOrder.channel ?? 'pickup');
+	const localFulfillmentMode = deriveLocalFulfillmentFromOrder(initialOrder);
+	const mesaPartyMode = deriveMesaPartyModeFromOrder(initialOrder);
 	const flatAddr = flattenDeliveryAddress(initialOrder.delivery_address);
 	const storedBreakdown = isMixedPaymentBreakdown(initialOrder.payment_breakdown)
 		? normalizePaymentBreakdown(initialOrder.payment_breakdown)
@@ -109,6 +119,8 @@ function buildInitialState(initialOrder) {
 		card_amount: storedBreakdown?.card ?? 0,
 		cash_tendered: '',
 		order_type: orderType,
+		local_fulfillment_mode: localFulfillmentMode,
+		mesa_party_mode: mesaPartyMode,
 		delivery_address: orderType === 'delivery' ? flatAddr.delivery_address : '',
 		delivery_reference: orderType === 'delivery' ? flatAddr.delivery_reference : '',
 		delivery_km: '',
@@ -305,6 +317,10 @@ export const useOrderEdit = (
 			}
 			return next;
 		});
+	const updateLocalFulfillmentMode = (mode, cfg = null, subtotal = 0) =>
+		setManualOrder((prev) => applyLocalFulfillmentMode(prev, mode, cfg, subtotal));
+	const updateMesaPartyMode = (mode) =>
+		setManualOrder((prev) => applyMesaPartyMode(prev, mode));
 	const updateDeliveryAddress = (val) =>
 		setManualOrder((prev) => ({ ...prev, delivery_address: val, selected_address_id: '' }));
 	const updateDeliveryReference = (val) =>
@@ -604,8 +620,8 @@ export const useOrderEdit = (
 		// (sobre todo los que entran desde la web publica) que se crearon sin
 		// RUT o con telefono incompleto. Solo exigimos nombre + items; RUT y
 		// telefono se validan SOLO si el cajero los llena.
-		const isDeferredSession = isOrderPaymentDeferred(initialOrder);
-		if (isDeferredSession) {
+		const isLocalSession = isLocalOpenSessionOrder(initialOrder);
+		if (isLocalSession) {
 			if (!hasMesaSessionClientName(manualOrder) || manualOrder.items.length === 0) {
 				showNotify?.('Faltan datos obligatorios (cliente/mesa o items).', 'error');
 				return;
@@ -642,6 +658,16 @@ export const useOrderEdit = (
 
 		setLoading(true);
 		try {
+			const openMesaMesero = isLocalSession && isOpenMesaMeseroMode(manualOrder);
+			const clientName = isLocalSession
+				? sanitizeManualOrderInput(
+					resolveOpenMesaClientName(
+						manualOrder.order_type,
+						manualOrder.client_name,
+						getLocalFulfillmentMode(manualOrder),
+					),
+				)
+				: sanitizeManualOrderInput(manualOrder.client_name);
 			const itemsForOrder = (manualOrder.items || []).map((item) => ({
 				id: item.id,
 				name: String(item.name ?? ''),
@@ -668,16 +694,29 @@ export const useOrderEdit = (
 					: 0;
 			const checkoutTotal = Math.max(0, manualOrder.total - couponDisc + deliveryFeeAmt);
 
+			const initialBreakdown = isMixedPaymentBreakdown(initialOrder.payment_breakdown)
+				? normalizePaymentBreakdown(initialOrder.payment_breakdown)
+				: null;
+
 			const sanitizedPatch = {
-				client_name: sanitizeManualOrderInput(manualOrder.client_name),
-				client_phone: isDeferredSession
-					? ''
+				client_name: clientName,
+				client_phone: isLocalSession
+					? (openMesaMesero
+						? OPEN_MESA_CAJA_DEFAULTS.client_phone
+						: normalizeManualPhone(sanitizeManualOrderInput(manualOrder.client_phone)))
 					: normalizeManualPhone(sanitizeManualOrderInput(manualOrder.client_phone)),
-				client_rut: isDeferredSession ? '' : sanitizeManualOrderInput(manualOrder.client_rut),
+				client_rut: isLocalSession
+					? (openMesaMesero
+						? OPEN_MESA_CAJA_DEFAULTS.client_rut
+						: sanitizeManualOrderInput(manualOrder.client_rut))
+					: sanitizeManualOrderInput(manualOrder.client_rut),
 				note: sanitizeManualOrderInput(manualOrder.note),
 				order_type: manualOrder.order_type,
+				local_fulfillment_mode: getLocalFulfillmentMode(manualOrder),
 				items: itemsForOrder,
-				payment_type: isDeferredSession ? 'pendiente' : manualOrder.payment_type,
+				payment_type: isLocalSession
+					? String(initialOrder.payment_type ?? 'pendiente')
+					: manualOrder.payment_type,
 				delivery_address_base:
 					manualOrder.order_type === 'delivery' ? initialOrder.delivery_address : null,
 				delivery_address:
@@ -698,8 +737,8 @@ export const useOrderEdit = (
 						? Number(String(manualOrder.delivery_km).replace(',', '.'))
 						: null,
 				coupon_code: sanitizeManualOrderInput(manualOrder.coupon_code) || '',
-				payment_breakdown: isDeferredSession
-					? null
+				payment_breakdown: isLocalSession
+					? initialBreakdown
 					: buildPaymentBreakdownForOrder({
 						payment_mode: manualOrder.payment_mode,
 						payment_type: manualOrder.payment_type,
@@ -791,6 +830,8 @@ export const useOrderEdit = (
 		removeItem,
 		updateItemNote,
 		updateOrderType,
+		updateLocalFulfillmentMode,
+		updateMesaPartyMode,
 		updateDeliveryAddress,
 		updateDeliveryReference,
 		updateDeliveryKm,

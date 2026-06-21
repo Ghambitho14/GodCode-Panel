@@ -305,12 +305,12 @@
 /* Tienda / salir */
 .admin-layout .nav-item.logout {
 	margin-top: 12px;
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 }
 
 .admin-layout .nav-item.logout .nav-icon-slot {
 	background: rgba(220, 38, 38, 0.08);
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 }
 
 .admin-layout .nav-item.logout:hover {

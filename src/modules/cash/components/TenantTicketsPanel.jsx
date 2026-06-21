@@ -58,7 +58,7 @@ function getMessageDisplay(m) {
 export default function TenantTicketsPanel({ 
   showNotify, 
   primaryColor = '#000000', 
-  secondaryColor = '#2563eb' 
+  secondaryColor = '#3b82f6' 
 }) {
   // --- Estados ---
   const [tickets, setTickets] = React.useState([]);

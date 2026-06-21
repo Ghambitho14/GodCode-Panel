@@ -107,7 +107,7 @@
 }
 
 .product-image-section.error-border {
-  border-color: #ff4444;
+  border-color: #ef4444;
   animation: shake 0.4s ease-in-out;
 }
 
@@ -187,7 +187,7 @@
 }
 
 .btn-icon-overlay {
-  background: #ff4444;
+  background: #ef4444;
   color: white;
   width: 40px;
   height: 40px;
@@ -202,7 +202,7 @@
 
 .btn-icon-overlay:hover {
   transform: scale(1.1);
-  background: #dc2626;
+  background: #ef4444;
 }
 
 .overlay-text {
@@ -249,7 +249,7 @@
 }
 
 .form-input.error {
-  border-color: #ff4444;
+  border-color: #ef4444;
   background: rgba(255, 68, 68, 0.05);
 }
 
@@ -266,7 +266,7 @@
 
 .error-text {
   font-size: 0.75rem;
-  color: #ff4444;
+  color: #ef4444;
   margin-left: 4px;
   font-weight: 500;
 }
@@ -588,8 +588,8 @@
 }
 
 .admin-layout .modal-content .product-modal-switch-row--offer-on {
-	background: rgba(22, 163, 74, 0.08);
-	border-color: rgba(22, 163, 74, 0.32);
+	background: rgba(37, 211, 102, 0.08);
+	border-color: rgba(37, 211, 102, 0.32);
 }
 
 /* “Especial”: track encendido con acento de marca (no el verde por defecto del admin) */
@@ -786,7 +786,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: #ff4444;
+  color: #ef4444;
   border: 1px solid rgba(255, 68, 68, 0.2);
   border-radius: 8px;
   cursor: pointer;
@@ -795,7 +795,7 @@
 
 .btn-remove-recipe:hover {
   background: rgba(255, 68, 68, 0.1);
-  border-color: #ff4444;
+  border-color: #ef4444;
 }
 
 .recipe-empty {

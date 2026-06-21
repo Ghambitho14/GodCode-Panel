@@ -132,13 +132,13 @@
 }
 
 .admin-layout .history-view .admin-history-session--mesa {
-	background: rgba(37, 211, 102, 0.12);
-	color: #128c7e;
+	background: var(--fulfillment-mesa-bg, rgba(167, 139, 250, 0.12));
+	color: var(--fulfillment-mesa-fg, #7c3aed);
 }
 
 .admin-layout .history-view .admin-history-session--moto {
-	background: rgba(230, 57, 70, 0.1);
-	color: #c1121f;
+	background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
+	color: var(--fulfillment-delivery-fg, #f4a261);
 }
 
 .admin-layout .history-view .select-wrapper {
@@ -205,7 +205,7 @@
 
 .admin-layout .history-view .data-table .admin-history-total {
 	font-weight: 700;
-	color: var(--admin-success, #16a34a);
+	color: var(--admin-success, #25d366);
 	font-variant-numeric: tabular-nums;
 }
 
@@ -479,13 +479,17 @@
     height: 100svh;
     height: 100dvh;
     width: 100%;
-    max-width: 480px;
+    max-width: min(480px, 96vw);
     background: var(--admin-card-bg, #fff);
     border-left: 1px solid var(--card-border);
     display: flex;
     flex-direction: column;
     z-index: 2001;
     box-shadow: -12px 0 48px rgba(15, 23, 42, 0.12);
+}
+
+.admin-layout .admin-receipt-side-panel {
+    max-width: min(450px, 96vw);
 }
 
 .admin-layout .admin-side-panel * {

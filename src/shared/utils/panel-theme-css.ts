@@ -8,6 +8,8 @@ import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
  *   <style>{buildTenantThemeCss({ theme_config })}</style>
  *   <div className="tenant-theme-vars"> ... </div>
  *
+ * También aplica a `.manual-order-portal-scope` (modal portaleado en body).
+ *
  * Si `theme_config` es null o le faltan campos, cada token cae a su default
  * y la UI sigue viendose como hoy (no rompe nada).
  */
@@ -53,5 +55,5 @@ export function buildTenantThemeCss(company: CompanyRow | null): string {
 	const backgroundImage = backgroundImageUrl
 		? `url(${backgroundImageUrl}), url(/tenant/menu-pattern.webp)`
 		: "url(/tenant/menu-pattern.webp)";
-	return `.tenant-theme-vars{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:${sanitizeCssValue(backgroundImage)};}`;
+	return `.tenant-theme-vars,.manual-order-portal-scope{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:${sanitizeCssValue(backgroundImage)};}`;
 }

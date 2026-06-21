@@ -8,12 +8,15 @@ import {
     isOperatingLocalExpense,
 } from '../../utils/cashMovementKinds';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { getPaymentLabel } from '@/shared/utils/orderUtils';
+import { getPaymentLabel, getOrderTileKind, getFulfillmentKindLabel } from '@/shared/utils/orderUtils';
 import { getClosedShiftReconciliation, diffCounted } from '../../utils/shiftCloseReconciliation';
 import { isCourierPayoutMovement } from '../../utils/cashTotals';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import AdminIconSlot from '../AdminIconSlot';
+import PickupBagIcon from '../PickupBagIcon';
+import TableRestaurantIcon from '../TableRestaurantIcon';
+import DeliveryMotoIcon from '../DeliveryMotoIcon';
 
 const PaymentMethodChip = ({ Icon, label, value }) => (
     <div className="cash-shift-detail-method-chip">
@@ -52,10 +55,11 @@ const PAYMENT_LABEL_SHORT = {
     PayPal: 'PayPal',
 };
 
-function movementPaymentLabel(m) {
+function movementPaymentLabel(m, linkedOrder = null) {
     if (m.type === 'cancel') return '—';
-    if (m.orders) {
-        const label = getPaymentLabel(m.orders);
+    const order = linkedOrder ?? m.orders;
+    if (order) {
+        const label = getPaymentLabel(order);
         if (label.startsWith('Mixto')) return 'Mixto';
         return PAYMENT_LABEL_SHORT[label] || label;
     }
@@ -71,6 +75,20 @@ function formatMovementDateTime(iso) {
         date: d.toLocaleDateString('es-CL', { dateStyle: 'short' }),
         time: d.toLocaleTimeString('es-CL', { timeStyle: 'short' }),
     };
+}
+
+function resolveMovementOrder(movement, ordersList = []) {
+    const embedded = movement?.orders;
+    if (embedded && !Array.isArray(embedded) && embedded.id) return embedded;
+    if (Array.isArray(embedded) && embedded[0]?.id) return embedded[0];
+    return getOrderForMovement(movement, ordersList);
+}
+
+function FulfillmentTypeIcon({ kind, size = 12 }) {
+    if (kind === 'moto') return <DeliveryMotoIcon size={size} aria-hidden />;
+    if (kind === 'mesa') return <TableRestaurantIcon size={size} aria-hidden />;
+    if (kind === 'retiro') return <PickupBagIcon size={size} aria-hidden />;
+    return null;
 }
 
 const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], onMovementClick }) => {
@@ -471,16 +489,21 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                     <tbody>
                                         {movementsWithCancellations.map((m) => {
                                             const movementDatetime = formatMovementDateTime(m.created_at);
-                                            const paymentLabel = movementPaymentLabel(m);
+                                            const linkedOrder = resolveMovementOrder(m, orders);
+                                            const fulfillmentKind =
+                                                linkedOrder && m.type !== 'cancel'
+                                                    ? getOrderTileKind(linkedOrder)
+                                                    : null;
+                                            const paymentLabel = movementPaymentLabel(m, linkedOrder);
                                             const paymentTitle =
-                                                m.orders && m.type !== 'cancel'
-                                                    ? getPaymentLabel(m.orders)
+                                                linkedOrder && m.type !== 'cancel'
+                                                    ? getPaymentLabel(linkedOrder)
                                                     : paymentLabel;
                                             const clickable =
                                                 Boolean(onMovementClick) &&
                                                 isMovementOrderClickable(m, orders);
                                             const orderForRow = clickable
-                                                ? getOrderForMovement(m, orders)
+                                                ? (linkedOrder ?? getOrderForMovement(m, orders))
                                                 : null;
                                             const handleRowActivate = () => {
                                                 if (clickable && onMovementClick) onMovementClick(m);
@@ -488,7 +511,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                             return (
                                             <tr
                                                 key={m.id}
-                                                className={`movement-row${m.type === 'cancel' ? ' movement-row--cancelled' : ''}${clickable ? ' movement-row--clickable' : ''}`}
+                                                className={`movement-row${m.type === 'cancel' ? ' movement-row--cancelled' : ''}${clickable ? ' movement-row--clickable' : ''}${fulfillmentKind ? ` movement-row--fulfillment-${fulfillmentKind}` : ''}`}
                                                 onClick={clickable ? handleRowActivate : undefined}
                                                 onKeyDown={
                                                     clickable
@@ -522,12 +545,17 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                     <div className="cash-shift-detail-movement-row">
                                                         <div className="cash-shift-detail-movement-main">
                                                             <span
-                                                                className={`movement-type type-${m.type === 'cancel' ? 'cancel' : m.type}`}
+                                                                className={`movement-type type-${m.type === 'cancel' ? 'cancel' : m.type}${fulfillmentKind ? ` movement-type--fulfillment-${fulfillmentKind}` : ''}`}
                                                             >
                                                                 {m.type === 'cancel' ? (
                                                                     <>
                                                                         <XCircle size={12} aria-hidden />
                                                                         Cancelado
+                                                                    </>
+                                                                ) : fulfillmentKind && m.type === 'sale' ? (
+                                                                    <>
+                                                                        <FulfillmentTypeIcon kind={fulfillmentKind} />
+                                                                        {getFulfillmentKindLabel(fulfillmentKind)}
                                                                     </>
                                                                 ) : (
                                                                     movementTypeLabel(m)
@@ -542,14 +570,14 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                         </span>
                                                                     ) : null}
                                                                 </div>
-                                                                {m.orders ? (
+                                                                {linkedOrder ? (
                                                                     <div className="cash-shift-detail-movement-order">
                                                                         <span className="cash-shift-detail-movement-order__client">
-                                                                            {m.orders.client_name || 'Cliente casual'}
+                                                                            {linkedOrder.client_name || 'Cliente casual'}
                                                                         </span>
-                                                                        {Array.isArray(m.orders.items) && m.orders.items.length > 0 ? (
+                                                                        {Array.isArray(linkedOrder.items) && linkedOrder.items.length > 0 ? (
                                                                             <span className="cash-shift-detail-movement-order__items">
-                                                                                {m.orders.items
+                                                                                {linkedOrder.items
                                                                                     .map(
                                                                                         (i) =>
                                                                                             `${i.quantity}x ${(i.name ?? '').split(' (')[0]}`
@@ -557,9 +585,9 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                                     .join(', ')}
                                                                             </span>
                                                                         ) : null}
-                                                                        {Number(m.orders.delivery_fee) > 0 ? (
+                                                                        {Number(linkedOrder.delivery_fee) > 0 ? (
                                                                             <span className="cash-shift-detail-movement-order__delivery">
-                                                                                Envío: {fmtHist(m.orders.delivery_fee)}
+                                                                                Envío: {fmtHist(linkedOrder.delivery_fee)}
                                                                             </span>
                                                                         ) : null}
                                                                     </div>
@@ -570,9 +598,6 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                             className="cash-shift-detail-movement-pay"
                                                             title={paymentTitle}
                                                         >
-                                                            <span className="cash-shift-detail-movement-pay__method">
-                                                                {paymentLabel}
-                                                            </span>
                                                             {m.type === 'cancel' ? (
                                                                 <span className="cash-shift-detail-amount-cancel">—</span>
                                                             ) : (
@@ -587,6 +612,11 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                     {fmtHist(m.amount)}
                                                                 </span>
                                                             )}
+                                                            {m.type !== 'cancel' ? (
+                                                                <span className="cash-shift-detail-movement-pay__method">
+                                                                    {paymentLabel}
+                                                                </span>
+                                                            ) : null}
                                                         </div>
                                                     </div>
                                                 </td>

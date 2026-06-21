@@ -4,6 +4,7 @@ import {
 	mergeDeliverySettingsJson,
 	normalizeDeliverySettings,
 	parseInventoryEnforceOnSale,
+	parseLocalOrderChannels,
 	parseOrdersViewMode,
 } from '@/lib/delivery-settings';
 import { isTenantExternalDeliveryAllowed } from '@/lib/company-integration-policy';
@@ -76,6 +77,7 @@ function settingsResponse(deliverySettingsRaw, origin) {
 		cartGlobalExtrasCatalog: cart.cartGlobalExtrasCatalog,
 		inventoryEnforceOnSale: parseInventoryEnforceOnSale(deliverySettingsRaw),
 		ordersViewMode: parseOrdersViewMode(deliverySettingsRaw),
+		localOrderChannels: parseLocalOrderChannels(deliverySettingsRaw),
 	};
 }
 
@@ -135,6 +137,9 @@ function buildPatchFromBody(body) {
 	if ('ordersViewMode' in body) {
 		const mode = body.ordersViewMode === 'pedido' ? 'pedido' : body.ordersViewMode === 'mesas' ? 'mesas' : null;
 		if (mode) patch.ordersViewMode = mode;
+	}
+	if ('localOrderChannels' in body && body.localOrderChannels && typeof body.localOrderChannels === 'object') {
+		patch.localOrderChannels = parseLocalOrderChannels(body.localOrderChannels);
 	}
 	return patch;
 }

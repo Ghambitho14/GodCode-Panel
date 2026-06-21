@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle2, MessageCircle, ShoppingBag } from 'lucide-react';
+import { X, CheckCircle2, MessageCircle, ShoppingBag, Banknote } from 'lucide-react';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { useOrderEdit } from '../hooks/useOrderEdit';
 import { branchSettingsService } from '../services/branchSettingsService';
 import { normalizeDeliverySettings, effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
-import { OPEN_MESA_DEFAULT_CLIENT_NAMES } from '../hooks/manual-order/manualOrderShared';
-import { buildDeliveryAddressRecord, validateCheckoutPayment, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { getLocalFulfillmentMode, isOpenMesaMeseroMode, isOpenOrderSessionStatus } from '../hooks/manual-order/manualOrderShared';
+import {
+    buildDeliveryAddressRecord,
+    validateCheckoutPayment,
+    isLocalOpenSessionOrder,
+    isOrderPaymentDeferred,
+    getPaymentLabel,
+} from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
@@ -17,6 +23,8 @@ import ManualOrderCatalog from './manual-order/ManualOrderCatalog';
 import ClientForm from './manual-order/ClientForm';
 import OrderSummary from './manual-order/OrderSummary';
 import PaymentDetails from './manual-order/PaymentDetails';
+import CloseTableModal from './CloseTableModal';
+import { ADMIN_MOBILE_MQ } from '../constants/responsive';
 
 function branchFlag(map, branchId, defaultOn = true) {
     if (!branchId || !map || typeof map !== 'object') return defaultOn;
@@ -65,7 +73,6 @@ const ManualOrderModal = ({
     categories = [],
     clients = [],
     editOrder = null,
-    initialStep = 1,
     moveOrder = null,
     onOrderSaved,
     showNotify,
@@ -74,12 +81,19 @@ const ManualOrderModal = ({
     companyName,
     resyncOrderSale = null,
     openMesaMode = false,
+    localOrderChannels = null,
 }) => {
-    const { userRole } = useAdmin();
+    const { userRole, markOrderSessionPaid, orders } = useAdmin();
     const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
     const isEditMode = Boolean(editOrder?.id);
-    const isMesaSessionEdit = isEditMode && isOrderPaymentDeferred(editOrder);
-    const effectiveOpenMesaMode = openMesaMode || isMesaSessionEdit;
+    const liveEditOrder = useMemo(() => {
+        if (!editOrder?.id) return editOrder;
+        return orders.find((o) => o.id === editOrder.id) ?? editOrder;
+    }, [editOrder, orders]);
+    const isLocalSessionEdit = isEditMode && isLocalOpenSessionOrder(liveEditOrder);
+    const effectiveOpenMesaMode = openMesaMode || isLocalSessionEdit;
+    const showClassicPaymentStep = !effectiveOpenMesaMode;
+    const showOpenMesaPaymentChoice = openMesaMode && !isEditMode;
     // --- ESTADOS LOCALES DE CONFIGURACIÓN Y CATÁLOGO DE UPSELL ---
     const [branchDeliveryCfg, setBranchDeliveryCfg] = useState(null);
     const [branchDeliveryCfgLoading, setBranchDeliveryCfgLoading] = useState(false);
@@ -99,6 +113,7 @@ const ManualOrderModal = ({
         branchDeliveryCfg,
         userRole,
         openMesaMode,
+        localOrderChannels,
     );
 
     const editHook = useOrderEdit(
@@ -116,55 +131,54 @@ const ManualOrderModal = ({
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
         updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType,
-        updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered,
+        updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow,
         handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
         updateItemNote,
-        updateOrderType, updateDeliveryAddress, updateDeliveryReference, updateDeliveryKm,
+        updateOrderType, updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference, updateDeliveryKm,
         updateDeliveryFee, updateDeliveryNamedAreaId,
         applyClientRecord,
         applySavedAddress,
         submitOrder, resetOrder, getInputStyle,
     } = isEditMode ? editHook : createHook;
 
+    const openMesaChargeNow = showOpenMesaPaymentChoice && Boolean(manualOrder?.charge_now);
+
     // --- WIZARD (2 pasos: Productos + Checkout) ---
     const [orderStep, setOrderStep] = useState(1);
     const [isCompactNav, setIsCompactNav] = useState(() => {
         if (typeof window === 'undefined') return false;
-        return window.matchMedia('(max-width: 767px)').matches;
+        return window.matchMedia(ADMIN_MOBILE_MQ).matches;
     });
 
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
+    const [payModalOpen, setPayModalOpen] = useState(false);
     const wasOpenRef = useRef(false);
 
-    const wizardStepCount = effectiveOpenMesaMode
-        ? 2
-        : (isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
+    const sessionPaymentDeferred = isEditMode && isOrderPaymentDeferred(liveEditOrder);
+    const canMarkPaidSession =
+        isLocalSessionEdit &&
+        Boolean(markOrderSessionPaid) &&
+        sessionPaymentDeferred &&
+        isOpenOrderSessionStatus(liveEditOrder?.status);
 
-    const resolveOpenStep = (compact) => {
-        if (!isEditMode) return 1;
-        const n = Number(initialStep);
-        if (!Number.isFinite(n)) return 1;
-        const rounded = Math.round(n);
-        const maxSteps = compact ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS;
-        const legacyMapped = compact
-            ? (rounded >= 3 ? 3 : Math.max(1, rounded))
-            : (rounded >= 3 ? 2 : rounded);
-        return Math.min(maxSteps, Math.max(1, legacyMapped));
-    };
+    const wizardStepCount = effectiveOpenMesaMode
+        ? (openMesaChargeNow && isCompactNav ? 3 : 2)
+        : (isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
 
     useEffect(() => {
         if (isOpen && !wasOpenRef.current) {
             resetOrder();
-            setOrderStep(resolveOpenStep(isCompactNav));
+            setOrderStep(1);
+            setPayModalOpen(false);
         }
         wasOpenRef.current = isOpen;
-    }, [isOpen, resetOrder, isEditMode, initialStep, isCompactNav]);
+    }, [isOpen, resetOrder]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        const mq = window.matchMedia('(max-width: 767px)');
+        const mq = window.matchMedia(ADMIN_MOBILE_MQ);
         const sync = () => setIsCompactNav(mq.matches);
         sync();
         mq.addEventListener('change', sync);
@@ -302,22 +316,36 @@ const ManualOrderModal = ({
         manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
     const totalToPay = Math.max(0, (manualOrder.total ?? 0) - couponDiscountApplied + deliveryFeeAmt);
 
+    const openMesaFulfillment = effectiveOpenMesaMode ? getLocalFulfillmentMode(manualOrder) : null;
     const openMesaSubmitLabel = loading
         ? (isEditMode ? 'GUARDANDO…' : 'ABRIENDO…')
         : isEditMode
             ? 'GUARDAR CAMBIOS'
-            : (manualOrder.order_type === 'delivery' ? 'ABRIR DELIVERY' : 'ABRIR MESA');
+            : ({
+                mesa: 'ABRIR MESA',
+                retiro: 'ABRIR RETIRO',
+                delivery: 'ABRIR DELIVERY',
+            }[openMesaFulfillment ?? 'mesa'] ?? 'ABRIR MESA');
 
-    const isOpenMesaSalonPreset = () =>
-        manualOrder.order_type !== 'delivery' &&
-        !String(manualOrder.selected_client_id ?? '').trim() &&
-        String(manualOrder.client_name ?? '').trim() === OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup;
+    const isOpenMesaMesero = () =>
+        effectiveOpenMesaMode && isOpenMesaMeseroMode(manualOrder);
 
-    const hasOpenMesaClientName = () =>
-        isOpenMesaSalonPreset() ||
-        Boolean(String(manualOrder.selected_client_id ?? '').trim()) ||
-        Boolean(String(manualOrder.client_name ?? '').trim()) ||
-        manualOrder.order_type === 'delivery';
+    const hasOpenMesaClientName = () => {
+        if (isOpenMesaMesero()) {
+            return String(manualOrder.client_name ?? '').trim().length >= 2;
+        }
+        return (
+            Boolean(String(manualOrder.selected_client_id ?? '').trim()) ||
+            Boolean(String(manualOrder.client_name ?? '').trim()) ||
+            manualOrder.order_type === 'delivery'
+        );
+    };
+
+    const isOpenMesaContactValid = () => {
+        if (!effectiveOpenMesaMode || isOpenMesaMesero()) return true;
+        const exactRutLength = manualOrder.client_rut?.trim().length || 0;
+        return exactRutLength > 0 && rutValid && phoneValid === true;
+    };
 
     const isDeliveryValidForOrder = () => {
         if (manualOrder.order_type !== 'delivery') return true;
@@ -358,17 +386,20 @@ const ManualOrderModal = ({
             ? hasOpenMesaClientName()
             : Boolean(manualOrder.client_name && manualOrder.client_name.trim().length >= 3);
         const hasPaymentType = !!manualOrder.payment_type;
-        const paymentOk = effectiveOpenMesaMode ? true : isPaymentValid();
+        const paymentOk = effectiveOpenMesaMode
+            ? (openMesaChargeNow ? isPaymentValid() && manualOrder.payment_type !== 'pendiente' : true)
+            : isPaymentValid();
 
         if (isEditMode) {
             if (effectiveOpenMesaMode) {
-                return hasItems && hasClientName && isDeliveryValidForOrder();
+                return hasItems && hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
             }
             return hasItems && hasClientName && hasPaymentType && paymentOk;
         }
 
         if (effectiveOpenMesaMode) {
-            return hasItems && hasClientName && isDeliveryValidForOrder();
+            const base = hasItems && hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
+            return openMesaChargeNow ? base && hasPaymentType && paymentOk : base;
         }
 
         const exactRutLength = manualOrder.client_rut?.trim().length || 0;
@@ -382,7 +413,9 @@ const ManualOrderModal = ({
         const hasClientName = effectiveOpenMesaMode
             ? hasOpenMesaClientName()
             : Boolean(manualOrder.client_name && manualOrder.client_name.trim().length >= 3);
-        if (effectiveOpenMesaMode) return hasClientName && isDeliveryValidForOrder();
+        if (effectiveOpenMesaMode) {
+            return hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
+        }
         return Boolean(hasClientName && isDeliveryValidForOrder());
     };
 
@@ -401,9 +434,18 @@ const ManualOrderModal = ({
             return;
         }
 
-        if (isCompactNav && orderStep === 2 && !effectiveOpenMesaMode) {
+        if (isCompactNav && orderStep === 2 && showClassicPaymentStep) {
             if (!isClientStepValid()) {
                 showNotify?.('Completa el nombre del cliente y los datos de entrega.', 'warning');
+                return;
+            }
+            setOrderStep(3);
+            return;
+        }
+
+        if (isCompactNav && orderStep === 2 && openMesaChargeNow) {
+            if (!isClientStepValid()) {
+                showNotify?.('Completa los datos del cliente.', 'warning');
                 return;
             }
             setOrderStep(3);
@@ -420,6 +462,13 @@ const ManualOrderModal = ({
         editOrder?.id &&
         String(editOrder?.status ?? '').toLowerCase() !== 'cancelled',
     );
+
+    const handleMarkPaidConfirm = async (targetOrder, paymentPatch) => {
+        if (!markOrderSessionPaid) return false;
+        const result = await markOrderSessionPaid(targetOrder, paymentPatch);
+        if (result) setPayModalOpen(false);
+        return Boolean(result);
+    };
 
     const handleCancelOrder = async () => {
         if (!canCancelOrder || loading) return;
@@ -453,7 +502,9 @@ const ManualOrderModal = ({
     const stepLabels = effectiveOpenMesaMode
         ? (isEditMode
             ? (isCompactNav ? ['Productos', 'Mesa'] : ['Productos', 'Editar sesión'])
-            : (isCompactNav ? ['Productos', 'Mesa'] : ['Productos', 'Abrir mesa']))
+            : (openMesaChargeNow && isCompactNav
+                ? ['Productos', 'Cliente', 'Pago']
+                : (isCompactNav ? ['Productos', 'Pedido'] : ['Productos', 'Pedido'])))
         : (isCompactNav
             ? ['Productos', 'Cliente', 'Pago']
             : ['Productos', 'Cliente y pago']);
@@ -495,6 +546,8 @@ const ManualOrderModal = ({
             branchDeliveryCfg={branchDeliveryCfg}
             clients={clients}
             updateOrderType={updateOrderType}
+            updateLocalFulfillmentMode={updateLocalFulfillmentMode}
+            updateMesaPartyMode={updateMesaPartyMode}
             updateDeliveryAddress={updateDeliveryAddress}
             updateDeliveryReference={updateDeliveryReference}
             updateDeliveryKm={updateDeliveryKm}
@@ -513,6 +566,8 @@ const ManualOrderModal = ({
             canOverrideDeliveryFee={canEditDeliveryFee}
             openMesaMode={effectiveOpenMesaMode}
             branchDeliveryCfgLoading={branchDeliveryCfgLoading}
+            enabledLocalChannels={localOrderChannels}
+            isEditMode={isEditMode}
         />
     );
 
@@ -596,7 +651,9 @@ const ManualOrderModal = ({
         loading,
         isFormValid,
         goPrevStep,
-        confirmLabel: isEditMode ? 'GUARDAR CAMBIOS' : 'CONFIRMAR PEDIDO',
+        confirmLabel: openMesaChargeNow
+            ? openMesaSubmitLabel
+            : (isEditMode ? 'GUARDAR CAMBIOS' : (effectiveOpenMesaMode ? openMesaSubmitLabel : 'CONFIRMAR PEDIDO')),
         onCancelOrder: canCancelOrder ? handleCancelOrder : null,
         isEditMode,
         hideCheckoutActions: false,
@@ -675,7 +732,7 @@ const ManualOrderModal = ({
                     >
                         Atrás
                     </button>
-                    {effectiveOpenMesaMode ? (
+                    {effectiveOpenMesaMode && !openMesaChargeNow ? (
                         <button
                             type="button"
                             className="manual-order-confirm-btn manual-order-mobile-dock__confirm"
@@ -683,6 +740,15 @@ const ManualOrderModal = ({
                             disabled={loading || !isFormValid()}
                         >
                             {openMesaSubmitLabel}
+                        </button>
+                    ) : effectiveOpenMesaMode && openMesaChargeNow ? (
+                        <button
+                            type="button"
+                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                            onClick={goNextStep}
+                            disabled={!isClientStepValid()}
+                        >
+                            Siguiente
                         </button>
                     ) : (
                         <button
@@ -696,7 +762,7 @@ const ManualOrderModal = ({
                     )}
                 </div>
             ) : null}
-            {orderStep === 3 ? (
+            {orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
                 <div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--confirm">
                     <button
                         type="button"
@@ -721,7 +787,7 @@ const ManualOrderModal = ({
                         onClick={submitOrder}
                         disabled={loading || !isFormValid()}
                     >
-                        {loading ? 'PROCESANDO...' : (isEditMode ? 'GUARDAR' : 'CONFIRMAR')}
+                        {loading ? 'PROCESANDO...' : (openMesaChargeNow ? openMesaSubmitLabel : (isEditMode ? 'GUARDAR' : 'CONFIRMAR'))}
                     </button>
                 </div>
             ) : null}
@@ -755,6 +821,67 @@ const ManualOrderModal = ({
                     </div>
                     {effectiveOpenMesaMode ? (
                         <div className="manual-order-checkout-col manual-order-checkout-col--payment">
+                            {showOpenMesaPaymentChoice ? (
+                                <div className="manual-order-section manual-order-section--flat">
+                                    <div className="manual-order-section-title">
+                                        <Banknote size={14} aria-hidden />
+                                        PAGO
+                                    </div>
+                                    <div className="manual-order-order-type-toggle manual-order-order-type-toggle--name">
+                                        <button
+                                            type="button"
+                                            className={`manual-order-order-type-btn${!manualOrder.charge_now ? ' is-active' : ''}`}
+                                            onClick={() => updateChargeNow?.(false)}
+                                        >
+                                            Pago pendiente
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`manual-order-order-type-btn${manualOrder.charge_now ? ' is-active' : ''}`}
+                                            onClick={() => updateChargeNow?.(true)}
+                                        >
+                                            Ya pagado
+                                        </button>
+                                    </div>
+                                    <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                                        {manualOrder.charge_now
+                                            ? 'Registra el método de pago al abrir la sesión.'
+                                            : 'El cobro se registra al cerrar la mesa, retiro o delivery.'}
+                                    </p>
+                                </div>
+                            ) : null}
+                            {isEditMode && isLocalSessionEdit ? (
+                                <div className="manual-order-section manual-order-section--flat">
+                                    <div className="manual-order-section-title">
+                                        <Banknote size={14} aria-hidden />
+                                        PAGO
+                                    </div>
+                                    {sessionPaymentDeferred ? (
+                                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                                            El cobro se registra al cerrar la mesa, retiro o delivery.
+                                        </p>
+                                    ) : (
+                                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                                            {getPaymentLabel(liveEditOrder)}
+                                        </p>
+                                    )}
+                                    {canMarkPaidSession ? (
+                                        <button
+                                            type="button"
+                                            className="table-session-receipt__cta"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPayModalOpen(true);
+                                            }}
+                                        >
+                                            Marcar pagado
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                            {openMesaChargeNow ? (
+                                <PaymentDetails {...paymentDetailsProps} hideCheckoutActions />
+                            ) : null}
                             <button
                                 type="button"
                                 className="manual-order-confirm-btn"
@@ -845,7 +972,7 @@ const ManualOrderModal = ({
                                 {noteSection}
                             </div>
                         ) : null}
-                        {orderStep === 3 ? (
+                        {orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
                             <div className="manual-order-mobile-panel manual-order-mobile-panel--payment">
                                 <OrderSummary {...orderSummaryProps} />
                                 <PaymentDetails {...paymentDetailsMobileProps} />
@@ -868,7 +995,21 @@ const ManualOrderModal = ({
 
     if (typeof document === 'undefined') return null;
     return createPortal(
-        <div className="manual-order-portal-scope">{modalUi}</div>,
+        <div className="manual-order-portal-scope">
+            {modalUi}
+            {payModalOpen && liveEditOrder ? (
+                <CloseTableModal
+                    isOpen
+                    intent="pay"
+                    stackAboveManualOrder
+                    onClose={() => setPayModalOpen(false)}
+                    order={liveEditOrder}
+                    branch={branch}
+                    showNotify={showNotify}
+                    onConfirm={handleMarkPaidConfirm}
+                />
+            ) : null}
+        </div>,
         document.body,
     );
 };

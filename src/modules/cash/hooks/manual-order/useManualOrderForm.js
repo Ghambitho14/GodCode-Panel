@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { formatRut, validateRut } from '@/shared/utils/formatters';
+import { firstEnabledLocalChannel, parseLocalOrderChannels } from '@/lib/delivery-settings';
 import {
     normalizeManualPhone,
     fetchClientAddresses,
@@ -7,7 +8,9 @@ import {
 import {
     MANUAL_ORDER_INITIAL_FORM_STATE,
     mergeAddressIntoForm,
-    OPEN_MESA_DEFAULT_CLIENT_NAMES,
+    OPEN_MESA_CAJA_DEFAULTS,
+    applyLocalFulfillmentMode,
+    applyMesaPartyMode,
 } from './manualOrderShared';
 
 const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
@@ -17,7 +20,15 @@ const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
  * nombre del cliente, RUT (formateo y validación), teléfono, notas del pedido, tipo de despacho,
  * dirección de entrega, kilómetros, tarifas y comprobantes de pago.
  */
-export const useManualOrderForm = () => {
+export const useManualOrderForm = (enabledLocalChannels = null) => {
+    const resolvedChannels = useMemo(
+        () => parseLocalOrderChannels(enabledLocalChannels),
+        [
+            enabledLocalChannels?.mesa,
+            enabledLocalChannels?.retiro,
+            enabledLocalChannels?.delivery,
+        ],
+    );
     const [form, setForm] = useState(() => ({ ...initialFormState }));
     const [rutValid, setRutValid] = useState(true);
     const [phoneValid, setPhoneValid] = useState(true);
@@ -80,6 +91,14 @@ export const useManualOrderForm = () => {
             }
             return next;
         });
+    }, []);
+
+    const updateLocalFulfillmentMode = useCallback((mode, branchDeliveryCfg = null, subtotal = 0) => {
+        setForm((prev) => applyLocalFulfillmentMode(prev, mode, branchDeliveryCfg, subtotal));
+    }, []);
+
+    const updateMesaPartyMode = useCallback((mode) => {
+        setForm((prev) => applyMesaPartyMode(prev, mode));
     }, []);
 
     const updateDeliveryAddress = useCallback((val) => {
@@ -153,6 +172,20 @@ export const useManualOrderForm = () => {
         }
         const parsed = Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
         setForm(prev => ({ ...prev, cash_tendered: parsed }));
+    }, []);
+
+    const updateChargeNow = useCallback((enabled) => {
+        setForm((prev) => ({
+            ...prev,
+            charge_now: Boolean(enabled),
+            payment_type: enabled
+                ? (prev.payment_type === 'pendiente' ? 'tienda' : prev.payment_type)
+                : 'pendiente',
+            payment_mode: 'single',
+            cash_amount: 0,
+            card_amount: 0,
+            cash_tendered: '',
+        }));
     }, []);
 
     const handleRutChange = useCallback((e) => {
@@ -236,17 +269,21 @@ export const useManualOrderForm = () => {
     }, []);
 
     const resetOpenMesaForm = useCallback(() => {
+        const defaultMode = firstEnabledLocalChannel(resolvedChannels);
         setForm({
             ...initialFormState,
-            client_name: OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup,
-            client_rut: '',
-            client_phone: '',
-            order_type: 'pickup',
+            client_name: '',
+            client_rut: OPEN_MESA_CAJA_DEFAULTS.client_rut,
+            client_phone: OPEN_MESA_CAJA_DEFAULTS.client_phone,
+            order_type: defaultMode === 'delivery' ? 'delivery' : 'pickup',
+            local_fulfillment_mode: defaultMode,
+            mesa_party_mode: defaultMode === 'mesa' ? 'mesero' : 'cliente',
             payment_type: 'pendiente',
+            charge_now: false,
         });
         setRutValid(true);
         setPhoneValid(true);
-    }, []);
+    }, [resolvedChannels]);
 
     const getInputStyle = useCallback((isValid) => {
         if (isValid === true) return { borderColor: '#25d366', boxShadow: '0 0 0 1px #25d366' };
@@ -262,6 +299,8 @@ export const useManualOrderForm = () => {
         updateCouponCode,
         updateNote,
         updateOrderType,
+        updateLocalFulfillmentMode,
+        updateMesaPartyMode,
         updateDeliveryAddress,
         updateDeliveryReference,
         updateDeliveryKm,
@@ -272,6 +311,7 @@ export const useManualOrderForm = () => {
         updateCashAmount,
         updateCardAmount,
         updateCashTendered,
+        updateChargeNow,
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,

@@ -95,8 +95,8 @@
 }
 
 .admin-layout .inv-status-toggle.off {
-	background: color-mix(in srgb, var(--admin-danger, #dc2626) 12%, var(--admin-card-bg));
-	color: var(--admin-danger, #dc2626);
+	background: color-mix(in srgb, var(--admin-danger, #ef4444) 12%, var(--admin-card-bg));
+	color: var(--admin-danger, #ef4444);
 	border-color: rgba(220, 38, 38, 0.35);
 }
 
@@ -171,7 +171,7 @@
 }
 
 .admin-layout .inv-price.discount {
-	color: var(--discount-color, #16a34a);
+	color: var(--discount-color, #25d366);
 	font-size: 1.1rem;
 }
 
@@ -201,9 +201,9 @@
 }
 
 .admin-layout .inventory-card .status-badge.active {
-	background: rgba(22, 163, 74, 0.12);
-	color: #16a34a;
-	border: 1px solid rgba(22, 163, 74, 0.25);
+	background: rgba(37, 211, 102, 0.12);
+	color: #25d366;
+	border: 1px solid rgba(37, 211, 102, 0.25);
 }
 
 .admin-layout .inventory-card .status-badge.paused {
@@ -239,7 +239,7 @@
 
 .admin-layout .btn-trash-sm:hover {
 	background: rgba(220, 38, 38, 0.08);
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 	border-color: rgba(220, 38, 38, 0.3);
 }
 

@@ -43,6 +43,7 @@ interface CurrentSession {
 
 let current: CurrentSession | null = null;
 let status: SessionStatus = "unknown";
+let bootstrapInFlight: Promise<SessionUser | null> | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
 const listeners = new Set<(event: AuthEvent) => void>();
 
@@ -135,24 +136,30 @@ export async function bootstrapSession(): Promise<SessionUser | null> {
   // Si ya hay sesion activa en memoria, la reutilizamos (los tokens se renuevan
   // de forma perezosa en getAccessToken cuando hace falta).
   if (status === "active" && current) return current.user;
+  if (bootstrapInFlight) return bootstrapInFlight;
 
-  try {
-    const res = await fetch(SESSION_URL, {
-      method: "GET",
-      credentials: "include",
-      headers: { "X-GC-Auth": "1" },
-    });
-    if (!res.ok) {
-      if (res.status === 401) clearSession(false);
+  bootstrapInFlight = (async () => {
+    try {
+      const res = await fetch(SESSION_URL, {
+        method: "GET",
+        credentials: "include",
+        headers: { "X-GC-Auth": "1" },
+      });
+      if (!res.ok) {
+        if (res.status === 401) clearSession(false);
+        return current?.user ?? null;
+      }
+      const payload = (await res.json()) as SessionPayload;
+      const user = applyPayload(payload);
+      emit("signed_in");
+      return user;
+    } catch {
       return current?.user ?? null;
+    } finally {
+      bootstrapInFlight = null;
     }
-    const payload = (await res.json()) as SessionPayload;
-    const user = applyPayload(payload);
-    emit("signed_in");
-    return user;
-  } catch {
-    return current?.user ?? null;
-  }
+  })();
+  return bootstrapInFlight;
 }
 
 function refreshAccessToken(): Promise<string | null> {
@@ -184,6 +191,13 @@ function refreshAccessToken(): Promise<string | null> {
  */
 export async function getAccessToken(): Promise<string | null> {
   if (status === "none") return null;
+
+  // Antes de renovar, restaurar sesion desde la cookie httpOnly (GET /session).
+  // Evita POST /refresh en arranque cuando Supabase dispara antes que bootstrapSession.
+  if (status === "unknown") {
+    await bootstrapSession();
+    if (!current) return null;
+  }
 
   if (current) {
     const fresh =

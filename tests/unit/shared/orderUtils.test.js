@@ -12,11 +12,20 @@ import {
 	isMenuOrder,
 	isOnlineOrder,
 	isPanelManualOrder,
+	isOrderDelivery,
 	resolveOrderCouponCode,
 	sanitizeOrder,
 	getOrderTileKind,
+	getOrderFulfillmentKind,
+	getFulfillmentKindLabel,
+	resolveOrderClientRutForDisplay,
+	resolveOrderClientPhoneForDisplay,
+	resolveOrderClientNameForDisplay,
+	isLegacySalonClientName,
+	isCajaGenericIdentity,
 	isOrderPaymentDeferred,
 	isOrderPaymentSettled,
+	isLocalOpenSessionOrder,
 	countOpenOrderSessions,
 	filterOpenOrderSessions,
 	ORDER_OPEN_STATUSES,
@@ -218,10 +227,76 @@ describe("orderUtils", () => {
 		expect(isMixedPaymentBreakdown({ cash: 3000, card: 0, online: 0 })).toBe(false);
 	});
 
-	it("getOrderTileKind maps delivery to moto and pickup to mesa", () => {
+	it("getOrderTileKind maps delivery to moto, salon to mesa, pickup client to retiro", () => {
 		expect(getOrderTileKind({ order_type: "delivery" })).toBe("moto");
-		expect(getOrderTileKind({ order_type: "pickup" })).toBe("mesa");
-		expect(getOrderTileKind({ channel: "menu", order_type: "pickup" })).toBe("mesa");
+		expect(getOrderTileKind({ order_type: "sale", channel: "delivery" })).toBe("moto");
+		expect(getOrderTileKind({ order_type: "pickup", client_name: "Salón" })).toBe("mesa");
+		expect(getOrderTileKind({ order_type: "pickup", client_name: "Retiro" })).toBe("retiro");
+		expect(getOrderTileKind({ channel: "menu", order_type: "pickup", client_name: "Juan" })).toBe("retiro");
+	});
+
+	it("isOrderDelivery detects delivery by channel, fee, address and open-mesa defaults", () => {
+		expect(isOrderDelivery({ channel: "delivery", order_type: "sale" })).toBe(true);
+		expect(
+			isOrderDelivery({
+				channel: "pickup",
+				order_type: "sale",
+				delivery_fee: 2500,
+			}),
+		).toBe(true);
+		expect(
+			isOrderDelivery({
+				channel: "pickup",
+				order_type: "sale",
+				delivery_address: { address: "Av. Providencia 123" },
+			}),
+		).toBe(true);
+		expect(isOrderDelivery({ channel: "pickup", order_type: "sale", client_name: "Delivery" })).toBe(true);
+		expect(isOrderDelivery({ channel: "pickup", order_type: "sale", client_name: "Retiro" })).toBe(false);
+		expect(isOrderDelivery({ channel: "salon", order_type: "sale", client_name: "Salón" })).toBe(false);
+	});
+
+	it("getOrderFulfillmentKind prioritizes channel salon over custom client name", () => {
+		expect(getOrderFulfillmentKind({ channel: "salon", client_name: "Juan" })).toBe("mesa");
+		expect(getOrderFulfillmentKind({ channel: "salon", client_name: "Pedro" })).toBe("mesa");
+		expect(getOrderFulfillmentKind({ channel: "pickup", client_name: "Juan" })).toBe("retiro");
+		expect(getFulfillmentKindLabel(getOrderFulfillmentKind({ channel: "salon" }))).toBe("Mesa");
+		expect(getFulfillmentKindLabel(getOrderFulfillmentKind({ order_type: "pickup", client_name: "Retiro" }))).toBe("Retiro");
+	});
+
+	it("resolveOrderClientRutForDisplay hides placeholders", () => {
+		expect(resolveOrderClientRutForDisplay({ client_rut: "" })).toBeNull();
+		expect(resolveOrderClientRutForDisplay({ client_rut: "Sin RUT" })).toBeNull();
+		expect(resolveOrderClientRutForDisplay({ client_rut: "SIN-RUT-123456" })).toBeNull();
+		expect(resolveOrderClientRutForDisplay({ client_rut: "11.111.111-1" })).toBe("11.111.111-1");
+	});
+
+	it("isCajaGenericIdentity detects CAJA defaults", () => {
+		expect(isCajaGenericIdentity("1-9", "+56 9 0000 0000")).toBe(true);
+		expect(isCajaGenericIdentity("1-9", "+56900000000")).toBe(true);
+		expect(isCajaGenericIdentity("11.111.111-1", "+56 9 0000 0000")).toBe(false);
+		expect(isCajaGenericIdentity("1-9", "+56911111111")).toBe(false);
+	});
+
+	it("resolveOrderClientPhoneForDisplay returns trimmed phone or null", () => {
+		expect(resolveOrderClientPhoneForDisplay({ client_phone: "  " })).toBeNull();
+		expect(resolveOrderClientPhoneForDisplay({ client_phone: "+56 9 1111 1111" })).toBe("+56 9 1111 1111");
+	});
+
+	it("resolveOrderClientNameForDisplay handles legacy Salón mesa orders", () => {
+		expect(isLegacySalonClientName("Salón")).toBe(true);
+		expect(isLegacySalonClientName("Juan")).toBe(false);
+		const legacy = resolveOrderClientNameForDisplay({ client_name: "Salón" }, "mesa");
+		expect(legacy.name).toBe("Mesa en salón");
+		expect(legacy.isLegacySalon).toBe(true);
+		expect(resolveOrderClientNameForDisplay({ client_name: "Pedro" }, "mesa").name).toBe("Pedro");
+	});
+
+	it("isLocalOpenSessionOrder excludes online menu and closed statuses", () => {
+		expect(isLocalOpenSessionOrder({ status: "pending", channel: "salon" })).toBe(true);
+		expect(isLocalOpenSessionOrder({ status: "active", channel: "pickup" })).toBe(true);
+		expect(isLocalOpenSessionOrder({ status: "pending", channel: "online" })).toBe(false);
+		expect(isLocalOpenSessionOrder({ status: "picked_up", channel: "salon" })).toBe(false);
 	});
 
 	it("isOrderPaymentDeferred detects pendiente", () => {
@@ -246,12 +321,12 @@ describe("orderUtils", () => {
 		expect(ORDER_OPEN_STATUSES).toEqual(["pending", "active", "completed"]);
 	});
 
-	it("filterOpenOrderSessions sorts by shift_sequence", () => {
+	it("filterOpenOrderSessions sorts by kind then shift_sequence", () => {
 		const sorted = filterOpenOrderSessions([
-			{ status: "active", shift_sequence: 3 },
-			{ status: "pending", shift_sequence: 1 },
-			{ status: "completed", shift_sequence: 2 },
-			{ status: "picked_up", shift_sequence: 9 },
+			{ status: "active", shift_sequence: 3, channel: "delivery" },
+			{ status: "pending", shift_sequence: 1, channel: "pickup", client_name: "Salón" },
+			{ status: "completed", shift_sequence: 2, channel: "pickup", client_name: "Juan" },
+			{ status: "picked_up", shift_sequence: 9, channel: "pickup" },
 		]);
 		expect(sorted.map((o) => o.shift_sequence)).toEqual([1, 2, 3]);
 	});

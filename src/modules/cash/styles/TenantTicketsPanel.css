@@ -229,7 +229,7 @@
 }
 
 .tenant-tickets-panel .message-row.is-support {
-  border-left: 3px solid var(--tenant-secondary, #2563eb);
+  border-left: 3px solid var(--tenant-secondary, #3b82f6);
 }
 
 .tenant-tickets-panel .message-author {

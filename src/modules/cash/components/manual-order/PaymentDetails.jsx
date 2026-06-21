@@ -38,7 +38,9 @@ const PaymentDetails = ({
     hideCheckoutActions = false,
     hideCouponSection = false,
     hideTotalBreakdown = false,
+    variant = 'default',
 }) => {
+    const isReceipt = variant === 'receipt';
     const { formatMoney } = createMoneyFormatter(branch);
     const deliveryFeeAmt = manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
     const grossItems = manualOrder.total;
@@ -86,11 +88,11 @@ const PaymentDetails = ({
     const paymentMethodsDisabled = isMixed;
 
     return (
-        <div className="manual-order-checkout">
+        <div className={`manual-order-checkout${isReceipt ? ' manual-order-checkout--receipt' : ''}`}>
             <div className="manual-order-checkout-section">
                 <div className="manual-order-checkout-section-title">
-                    <CreditCard size={14} aria-hidden />
-                    MÉTODO DE PAGO
+                    {!isReceipt ? <CreditCard size={14} aria-hidden /> : null}
+                    {isReceipt ? 'Seleccionar método de pago' : 'MÉTODO DE PAGO'}
                 </div>
                 <div className="manual-order-payment-methods">
                     <button
@@ -100,7 +102,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <Store size={20} />
-                        EFECTIVO
+                        {isReceipt ? 'Efectivo' : 'EFECTIVO'}
                     </button>
                     <button
                         type="button"
@@ -109,7 +111,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <CreditCard size={20} />
-                        TARJETA
+                        {isReceipt ? 'Tarjeta' : 'TARJETA'}
                     </button>
                     <button
                         type="button"
@@ -118,7 +120,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <ReceiptIcon size={20} />
-                        TRANSF.
+                        {isReceipt ? 'Transf.' : 'TRANSF.'}
                     </button>
                 </div>
                 <button
@@ -127,15 +129,15 @@ const PaymentDetails = ({
                     onClick={() => updatePaymentMode(isMixed ? 'single' : 'mixed')}
                 >
                     <Split size={16} aria-hidden />
-                    Pago mixto (efectivo + tarjeta)
+                    {isReceipt ? 'Pago mixto' : 'Pago mixto (efectivo + tarjeta)'}
                 </button>
             </div>
 
             {isMixed ? (
                 <div className="manual-order-checkout-section manual-order-mixed-split animate-fade-in">
                     <div className="manual-order-checkout-section-title">
-                        <Split size={14} aria-hidden />
-                        DESGLOSE DEL PAGO
+                        {!isReceipt ? <Split size={14} aria-hidden /> : null}
+                        {isReceipt ? 'Desglose del pago' : 'DESGLOSE DEL PAGO'}
                     </div>
                     <div className="manual-order-mixed-split__grid">
                         <label className="manual-order-mixed-split__field">
@@ -189,8 +191,8 @@ const PaymentDetails = ({
             {showCashTender ? (
                 <div className="manual-order-checkout-section manual-order-cash-tender animate-fade-in">
                     <div className="manual-order-checkout-section-title">
-                        <Coins size={14} aria-hidden />
-                        EFECTIVO RECIBIDO
+                        {!isReceipt ? <Coins size={14} aria-hidden /> : null}
+                        {isReceipt ? 'Efectivo recibido' : 'EFECTIVO RECIBIDO'}
                     </div>
                     <input
                         type="number"
@@ -330,13 +332,19 @@ const PaymentDetails = ({
 
             {!isFormValid() && !loading ? (
                 <p className="manual-order-confirm-hint" role="status">
-                    {isEditMode
-                        ? 'Revisa los datos del pedido antes de guardar los cambios.'
-                        : paymentValidation.reason === 'insufficient_tender'
-                          ? 'Indica el monto recibido en efectivo (debe cubrir lo que paga el cliente).'
-                          : paymentValidation.reason === 'split_mismatch'
-                            ? 'El desglose mixto debe sumar exactamente el total a pagar.'
-                            : 'Revisa nombre, RUT, teléfono, productos en el carrito y datos de delivery antes de confirmar.'}
+                    {isReceipt
+                        ? paymentValidation.reason === 'insufficient_tender'
+                            ? 'Indica el monto recibido en efectivo (debe cubrir el total).'
+                            : paymentValidation.reason === 'split_mismatch'
+                              ? 'El desglose mixto debe sumar exactamente el total a pagar.'
+                              : 'Seleccioná un método de pago para continuar.'
+                        : isEditMode
+                          ? 'Revisa los datos del pedido antes de guardar los cambios.'
+                          : paymentValidation.reason === 'insufficient_tender'
+                            ? 'Indica el monto recibido en efectivo (debe cubrir lo que paga el cliente).'
+                            : paymentValidation.reason === 'split_mismatch'
+                              ? 'El desglose mixto debe sumar exactamente el total a pagar.'
+                              : 'Revisa nombre, RUT, teléfono, productos en el carrito y datos de delivery antes de confirmar.'}
                 </p>
             ) : null}
 

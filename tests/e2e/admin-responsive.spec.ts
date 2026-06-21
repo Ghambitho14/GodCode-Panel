@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 
 const kanbanCssPath = resolve("src/modules/cash/styles/AdminKanban.css");
 const layoutCssPath = resolve("src/modules/cash/styles/AdminLayout.css");
+const orderCardCssPath = resolve("src/modules/cash/styles/OrderCard.css");
+const manualOrderCssPath = resolve("src/modules/cash/styles/ManualOrderModal.css");
 
 const hasCredentials = Boolean(
 	process.env.E2E_EMAIL && process.env.E2E_PASSWORD,
@@ -38,6 +40,47 @@ async function mountOrdersHeader(page: import("@playwright/test").Page) {
 		</div>
 	`);
 	await page.addStyleTag({ path: layoutCssPath });
+}
+
+async function mountOrderCard(page: import("@playwright/test").Page) {
+	await page.setContent(`
+		<div class="admin-layout" style="width:100%;max-width:100%;overflow:hidden;padding:10px;box-sizing:border-box;">
+			<div class="kanban-column" style="width:100%;max-width:100%;">
+				<div class="kanban-card kanban-card--expanded" style="width:100%;max-width:100%;box-sizing:border-box;">
+					<div class="kanban-card-top" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+						<div class="order-card-header-tools">
+							<button type="button" class="admin-icon-btn admin-icon-btn--sm">A</button>
+							<button type="button" class="admin-icon-btn admin-icon-btn--sm">B</button>
+						</div>
+						<div class="order-card-payment-stack">
+							<span class="payment-badge payment-badge--settled">PAGADO TARJETA</span>
+						</div>
+					</div>
+					<div class="card-actions">
+						<button type="button" class="btn-action primary">A COCINA</button>
+						<button type="button" class="btn-icon-action">X</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	`);
+	await page.addStyleTag({ path: orderCardCssPath });
+	await page.addStyleTag({ path: kanbanCssPath });
+}
+
+async function mountManualOrderMobile(page: import("@playwright/test").Page) {
+	await page.setContent(`
+		<div class="manual-order-overlay">
+			<div class="manual-order-container manual-order-wizard manual-order--mobile manual-order-step-2">
+				<div class="manual-order-checkout-stage">
+					<div class="manual-order-checkout-col manual-order-checkout-col--client">Client</div>
+					<div class="manual-order-checkout-col manual-order-checkout-col--summary">Summary</div>
+					<div class="manual-order-checkout-col manual-order-checkout-col--payment">Payment</div>
+				</div>
+			</div>
+		</div>
+	`);
+	await page.addStyleTag({ path: manualOrderCssPath });
 }
 
 test.describe("admin responsive CSS (fixture)", () => {
@@ -94,6 +137,58 @@ test.describe("admin responsive CSS (fixture)", () => {
 			.locator(".order-intake-pause__confirm")
 			.evaluate((el) => getComputedStyle(el).left);
 		expect(confirmLeft).toBe("0px");
+	});
+
+	test("order card layout fits viewport at 390px without horizontal overflow", async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await mountOrderCard(page);
+
+		const overflow = await page.evaluate(() => {
+			const el = document.querySelector(".kanban-card");
+			if (!el) return false;
+			return el.scrollWidth > el.clientWidth + 1;
+		});
+		expect(overflow).toBe(false);
+
+		const layoutOverflow = await page.evaluate(() => {
+			return document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
+		});
+		expect(layoutOverflow).toBe(false);
+	});
+
+	test("manual order checkout stacks in compact mode at 900px", async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 800 });
+		await mountManualOrderMobile(page);
+
+		const columns = await page
+			.locator(".manual-order-checkout-stage")
+			.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
+		expect(columns).toMatch(/^[\d.]+px$/);
+	});
+
+	test("kanban board uses grid layout above 1024px desktop width", async ({ page }) => {
+		await page.setViewportSize({ width: 1100, height: 800 });
+		await page.setContent(`
+			<div class="admin-layout">
+				<div class="kanban-board">
+					<div class="kanban-column">Col</div>
+				</div>
+			</div>
+		`);
+		await page.addStyleTag({ path: kanbanCssPath });
+
+		const display = await page
+			.locator(".kanban-board")
+			.evaluate((el) => getComputedStyle(el).display);
+		expect(display).toBe("grid");
+
+		const tabsDisplay = await page.evaluate(() => {
+			const tabs = document.querySelector(".mobile-tabs");
+			return tabs ? getComputedStyle(tabs).display : "none";
+		});
+		expect(tabsDisplay).toBe("none");
 	});
 });
 

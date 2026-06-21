@@ -38,4 +38,10 @@ describe("admin responsive CSS contracts", () => {
 			/@media\s*\(max-width:\s*1024px\)\s*\{[\s\S]*?\.header-actions\.header-actions--mobile-toolbar\s*\{[\s\S]*?display:\s*grid/,
 		);
 	});
+
+	it("uses flex kanban board at tablet breakpoint (<=1024px)", () => {
+		expect(kanbanCss).toMatch(
+			/@media\s*\(max-width:\s*1024px\)\s*\{[\s\S]*?\.kanban-board\s*\{[\s\S]*?display:\s*flex/,
+		);
+	});
 });

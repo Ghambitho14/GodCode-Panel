@@ -4,6 +4,7 @@ import {
     ChefHat, Banknote, Eye, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
+import CloseTableModal from './CloseTableModal';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
 import {
@@ -12,12 +13,17 @@ import {
     shareDeliveryPackViaWhatsApp,
     getPaymentLabel,
     getOrderCouponDiscountMeta,
+    getOrderTileKind,
+    getFulfillmentKindLabel,
     isOrderDelivery,
+    isOrderPaymentDeferred,
+    isOrderPaymentSettled,
     orderDeliveryKanbanSubtitle,
 } from '@/shared/utils/orderUtils';
+import PickupBagIcon from './PickupBagIcon';
+import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import ManualOrderModal from './ManualOrderModal';
-import OrderEditMenu from './manual-order/OrderEditMenu';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 
@@ -39,18 +45,17 @@ function buildItemsSummary(items) {
 const OrderCard = ({
     order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients,
     logoUrl, companyName, showNotify, products, categories, onOrderSaved,
+    localOrderChannels = null,
     gridTile = false,
 }) => {
-    const { cashSystem } = useAdmin();
+    const { cashSystem, markOrderSessionPaid, closeOrderSession } = useAdmin();
     const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
-    const [editMenuOpen, setEditMenuOpen] = useState(false);
     const [editWizardOpen, setEditWizardOpen] = useState(false);
-    const [editInitialStep, setEditInitialStep] = useState(1);
     const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
+    const [paymentModalIntent, setPaymentModalIntent] = useState(null);
     const [expanded, setExpanded] = useState(false);
     const ticketMenuRef = useRef(null);
-    const editMenuRef = useRef(null);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
 
@@ -60,7 +65,7 @@ const OrderCard = ({
         companyName: companyName ?? null,
     });
 
-    const menuOpen = editMenuOpen || ticketMenuOpen;
+    const menuOpen = ticketMenuOpen;
 
     const handleMoveToKitchen = (e) => {
         e.stopPropagation();
@@ -117,124 +122,249 @@ const OrderCard = ({
     const isVip = clientData?.total_orders >= 5;
     const itemsSummary = useMemo(() => buildItemsSummary(order.items), [order.items]);
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
+    const paymentDeferred = isOrderPaymentDeferred(order);
+    const showPaidBadge = isOrderPaymentSettled(order);
+    const fulfillmentKind = getOrderTileKind(order);
+    const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
+    const canMarkPaid =
+        Boolean(markOrderSessionPaid) &&
+        paymentDeferred &&
+        isOpenOrderSessionStatus(order.status);
+
+    const openMarkPaidModal = (eOrOrder) => {
+        if (eOrOrder?.stopPropagation) eOrOrder.stopPropagation();
+        setTicketMenuOpen(false);
+        setPaymentModalIntent('pay');
+    };
+
+    const handleDeliverClick = (e) => {
+        e.stopPropagation();
+        if (paymentDeferred && closeOrderSession) {
+            setPaymentModalIntent('close');
+            return;
+        }
+        moveOrder(order.id, 'picked_up');
+    };
+
+    const handlePaymentModalConfirm = async (targetOrder, paymentPatch) => {
+        if (paymentModalIntent === 'pay') {
+            const result = await markOrderSessionPaid(targetOrder, paymentPatch);
+            if (result) setPaymentModalIntent(null);
+            return Boolean(result);
+        }
+        if (paymentModalIntent === 'close') {
+            const ok = await closeOrderSession(targetOrder, paymentPatch);
+            if (ok) setPaymentModalIntent(null);
+            return ok;
+        }
+        return false;
+    };
+
+    const openDetailModal = (e) => {
+        e.stopPropagation();
+        setDetailOpen(true);
+        setTicketMenuOpen(false);
+    };
+
+    const fulfillmentPill = fulfillmentKind ? (
+        <span
+            className={`order-fulfillment-pill order-fulfillment-pill--${fulfillmentKind === 'moto' ? 'delivery' : fulfillmentKind}`}
+            title={
+                fulfillmentKind === 'moto'
+                    ? 'Pedido con envío'
+                    : fulfillmentKind === 'retiro'
+                      ? 'Retiro en local'
+                      : 'Consumo en salón'
+            }
+        >
+            {fulfillmentLabel}
+        </span>
+    ) : null;
+
+    const paymentMeta = showPaidBadge ? (
+        <div className="order-card-payment-stack order-card-payment-stack--inline">
+            <span className="order-card-paid-badge" title="Pedido ya pagado">
+                <PickupBagIcon size={12} aria-hidden />
+                Pagado
+            </span>
+            <span
+                className={`payment-badge payment-badge--settled${order.payment_type === 'online' ? ' online' : ''}`}
+            >
+                {getPaymentLabel(order)}
+            </span>
+        </div>
+    ) : (
+        <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}${paymentDeferred ? ' payment-badge--pending' : ''}`}>
+            {getPaymentLabel(order)}
+        </span>
+    );
+
+    const orderTimeEl = (
+        <span className="order-time" title={new Date(order.created_at).toLocaleString()}>
+            {!gridTile && queueIndex != null ? (
+                <span className="order-queue-badge" title={`Pedido ${queueIndex} en la cola (más antiguo primero)`}>
+                    {queueIndex}
+                </span>
+            ) : null}
+            <Clock size={12} />
+            {formatTimeElapsed(order.created_at)}
+        </span>
+    );
+
+    const headerTools = (
+        <>
+            <button
+                type="button"
+                onClick={handleCopyShare}
+                className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                title="Copiar resumen del pedido"
+            >
+                <Copy size={14} aria-hidden />
+            </button>
+            {isDelivery ? (
+                <button
+                    type="button"
+                    onClick={handleDeliveryWhatsApp}
+                    className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                    title="WhatsApp envío"
+                    aria-label="Enviar datos de delivery por WhatsApp"
+                >
+                    <Send size={14} aria-hidden />
+                </button>
+            ) : null}
+            <div className="order-ticket-menu" ref={ticketMenuRef}>
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setTicketMenuOpen((v) => !v);
+                    }}
+                    className={`admin-icon-btn admin-icon-btn--sm order-card-tool-btn${ticketMenuOpen ? ' is-active' : ''}`}
+                    title="Imprimir tickets"
+                    aria-expanded={ticketMenuOpen}
+                    aria-haspopup="menu"
+                    aria-label="Menú imprimir tickets"
+                >
+                    <Printer size={14} aria-hidden />
+                </button>
+                {ticketMenuOpen ? (
+                    <OrderCardAnchoredMenu
+                        anchorRef={ticketMenuRef}
+                        isOpen={ticketMenuOpen}
+                        onClose={() => setTicketMenuOpen(false)}
+                        menuWidth={200}
+                        menuHeight={120}
+                    >
+                        <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchenAgain}>
+                            <ChefHat size={16} aria-hidden />
+                            Ticket cocina
+                        </button>
+                        <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printTicketCaja}>
+                            <Banknote size={16} aria-hidden />
+                            Ticket caja
+                        </button>
+                    </OrderCardAnchoredMenu>
+                ) : null}
+            </div>
+            {gridTile ? (
+                <button
+                    type="button"
+                    onClick={openDetailModal}
+                    className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                    title="Ver detalle del pedido"
+                    aria-label="Ver detalle del pedido"
+                >
+                    <Eye size={14} aria-hidden />
+                </button>
+            ) : null}
+        </>
+    );
 
     return (
-        <div className={`kanban-card glass animate-slide-up${expanded ? ' kanban-card--expanded' : ''}${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
+        <div className={`kanban-card glass animate-slide-up${expanded ? ' kanban-card--expanded' : ''}${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile kanban-card--receipt-clean' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
             <div className="kanban-card-top">
-                <div className="card-header-row">
-                    <span className="order-time" title={new Date(order.created_at).toLocaleString()}>
-                        {queueIndex != null ? (
-                            <span className="order-queue-badge" title={`Pedido ${queueIndex} en la cola (más antiguo primero)`}>
-                                {queueIndex}
-                            </span>
-                        ) : null}
-                        <Clock size={12} />
-                        {formatTimeElapsed(order.created_at)}
-                    </span>
-                    <div className="order-card-header-tools">
-                        <button
-                            type="button"
-                            onClick={handleCopyShare}
-                            className="admin-icon-btn admin-icon-btn--sm"
-                            title="Copiar resumen del pedido"
-                        >
-                            <Copy size={14} aria-hidden />
-                        </button>
-                        {isDelivery ? (
-                            <button
-                                type="button"
-                                onClick={handleDeliveryWhatsApp}
-                                className="admin-icon-btn admin-icon-btn--sm"
-                                title="WhatsApp envío"
-                                aria-label="Enviar datos de delivery por WhatsApp"
-                            >
-                                <Send size={14} aria-hidden />
-                            </button>
-                        ) : null}
-                        <div className="order-ticket-menu" ref={ticketMenuRef}>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setTicketMenuOpen((v) => !v);
-                                }}
-                                className="admin-icon-btn admin-icon-btn--sm"
-                                title="Imprimir tickets"
-                                aria-expanded={ticketMenuOpen}
-                                aria-haspopup="menu"
-                                aria-label="Menú imprimir tickets"
-                            >
-                                <Printer size={14} aria-hidden />
-                            </button>
-                            {ticketMenuOpen ? (
-                                <OrderCardAnchoredMenu
-                                    anchorRef={ticketMenuRef}
-                                    isOpen={ticketMenuOpen}
-                                    onClose={() => setTicketMenuOpen(false)}
-                                    menuWidth={200}
-                                    menuHeight={120}
-                                >
-                                    <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchenAgain}>
-                                        <ChefHat size={16} aria-hidden />
-                                        Ticket cocina
-                                    </button>
-                                    <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printTicketCaja}>
-                                        <Banknote size={16} aria-hidden />
-                                        Ticket caja
-                                    </button>
-                                </OrderCardAnchoredMenu>
-                            ) : null}
+                {gridTile ? (
+                    <>
+                        <div className="kanban-card-receipt-head">
+                            <div className="kanban-card-receipt-head__main">
+                                <div className="kanban-card-receipt-title-row">
+                                    {queueIndex != null ? (
+                                        <span
+                                            className="kanban-card-receipt-code"
+                                            title={`Pedido ${queueIndex} en la cola (más antiguo primero)`}
+                                        >
+                                            {queueIndex}
+                                        </span>
+                                    ) : null}
+                                    <h4 className="card-client-name">{order.client_name}</h4>
+                                    {isVip ? (
+                                        <span className="order-card-vip-badge" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
+                                            VIP
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <div className="kanban-card-receipt-meta">
+                                    {fulfillmentPill}
+                                    {paymentMeta}
+                                    <span className="kanban-card-receipt-meta__dot" aria-hidden>·</span>
+                                    {orderTimeEl}
+                                </div>
+                            </div>
+                            <div className="order-card-header-tools">{headerTools}</div>
                         </div>
-                        <span className={`payment-badge ${order.payment_type === 'online' ? 'online' : ''}`}>
-                            {getPaymentLabel(order)}
-                        </span>
-                    </div>
-                </div>
-
-                {expanded && deliverySubtitle ? (
-                    <div className="order-delivery-mini" title={deliverySubtitle}>
-                        {deliverySubtitle}
-                    </div>
-                ) : null}
-
-                <div className="card-client">
-                    <div className="card-client-name-row">
-                        <h4 className="card-client-name">{order.client_name}</h4>
-                        {isVip ? (
-                            <span className="order-card-vip-badge" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
-                                VIP
-                            </span>
+                        {expanded && deliverySubtitle ? (
+                            <div className="order-delivery-mini" title={deliverySubtitle}>
+                                {deliverySubtitle}
+                            </div>
                         ) : null}
-                    </div>
-                    <div className="card-kanban-meta-row">
-                        {isDelivery ? (
-                            <span className="order-fulfillment-pill--delivery" title="Pedido con envío">
-                                Delivery
-                            </span>
-                        ) : null}
-                        <button
-                            type="button"
-                            className="order-detail-trigger"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setDetailOpen(true);
-                                setTicketMenuOpen(false);
-                                setEditMenuOpen(false);
-                            }}
-                            title="Ver todo el detalle del pedido"
-                        >
-                            <Eye size={12} aria-hidden />
-                            Ver detalle
-                        </button>
-                    </div>
-                </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="card-header-row">
+                            {orderTimeEl}
+                            <div className="order-card-header-tools">
+                                {headerTools}
+                                {paymentMeta}
+                            </div>
+                        </div>
 
-                <hr className="kanban-card-divider" />
+                        {expanded && deliverySubtitle ? (
+                            <div className="order-delivery-mini" title={deliverySubtitle}>
+                                {deliverySubtitle}
+                            </div>
+                        ) : null}
+
+                        <div className="card-client">
+                            <div className="card-client-name-row">
+                                <h4 className="card-client-name">{order.client_name}</h4>
+                                {isVip ? (
+                                    <span className="order-card-vip-badge" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
+                                        VIP
+                                    </span>
+                                ) : null}
+                            </div>
+                            <div className="card-kanban-meta-row">
+                                {fulfillmentPill}
+                                <button
+                                    type="button"
+                                    className="order-detail-trigger"
+                                    onClick={openDetailModal}
+                                    title="Ver todo el detalle del pedido"
+                                >
+                                    <Eye size={12} aria-hidden />
+                                    Ver detalle
+                                </button>
+                            </div>
+                        </div>
+
+                        <hr className="kanban-card-divider" />
+                    </>
+                )}
             </div>
 
             <div className="kanban-card-scroll">
                 {!expanded ? (
-                    <div className="card-items-summary" title={itemsSummary.text}>
+                    <div className={`card-items-summary${gridTile ? ' card-items-summary--receipt' : ''}`} title={itemsSummary.text}>
                         <p className="card-items-summary__text">{itemsSummary.text}</p>
                         {deliverySubtitle ? (
                             <p className="card-items-summary__delivery" title={deliverySubtitle}>
@@ -325,9 +455,9 @@ const OrderCard = ({
                 )}
             </div>
 
-            <div className="kanban-card-foot">
-                <div className="card-total">
-                    <span className="total-label">TOTAL</span>
+            <div className={`kanban-card-foot${gridTile ? ' kanban-card-receipt-foot' : ''}`}>
+                <div className={`card-total${gridTile ? ' kanban-card-receipt-total kanban-card-receipt-total--final' : ''}`}>
+                    <span className="total-label">{gridTile ? 'Total' : 'TOTAL'}</span>
                     <div className="card-total-amounts">
                         <span className="total-amount">{formatMoney(order.total)}</span>
                         {discountMeta ? (
@@ -372,39 +502,26 @@ const OrderCard = ({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => moveOrder(order.id, 'picked_up')}
+                                onClick={handleDeliverClick}
                                 className="btn-action btn-action--deliver"
                             >
-                                Entregado al Cliente
+                                {paymentDeferred ? 'Cobrar y entregar' : 'Entregado al Cliente'}
                             </button>
                         </>
                     ) : null}
-                    <div className="order-ticket-menu order-edit-menu-wrap" ref={editMenuRef}>
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setEditMenuOpen((v) => !v);
-                                setTicketMenuOpen(false);
-                            }}
-                            className="btn-icon-action"
-                            title="Editar pedido"
-                            aria-label="Editar pedido"
-                            aria-expanded={editMenuOpen}
-                            aria-haspopup="menu"
-                        >
-                            <Edit2 size={16} />
-                        </button>
-                        <OrderEditMenu
-                            isOpen={editMenuOpen}
-                            anchorRef={editMenuRef}
-                            onClose={() => setEditMenuOpen(false)}
-                            onSelect={(step) => {
-                                setEditInitialStep(step);
-                                setEditWizardOpen(true);
-                            }}
-                        />
-                    </div>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setTicketMenuOpen(false);
+                            setEditWizardOpen(true);
+                        }}
+                        className="btn-icon-action"
+                        title="Editar pedido"
+                        aria-label="Editar pedido"
+                    >
+                        <Edit2 size={16} />
+                    </button>
                 </div>
             </div>
 
@@ -417,6 +534,19 @@ const OrderCard = ({
                     companyName={companyName}
                     showNotify={showNotify}
                     setReceiptModalOrder={setReceiptModalOrder}
+                    onMarkPaid={canMarkPaid ? openMarkPaidModal : null}
+                />
+            ) : null}
+
+            {paymentModalIntent ? (
+                <CloseTableModal
+                    isOpen
+                    intent={paymentModalIntent}
+                    onClose={() => setPaymentModalIntent(null)}
+                    order={order}
+                    branch={branch}
+                    showNotify={showNotify}
+                    onConfirm={handlePaymentModalConfirm}
                 />
             ) : null}
 
@@ -424,7 +554,6 @@ const OrderCard = ({
                 <ManualOrderModal
                     isOpen={editWizardOpen}
                     editOrder={order}
-                    initialStep={editInitialStep}
                     moveOrder={moveOrder}
                     onClose={() => setEditWizardOpen(false)}
                     products={products}
@@ -439,6 +568,7 @@ const OrderCard = ({
                         setEditWizardOpen(false);
                     }}
                     resyncOrderSale={cashSystem?.resyncOrderSale ?? null}
+                    localOrderChannels={localOrderChannels}
                 />
             ) : null}
         </div>

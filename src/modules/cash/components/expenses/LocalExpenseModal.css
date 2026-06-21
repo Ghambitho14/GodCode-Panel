@@ -26,7 +26,7 @@
 
 .admin-layout .local-expense-modal-icon {
 	flex-shrink: 0;
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 }
 
 .admin-layout .local-expense-modal-title {
@@ -242,7 +242,7 @@
 .admin-layout .local-expense-modal-error {
 	margin: 10px 0 0;
 	font-size: 0.82rem;
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 	text-align: center;
 }
 
@@ -311,7 +311,7 @@
 
 .admin-layout .local-expense-modal-preview-value--net {
 	font-size: 1rem;
-	color: var(--admin-danger, #dc2626);
+	color: var(--admin-danger, #ef4444);
 }
 
 .admin-layout .local-expense-modal-alert {

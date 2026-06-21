@@ -431,7 +431,7 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
                   onKeyDown={e => e.key === 'Enter' && !loading && executeDangerAction()}
                 />
               </div>
-              {dangerError && <div style={{ color: '#ff4444', fontSize: '0.85rem', marginTop: 10 }}>{dangerError}</div>}
+              {dangerError && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: 10 }}>{dangerError}</div>}
             </div>
 
             <div className="admin-danger-footer">
@@ -439,7 +439,7 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
                 className="btn btn-primary btn-block" 
                 onClick={executeDangerAction}
                 disabled={loading}
-                style={{ background: '#ff4444', color: 'white', border: 'none' }}
+                style={{ background: '#ef4444', color: 'white', border: 'none' }}
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : 'Confirmar y Borrar'}
               </button>

@@ -9,7 +9,16 @@ import {
     effectiveDeliveryPricingMode,
 } from '@/lib/delivery-settings';
 import { formatSavedAddressLabel, normalizePhoneForSearch } from '../../services/clientService';
-import { OPEN_MESA_DEFAULT_CLIENT_NAMES } from '../../hooks/manual-order/manualOrderShared';
+import {
+    OPEN_MESA_CAJA_DEFAULTS,
+    OPEN_MESA_DEFAULT_CLIENT_NAMES,
+    getLocalFulfillmentMode,
+    isOpenMesaMeseroMode,
+    LOCAL_FULFILLMENT_MODES,
+} from '../../hooks/manual-order/manualOrderShared';
+import TableRestaurantIcon from '../TableRestaurantIcon';
+import DeliveryMotoIcon from '../DeliveryMotoIcon';
+import PickupBagIcon from '../PickupBagIcon';
 
 const sanitizeInputLive = (text) => {
     if (text == null || text === '') return '';
@@ -39,6 +48,8 @@ const ClientForm = ({
     branchDeliveryCfg,
     clients = [],
     updateOrderType,
+    updateLocalFulfillmentMode,
+    updateMesaPartyMode,
     updateDeliveryAddress,
     updateDeliveryReference,
     updateDeliveryKm,
@@ -57,6 +68,8 @@ const ClientForm = ({
     canOverrideDeliveryFee = false,
     openMesaMode = false,
     branchDeliveryCfgLoading = false,
+    enabledLocalChannels = null,
+    isEditMode = false,
 }) => {
     const { formatMoney } = useBranchMoney();
     const [detectingZone, setDetectingZone] = useState(false);
@@ -98,6 +111,16 @@ const ClientForm = ({
         document.addEventListener('mousedown', onDocClick);
         return () => document.removeEventListener('mousedown', onDocClick);
     }, []);
+
+    const resolvedLocalChannels = useMemo(
+        () => enabledLocalChannels ?? { mesa: true, retiro: true, delivery: true },
+        [
+            enabledLocalChannels?.mesa,
+            enabledLocalChannels?.retiro,
+            enabledLocalChannels?.delivery,
+        ],
+    );
+    const openMesaFulfillmentMode = openMesaMode ? getLocalFulfillmentMode(manualOrder) : null;
 
     const showNamedZonePicker = Boolean(
         branchDeliveryCfg &&
@@ -270,6 +293,80 @@ const ClientForm = ({
                     </ul>
                 )}
             </div>
+        </div>
+    );
+
+    const openMesaContactFields = ({
+        namePlaceholder,
+        suggestionsId = 'manual-order-open-mesa-client-suggestions',
+        lockIdentityFields = false,
+        allowClientSearch = true,
+    }) => (
+        <div className="manual-order-form-grid manual-order-open-mesa-contact">
+            {allowClientSearch ? (
+                registeredClientSearchField(namePlaceholder, suggestionsId)
+            ) : (
+                <div className="manual-order-input-wrapper full-width">
+                    <input
+                        type="text"
+                        placeholder={namePlaceholder}
+                        className="manual-order-input"
+                        value={manualOrder.client_name}
+                        onChange={(e) => handleClientNameChange(e.target.value)}
+                        autoComplete="off"
+                        aria-label={namePlaceholder}
+                    />
+                </div>
+            )}
+
+            <div className="manual-order-input-wrapper">
+                <input
+                    type="text"
+                    placeholder="RUT / DNI / Carnet *"
+                    className={`manual-order-input${lockIdentityFields ? ' manual-order-input--readonly' : ''}`}
+                    value={manualOrder.client_rut}
+                    onChange={handleRutChange}
+                    readOnly={lockIdentityFields}
+                    aria-readonly={lockIdentityFields}
+                    style={{
+                        ...(lockIdentityFields ? {} : getInputStyle(rutValid)),
+                        paddingRight: !lockIdentityFields && rutValid ? '40px' : '16px',
+                    }}
+                />
+                {!lockIdentityFields && rutValid ? (
+                    <div className="manual-order-validation-icon">
+                        <CheckCircle2 size={18} color="#25d366" />
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="manual-order-input-wrapper">
+                <input
+                    type="tel"
+                    placeholder="+56 9..."
+                    className={`manual-order-input${lockIdentityFields ? ' manual-order-input--readonly' : ''}`}
+                    value={manualOrder.client_phone}
+                    onChange={handlePhoneChange}
+                    readOnly={lockIdentityFields}
+                    aria-readonly={lockIdentityFields}
+                    style={{
+                        ...(lockIdentityFields ? {} : getInputStyle(phoneValid)),
+                        paddingRight: !lockIdentityFields && phoneValid ? '40px' : '16px',
+                    }}
+                />
+                {!lockIdentityFields && phoneValid ? (
+                    <div className="manual-order-validation-icon">
+                        <CheckCircle2 size={18} color="#25d366" />
+                    </div>
+                ) : null}
+            </div>
+
+            {lockIdentityFields ? (
+                <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                    Documento y teléfono genéricos de caja ({OPEN_MESA_CAJA_DEFAULTS.client_rut},{' '}
+                    {OPEN_MESA_CAJA_DEFAULTS.client_phone}).
+                </p>
+            ) : null}
         </div>
     );
 
@@ -453,43 +550,98 @@ const ClientForm = ({
     );
 
     if (openMesaMode) {
-        const salonDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup;
+        const channels = resolvedLocalChannels;
+        const fulfillmentMode = openMesaFulfillmentMode;
+        const isMesa = fulfillmentMode === 'mesa';
+        const isRetiro = fulfillmentMode === 'retiro';
+        const isMesero = isOpenMesaMeseroMode(manualOrder);
+        const retiroDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.retiro;
         const deliveryDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.delivery;
-        const activeDefault = isDelivery ? deliveryDefault : salonDefault;
-        const isSalonPreset =
-            !isDelivery &&
-            !manualOrder.selected_client_id &&
-            String(manualOrder.client_name ?? '').trim() === salonDefault;
-        const showCustomNameField = isDelivery || !isSalonPreset;
-
-        const selectSalonPreset = () => updateClientName(salonDefault);
-        const selectClientePreset = () => {
-            updateClientName('');
-            setClientSuggestionsOpen(true);
-        };
+        const visibleModes = LOCAL_FULFILLMENT_MODES.filter((mode) => channels[mode]);
 
         return (
             <div className="manual-order-client-form-component manual-order-client-form-component--open-mesa">
                 <div className="manual-order-section manual-order-section--flat">
                     <div className="manual-order-section-title">
-                        <User size={14} aria-hidden />
-                        MESA / CLIENTE
+                        <Store size={14} aria-hidden />
+                        TIPO DE PEDIDO LOCAL
                     </div>
 
-                    {!isDelivery ? (
+                    {visibleModes.length > 0 ? (
+                        <div className={`manual-order-order-type-toggle manual-order-order-type-toggle--triple${visibleModes.length === 1 ? ' manual-order-order-type-toggle--single' : ''}`}>
+                            {channels.mesa ? (
+                                <button
+                                    type="button"
+                                    className={`manual-order-order-type-btn manual-order-order-type-btn--mesa${isMesa ? ' is-active' : ''}`}
+                                    onClick={() => updateLocalFulfillmentMode?.('mesa')}
+                                >
+                                    <TableRestaurantIcon size={18} />
+                                    Mesa
+                                </button>
+                            ) : null}
+                            {channels.retiro ? (
+                                <button
+                                    type="button"
+                                    className={`manual-order-order-type-btn manual-order-order-type-btn--retiro${isRetiro ? ' is-active' : ''}`}
+                                    onClick={() => updateLocalFulfillmentMode?.('retiro')}
+                                >
+                                    <PickupBagIcon size={18} />
+                                    Retiro
+                                </button>
+                            ) : null}
+                            {channels.delivery ? (
+                                <button
+                                    type="button"
+                                    className={`manual-order-order-type-btn manual-order-order-type-btn--delivery${isDelivery ? ' is-active' : ''}`}
+                                    onClick={() => updateLocalFulfillmentMode?.('delivery')}
+                                >
+                                    <DeliveryMotoIcon size={18} />
+                                    Delivery
+                                </button>
+                            ) : null}
+                        </div>
+                    ) : (
+                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                            No hay tipos de pedido local habilitados para esta sucursal.
+                        </p>
+                    )}
+
+                    {isMesa ? (
+                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                            {manualOrder.charge_now
+                                ? 'Consumo en salón. El pago se registra al abrir la mesa.'
+                                : 'Consumo en salón. El pago se registra al cerrar la mesa.'}
+                        </p>
+                    ) : null}
+                    {isRetiro ? (
+                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                            {manualOrder.charge_now
+                                ? 'Retiro en local. El pago se registra al abrir el retiro.'
+                                : 'Retiro en local. El pago se registra al cerrar el retiro.'}
+                        </p>
+                    ) : null}
+                </div>
+
+                <div className="manual-order-section manual-order-section--flat">
+                    <div className="manual-order-section-title">
+                        <User size={14} aria-hidden />
+                        {isMesa ? 'MESA / CLIENTE' : 'CLIENTE'}
+                    </div>
+
+                    {isMesa ? (
                         <div className="manual-order-order-type-toggle manual-order-order-type-toggle--name">
                             <button
                                 type="button"
-                                className={`manual-order-order-type-btn${isSalonPreset ? ' is-active' : ''}`}
-                                onClick={selectSalonPreset}
+                                className={`manual-order-order-type-btn${isMesero ? ' is-active' : ''}`}
+                                onClick={() => updateMesaPartyMode?.('mesero')}
                             >
-                                <Store size={16} />
-                                {salonDefault}
+                                <User size={16} />
+                                Mesero
                             </button>
                             <button
                                 type="button"
-                                className={`manual-order-order-type-btn${!isSalonPreset ? ' is-active' : ''}`}
-                                onClick={selectClientePreset}
+                                className={`manual-order-order-type-btn${!isMesero ? ' is-active' : ''}`}
+                                onClick={() => updateMesaPartyMode?.('cliente')}
                             >
                                 <User size={16} />
                                 Cliente
@@ -497,64 +649,44 @@ const ClientForm = ({
                         </div>
                     ) : null}
 
-                    {showCustomNameField
-                        ? registeredClientSearchField(
-                            isDelivery
-                                ? `BUSCAR CLIENTE O NOMBRE (predeterminado: ${activeDefault})`
-                                : 'BUSCAR CLIENTE REGISTRADO',
-                            'manual-order-open-mesa-client-suggestions',
-                        )
-                        : (
-                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                            Se registrará como <strong>{salonDefault}</strong>.
-                        </p>
-                    )}
+                    {isMesa && isMesero
+                        ? openMesaContactFields({
+                            namePlaceholder: 'NOMBRE DEL MESERO *',
+                            lockIdentityFields: true,
+                            allowClientSearch: false,
+                        })
+                        : openMesaContactFields({
+                            namePlaceholder: isDelivery
+                                ? `BUSCAR CLIENTE O NOMBRE (predeterminado: ${deliveryDefault})`
+                                : isRetiro
+                                  ? `BUSCAR CLIENTE O NOMBRE (predeterminado: ${retiroDefault})`
+                                  : 'BUSCAR CLIENTE O NOMBRE *',
+                            lockIdentityFields: false,
+                            allowClientSearch: true,
+                        })}
                 </div>
 
-                <div className="manual-order-section manual-order-section--flat">
-                    <div className="manual-order-section-title">
-                        <Truck size={14} aria-hidden />
-                        RETIRO O DELIVERY
-                    </div>
-
-                    <div className="manual-order-order-type-toggle">
-                        <button
-                            type="button"
-                            className={`manual-order-order-type-btn${isPickup ? ' is-active' : ''}`}
-                            onClick={() => handleOrderTypeChange('pickup')}
-                        >
-                            <Store size={16} />
-                            LOCAL / RETIRO
-                        </button>
-                        <button
-                            type="button"
-                            className={`manual-order-order-type-btn${isDelivery ? ' is-active' : ''}`}
-                            onClick={() => handleOrderTypeChange('delivery')}
-                        >
-                            <Truck size={16} />
-                            DELIVERY
-                        </button>
-                    </div>
-
-                    {isDelivery ? (
-                        branchDeliveryCfgLoading ? (
+                {isDelivery ? (
+                    <div className="manual-order-section manual-order-section--flat">
+                        <div className="manual-order-section-title">
+                            <Truck size={14} aria-hidden />
+                            DATOS DE DELIVERY
+                        </div>
+                        {branchDeliveryCfgLoading ? (
                             <p className="manual-order-fulfillment-hint" role="status">
                                 <Loader2 size={14} className="animate-spin" aria-hidden />
                                 {' '}
                                 Cargando zonas y tarifas de delivery…
                             </p>
-                        ) : deliveryFields
-                    ) : (
+                        ) : (
+                            deliveryFields
+                        )}
                         <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                            Sesión de salón. El pago se registra al cerrar la mesa.
+                            {manualOrder.charge_now
+                                ? 'El pago se registra al abrir el delivery.'
+                                : 'El pago se registra al cerrar el delivery.'}
                         </p>
-                    )}
-                </div>
-
-                {isDelivery ? (
-                    <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                        El pago se registra al cerrar el delivery.
-                    </p>
+                    </div>
                 ) : null}
             </div>
         );

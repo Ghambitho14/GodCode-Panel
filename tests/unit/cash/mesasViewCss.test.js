@@ -26,8 +26,10 @@ describe("mesas view CSS smoke", () => {
 			resolve(process.cwd(), "src/modules/cash/styles/AdminTables.css"),
 			"utf8",
 		);
-		expect(css).toMatch(/\.close-table-modal__body/);
-		expect(css).toMatch(/\.close-table-modal__actions/);
+		expect(css).toMatch(/\.table-session-receipt__cta/);
+		expect(css).toMatch(/\.table-session-modal-portal \.manual-order-checkout--receipt/);
+		expect(css).toMatch(/text-transform:\s*none/);
+		expect(css).toMatch(/\.close-table-modal__confirm-only/);
 	});
 
 	it("AdminMenuOptions.css defines orders view switch in branch options", () => {
@@ -45,5 +47,19 @@ describe("mesas view CSS smoke", () => {
 			"utf8",
 		);
 		expect(css).toMatch(/\.kanban-board/);
+	});
+
+	it("AdminTables.css defines mobile breakpoints for tables and modals", () => {
+		const css = readFileSync(
+			resolve(process.cwd(), "src/modules/cash/styles/AdminTables.css"),
+			"utf8",
+		);
+		expect(css).toMatch(/@media\s*\(max-width:\s*480px\)/);
+		expect(css).toMatch(
+			/@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*?\.tables-grid/,
+		);
+		expect(css).toMatch(
+			/@media\s*\(max-width:\s*480px\)\s*\{[\s\S]*?\.close-table-modal__actions/,
+		);
 	});
 });

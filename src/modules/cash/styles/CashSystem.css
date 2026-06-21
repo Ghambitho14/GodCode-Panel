@@ -9,14 +9,14 @@
     /* Conecta el sistema admin con el theme tenant: si companies.theme_config.primaryColor
        esta seteado, --accent-primary lo trae (via tenant-theme-vars wrapper) y --admin-accent
        lo hereda automaticamente. Asi botones, balance, bordes, etc. toman el color del negocio. */
-    --admin-accent: var(--accent-primary, #2563eb);
+    --admin-accent: var(--accent-primary, #3b82f6);
     --cash-bg: var(--admin-page-bg);
     --cash-surface: var(--admin-card-bg);
     --cash-surface-hover: var(--admin-icon-bg);
     --cash-border: var(--admin-border);
     --c-balance: var(--admin-accent);
-    --c-income: var(--admin-success, #16a34a);
-    --c-expense: var(--admin-danger, #dc2626);
+    --c-income: var(--admin-success, #25d366);
+    --c-expense: var(--admin-danger, #ef4444);
     --c-text: var(--admin-text);
     --c-text-muted: var(--admin-text-muted);
     --glass-blur: none;
@@ -57,7 +57,7 @@
 }
 
 .admin-layout .cash-container .btn-primary {
-    background: linear-gradient(135deg, var(--accent-primary, #e63946) 0%, var(--accent-secondary, #c62828) 100%);
+    background: linear-gradient(135deg, var(--accent-primary, #e63946) 0%, var(--accent-secondary, #ef4444) 100%);
     color: white;
     border-color: transparent;
     box-shadow: 0 4px 12px var(--accent-shadow, rgba(230, 57, 70, 0.3));
@@ -867,12 +867,31 @@
     color: var(--c-income);
 }
 
+.admin-layout .cash-recent-icon.sale.cash-recent-icon--retiro,
+.admin-layout .cash-recent-icon.income.cash-recent-icon--retiro {
+    background: var(--fulfillment-retiro-bg, rgba(37, 211, 102, 0.1));
+    color: var(--fulfillment-retiro-fg, #15803d);
+}
+
+.admin-layout .cash-recent-icon.sale.cash-recent-icon--mesa,
+.admin-layout .cash-recent-icon.income.cash-recent-icon--mesa {
+    background: var(--fulfillment-mesa-bg, rgba(167, 139, 250, 0.12));
+    color: var(--fulfillment-mesa-fg, #7c3aed);
+}
+
+.admin-layout .cash-recent-icon.sale.cash-recent-icon--moto,
+.admin-layout .cash-recent-icon.income.cash-recent-icon--moto {
+    background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
+    color: var(--fulfillment-delivery-fg, #f4a261);
+}
+
 .admin-layout .cash-recent-icon.expense {
     background: rgba(239, 68, 68, 0.1);
     color: var(--c-expense);
 }
 .admin-layout .cash-recent-icon.cancel,
-.cash-container .cash-recent-icon.cancel {
+.cash-container .cash-recent-icon.cancel,
+.admin-layout .cash-recent-icon--cancel {
     background: rgba(239, 68, 68, 0.15);
     color: var(--c-expense);
 }
@@ -903,28 +922,51 @@
     color: var(--c-expense);
 }
 
+.admin-layout .cash-recent-amount-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    min-width: 4.5rem;
+}
+
 .admin-layout .cash-recent-amount {
     font-size: 0.9rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
+}
+
+.admin-layout .cash-recent-pay-method {
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--c-text-muted);
+    white-space: nowrap;
 }
 
 .admin-layout .cash-recent-amount.positive { color: var(--c-income); }
 .admin-layout .cash-recent-amount.negative { color: var(--c-expense); }
-.admin-layout .cash-recent-amount-cancel { color: var(--c-expense) !important; font-weight: 700; }
+.admin-layout .cash-recent-amount-cancel { color: var(--c-expense) !important; font-weight: 700; flex-shrink: 0; }
 
-/* Colores por fila (Últimos movimientos): así siempre aplican.
-   Tonos ajustados para legibilidad sobre fondo claro. */
 .admin-layout .cash-recent-item--cancelled .cash-recent-desc,
 .admin-layout .cash-recent-item--cancelled .cash-recent-time,
 .admin-layout .cash-recent-item--cancelled .cash-recent-amount { color: #b91c1c !important; }
-.admin-layout .cash-recent-item--cash .cash-recent-time,
-.admin-layout .cash-recent-item--cash .cash-recent-amount.positive { color: #15803d !important; }
-.admin-layout .cash-recent-item--transfer .cash-recent-time,
-.admin-layout .cash-recent-item--transfer .cash-recent-amount.positive { color: #a16207 !important; }
-.admin-layout .cash-recent-item--card .cash-recent-time,
-.admin-layout .cash-recent-item--card .cash-recent-amount.positive { color: #1d4ed8 !important; }
+
+.admin-layout .cash-recent-item--fulfillment-moto .cash-recent-desc,
+.admin-layout .cash-recent-item--fulfillment-moto .cash-recent-amount.positive {
+    color: var(--fulfillment-delivery-fg, #f4a261) !important;
+}
+
+.admin-layout .cash-recent-item--fulfillment-retiro .cash-recent-desc,
+.admin-layout .cash-recent-item--fulfillment-retiro .cash-recent-amount.positive {
+    color: var(--fulfillment-retiro-fg, #15803d) !important;
+}
+
+.admin-layout .cash-recent-item--fulfillment-mesa .cash-recent-desc,
+.admin-layout .cash-recent-item--fulfillment-mesa .cash-recent-amount.positive {
+    color: var(--fulfillment-mesa-fg, #7c3aed) !important;
+}
 
 /* --- Empty State --- */
 .admin-layout .cash-empty-state {
@@ -1318,6 +1360,11 @@
 
     .admin-layout .cash-kpi-grid {
         grid-template-columns: 1fr;
+    }
+
+    .admin-layout .cash-kpi-sub {
+        font-size: 0.72rem;
+        line-height: 1.35;
     }
 
     .admin-layout .cash-history-amounts {
@@ -1862,8 +1909,8 @@
 }
 
 .admin-layout .cash-container .cash-shift-detail-kpi--surplus {
-    border-color: rgba(22, 163, 74, 0.35);
-    background: rgba(22, 163, 74, 0.06);
+    border-color: rgba(37, 211, 102, 0.35);
+    background: rgba(37, 211, 102, 0.06);
 }
 
 .admin-layout .cash-container .cash-shift-detail-kpi--shortage {
@@ -1872,12 +1919,12 @@
 }
 
 .admin-layout .cash-container .cash-shift-detail-kpi--delivery {
-    border-color: rgba(245, 158, 11, 0.35);
-    background: rgba(245, 158, 11, 0.08);
+    border-color: var(--fulfillment-delivery-border, rgba(244, 162, 97, 0.35));
+    background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
 }
 
 .admin-layout .cash-container .cash-shift-detail-kpi--delivery .cash-shift-detail-kpi__value {
-    color: #d97706;
+    color: var(--fulfillment-delivery-fg, #f4a261);
 }
 
 .admin-layout .cash-container .cash-shift-detail-kpi__label {
@@ -2163,6 +2210,10 @@
     color: var(--c-text-muted);
 }
 
+.admin-layout .cash-container .cash-shift-detail-movement-order .order-fulfillment-pill {
+    align-self: flex-start;
+}
+
 .admin-layout .cash-container .cash-shift-detail-movement-order__client {
     font-weight: 700;
     color: var(--c-text);
@@ -2173,9 +2224,57 @@
     line-height: 1.35;
 }
 
+.admin-layout .cash-container .cash-shift-detail-movement-order__delivery {
+    color: var(--fulfillment-delivery-fg, #f4a261);
+    font-weight: 600;
+}
+
 .admin-layout .cash-container .cash-shift-detail-amount-cancel {
     color: var(--c-text-muted);
     font-weight: 600;
+}
+
+/* Colores por tipo de pedido en movimientos del turno */
+.admin-layout .cash-container .movement-row--fulfillment-moto .movement-type--fulfillment-moto {
+    color: var(--fulfillment-delivery-fg, #f4a261);
+    background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
+    border: 1px solid var(--fulfillment-delivery-border, rgba(244, 162, 97, 0.35));
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-retiro .movement-type--fulfillment-retiro {
+    color: var(--fulfillment-retiro-fg, #15803d);
+    background: var(--fulfillment-retiro-bg, rgba(37, 211, 102, 0.1));
+    border: 1px solid var(--fulfillment-retiro-border, rgba(37, 211, 102, 0.28));
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-mesa .movement-type--fulfillment-mesa {
+    color: var(--fulfillment-mesa-fg, #7c3aed);
+    background: var(--fulfillment-mesa-bg, rgba(167, 139, 250, 0.12));
+    border: 1px solid var(--fulfillment-mesa-border, rgba(167, 139, 250, 0.28));
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-moto .movement-amount.amount-plus {
+    color: var(--fulfillment-delivery-fg, #f4a261);
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-retiro .movement-amount.amount-plus {
+    color: var(--fulfillment-retiro-fg, #15803d);
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-mesa .movement-amount.amount-plus {
+    color: var(--fulfillment-mesa-fg, #7c3aed);
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-moto .cash-shift-detail-movement-order__client {
+    color: var(--fulfillment-delivery-fg, #f4a261);
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-retiro .cash-shift-detail-movement-order__client {
+    color: var(--fulfillment-retiro-fg, #15803d);
+}
+
+.admin-layout .cash-container .movement-row--fulfillment-mesa .cash-shift-detail-movement-order__client {
+    color: var(--fulfillment-mesa-fg, #7c3aed);
 }
 
 .admin-layout .cash-container .cash-shift-detail-modal__footer {

@@ -32,7 +32,7 @@
 
 .settings-container .section-title {
     font-size: 1.1rem;
-    color: #d97706;
+    color: #f4a261;
     margin-bottom: 20px;
     display: flex;
     align-items: center;
@@ -92,7 +92,7 @@
 
 .settings-container .form-input:focus, 
 .settings-container .form-textarea:focus {
-    border-color: #d97706;
+    border-color: #f4a261;
     background: var(--admin-card-bg, #fff);
     box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
 }

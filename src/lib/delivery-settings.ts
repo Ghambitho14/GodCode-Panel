@@ -991,7 +991,63 @@ export function mergeDeliverySettingsJson(
 		delete next.orders_view_mode;
 	}
 
+	if ("localOrderChannels" in patch) {
+		next.localOrderChannels = parseLocalOrderChannels(patch.localOrderChannels);
+		delete next.local_order_channels;
+	}
+
 	return next;
+}
+
+export type LocalOrderChannelId = "mesa" | "retiro" | "delivery";
+
+export type LocalOrderChannels = Record<LocalOrderChannelId, boolean>;
+
+const DEFAULT_LOCAL_ORDER_CHANNELS: LocalOrderChannels = {
+	mesa: true,
+	retiro: true,
+	delivery: true,
+};
+
+/**
+ * Canales de pedido local habilitados por sucursal (JSONB `delivery_settings.localOrderChannels`).
+ */
+export function parseLocalOrderChannels(raw: unknown): LocalOrderChannels {
+	const pick = (source: Record<string, unknown>): LocalOrderChannels => ({
+		mesa: typeof source.mesa === "boolean" ? source.mesa : DEFAULT_LOCAL_ORDER_CHANNELS.mesa,
+		retiro: typeof source.retiro === "boolean" ? source.retiro : DEFAULT_LOCAL_ORDER_CHANNELS.retiro,
+		delivery:
+			typeof source.delivery === "boolean"
+				? source.delivery
+				: DEFAULT_LOCAL_ORDER_CHANNELS.delivery,
+	});
+
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+		return { ...DEFAULT_LOCAL_ORDER_CHANNELS };
+	}
+
+	const o = raw as Record<string, unknown>;
+	const nested = o.localOrderChannels ?? o.local_order_channels;
+	if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+		return pick(nested as Record<string, unknown>);
+	}
+
+	return pick(o);
+}
+
+/** Primer canal local habilitado (fallback mesa → retiro → delivery). */
+export function firstEnabledLocalChannel(
+	channels: LocalOrderChannels = DEFAULT_LOCAL_ORDER_CHANNELS,
+): LocalOrderChannelId {
+	if (channels.mesa) return "mesa";
+	if (channels.retiro) return "retiro";
+	if (channels.delivery) return "delivery";
+	return "mesa";
+}
+
+/** Al menos un canal debe estar activo para guardar configuración. */
+export function hasEnabledLocalChannel(channels: LocalOrderChannels): boolean {
+	return channels.mesa || channels.retiro || channels.delivery;
 }
 
 /**

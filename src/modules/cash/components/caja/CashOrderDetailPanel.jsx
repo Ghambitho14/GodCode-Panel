@@ -1,31 +1,26 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-	X, KeyRound, MapPin, Truck, Store, Send, ExternalLink, ChefHat, Banknote, Phone,
+	X, KeyRound, MapPin, Send, ExternalLink, ChefHat, Banknote,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import {
-	getPaymentLabel,
 	isOrderDelivery,
 	deliveryAddressLines,
 	buildOrderDeliveryDriverPack,
 	shareDeliveryPackViaWhatsApp,
 	sanitizeOrder,
+	getOrderFulfillmentKind,
+	getFulfillmentKindLabel,
+	resolveOrderClientPhoneForDisplay,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
-import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
+import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
+import OrderDetailMetaCards from '../OrderDetailMetaCards';
 import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
-
-const STATUS_LABELS = {
-	pending: 'Pendiente',
-	active: 'En cocina',
-	completed: 'Listo',
-	picked_up: 'Entregado',
-	cancelled: 'Cancelado',
-};
 
 const ADDRESS_FIELD_LABELS = [
 	['named_area_label', 'Zona'],
@@ -98,13 +93,6 @@ function splitOrderNote(note) {
 	return { branchLine: null, body: text };
 }
 
-function buildTelHref(phone) {
-	const digits = normalizePhoneDigits(phone);
-	if (!digits) return null;
-	const withCountry = digits.startsWith('56') ? digits : `56${digits}`;
-	return `tel:+${withCountry}`;
-}
-
 export default function CashOrderDetailPanel({
 	order,
 	onClose,
@@ -161,7 +149,6 @@ export default function CashOrderDetailPanel({
 	const displayOrder = liveOrder ?? order;
 	const items = parseItems(displayOrder.items);
 	const isDelivery = isOrderDelivery(displayOrder);
-	const deliveryFee = Number(displayOrder.delivery_fee) || 0;
 	const addrLines = deliveryAddressLines(displayOrder.delivery_address);
 	const addrObj =
 		displayOrder.delivery_address && typeof displayOrder.delivery_address === 'object' && !Array.isArray(displayOrder.delivery_address)
@@ -173,12 +160,13 @@ export default function CashOrderDetailPanel({
 			? String(displayOrder.handoff_code).trim()
 			: '';
 	const addressRows = structuredAddressRows(addrObj, addrLines);
-	const createdAt = new Date(displayOrder.created_at);
 	const { branchLine: noteBranchLine, body: noteBody } = splitOrderNote(displayOrder.note);
 	const hasNote = Boolean(noteBranchLine || noteBody);
-	const clientPhone = displayOrder.client_phone ? String(displayOrder.client_phone).trim() : '';
-	const telHref = clientPhone ? buildTelHref(clientPhone) : null;
+	const clientPhone = resolveOrderClientPhoneForDisplay(displayOrder);
 	const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
+	const fulfillmentKind = getOrderFulfillmentKind(displayOrder);
+	const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
+	const sessionNumber = displayOrder.shift_sequence ?? null;
 
 	const ticketPrintOpts = (variant) => ({
 		variant,
@@ -216,6 +204,11 @@ export default function CashOrderDetailPanel({
 						<h2 id="cash-order-detail-title" className="order-detail-title">
 							Pedido #{String(displayOrder.id).slice(-4)}
 						</h2>
+						{sessionNumber != null ? (
+							<p className="order-detail-subtitle">
+								{fulfillmentLabel} #{sessionNumber}
+							</p>
+						) : null}
 					</div>
 					<button
 						type="button"
@@ -228,77 +221,20 @@ export default function CashOrderDetailPanel({
 				</div>
 
 				<div className="order-detail-body">
-					<div className="order-detail-meta-grid">
-						<div className="order-detail-card">
-							<span className="order-detail-label">Estado y pago</span>
-							<div className="order-detail-card-main">
-								<p className="order-detail-value">
-									{STATUS_LABELS[displayOrder.status] || displayOrder.status || '—'}
-									<span className="order-detail-value-sep">·</span>
-									{getPaymentLabel(displayOrder)}
-									{refreshingOrder ? (
-										<span className="order-detail-muted cash-order-detail-status-sync"> · actualizando…</span>
-									) : null}
-								</p>
-								<ul className="order-detail-facts">
-									<li>{createdAt.toLocaleString('es-CL')}</li>
-									{branch?.name ? <li>{branch.name}</li> : null}
-								</ul>
-							</div>
-							<div className="order-detail-card-foot" aria-hidden />
-						</div>
-
-						<div className="order-detail-card">
-							<span className="order-detail-label">Cliente</span>
-							<div className="order-detail-card-main">
-								<p className="order-detail-value">{displayOrder.client_name || 'Sin nombre'}</p>
-								<ul className="order-detail-facts">
-									{clientPhone ? (
-										<li className="cash-order-detail-phone-row">
-											<a href={telHref || undefined} className="cash-order-detail-phone-link">
-												<Phone size={14} aria-hidden />
-												{clientPhone}
-											</a>
-											{whatsAppHref ? (
-												<a
-													href={whatsAppHref}
-													target="_blank"
-													rel="noopener noreferrer"
-													className="cash-order-detail-wa-btn"
-													title="Abrir WhatsApp con el cliente"
-													aria-label="Abrir WhatsApp con el cliente"
-												>
-													<WhatsAppGlyph className="cash-order-detail-wa-glyph" />
-												</a>
-											) : null}
-										</li>
-									) : null}
-									{displayOrder.client_rut && String(displayOrder.client_rut).trim() ? (
-										<li>RUT {String(displayOrder.client_rut).trim()}</li>
-									) : null}
-								</ul>
-							</div>
-							<div className="order-detail-card-foot" aria-hidden />
-						</div>
-
-						<div className="order-detail-card">
-							<span className="order-detail-label">Entrega</span>
-							<div className="order-detail-card-main">
-								<div
-									className={`order-detail-fulfillment ${isDelivery ? 'is-delivery' : 'is-pickup'}`}
-								>
-									{isDelivery ? <Truck size={18} aria-hidden /> : <Store size={18} aria-hidden />}
-									{isDelivery ? 'Delivery' : 'Retiro en local'}
-								</div>
-							</div>
-							<div className="order-detail-card-foot">
-								<span className="order-detail-kv-label">Cargo envío</span>
-								<span className="order-detail-kv-value">
-									{isDelivery && deliveryFee > 0 ? fmt(deliveryFee) : '—'}
+					<OrderDetailMetaCards
+						order={displayOrder}
+						branch={branch}
+						fmt={fmt}
+						phoneVariant="cash"
+						statusExtra={
+							refreshingOrder ? (
+								<span className="order-detail-muted cash-order-detail-status-sync">
+									{' '}
+									· actualizando…
 								</span>
-							</div>
-						</div>
-					</div>
+							) : null
+						}
+					/>
 
 					{handoff ? (
 						<div className="order-detail-section order-detail-handoff-block">

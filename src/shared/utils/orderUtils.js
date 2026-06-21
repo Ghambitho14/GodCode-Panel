@@ -678,7 +678,7 @@ export function isOrderDelivery(order) {
 		.trim()
 		.toLowerCase();
 	if (ch === 'delivery') return true;
-	if (ch === 'pickup') return false;
+	if (ch === 'salon' || ch === 'mesa') return false;
 
 	const t = String(order.order_type ?? '')
 		.trim()
@@ -688,6 +688,7 @@ export function isOrderDelivery(order) {
 			return true;
 		}
 	}
+
 	const fee = Number(order.delivery_fee);
 	if (Number.isFinite(fee) && fee > 0) {
 		return true;
@@ -702,10 +703,30 @@ export function isOrderDelivery(order) {
 	if (typeof order.delivery_address === 'string' && order.delivery_address.trim() !== '') {
 		return true;
 	}
+	if (order.handoff_code != null && String(order.handoff_code).trim() !== '') {
+		return true;
+	}
+
+	const name = String(order.client_name ?? '')
+		.trim()
+		.toLowerCase();
+	if (name === 'delivery') return true;
+
+	if (ch === 'pickup') return false;
 	return false;
 }
 
 export const ORDER_OPEN_STATUSES = ['pending', 'active', 'completed'];
+
+/** Sesión local de caja aún abierta (mesa/retiro/delivery), excluye menú web online. */
+export function isLocalOpenSessionOrder(order) {
+	if (!order) return false;
+	const status = String(order.status ?? '').trim().toLowerCase();
+	if (!ORDER_OPEN_STATUSES.includes(status)) return false;
+	const ch = String(order.channel ?? '').trim().toLowerCase();
+	if (ch === 'online') return false;
+	return true;
+}
 
 /** @param {{ payment_type?: string }} order */
 export function isOrderPaymentDeferred(order) {
@@ -714,8 +735,108 @@ export function isOrderPaymentDeferred(order) {
 }
 
 /** @param {Record<string, unknown>} order */
+export function getOrderFulfillmentKind(order) {
+	if (!order) return 'mesa';
+	if (isOrderDelivery(order)) return 'moto';
+	const ch = String(order.channel ?? '')
+		.trim()
+		.toLowerCase();
+	if (ch === 'salon' || ch === 'mesa') return 'mesa';
+	const name = String(order.client_name ?? '')
+		.trim()
+		.toLowerCase();
+	if (name === 'salón' || name === 'salon') return 'mesa';
+	return 'retiro';
+}
+
+/** @param {'mesa' | 'retiro' | 'moto'} kind */
+export function getFulfillmentKindLabel(kind) {
+	switch (kind) {
+		case 'moto':
+			return 'Delivery';
+		case 'retiro':
+			return 'Retiro';
+		default:
+			return 'Mesa';
+	}
+}
+
+/** Defaults CAJA usados en UI de detalle (mismo valor que open mesa). */
+const CAJA_GENERIC_RUT = '1-9';
+const CAJA_GENERIC_PHONE = '+56 9 0000 0000';
+
+function normalizePhoneDigitsForCompare(phone) {
+	return String(phone ?? '').replace(/\D/g, '');
+}
+
+/** @param {string | null | undefined} rut @param {string | null | undefined} phone */
+export function isCajaGenericIdentity(rut, phone) {
+	const rutTrim = String(rut ?? '').trim();
+	if (rutTrim !== CAJA_GENERIC_RUT) return false;
+	const phoneDigits = normalizePhoneDigitsForCompare(phone);
+	const cajaDigits = normalizePhoneDigitsForCompare(CAJA_GENERIC_PHONE);
+	return phoneDigits.length > 0 && phoneDigits === cajaDigits;
+}
+
+/** RUT visible en detalle de pedido; oculta placeholders de sanitizeOrder y autogenerados. */
+export function resolveOrderClientRutForDisplay(order) {
+	const raw = order?.client_rut ?? order?.client_document ?? '';
+	const trimmed = String(raw).trim();
+	if (!trimmed) return null;
+	const lower = trimmed.toLowerCase();
+	if (lower === 'sin rut') return null;
+	if (/^sin-rut-/i.test(trimmed)) return null;
+	return trimmed;
+}
+
+/** Teléfono visible en detalle de pedido. */
+export function resolveOrderClientPhoneForDisplay(order) {
+	const trimmed = String(order?.client_phone ?? '').trim();
+	return trimmed || null;
+}
+
+function normalizeClientNameToken(name) {
+	return String(name ?? '')
+		.trim()
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/\p{M}/gu, '');
+}
+
+/** ¿Nombre legacy "Salón" de mesas abiertas antes del flujo mesero/cliente? */
+export function isLegacySalonClientName(name) {
+	return normalizeClientNameToken(name) === 'salon';
+}
+
+/**
+ * Nombre de cliente/mesero para UI de detalle.
+ * @returns {{ name: string, subtitle: string | null, isLegacySalon: boolean }}
+ */
+export function resolveOrderClientNameForDisplay(order, kind) {
+	const raw = String(order?.client_name ?? '').trim();
+	if (!raw) {
+		if (kind === 'mesa') {
+			return {
+				name: 'Sin mesero asignado',
+				subtitle: 'Mesa abierta sin nombre registrado',
+				isLegacySalon: false,
+			};
+		}
+		return { name: 'Sin nombre', subtitle: null, isLegacySalon: false };
+	}
+	if (kind === 'mesa' && isLegacySalonClientName(raw)) {
+		return {
+			name: 'Mesa en salón',
+			subtitle: 'Pedido anterior sin mesero ni cliente registrado',
+			isLegacySalon: true,
+		};
+	}
+	return { name: raw, subtitle: null, isLegacySalon: false };
+}
+
+/** @param {Record<string, unknown>} order */
 export function getOrderTileKind(order) {
-	return isOrderDelivery(order) ? 'moto' : 'mesa';
+	return getOrderFulfillmentKind(order);
 }
 
 /** Pedido con pago ya definido (menú online u otro) listo para confirmar al cerrar. */
@@ -734,11 +855,18 @@ export function countOpenOrderSessions(orders, branchId) {
 	).length;
 }
 
+const TILE_KIND_SORT = { mesa: 0, retiro: 1, moto: 2 };
+
 /** @param {Array<Record<string, unknown>>} orders */
 export function filterOpenOrderSessions(orders) {
 	return (orders || [])
 		.filter((o) => ORDER_OPEN_STATUSES.includes(String(o?.status ?? '')))
-		.sort((a, b) => (Number(a.shift_sequence) || 0) - (Number(b.shift_sequence) || 0));
+		.sort((a, b) => {
+			const ka = getOrderTileKind(a);
+			const kb = getOrderTileKind(b);
+			if (ka !== kb) return (TILE_KIND_SORT[ka] ?? 9) - (TILE_KIND_SORT[kb] ?? 9);
+			return (Number(a.shift_sequence) || 0) - (Number(b.shift_sequence) || 0);
+		});
 }
 
 /**
@@ -842,18 +970,18 @@ export function resolveOrderCouponCode(rawOrder) {
 /** Select de pedidos con código de cupón vía FK `discount_coupon_id`. */
 export const ORDERS_SELECT_WITH_COUPON = '*, discount_coupons(code)';
 
+/** @param {{ has_discount?: boolean; discount_price?: number | null; price?: number; quantity?: number }} item */
+export function getOrderItemLineTotal(item) {
+	const unit =
+		item?.has_discount && item?.discount_price != null && Number(item.discount_price) > 0
+			? Number(item.discount_price)
+			: Number(item?.price) || 0;
+	return unit * Math.max(1, Number(item?.quantity) || 1);
+}
+
 function computeOrderItemsSubtotal(items) {
 	const list = Array.isArray(items) ? items : [];
-	return Math.round(
-		list.reduce((sum, item) => {
-			const price =
-				item?.has_discount && item?.discount_price != null && Number(item.discount_price) > 0
-					? Number(item.discount_price)
-					: Number(item?.price) || 0;
-			const qty = Math.max(1, Number(item?.quantity) || 1);
-			return sum + price * qty;
-		}, 0),
-	);
+	return Math.round(list.reduce((sum, item) => sum + getOrderItemLineTotal(item), 0));
 }
 
 /** Meta de descuento por cupón para badges compactos (p. ej. OrderCard). */

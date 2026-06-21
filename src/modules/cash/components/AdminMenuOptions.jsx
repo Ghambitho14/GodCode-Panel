@@ -3,6 +3,7 @@ import { Images, Truck, LayoutGrid, Save } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
 import AdminMenuCarousel from "./AdminMenuCarousel";
 import OrdersViewSwitch from "./OrdersViewSwitch";
+import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import "../styles/AdminMenuOptions.css";
 
@@ -28,16 +29,30 @@ function getStoredSubTab(storageKey) {
 	}
 }
 
+function channelsEqual(a, b) {
+	return Boolean(a?.mesa) === Boolean(b?.mesa)
+		&& Boolean(a?.retiro) === Boolean(b?.retiro)
+		&& Boolean(a?.delivery) === Boolean(b?.delivery);
+}
+
 /**
  * Pestaña "Opciones de menú": sub-pestañas Envío, Carrusel y Vista de pedidos.
  * Bebidas y Extras del carrito viven en entradas propias del sidebar (menu_beverages / menu_extras).
  */
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
-	const { ordersViewMode, saveOrdersViewMode, ordersViewModeSaving } = useAdmin();
+	const {
+		ordersViewMode,
+		localOrderChannels,
+		saveOrdersPanelSettings,
+		ordersViewModeSaving,
+	} = useAdmin();
 	const branchKey = selectedBranch?.id ?? "__none__";
 	const branchReady = Boolean(selectedBranch?.id && selectedBranch.id !== "all");
 	const [draftOrdersViewMode, setDraftOrdersViewMode] = useState(ordersViewMode);
-	const ordersViewDirty = draftOrdersViewMode !== ordersViewMode;
+	const [draftLocalOrderChannels, setDraftLocalOrderChannels] = useState(localOrderChannels);
+	const ordersPanelDirty =
+		draftOrdersViewMode !== ordersViewMode
+		|| !channelsEqual(draftLocalOrderChannels, localOrderChannels);
 	const storageKey = useMemo(
 		() =>
 			companyId
@@ -61,11 +76,15 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 
 	useEffect(() => {
 		setDraftOrdersViewMode(ordersViewMode);
-	}, [ordersViewMode, branchKey]);
+		setDraftLocalOrderChannels(localOrderChannels);
+	}, [ordersViewMode, localOrderChannels, branchKey]);
 
-	const handleSaveOrdersView = useCallback(async () => {
-		await saveOrdersViewMode(draftOrdersViewMode);
-	}, [draftOrdersViewMode, saveOrdersViewMode]);
+	const handleSaveOrdersPanel = useCallback(async () => {
+		await saveOrdersPanelSettings({
+			ordersViewMode: draftOrdersViewMode,
+			localOrderChannels: draftLocalOrderChannels,
+		});
+	}, [draftOrdersViewMode, draftLocalOrderChannels, saveOrdersPanelSettings]);
 
 	return (
 		<div className="admin-menu-options" data-tab="menu-options">
@@ -165,14 +184,25 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 							/>
 							<p className="admin-menu-options-orders-view__hint">
 								<strong>Mesas</strong>: grilla de mesas y motos. <strong>Pedido</strong>: tablero clásico por columnas.
-								{ordersViewDirty ? ' Pulsa Guardar para aplicar el cambio en esta sucursal.' : null}
+							</p>
+							<p className="admin-menu-options-section-label admin-menu-options-orders-view__channels-label">
+								Tipos de pedido local (Nuevo pedido)
+							</p>
+							<LocalOrderChannelsSwitch
+								value={draftLocalOrderChannels}
+								onChange={setDraftLocalOrderChannels}
+								className="admin-menu-options-orders-view__channels"
+							/>
+							<p className="admin-menu-options-orders-view__hint">
+								Activa o desactiva Mesa, Retiro y Delivery al abrir un pedido desde caja. Debe quedar al menos uno habilitado.
+								{ordersPanelDirty ? ' Pulsa Guardar para aplicar en esta sucursal.' : null}
 							</p>
 							<div className="admin-menu-options-orders-view__actions">
 								<button
 									type="button"
 									className="btn btn-primary admin-menu-options-orders-view__save"
-									onClick={() => void handleSaveOrdersView()}
-									disabled={!ordersViewDirty || ordersViewModeSaving}
+									onClick={() => void handleSaveOrdersPanel()}
+									disabled={!ordersPanelDirty || ordersViewModeSaving}
 								>
 									{ordersViewModeSaving ? (
 										'Guardando…'

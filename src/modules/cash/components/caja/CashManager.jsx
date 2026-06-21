@@ -13,8 +13,11 @@ import CashMovementModal from './CashMovementModal';
 import CashShiftDetailModal from './CashShiftDetailModal';
 import CashOrderDetailPanel from './CashOrderDetailPanel';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
-import { getPaymentLabel } from '@/shared/utils/orderUtils';
+import { getPaymentLabel, getOrderTileKind } from '@/shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
+import PickupBagIcon from '../PickupBagIcon';
+import TableRestaurantIcon from '../TableRestaurantIcon';
+import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import ReportPeriodSelect from '../ReportPeriodSelect';
 import {
     getCashShiftHistoryPeriodOptions,
@@ -24,6 +27,22 @@ import {
 import { getOrderForMovement } from '../../utils/getOrderForMovement';
 
 const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = getCashShiftHistoryPeriodOptions();
+
+function RecentMovementIcon({ type, order, isCancel }) {
+    if (isCancel) return <XCircle size={16} aria-hidden />;
+
+    const linkedOrder = order && (type === 'sale' || type === 'cancel' || type === 'expense');
+    if (linkedOrder) {
+        const kind = getOrderTileKind(order);
+        if (kind === 'moto') return <DeliveryMotoIcon size={16} aria-hidden />;
+        if (kind === 'mesa') return <TableRestaurantIcon size={16} aria-hidden />;
+        return <PickupBagIcon size={16} aria-hidden />;
+    }
+
+    if (type === 'expense') return <ArrowDownCircle size={16} aria-hidden />;
+    if (type === 'income') return <ArrowUpCircle size={16} aria-hidden />;
+    return <ArrowUpCircle size={16} aria-hidden />;
+}
 
 const ElapsedTime = ({ since }) => {
     const [elapsed, setElapsed] = useState('');
@@ -228,8 +247,8 @@ const CashManager = ({
                                     slotSize="sm"
                                     style={{
                                         color: 'var(--c-income)',
-                                        background: 'rgba(22, 163, 74, 0.12)',
-                                        borderColor: 'rgba(22, 163, 74, 0.28)',
+                                        background: 'rgba(37, 211, 102, 0.12)',
+                                        borderColor: 'rgba(37, 211, 102, 0.28)',
                                     }}
                                 />
                                 <span>Ingresos</span>
@@ -279,12 +298,12 @@ const CashManager = ({
                             </div>
                             <div className="cash-methods-grid">
                                 <div className="cash-method-row">
-                                    <AdminIconSlot Icon={DollarSign} slotSize="xxs" style={{ color: 'var(--c-income)', background: 'rgba(22, 163, 74, 0.1)', borderColor: 'rgba(22, 163, 74, 0.22)' }} />
+                                    <AdminIconSlot Icon={DollarSign} slotSize="xxs" style={{ color: 'var(--c-income)', background: 'rgba(37, 211, 102, 0.1)', borderColor: 'rgba(37, 211, 102, 0.22)' }} />
                                     <span>Efectivo</span>
                                     <strong>{fmt(totals.cash)}</strong>
                                 </div>
                                 <div className="cash-method-row">
-                                    <AdminIconSlot Icon={CreditCard} slotSize="xxs" style={{ color: '#2563eb', background: 'rgba(37, 99, 235, 0.08)', borderColor: 'rgba(37, 99, 235, 0.22)' }} />
+                                    <AdminIconSlot Icon={CreditCard} slotSize="xxs" style={{ color: '#3b82f6', background: 'rgba(37, 99, 235, 0.08)', borderColor: 'rgba(37, 99, 235, 0.22)' }} />
                                     <span>Tarjeta</span>
                                     <strong>{fmt(totals.card)}</strong>
                                 </div>
@@ -303,9 +322,9 @@ const CashManager = ({
                                     Icon={Truck}
                                     slotSize="sm"
                                     style={{
-                                        color: '#f59e0b',
-                                        background: 'rgba(245, 158, 11, 0.12)',
-                                        borderColor: 'rgba(245, 158, 11, 0.28)',
+                                        color: 'var(--fulfillment-delivery-fg)',
+                                        background: 'var(--fulfillment-delivery-bg)',
+                                        borderColor: 'var(--fulfillment-delivery-border)',
                                     }}
                                 />
                                 <span>Delivery a pagar</span>
@@ -332,14 +351,12 @@ const CashManager = ({
                                     const clickable = Boolean(order);
                                     const isCancel = m.type === 'cancel';
                                     const paymentMethod = m.payment_method ?? order?.payment_type;
-                                    const paymentSlug = isCancel ? null : (paymentMethod === 'cash' ? 'cash' : paymentMethod === 'card' || paymentMethod === 'tarjeta' ? 'card' : 'transfer');
+                                    const fulfillmentKind = order && !isCancel ? getOrderTileKind(order) : null;
                                     const paymentLabel = order ? getPaymentLabel(order) : (paymentMethod === 'cash' ? 'Efectivo' : paymentMethod === 'card' || paymentMethod === 'tarjeta' ? 'Tarjeta' : 'Transf.');
-                                    const movementColor = isCancel ? '#f87171' : paymentSlug === 'cash' ? '#4ade80' : paymentSlug === 'transfer' ? '#facc15' : paymentSlug === 'card' ? '#60a5fa' : undefined;
-                                    const textStyle = movementColor ? { color: movementColor } : undefined;
                                     return (
                                         <div
                                             key={m.id}
-                                            className={`cash-recent-item ${clickable ? 'cash-recent-item-clickable' : ''} ${isCancel ? 'cash-recent-item--cancelled' : ''} ${paymentSlug ? `cash-recent-item--${paymentSlug}` : ''}`}
+                                            className={`cash-recent-item ${clickable ? 'cash-recent-item-clickable' : ''} ${isCancel ? 'cash-recent-item--cancelled' : ''}${fulfillmentKind ? ` cash-recent-item--fulfillment-${fulfillmentKind}` : ''}`}
                                             onClick={clickable ? () => handleMovementClick(m) : undefined}
                                             onKeyDown={
                                                 clickable
@@ -354,25 +371,32 @@ const CashManager = ({
                                             role={clickable ? 'button' : undefined}
                                             tabIndex={clickable ? 0 : -1}
                                         >
-                                            <div className={`cash-recent-icon ${m.type}`} style={isCancel ? { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' } : undefined}>
-                                                {m.type === 'expense' ? <ArrowDownCircle size={16} /> : m.type === 'cancel' ? <XCircle size={16} /> : <ArrowUpCircle size={16} />}
+                                            <div
+                                                className={`cash-recent-icon ${m.type}${fulfillmentKind ? ` cash-recent-icon--${fulfillmentKind}` : ''}${isCancel ? ' cash-recent-icon--cancel' : ''}`}
+                                            >
+                                                <RecentMovementIcon type={m.type} order={order} isCancel={isCancel} />
                                             </div>
                                             <div className="cash-recent-info">
-                                                <span className="cash-recent-desc" style={textStyle}>{m.description || (m.type === 'sale' ? 'Venta' : m.type === 'income' ? 'Ingreso' : m.type === 'cancel' ? 'Cancelado' : 'Egreso')}</span>
-                                                <span className="cash-recent-time" style={textStyle}>
+                                                <span className="cash-recent-desc">{m.description || (m.type === 'sale' ? 'Venta' : m.type === 'income' ? 'Ingreso' : m.type === 'cancel' ? 'Cancelado' : 'Egreso')}</span>
+                                                <span className="cash-recent-time">
                                                     {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                                    {isCancel ? ' · Cancelado' : ` · ${paymentLabel}`}
+                                                    {isCancel ? ' · Cancelado' : ''}
                                                     {!isCancel && order && Number(order.delivery_fee) > 0
                                                         ? ` · Envío ${fmt(Number(order.delivery_fee))}`
                                                         : ''}
                                                 </span>
                                             </div>
                                             {m.type === 'cancel' ? (
-                                                <span className="cash-recent-amount cash-recent-amount-cancel" style={{ color: '#f87171', fontWeight: 700 }}>Cancelado</span>
+                                                <span className="cash-recent-amount cash-recent-amount-cancel">Cancelado</span>
                                             ) : (
-                                                <span className={`cash-recent-amount ${m.type === 'expense' ? 'negative' : 'positive'}`} style={movementColor ? { color: movementColor } : undefined}>
-                                                    {m.type === 'expense' ? '-' : '+'}{fmt(m.amount)}
-                                                </span>
+                                                <div className="cash-recent-amount-col">
+                                                    <span className={`cash-recent-amount ${m.type === 'expense' ? 'negative' : 'positive'}`}>
+                                                        {m.type === 'expense' ? '-' : '+'}{fmt(m.amount)}
+                                                    </span>
+                                                    {paymentLabel ? (
+                                                        <span className="cash-recent-pay-method">{paymentLabel}</span>
+                                                    ) : null}
+                                                </div>
                                             )}
                                         </div>
                                     );

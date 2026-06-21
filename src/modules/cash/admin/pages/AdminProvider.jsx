@@ -17,7 +17,71 @@ import { playOrderNotificationSound, primeOrderNotificationAudio } from '../util
 import { shouldPlayOrderSound } from '../../utils/orderNotificationPrefs';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { branchSettingsService } from '../../services/branchSettingsService';
-import { parseOrdersViewMode } from '@/lib/delivery-settings';
+import { parseLocalOrderChannels, parseOrdersViewMode } from '@/lib/delivery-settings';
+import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
+
+const DEFAULT_LOCAL_ORDER_CHANNELS = { mesa: true, retiro: true, delivery: true };
+
+function branchStorageKey(companyId) {
+	return companyId ? `godcode-panel:${companyId}:branchId` : null;
+}
+
+function ordersPanelSettingsCacheKey(companyId, branchId) {
+	if (!companyId || !branchId || branchId === 'all') return null;
+	return `godcode-panel:${companyId}:ordersPanel:${branchId}`;
+}
+
+function readStoredBranchId(companyId) {
+	const key = branchStorageKey(companyId);
+	if (!key || typeof window === 'undefined') return null;
+	try {
+		const bid = localStorage.getItem(key);
+		return bid && bid !== 'all' ? bid : null;
+	} catch {
+		return null;
+	}
+}
+
+function readOrdersPanelSettingsCache(companyId, branchId) {
+	const key = ordersPanelSettingsCacheKey(companyId, branchId);
+	if (!key || typeof window === 'undefined') return null;
+	try {
+		const raw = localStorage.getItem(key);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw);
+		return {
+			ordersViewMode: parseOrdersViewMode(parsed?.ordersViewMode),
+			localOrderChannels: parseLocalOrderChannels(parsed?.localOrderChannels ?? parsed),
+		};
+	} catch {
+		return null;
+	}
+}
+
+function writeOrdersPanelSettingsCache(companyId, branchId, settings) {
+	const key = ordersPanelSettingsCacheKey(companyId, branchId);
+	if (!key || typeof window === 'undefined') return;
+	try {
+		localStorage.setItem(key, JSON.stringify({
+			ordersViewMode: settings.ordersViewMode,
+			localOrderChannels: settings.localOrderChannels,
+		}));
+	} catch {
+		/* ignore quota / private mode */
+	}
+}
+
+function readInitialOrdersPanelSettings(companyId) {
+	const branchId = readStoredBranchId(companyId);
+	const cached = branchId ? readOrdersPanelSettingsCache(companyId, branchId) : null;
+	return {
+		branchId,
+		cached,
+		ordersViewMode: cached?.ordersViewMode ?? 'mesas',
+		localOrderChannels: cached?.localOrderChannels ?? { ...DEFAULT_LOCAL_ORDER_CHANNELS },
+		ready: Boolean(cached),
+	};
+}
 
 const ALL_ADMIN_TABS = ADMIN_PANEL_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
@@ -133,9 +197,22 @@ export const AdminProvider = ({
 	const [historyPeriod, setHistoryPeriod] = useState('week');
 	const [historyOrders, setHistoryOrders] = useState([]);
 	const [historyLoading, setHistoryLoading] = useState(false);
-	const [ordersViewMode, setOrdersViewModeState] = useState('mesas');
+	const initialOrdersPanelSettings = useMemo(
+		() => readInitialOrdersPanelSettings(companyId),
+		[companyId],
+	);
+	const [ordersViewMode, setOrdersViewModeState] = useState(
+		() => initialOrdersPanelSettings.ordersViewMode,
+	);
 	const [ordersViewModeSaving, setOrdersViewModeSaving] = useState(false);
-	const ordersViewModeRef = useRef('mesas');
+	const ordersViewModeRef = useRef(initialOrdersPanelSettings.ordersViewMode);
+	const [localOrderChannels, setLocalOrderChannelsState] = useState(
+		() => initialOrdersPanelSettings.localOrderChannels,
+	);
+	const localOrderChannelsRef = useRef(initialOrdersPanelSettings.localOrderChannels);
+	const [ordersPanelSettingsReady, setOrdersPanelSettingsReady] = useState(
+		() => initialOrdersPanelSettings.ready,
+	);
 	const [isOpenMesaModal, setIsOpenMesaModal] = useState(false);
 	const [mobileTab, setMobileTab] = useState('pending');
 	const [searchQuery, setSearchQuery] = useState('');
@@ -172,7 +249,6 @@ export const AdminProvider = ({
 	const [notification, setNotification] = useState(null);
 	const [receiptModalOrder, setReceiptModalOrder] = useState(null);
 	const [receiptPreview, setReceiptPreview] = useState(null);
-	const [isManualOrderModalOpen, setIsManualOrderModalOpen] = useState(false);
 	const [uploadingReceipt, setUploadingReceipt] = useState(false);
 	const [scopeModal, setScopeModal] = useState({ isOpen: false, item: null, type: 'product' });
 	const [productToDelete, setProductToDelete] = useState(null);
@@ -296,10 +372,11 @@ export const AdminProvider = ({
 	}, [selectedBranch?.id, companyId, userRole]);
 
 	useEffect(() => {
-		const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-		handleResize();
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
+		const mq = window.matchMedia(ADMIN_MOBILE_MQ);
+		const sync = () => setIsMobile(mq.matches);
+		sync();
+		mq.addEventListener('change', sync);
+		return () => mq.removeEventListener('change', sync);
 	}, []);
 
 	const showNotify = useCallback((msg, type = 'success') => {
@@ -311,23 +388,55 @@ export const AdminProvider = ({
 		ordersViewModeRef.current = ordersViewMode;
 	}, [ordersViewMode]);
 
-	const loadOrdersViewMode = useCallback(async (branchId) => {
+	useEffect(() => {
+		localOrderChannelsRef.current = localOrderChannels;
+	}, [localOrderChannels]);
+
+	const loadOrdersPanelSettings = useCallback(async (branchId) => {
 		if (!branchId || branchId === 'all') {
 			setOrdersViewModeState('mesas');
+			setLocalOrderChannelsState({ ...DEFAULT_LOCAL_ORDER_CHANNELS });
+			setOrdersPanelSettingsReady(true);
 			return;
 		}
+
+		const cached = readOrdersPanelSettingsCache(companyId, branchId);
+		if (cached) {
+			setOrdersViewModeState(cached.ordersViewMode);
+			setLocalOrderChannelsState(cached.localOrderChannels);
+			ordersViewModeRef.current = cached.ordersViewMode;
+			localOrderChannelsRef.current = cached.localOrderChannels;
+			setOrdersPanelSettingsReady(true);
+		} else {
+			setOrdersPanelSettingsReady(false);
+		}
+
 		try {
 			const data = await branchSettingsService.getDeliverySettings(branchId);
-			setOrdersViewModeState(parseOrdersViewMode(data?.ordersViewMode));
+			const view = parseOrdersViewMode(data?.ordersViewMode);
+			const channels = parseLocalOrderChannels(data?.localOrderChannels);
+			setOrdersViewModeState(view);
+			setLocalOrderChannelsState(channels);
+			ordersViewModeRef.current = view;
+			localOrderChannelsRef.current = channels;
+			writeOrdersPanelSettingsCache(companyId, branchId, {
+				ordersViewMode: view,
+				localOrderChannels: channels,
+			});
 		} catch (e) {
-			setOrdersViewModeState('mesas');
+			if (!cached) {
+				setOrdersViewModeState('mesas');
+				setLocalOrderChannelsState({ ...DEFAULT_LOCAL_ORDER_CHANNELS });
+			}
 			showNotify(e instanceof Error ? e.message : 'Error al cargar vista de pedidos', 'error');
+		} finally {
+			setOrdersPanelSettingsReady(true);
 		}
-	}, [showNotify]);
+	}, [companyId, showNotify]);
 
 	useEffect(() => {
-		void loadOrdersViewMode(selectedBranch?.id);
-	}, [selectedBranch?.id, loadOrdersViewMode]);
+		void loadOrdersPanelSettings(selectedBranch?.id);
+	}, [selectedBranch?.id, loadOrdersPanelSettings]);
 
 	useEffect(() => {
 		const branchId = selectedBranch?.id;
@@ -338,7 +447,7 @@ export const AdminProvider = ({
 				'postgres_changes',
 				{ event: 'UPDATE', schema: 'public', table: 'branches', filter: `id=eq.${branchId}` },
 				() => {
-					void loadOrdersViewMode(branchId);
+					void loadOrdersPanelSettings(branchId);
 				},
 			)
 			.subscribe();
@@ -349,30 +458,45 @@ export const AdminProvider = ({
 				/* ignore */
 			}
 		};
-	}, [selectedBranch?.id, loadOrdersViewMode]);
+	}, [selectedBranch?.id, loadOrdersPanelSettings]);
 
-	const saveOrdersViewMode = useCallback(async (next) => {
-		const value = next === 'pedido' ? 'pedido' : 'mesas';
+	const saveOrdersPanelSettings = useCallback(async ({ ordersViewMode: nextView, localOrderChannels: nextChannels }) => {
+		const value = nextView === 'pedido' ? 'pedido' : 'mesas';
+		const channels = parseLocalOrderChannels(nextChannels);
+		if (!channels.mesa && !channels.retiro && !channels.delivery) {
+			showNotify('Activa al menos un tipo de pedido local (Mesa, Retiro o Delivery)', 'error');
+			return false;
+		}
 		const branchId = selectedBranch?.id;
 		if (!branchId || branchId === 'all') {
 			showNotify('Selecciona una sucursal concreta para guardar la vista de pedidos', 'error');
 			return false;
 		}
-		const previous = ordersViewModeRef.current;
+		const previousView = ordersViewModeRef.current;
+		const previousChannels = localOrderChannelsRef.current;
 		setOrdersViewModeSaving(true);
 		try {
-			await branchSettingsService.saveDeliverySettings(branchId, { ordersViewMode: value });
+			await branchSettingsService.saveDeliverySettings(branchId, {
+				ordersViewMode: value,
+				localOrderChannels: channels,
+			});
 			setOrdersViewModeState(value);
+			setLocalOrderChannelsState(channels);
+			writeOrdersPanelSettingsCache(companyId, branchId, {
+				ordersViewMode: value,
+				localOrderChannels: channels,
+			});
 			showNotify('Vista de pedidos guardada');
 			return true;
 		} catch (e) {
-			setOrdersViewModeState(previous);
+			setOrdersViewModeState(previousView);
+			setLocalOrderChannelsState(previousChannels);
 			showNotify(e instanceof Error ? e.message : 'Error al guardar vista de pedidos', 'error');
 			return false;
 		} finally {
 			setOrdersViewModeSaving(false);
 		}
-	}, [selectedBranch?.id, showNotify]);
+	}, [selectedBranch?.id, companyId, showNotify]);
 
 	const setActiveTabWithGuard = useCallback((tabId) => {
 		if (canAccessTab(tabId)) {
@@ -943,46 +1067,75 @@ export const AdminProvider = ({
 		void loadHistoryOrders();
 	}, [isHistoryView, loadHistoryOrders]);
 
+	const applyOrderSessionPayment = useCallback(async (order, paymentPatch) => {
+		if (!paymentPatch || isOrderPaymentSettled(order)) return order;
+		const items = (order.items || []).map((item) => ({
+			id: item.id,
+			name: String(item.name ?? ''),
+			quantity: Number(item.quantity) || 1,
+			price: Number(item.price) || 0,
+			has_discount: Boolean(item.has_discount),
+			discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
+			description: item.description ? String(item.description) : null,
+			note: item.note ? String(item.note) : null,
+			manual_order_source: item.manual_order_source || null,
+			is_extra: Boolean(item.is_extra),
+		}));
+		const breakdown = buildPaymentBreakdownForOrder({
+			payment_mode: paymentPatch.payment_mode,
+			payment_type: paymentPatch.payment_type,
+			cash_amount: paymentPatch.cash_amount,
+			card_amount: paymentPatch.card_amount,
+			total: Number(order.total) || 0,
+		});
+		const nextOrder = await ordersService.updateOrder(
+			order.id,
+			{
+				client_name: order.client_name,
+				client_phone: order.client_phone,
+				client_rut: order.client_rut,
+				items,
+				payment_type: paymentPatch.payment_type,
+				payment_breakdown: breakdown,
+				note: order.note,
+				order_type: order.order_type,
+				coupon_code: order.coupon_code,
+			},
+			{ prevStatus: order.status },
+		);
+		setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
+		return nextOrder;
+	}, []);
+
+	const markOrderSessionPaid = useCallback(async (order, paymentPatch = null) => {
+		if (!order?.id) return false;
+		try {
+			let nextOrder = order;
+			if (paymentPatch && !isOrderPaymentSettled(order)) {
+				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
+			} else if (!isOrderPaymentSettled(order)) {
+				showNotify('Selecciona un método de pago', 'warning');
+				return false;
+			}
+			const saleOk = await cashSystem.registerSale(nextOrder);
+			if (!saleOk) {
+				showNotify('No se pudo registrar la venta en caja', 'error');
+				return false;
+			}
+			showNotify('Pago registrado', 'success');
+			return nextOrder;
+		} catch (err) {
+			showNotify(err?.message || 'Error al registrar el pago', 'error');
+			return false;
+		}
+	}, [applyOrderSessionPayment, cashSystem, showNotify]);
+
 	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
 			let nextOrder = order;
 			if (paymentPatch && !isOrderPaymentSettled(order)) {
-				const items = (order.items || []).map((item) => ({
-					id: item.id,
-					name: String(item.name ?? ''),
-					quantity: Number(item.quantity) || 1,
-					price: Number(item.price) || 0,
-					has_discount: Boolean(item.has_discount),
-					discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
-					description: item.description ? String(item.description) : null,
-					note: item.note ? String(item.note) : null,
-					manual_order_source: item.manual_order_source || null,
-					is_extra: Boolean(item.is_extra),
-				}));
-				const breakdown = buildPaymentBreakdownForOrder({
-					payment_mode: paymentPatch.payment_mode,
-					payment_type: paymentPatch.payment_type,
-					cash_amount: paymentPatch.cash_amount,
-					card_amount: paymentPatch.card_amount,
-					total: Number(order.total) || 0,
-				});
-				nextOrder = await ordersService.updateOrder(
-					order.id,
-					{
-						client_name: order.client_name,
-						client_phone: order.client_phone,
-						client_rut: order.client_rut,
-						items,
-						payment_type: paymentPatch.payment_type,
-						payment_breakdown: breakdown,
-						note: order.note,
-						order_type: order.order_type,
-						coupon_code: order.coupon_code,
-					},
-					{ prevStatus: order.status },
-				);
-				setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
+				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
 			}
 			const saleOk = await cashSystem.registerSale(nextOrder);
 			if (!saleOk) {
@@ -1002,7 +1155,7 @@ export const AdminProvider = ({
 			showNotify(err?.message || 'Error al cerrar la mesa', 'error');
 			return false;
 		}
-	}, [cashSystem, companyId, showNotify]);
+	}, [applyOrderSessionPayment, cashSystem, companyId, showNotify]);
 
 	const uploadReceiptToOrder = useCallback(async (orderId, file) => {
 		if (!file) return;
@@ -1403,7 +1556,7 @@ export const AdminProvider = ({
 		isHistoryView, setIsHistoryView,
 		historyPeriod, setHistoryPeriod,
 		historyOrders, historyLoading, loadHistoryOrders,
-		ordersViewMode, saveOrdersViewMode, ordersViewModeSaving,
+		ordersViewMode, saveOrdersPanelSettings, ordersViewModeSaving, localOrderChannels, ordersPanelSettingsReady,
 		isOpenMesaModal, setIsOpenMesaModal,
 		mobileTab, setMobileTab,
 		searchQuery, setSearchQuery,
@@ -1422,7 +1575,6 @@ export const AdminProvider = ({
 		notification, setNotification,
 		receiptModalOrder, setReceiptModalOrder,
 		receiptPreview, setReceiptPreview,
-		isManualOrderModalOpen, setIsManualOrderModalOpen,
 		uploadingReceipt, setUploadingReceipt,
 		selectedClient, setSelectedClient,
 		selectedClientOrders, setSelectedClientOrders,
@@ -1436,6 +1588,7 @@ export const AdminProvider = ({
 		handleSelectClient,
 		moveOrder,
 		closeOrderSession,
+		markOrderSessionPaid,
 		uploadReceiptToOrder,
 		handleReceiptFileChange,
 		handleSaveProduct,
@@ -1469,11 +1622,11 @@ export const AdminProvider = ({
 		companyId,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
 		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, showProductPhotos, setShowProductPhotos, sortOrder,
-		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersViewMode, isOpenMesaModal,
+		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
-		notification, receiptModalOrder, receiptPreview, isManualOrderModalOpen, uploadingReceipt,
+		notification, receiptModalOrder, receiptPreview, uploadingReceipt,
 		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, cashSystem,
-		loadData, refreshAllData, refreshBranches, handleSelectClient, moveOrder, closeOrderSession, uploadReceiptToOrder, handleReceiptFileChange,
+		loadData, refreshAllData, refreshBranches, handleSelectClient, moveOrder, closeOrderSession, markOrderSessionPaid, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,
 		assignedBranchId, isBranchLocked, setSelectedBranchWithGuard, 		canAccessTab, normalizedPanelAccess, kanbanColumns, processedProducts, productStats, inventoryBranchRows, normalizedDynamicModules,

@@ -6,7 +6,9 @@ import {
 	normalizeDeliverySettings,
 	orderItemsSubtotalFromPayload,
 	parseInventoryEnforceOnSale,
+	parseLocalOrderChannels,
 	parseOrdersViewMode,
+	firstEnabledLocalChannel,
 } from "@/lib/delivery-settings";
 import { makeDeliverySettings } from "../../setup/fixtures/delivery-settings";
 
@@ -38,6 +40,35 @@ describe("delivery-settings", () => {
 		const merged = mergeDeliverySettingsJson({}, { ordersViewMode: "pedido" });
 		expect(merged.ordersViewMode).toBe("pedido");
 		expect(merged).not.toHaveProperty("orders_view_mode");
+	});
+
+	it("parseLocalOrderChannels defaults all enabled", () => {
+		expect(parseLocalOrderChannels(null)).toEqual({
+			mesa: true,
+			retiro: true,
+			delivery: true,
+		});
+		expect(parseLocalOrderChannels({ localOrderChannels: { mesa: false, retiro: true, delivery: false } })).toEqual({
+			mesa: false,
+			retiro: true,
+			delivery: false,
+		});
+	});
+
+	it("mergeDeliverySettingsJson persists localOrderChannels", () => {
+		const merged = mergeDeliverySettingsJson({}, {
+			localOrderChannels: { mesa: true, retiro: false, delivery: true },
+		});
+		expect(merged.localOrderChannels).toEqual({
+			mesa: true,
+			retiro: false,
+			delivery: true,
+		});
+	});
+
+	it("firstEnabledLocalChannel prefers mesa then retiro then delivery", () => {
+		expect(firstEnabledLocalChannel({ mesa: false, retiro: true, delivery: true })).toBe("retiro");
+		expect(firstEnabledLocalChannel({ mesa: false, retiro: false, delivery: false })).toBe("mesa");
 	});
 
 	it("orderItemsSubtotalFromPayload sums items", () => {

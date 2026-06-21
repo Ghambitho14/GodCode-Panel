@@ -36,6 +36,18 @@ function isDeliveryOrderType(raw) {
     return t === 'delivery' || t === 'envio' || t === 'envío' || t === 'despacho';
 }
 
+/** Tipo RPC para create/update: delivery | salon (mesa) | pickup (retiro). */
+function resolveRpcOrderType(orderData) {
+    if (isDeliveryOrderType(orderData?.order_type)) {
+        return 'delivery';
+    }
+    const fulfillment = String(orderData?.local_fulfillment_mode ?? '').trim().toLowerCase();
+    if (fulfillment === 'mesa') {
+        return 'salon';
+    }
+    return 'pickup';
+}
+
 /** Nota por línea (cocina / ticket); mismo límite que `useManualOrder`. */
 function normalizePersistedItemNote(raw) {
     if (raw == null) return null;
@@ -521,7 +533,7 @@ export const ordersService = {
                 p_branch_id: orderData.branch_id,
                 p_company_id: orderData.company_id || null,
                 p_status: orderData.status || 'pending',
-                p_order_type: deliveryMode ? 'delivery' : 'pickup',
+                p_order_type: resolveRpcOrderType(orderData),
                 p_delivery_address: pDeliveryPayload,
                 p_delivery_fee: deliveryMode ? deliveryFee : 0,
                 p_coupon_code: pCouponCode,
@@ -599,7 +611,7 @@ export const ordersService = {
             p_items: itemsForOrder,
             p_payment_type: String(patch.payment_type ?? 'tienda'),
             p_note: typeof patch.note === 'string' ? patch.note : '',
-            p_order_type: isDelivery ? 'delivery' : 'pickup',
+            p_order_type: resolveRpcOrderType(patch),
             p_delivery_address: deliveryAddressRecord,
             p_delivery_fee: deliveryFee,
             p_coupon_code: normCoupon,

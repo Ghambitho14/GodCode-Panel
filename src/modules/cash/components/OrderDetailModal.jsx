@@ -4,8 +4,6 @@ import {
     X,
     KeyRound,
     MapPin,
-    Store,
-    Truck,
     ChefHat,
     Banknote,
     Copy,
@@ -16,14 +14,28 @@ import {
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
 import {
-    getPaymentLabel,
     isOrderDelivery,
     deliveryAddressLines,
     buildOrderWhatsAppShareText,
     buildOrderDeliveryDriverPack,
     shareDeliveryPackViaWhatsApp,
+    getOrderFulfillmentKind,
+    getFulfillmentKindLabel,
+    getPaymentLabel,
+    getOrderItemLineTotal,
+    isOrderPaymentDeferred,
+    isOrderPaymentSettled,
+    resolveOrderCouponCode,
+    resolveOrderClientPhoneForDisplay,
+    resolveOrderClientRutForDisplay,
+    resolveOrderClientNameForDisplay,
+    isCajaGenericIdentity,
 } from '@/shared/utils/orderUtils';
+import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
+import DeliveryMotoIcon from './DeliveryMotoIcon';
+import TableRestaurantIcon from './TableRestaurantIcon';
+import PickupBagIcon from './PickupBagIcon';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -33,10 +45,10 @@ const STATUS_LABELS = {
     cancelled: 'Cancelado',
 };
 
-function orderTitle(order) {
-    const idPart = order?.display_id ?? order?.order_number ?? order?.id;
-    if (idPart != null && idPart !== '') return `Pedido ${idPart}`;
-    return 'Pedido';
+function formatOrderRef(orderId) {
+    const raw = String(orderId ?? '').replace(/-/g, '');
+    if (!raw) return '—';
+    return raw.slice(-6).toUpperCase();
 }
 
 function parseItems(raw) {
@@ -71,7 +83,6 @@ const ADDRESS_FIELD_LABELS = [
     ['ciudad', 'Ciudad'],
 ];
 
-/** Filas etiquetadas para mostrar dirección sin un solo bloque ilegible. */
 function structuredAddressRows(addr, fallbackLines = []) {
     if (!addr || typeof addr !== 'object' || Array.isArray(addr)) {
         return fallbackLines.map((value, i) => ({
@@ -108,8 +119,10 @@ const OrderDetailModal = ({
     companyName = null,
     showNotify,
     setReceiptModalOrder,
+    onMarkPaid = null,
 }) => {
     const { formatMoney: fmt } = useMemo(() => createMoneyFormatter(branch), [branch]);
+
     useEffect(() => {
         if (!order) return;
         const onEsc = (e) => {
@@ -122,6 +135,7 @@ const OrderDetailModal = ({
     if (!order || typeof document === 'undefined') return null;
 
     const items = parseItems(order.items);
+    const itemCount = items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
     const isDelivery = isOrderDelivery(order);
     const addrLines = deliveryAddressLines(order.delivery_address);
     const addrObj =
@@ -133,12 +147,36 @@ const OrderDetailModal = ({
         order.handoff_code != null && String(order.handoff_code).trim() !== ''
             ? String(order.handoff_code).trim()
             : '';
-    const deliveryFee = Number(order.delivery_fee) || 0;
-    const couponCode = order.coupon_code ? String(order.coupon_code).trim() : '';
     const addressRows = structuredAddressRows(addrObj, addrLines);
-    const createdAt = new Date(order.created_at);
-    const clientPhone = order.client_phone ? String(order.client_phone).trim() : '';
+
+    const fulfillmentKind = getOrderFulfillmentKind(order);
+    const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
+    const sessionNumber = order.shift_sequence ?? order.id;
+    const orderRef = formatOrderRef(order.id);
+
+    const clientPhone = resolveOrderClientPhoneForDisplay(order);
+    const clientRut = resolveOrderClientRutForDisplay(order);
+    const clientDisplay = resolveOrderClientNameForDisplay(order, fulfillmentKind);
+    const showCajaHint = isCajaGenericIdentity(clientRut, clientPhone);
     const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
+
+    const paymentDeferred = isOrderPaymentDeferred(order);
+    const paymentLabel = getPaymentLabel(order);
+    const showPaidBadge = isOrderPaymentSettled(order);
+    const canMarkPaid =
+        Boolean(onMarkPaid) &&
+        paymentDeferred &&
+        isOpenOrderSessionStatus(order.status);
+    const statusLabel = STATUS_LABELS[order.status] || order.status || '—';
+    const couponCode = resolveOrderCouponCode(order);
+    const createdAt = new Date(order.created_at);
+
+    const deliveryFee = isDelivery ? Number(order.delivery_fee) || 0 : 0;
+    const taxTotal = Number(order.tax_total) || 0;
+    const discountTotal = Number(order.discount_total) || 0;
+    const total = Number(order.total) || 0;
+    const linesSubtotal = Math.round(items.reduce((sum, item) => sum + getOrderItemLineTotal(item), 0));
+    const subtotal = Number(order.subtotal) > 0 ? Number(order.subtotal) : linesSubtotal;
 
     const ticketPrintOpts = (variant) => ({
         variant,
@@ -164,278 +202,352 @@ const OrderDetailModal = ({
     };
 
     const modal = (
-        <div
-            className="admin-layout order-detail-overlay"
-            onClick={onClose}
-            role="presentation"
-        >
+        <div className="table-session-modal-portal tenant-theme-vars order-detail-receipt-portal">
             <div
-                className="order-detail-panel"
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="order-detail-title"
+                className="table-session-modal-overlay"
+                onClick={onClose}
+                role="presentation"
             >
-                <div className="order-detail-head">
-                    <div className="order-detail-head-text">
-                        <p className="order-detail-eyebrow">Todo el detalle del pedido</p>
-                        <h2 id="order-detail-title" className="order-detail-title">
-                            {orderTitle(order)}
-                        </h2>
-                    </div>
-                    <button type="button" className="order-detail-close" onClick={onClose} aria-label="Cerrar detalle">
-                        <X size={22} strokeWidth={2} />
-                    </button>
-                </div>
-
-                <div className="order-detail-body">
-                    <div className="order-detail-meta-grid">
-                        <div className="order-detail-card">
-                            <span className="order-detail-label">Estado y pago</span>
-                            <div className="order-detail-card-main">
-                                <p className="order-detail-value">
-                                    {STATUS_LABELS[order.status] || order.status || '—'}
-                                    <span className="order-detail-value-sep">·</span>
-                                    {getPaymentLabel(order)}
+                <div className="admin-layout table-session-modal-portal-host">
+                    <div
+                        className={`order-detail-panel order-detail-panel--receipt table-session-modal table-session-modal--receipt table-session-modal--${fulfillmentKind}`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="order-detail-title"
+                    >
+                        <header className="table-session-receipt__head">
+                            <div className="table-session-receipt__head-text">
+                                <h2 id="order-detail-title" className="table-session-receipt__title-row">
+                                    <span className="table-session-receipt__title">
+                                        {fulfillmentLabel} #{sessionNumber}
+                                    </span>
+                                    {showPaidBadge ? (
+                                        <span className="table-session-receipt__paid-badge" title="Pedido ya pagado">
+                                            <PickupBagIcon size={16} aria-hidden />
+                                            Pagado
+                                        </span>
+                                    ) : null}
+                                </h2>
+                                <p className="table-session-receipt__order-id">
+                                    Detalle · Pedido{' '}
+                                    <strong className="table-session-receipt__order-code">#{orderRef}</strong>
                                 </p>
-                                <ul className="order-detail-facts">
-                                    <li>{createdAt.toLocaleString('es-CL')}</li>
-                                    {branch?.name ? <li>{branch.name}</li> : null}
-                                </ul>
-                            </div>
-                            <div className="order-detail-card-foot" aria-hidden />
-                        </div>
-
-                        <div className="order-detail-card">
-                            <span className="order-detail-label">Cliente</span>
-                            <div className="order-detail-card-main">
-                                <p className="order-detail-value">{order.client_name || 'Sin nombre'}</p>
-                                <ul className="order-detail-facts">
-                                    {clientPhone ? (
-                                        <li className="order-detail-phone-row">
-                                            <span>{clientPhone}</span>
-                                            {whatsAppHref ? (
-                                                <a
-                                                    href={whatsAppHref}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="order-detail-wa-btn"
-                                                    title="Abrir WhatsApp con el cliente"
-                                                    aria-label="Abrir WhatsApp con el cliente"
-                                                >
-                                                    <WhatsAppGlyph className="order-detail-wa-glyph" />
-                                                </a>
-                                            ) : null}
-                                        </li>
+                                <div className="table-session-receipt__meta">
+                                    <span className="order-detail-status-chip">{statusLabel}</span>
+                                    <span
+                                        className={`table-session-receipt__meta-payment${
+                                            paymentDeferred ? ' table-session-receipt__meta-payment--pending' : ''
+                                        }`}
+                                    >
+                                        {paymentLabel}
+                                    </span>
+                                    <span className="table-session-receipt__meta-sep" aria-hidden>·</span>
+                                    <span className="table-session-receipt__meta-item">{clientDisplay.name}</span>
+                                    {itemCount > 0 ? (
+                                        <>
+                                            <span className="table-session-receipt__meta-sep" aria-hidden>·</span>
+                                            <span className="table-session-receipt__meta-item">
+                                                {itemCount} {itemCount === 1 ? 'ítem' : 'ítems'}
+                                            </span>
+                                        </>
                                     ) : null}
-                                    {order.client_rut && String(order.client_rut).trim() ? (
-                                        <li>RUT {String(order.client_rut).trim()}</li>
+                                    {couponCode ? (
+                                        <>
+                                            <span className="table-session-receipt__meta-sep" aria-hidden>·</span>
+                                            <span className="table-session-receipt__meta-code">{couponCode}</span>
+                                        </>
                                     ) : null}
-                                </ul>
-                            </div>
-                            <div className="order-detail-card-foot" aria-hidden />
-                        </div>
-
-                        <div className="order-detail-card">
-                            <span className="order-detail-label">Entrega</span>
-                            <div className="order-detail-card-main">
-                                <div
-                                    className={`order-detail-fulfillment ${isDelivery ? 'is-delivery' : 'is-pickup'}`}
-                                >
-                                    {isDelivery ? <Truck size={18} aria-hidden /> : <Store size={18} aria-hidden />}
-                                    {isDelivery ? 'Delivery' : 'Retiro en local'}
                                 </div>
                             </div>
-                            <div className="order-detail-card-foot">
-                                <span className="order-detail-kv-label">Cargo envío</span>
-                                <span className="order-detail-kv-value">
-                                    {isDelivery && deliveryFee > 0 ? fmt(deliveryFee) : '—'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+                            <button
+                                type="button"
+                                className="table-session-receipt__icon-btn"
+                                onClick={onClose}
+                                aria-label="Cerrar detalle"
+                            >
+                                <X size={18} strokeWidth={1.75} />
+                            </button>
+                        </header>
 
-                    {handoff ? (
-                        <div className="order-detail-section order-detail-handoff-block">
-                            <span className="order-detail-label">Código de verificación</span>
-                            <div className="order-detail-handoff-code">
-                                <KeyRound size={18} className="order-detail-handoff-icon" aria-hidden />
-                                <span className="order-detail-handoff-digits">{handoff}</span>
-                            </div>
-                            <p className="order-detail-handoff-hint order-detail-muted">
-                                Pedir este código al cliente al entregar.
-                            </p>
-                        </div>
-                    ) : null}
-
-                    {isDelivery && addressRows.length > 0 ? (
-                        <div className="order-detail-section order-detail-block order-detail-block--address">
-                            <span className="order-detail-label">Dirección de envío</span>
-                            <dl className="order-detail-address-grid">
-                                {addressRows.map((row) => (
-                                    <div key={row.key} className="order-detail-address-row">
-                                        <dt>{row.label}</dt>
-                                        <dd>{row.value}</dd>
+                        <div className="table-session-receipt__scroll">
+                            <section className="table-session-receipt__section">
+                                <h3 className="table-session-receipt__section-title">
+                                    {fulfillmentKind === 'mesa' ? 'Mesa / Cliente' : 'Cliente'}
+                                </h3>
+                                {clientDisplay.subtitle ? (
+                                    <p className="order-detail-client-subtitle">{clientDisplay.subtitle}</p>
+                                ) : null}
+                                <dl className="order-detail-receipt-dl">
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Nombre</dt>
+                                        <dd>{clientDisplay.name}</dd>
                                     </div>
-                                ))}
-                            </dl>
-                            {mapsUrl ? (
-                                <a
-                                    href={mapsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="order-detail-ticket-btn order-detail-maps-link"
-                                >
-                                    <MapPin size={18} aria-hidden />
-                                    Abrir en mapas
-                                    <ExternalLink size={14} aria-hidden className="order-detail-link-icon" />
-                                </a>
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    <div className="order-detail-section order-detail-products">
-                        <span className="order-detail-label">Productos ({items.length})</span>
-                        <ul className="order-detail-items">
-                            {items.map((item, i) => {
-                                const q = Number(item.quantity) || 1;
-                                const unit =
-                                    Number(
-                                        item.has_discount && item.discount_price != null
-                                            ? item.discount_price
-                                            : item.price,
-                                    ) || 0;
-                                const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
-                                return (
-                                    <li key={`${item.id ?? i}-${i}`} className="order-detail-item-row">
-                                        <div className="order-detail-item-main">
-                                            <span className="order-detail-item-qty">{q}x</span>
-                                            <span className="order-detail-item-name">{item.name || 'Producto'}</span>
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Teléfono</dt>
+                                        <dd className="order-detail-receipt-dl__contact">
+                                            {clientPhone ? (
+                                                <>
+                                                    <span>{clientPhone}</span>
+                                                    {whatsAppHref ? (
+                                                        <a
+                                                            href={whatsAppHref}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="order-detail-wa-btn"
+                                                            title="WhatsApp"
+                                                            aria-label="WhatsApp"
+                                                        >
+                                                            <WhatsAppGlyph className="order-detail-wa-glyph" />
+                                                        </a>
+                                                    ) : null}
+                                                </>
+                                            ) : (
+                                                <span className="order-detail-client-empty">No registrado</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>RUT / DNI</dt>
+                                        <dd>
+                                            {clientRut ? (
+                                                clientRut
+                                            ) : (
+                                                <span className="order-detail-client-empty">No registrado</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    {branch?.name ? (
+                                        <div className="order-detail-receipt-dl__row">
+                                            <dt>Sucursal</dt>
+                                            <dd>{branch.name}</dd>
                                         </div>
-                                        <span className="order-detail-item-price">{fmt(q * unit)}</span>
-                                        {Array.isArray(item.extras) && item.extras.length > 0 ? (
-                                            <div className="order-detail-item-desc">
-                                                {item.extras.map((ex, exIdx) => (
-                                                    <div key={exIdx}>
-                                                        + {ex.quantity || 1}x {ex.name}
+                                    ) : null}
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Fecha</dt>
+                                        <dd>{createdAt.toLocaleString('es-CL')}</dd>
+                                    </div>
+                                </dl>
+                                {showCajaHint ? (
+                                    <p className="order-detail-caja-hint">Documento y teléfono genéricos de caja</p>
+                                ) : null}
+                            </section>
+
+                            <section className="table-session-receipt__section">
+                                <h3 className="table-session-receipt__section-title">Entrega</h3>
+                                <div className={`order-detail-fulfillment is-${fulfillmentKind}`}>
+                                    {fulfillmentKind === 'moto' ? (
+                                        <DeliveryMotoIcon size={18} aria-hidden />
+                                    ) : fulfillmentKind === 'retiro' ? (
+                                        <PickupBagIcon size={18} aria-hidden />
+                                    ) : (
+                                        <TableRestaurantIcon size={18} aria-hidden />
+                                    )}
+                                    {fulfillmentLabel}
+                                </div>
+                                {canMarkPaid ? (
+                                    <button
+                                        type="button"
+                                        className="table-session-receipt__cta order-detail-mark-paid-btn"
+                                        onClick={() => onMarkPaid(order)}
+                                    >
+                                        <Banknote size={16} aria-hidden />
+                                        Marcar pagado
+                                    </button>
+                                ) : null}
+                                {isDelivery && deliveryFee > 0 ? (
+                                    <div className="table-session-receipt__total-row">
+                                        <span>Cargo envío</span>
+                                        <span>{fmt(deliveryFee)}</span>
+                                    </div>
+                                ) : null}
+                            </section>
+
+                            {handoff ? (
+                                <section className="table-session-receipt__section">
+                                    <h3 className="table-session-receipt__section-title">Código de verificación</h3>
+                                    <div className="order-detail-handoff-code">
+                                        <KeyRound size={18} className="order-detail-handoff-icon" aria-hidden />
+                                        <span className="order-detail-handoff-digits">{handoff}</span>
+                                    </div>
+                                </section>
+                            ) : null}
+
+                            {isDelivery && addressRows.length > 0 ? (
+                                <section className="table-session-receipt__section">
+                                    <h3 className="table-session-receipt__section-title">Dirección de envío</h3>
+                                    <dl className="order-detail-receipt-dl">
+                                        {addressRows.map((row) => (
+                                            <div key={row.key} className="order-detail-receipt-dl__row">
+                                                <dt>{row.label}</dt>
+                                                <dd>{row.value}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                    {mapsUrl ? (
+                                        <a
+                                            href={mapsUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="table-session-receipt__link order-detail-receipt-maps"
+                                        >
+                                            <MapPin size={16} aria-hidden />
+                                            Abrir en mapas
+                                            <ExternalLink size={14} aria-hidden />
+                                        </a>
+                                    ) : null}
+                                </section>
+                            ) : null}
+
+                            {items.length > 0 ? (
+                                <section className="table-session-receipt__section">
+                                    <h3 className="table-session-receipt__section-title">Ítems pedidos</h3>
+                                    <ul className="table-session-receipt__items">
+                                        {items.map((item, idx) => {
+                                            const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
+                                            return (
+                                                <li key={`${item.id ?? idx}-${idx}`} className="table-session-receipt__item">
+                                                    <div className="table-session-receipt__item-main">
+                                                        <span className="table-session-receipt__item-name">
+                                                            {item.quantity}x {item.name}
+                                                        </span>
+                                                        {itemNote ? (
+                                                            <span className="table-session-receipt__item-note">{itemNote}</span>
+                                                        ) : null}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                        {itemNote ? (
-                                            <div className="order-detail-item-desc order-detail-item-note">
-                                                Nota: {itemNote}
-                                            </div>
-                                        ) : null}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </div>
-
-                    {couponCode ? (
-                        <div className="order-detail-section">
-                            <span className="order-detail-label">Cupón</span>
-                            <p className="order-detail-value">{couponCode}</p>
-                        </div>
-                    ) : null}
-
-                    {order.note && String(order.note).trim() ? (
-                        <div className="order-detail-section">
-                            <span className="order-detail-label">Nota del pedido</span>
-                            <p className="order-detail-note">{String(order.note).trim()}</p>
-                        </div>
-                    ) : null}
-
-                    <div className="order-detail-total-row">
-                        <span className="order-detail-label order-detail-label--inline">Total</span>
-                        <span className="order-detail-total">{fmt(order.total || 0)}</span>
-                    </div>
-
-                    {order.payment_type === 'online' && order.payment_ref && String(order.payment_ref).startsWith('http') ? (
-                        <div className="order-detail-section">
-                            <span className="order-detail-label">Comprobante</span>
-                            <a
-                                href={order.payment_ref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="order-detail-ticket-btn order-detail-receipt-link"
-                            >
-                                <ImageIcon size={18} aria-hidden />
-                                Ver comprobante
-                            </a>
-                        </div>
-                    ) : null}
-
-                    <div className="order-detail-section">
-                        <span className="order-detail-label">Acciones</span>
-                        <div className="order-detail-ticket-actions">
-                            <button
-                                type="button"
-                                className="order-detail-ticket-btn order-detail-ticket-btn--primary"
-                                onClick={() => {
-                                    printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
-                                }}
-                            >
-                                <ChefHat size={18} aria-hidden />
-                                Ticket cocina
-                            </button>
-                            <button
-                                type="button"
-                                className="order-detail-ticket-btn"
-                                onClick={() => {
-                                    printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
-                                }}
-                            >
-                                <Banknote size={18} aria-hidden />
-                                Ticket caja
-                            </button>
-                            <button type="button" className="order-detail-ticket-btn" onClick={() => void handleCopyShare()}>
-                                <Copy size={18} aria-hidden />
-                                Copiar resumen
-                            </button>
-                            {whatsAppHref ? (
-                                <a
-                                    href={whatsAppHref}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="order-detail-ticket-btn order-detail-ticket-btn--whatsapp"
-                                >
-                                    <WhatsAppGlyph className="order-detail-wa-glyph order-detail-wa-glyph--btn" />
-                                    WhatsApp cliente
-                                </a>
+                                                    <span className="table-session-receipt__item-price">
+                                                        {fmt(getOrderItemLineTotal(item))}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </section>
                             ) : null}
-                            {isDelivery ? (
+
+                            <section className="table-session-receipt__section table-session-receipt__totals">
+                                <div className="table-session-receipt__total-row">
+                                    <span>Subtotal</span>
+                                    <span>{fmt(subtotal)}</span>
+                                </div>
+                                {taxTotal > 0 ? (
+                                    <div className="table-session-receipt__total-row">
+                                        <span>Impuesto</span>
+                                        <span>{fmt(taxTotal)}</span>
+                                    </div>
+                                ) : null}
+                                {deliveryFee > 0 ? (
+                                    <div className="table-session-receipt__total-row">
+                                        <span>Envío</span>
+                                        <span>{fmt(deliveryFee)}</span>
+                                    </div>
+                                ) : null}
+                                {discountTotal > 0 ? (
+                                    <div className="table-session-receipt__total-row table-session-receipt__total-row--discount">
+                                        <span>Descuento</span>
+                                        <span>−{fmt(discountTotal)}</span>
+                                    </div>
+                                ) : null}
+                                <div className="table-session-receipt__total-row table-session-receipt__total-row--final">
+                                    <span>Total a pagar</span>
+                                    <span>{fmt(total)}</span>
+                                </div>
+                            </section>
+
+                            {order.note && String(order.note).trim() ? (
+                                <section className="table-session-receipt__section">
+                                    <h3 className="table-session-receipt__section-title">Nota</h3>
+                                    <p className="order-detail-receipt-note">{String(order.note).trim()}</p>
+                                </section>
+                            ) : null}
+
+                            {order.payment_type === 'online' &&
+                            order.payment_ref &&
+                            String(order.payment_ref).startsWith('http') ? (
+                                <section className="table-session-receipt__section">
+                                    <a
+                                        href={order.payment_ref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="table-session-receipt__link"
+                                    >
+                                        <ImageIcon size={16} aria-hidden />
+                                        Ver comprobante de pago
+                                    </a>
+                                </section>
+                            ) : null}
+                        </div>
+
+                        <footer className="table-session-receipt__foot order-detail-receipt__foot">
+                            <div className="order-detail-receipt-actions">
                                 <button
                                     type="button"
-                                    className="order-detail-ticket-btn"
-                                    onClick={() => void handleDeliveryWhatsApp()}
-                                >
-                                    <Send size={18} aria-hidden />
-                                    WhatsApp envío
-                                </button>
-                            ) : null}
-                            {order.payment_type === 'online' && setReceiptModalOrder ? (
-                                <button
-                                    type="button"
-                                    className="order-detail-ticket-btn"
+                                    className="order-detail-receipt-action"
                                     onClick={() => {
-                                        setReceiptModalOrder(order);
-                                        onClose?.();
+                                        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
                                     }}
                                 >
-                                    <ImageIcon size={18} aria-hidden />
-                                    {order.payment_ref ? 'Cambiar comprobante' : 'Subir comprobante'}
+                                    <ChefHat size={16} aria-hidden />
+                                    Ticket cocina
                                 </button>
-                            ) : null}
-                        </div>
+                                <button
+                                    type="button"
+                                    className="order-detail-receipt-action"
+                                    onClick={() => {
+                                        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
+                                    }}
+                                >
+                                    <Banknote size={16} aria-hidden />
+                                    Ticket caja
+                                </button>
+                                <button
+                                    type="button"
+                                    className="order-detail-receipt-action"
+                                    onClick={() => void handleCopyShare()}
+                                >
+                                    <Copy size={16} aria-hidden />
+                                    Copiar
+                                </button>
+                                {whatsAppHref ? (
+                                    <a
+                                        href={whatsAppHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="order-detail-receipt-action order-detail-receipt-action--whatsapp"
+                                    >
+                                        <WhatsAppGlyph className="order-detail-wa-glyph order-detail-wa-glyph--btn" />
+                                        WhatsApp
+                                    </a>
+                                ) : null}
+                                {isDelivery ? (
+                                    <button
+                                        type="button"
+                                        className="order-detail-receipt-action"
+                                        onClick={() => void handleDeliveryWhatsApp()}
+                                    >
+                                        <Send size={16} aria-hidden />
+                                        Envío
+                                    </button>
+                                ) : null}
+                                {order.payment_type === 'online' && setReceiptModalOrder ? (
+                                    <button
+                                        type="button"
+                                        className="order-detail-receipt-action"
+                                        onClick={() => {
+                                            setReceiptModalOrder(order);
+                                            onClose?.();
+                                        }}
+                                    >
+                                        <ImageIcon size={16} aria-hidden />
+                                        Comprobante
+                                    </button>
+                                ) : null}
+                            </div>
+                            <button type="button" className="table-session-receipt__cta" onClick={onClose}>
+                                Cerrar
+                            </button>
+                        </footer>
                     </div>
-                </div>
-
-                <div className="order-detail-foot">
-                    <button type="button" className="admin-btn primary order-detail-done" onClick={onClose}>
-                        Cerrar
-                    </button>
                 </div>
             </div>
         </div>
