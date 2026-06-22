@@ -13,7 +13,7 @@ import {
 	Eye,
 	Loader2,
 } from "lucide-react";
-import { getPaymentLabel, getOrderTileKind } from "@/shared/utils/orderUtils";
+import { getPaymentLabel, getOrderTileKind, resolveItemKitchenNote, isLegacyGlobalKitchenNote } from "@/shared/utils/orderUtils";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import ReportPeriodSelect from "./ReportPeriodSelect";
 import { ymdLocal } from "../utils/reportPeriodRange";
@@ -247,7 +247,9 @@ const AdminHistoryTable = ({
 																		Artículos del Pedido
 																	</h4>
 																	<ul className="admin-history-items-list">
-																		{o.items?.map((item, idx) => (
+																		{o.items?.map((item, idx) => {
+																			const itemNote = resolveItemKitchenNote(item, o.note);
+																			return (
 																			<li key={idx} className="admin-history-item-li">
 																				<div className="admin-history-item-line">
 																					<span>
@@ -262,10 +264,16 @@ const AdminHistoryTable = ({
 																						Detalle: {item.description}
 																					</span>
 																				) : null}
+																				{itemNote ? (
+																					<span className="admin-history-item-desc">
+																						Nota: {itemNote}
+																					</span>
+																				) : null}
 																			</li>
-																		))}
+																			);
+																		})}
 																	</ul>
-																	{o.note ? (
+																	{isLegacyGlobalKitchenNote(o) ? (
 																		<div className="admin-history-note">
 																			<span className="admin-history-note-label">
 																				NOTA DEL CLIENTE:

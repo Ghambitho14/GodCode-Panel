@@ -19,6 +19,7 @@ import {
     isOrderPaymentDeferred,
     isOrderPaymentSettled,
     orderDeliveryKanbanSubtitle,
+    resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
 import PickupBagIcon from './PickupBagIcon';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
@@ -388,7 +389,7 @@ const OrderCard = ({
                     <>
                         <div className="card-items card-items--expanded">
                             {order.items.map((item, idx) => {
-                                const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
+                                const itemNote = resolveItemKitchenNote(item, order.note) ?? '';
                                 return (
                                     <div key={idx} className="order-item-row order-item-row--stacked">
                                         <div className="order-item-row__main">

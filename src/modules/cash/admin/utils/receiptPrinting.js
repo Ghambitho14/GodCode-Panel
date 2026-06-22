@@ -4,6 +4,8 @@ import {
 	getPaymentLabel,
 	isOrderDelivery,
 	isOrderPaymentDeferred,
+	isLegacyGlobalKitchenNote,
+	resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
 
 function orderCurrency(order) {
@@ -166,12 +168,10 @@ function stripInternalNoteHints(rawNote) {
 		.trim();
 }
 
-/** Nota por línea persistida en `items` (jsonb); tolera valores no-string. */
-function plainItemNote(item) {
-	const n = item?.note;
-	if (n == null) return '';
-	const s = typeof n === 'string' ? n : String(n);
-	return s.trim();
+/** Nota por línea: panel manual (item.note), menú (description / orders.note). */
+function plainItemNote(item, order) {
+	const note = resolveItemKitchenNote(item, order?.note);
+	return note ?? '';
 }
 
 /**
@@ -353,7 +353,9 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 	// `[Sucursal: ...]` y `[Envío: $...]` para que el cliente solo vea la nota
 	// real escrita por el cajero. La sucursal aparece en el h1 y el envio en
 	// la fila de totales.
-	const safeOrderNote = order.note ? escapeHtml(stripInternalNoteHints(order.note)) : '';
+	const safeOrderNote = isLegacyGlobalKitchenNote(order) && order.note
+		? escapeHtml(stripInternalNoteHints(order.note))
+		: '';
 	const dateTimeLine = escapeHtml(formatTicketDateTime(order));
 	const logoMaxWidthMm = CONTENT_MM <= 50 ? 40 : 56;
 	const logoMaxHeightMm = 13;
@@ -367,7 +369,9 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 		const orderBandLine = `#${safeOrderId} - COCINA - ${channelEsc}`;
 		const refLineHtml = clientReferenceLineHtml(order);
 		const dateDash = escapeHtml(formatTicketDateTimeDash(order));
-		const safeKitchenNote = escapeHtml(stripInternalNoteHints(order.note));
+		const safeKitchenNote = isLegacyGlobalKitchenNote(order) && order.note
+			? escapeHtml(stripInternalNoteHints(order.note))
+			: '';
 
 		const itemsKitchen = (order.items || []).map((item) => {
 			const safeQuantity = Number(item.quantity) || 1;
@@ -380,12 +384,9 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					return `<div class="k-extra">+ ${extraQty}x ${extraName}</div>`;
 				}).join('');
 			}
-			// Comentario por item: solo se imprime en el ticket de cocina. Se
-			// rendea en mayusculas y con marca "!! NOTA:" para que el cocinero
-			// no se lo coma de un vistazo.
-			const noteRaw = plainItemNote(item);
+			const noteRaw = plainItemNote(item, order);
 			const itemNoteHtml = noteRaw
-				? `<div class="k-item-note">!! NOTA: ${escapeHtml(noteRaw.toUpperCase())}</div>`
+				? `<div class="k-item-note">--&gt; Nota: ${escapeHtml(noteRaw)}</div>`
 				: '';
 			return `
 		<div class="k-item">
@@ -459,19 +460,14 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 					text-transform: uppercase;
 					line-height: 1.3;
 				}
-				/* Comentario por item ("sin cebolla", "salsa aparte"). Lo dejamos
-				   con la misma jerarquia visual que las notas de pedido (k-note)
-				   pero mas chico y atado al item, no al pedido completo. */
 				.k-item-note {
 					margin-top: 1.5mm;
-					margin-left: 1mm;
-					padding: 1mm 2mm;
-					border: 1.5px solid #000;
-					font-size: 9.5pt;
+					margin-left: 5mm;
+					padding-left: 0;
+					font-size: 9pt;
 					font-weight: 700;
-					line-height: 1.25;
+					line-height: 1.35;
 					word-break: break-word;
-					text-transform: uppercase;
 				}
 				.k-note {
 					margin-top: 4mm;
@@ -566,7 +562,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 		// Comentario por item: tambien aparece en el ticket de caja para que el
 		// cliente vea que su pedido especial quedo registrado. Se rendea con
 		// "NOTA: ..." debajo del nombre, sin borde fuerte (no es para cocina).
-		const noteRaw = plainItemNote(item);
+		const noteRaw = plainItemNote(item, order);
 		const itemNoteHtml = noteRaw
 			? `<div class="c-item-note">NOTA: ${escapeHtml(noteRaw.toUpperCase())}</div>`
 			: '';

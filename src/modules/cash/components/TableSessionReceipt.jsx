@@ -8,6 +8,7 @@ import {
 	isOrderPaymentDeferred,
 	isOrderPaymentSettled,
 	resolveOrderCouponCode,
+	resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
 import PickupBagIcon from './PickupBagIcon';
 
@@ -143,21 +144,24 @@ export default function TableSessionReceipt({
 					<section className="table-session-receipt__section">
 						<h3 className="table-session-receipt__section-title">Ítems pedidos</h3>
 						<ul className="table-session-receipt__items">
-							{items.map((item, idx) => (
+							{items.map((item, idx) => {
+								const itemNote = resolveItemKitchenNote(item, order.note);
+								return (
 								<li key={idx} className="table-session-receipt__item">
 									<div className="table-session-receipt__item-main">
 										<span className="table-session-receipt__item-name">
 											{item.quantity}x {item.name}
 										</span>
-										{item.note ? (
-											<span className="table-session-receipt__item-note">{item.note}</span>
+										{itemNote ? (
+											<span className="table-session-receipt__item-note">{itemNote}</span>
 										) : null}
 									</div>
 									<span className="table-session-receipt__item-price">
 										{formatMoney(getOrderItemLineTotal(item))}
 									</span>
 								</li>
-							))}
+								);
+							})}
 						</ul>
 					</section>
 				) : null}

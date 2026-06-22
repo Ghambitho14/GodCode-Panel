@@ -15,6 +15,8 @@ import {
 	getOrderFulfillmentKind,
 	getFulfillmentKindLabel,
 	resolveOrderClientPhoneForDisplay,
+	isLegacyGlobalKitchenNote,
+	resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
@@ -160,7 +162,8 @@ export default function CashOrderDetailPanel({
 			? String(displayOrder.handoff_code).trim()
 			: '';
 	const addressRows = structuredAddressRows(addrObj, addrLines);
-	const { branchLine: noteBranchLine, body: noteBody } = splitOrderNote(displayOrder.note);
+	const { branchLine: noteBranchLine, body: noteBodyRaw } = splitOrderNote(displayOrder.note);
+	const noteBody = isLegacyGlobalKitchenNote(displayOrder) ? noteBodyRaw : '';
 	const hasNote = Boolean(noteBranchLine || noteBody);
 	const clientPhone = resolveOrderClientPhoneForDisplay(displayOrder);
 	const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
@@ -286,7 +289,7 @@ export default function CashOrderDetailPanel({
 											? item.discount_price
 											: item.price,
 									) || 0;
-								const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
+								const itemNote = resolveItemKitchenNote(item, displayOrder.note) ?? '';
 								return (
 									<li key={`${item.id ?? i}-${i}`} className="order-detail-item-row">
 										<div className="order-detail-item-main">

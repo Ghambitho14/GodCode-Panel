@@ -31,6 +31,10 @@ import {
 	countOpenOrderSessions,
 	filterOpenOrderSessions,
 	ORDER_OPEN_STATUSES,
+	extractLineNote,
+	parseAggregatedLineNotes,
+	resolveItemKitchenNote,
+	isLegacyGlobalKitchenNote,
 } from "@/shared/utils/orderUtils";
 
 describe("orderUtils", () => {
@@ -406,5 +410,73 @@ describe("orderUtils", () => {
 			{ status: "picked_up", shift_sequence: 9, channel: "pickup" },
 		]);
 		expect(sorted.map((o) => o.shift_sequence)).toEqual([1, 2, 3]);
+	});
+
+	describe("kitchen line notes (menu → panel)", () => {
+		it("extractLineNote parses Nota segment from description", () => {
+			expect(extractLineNote("Promo del día | Extras: 1x Queso | Nota: Sin cebolla")).toBe(
+				"Sin cebolla",
+			);
+			expect(extractLineNote("Nota: Bien fría")).toBe("Bien fría");
+			expect(extractLineNote("Solo promo")).toBeNull();
+			expect(extractLineNote(null)).toBeNull();
+		});
+
+		it("parseAggregatedLineNotes filters metadata and parses product lines", () => {
+			const note = `[Sucursal: Centro]
+Tumbarrancho especial: Sin cebolla
+Coca cola: Bien fría
+[Envio: $1.500]`;
+			expect(parseAggregatedLineNotes(note)).toEqual([
+				{ productName: "Tumbarrancho especial", note: "Sin cebolla" },
+				{ productName: "Coca cola", note: "Bien fría" },
+			]);
+			expect(parseAggregatedLineNotes("")).toEqual([]);
+		});
+
+		it("resolveItemKitchenNote priority: item.note, description, aggregated", () => {
+			expect(
+				resolveItemKitchenNote({ name: "Burger", note: "Panel note" }, null),
+			).toBe("Panel note");
+			expect(
+				resolveItemKitchenNote(
+					{ name: "Tumbarrancho", description: "Nota: Sin cebolla" },
+					null,
+				),
+			).toBe("Sin cebolla");
+			expect(
+				resolveItemKitchenNote(
+					{ name: "Coca cola" },
+					"Coca cola: Bien fría",
+				),
+			).toBe("Bien fría");
+			expect(resolveItemKitchenNote({ name: "Agua" }, null)).toBeNull();
+		});
+
+		it("isLegacyGlobalKitchenNote detects legacy vs per-item notes", () => {
+			expect(
+				isLegacyGlobalKitchenNote({
+					note: "Sin cebolla en todo",
+					items: [{ name: "Burger" }],
+				}),
+			).toBe(true);
+			expect(
+				isLegacyGlobalKitchenNote({
+					note: "Tumbarrancho: Sin cebolla",
+					items: [{ name: "Tumbarrancho", description: "Nota: Sin cebolla" }],
+				}),
+			).toBe(false);
+			expect(
+				isLegacyGlobalKitchenNote({
+					note: "Tumbarrancho: Sin cebolla",
+					items: [{ name: "Tumbarrancho" }],
+				}),
+			).toBe(false);
+			expect(
+				isLegacyGlobalKitchenNote({
+					items: [{ name: "Burger", note: "Extra queso" }],
+				}),
+			).toBe(false);
+		});
 	});
 });

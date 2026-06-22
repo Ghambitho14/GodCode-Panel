@@ -1,7 +1,9 @@
-import React from 'react';
-import { Clock } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Clock, Package, Printer, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
 import { getOrderTileKind, getFulfillmentKindLabel, isOrderPaymentSettled } from '@/shared/utils/orderUtils';
+import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
+import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import DeliveryMotoIcon from './DeliveryMotoIcon';
 import TableRestaurantIcon from './TableRestaurantIcon';
 import PickupBagIcon from './PickupBagIcon';
@@ -12,46 +14,120 @@ const STATUS_CLASS = {
 	completed: 'table-tile--completed',
 };
 
-export default function TableTile({ order, onClick }) {
+const STATUS_LABEL = {
+	pending: 'Nuevo',
+	active: 'En cocina',
+	completed: 'Listo',
+};
+
+export default function TableTile({ order, onClick, branchName = null, logoUrl = null }) {
 	const kind = getOrderTileKind(order);
 	const number = order.shift_sequence ?? order.id;
 	const statusClass = STATUS_CLASS[order.status] || 'table-tile--pending';
+	const statusLabel = STATUS_LABEL[order.status] || STATUS_LABEL.pending;
 	const itemCount = (order.items || []).reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
 	const kindLabel = getFulfillmentKindLabel(kind);
 	const showPaidBadge = isOrderPaymentSettled(order);
+	const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
+	const ticketMenuRef = useRef(null);
+
+	const printKitchen = (e) => {
+		e.stopPropagation();
+		printOrderTicket(order, branchName, logoUrl ?? null, { variant: 'kitchen' });
+		setTicketMenuOpen(false);
+	};
+
+	const printCashier = (e) => {
+		e.stopPropagation();
+		printOrderTicket(order, branchName, logoUrl ?? null, { variant: 'cashier' });
+		setTicketMenuOpen(false);
+	};
 
 	return (
-		<button
-			type="button"
-			className={`table-tile ${statusClass} table-tile--${kind}`}
-			onClick={() => onClick(order)}
-			aria-label={`${kindLabel} ${number}, ${order.client_name || 'Cliente'}${showPaidBadge ? ', pagado' : ''}`}
+		<div
+			className={`table-tile ${statusClass} table-tile--${kind}${ticketMenuOpen ? ' table-tile--menu-open' : ''}`}
 		>
-			<span className="table-tile__seq" aria-hidden>
-				{number}
-			</span>
-			{showPaidBadge ? (
-				<span className="table-tile__paid-badge" title="Ya pagado" aria-hidden>
-					<PickupBagIcon size={14} />
+			<header className="table-tile__head">
+				<div className="table-tile__head-main">
+					<span className="table-tile__seq" aria-hidden>
+						#{number}
+					</span>
+					<span className="table-tile__status">{statusLabel}</span>
+				</div>
+				<div className="table-tile__head-actions">
+					<div className="order-ticket-menu" ref={ticketMenuRef}>
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								setTicketMenuOpen((v) => !v);
+							}}
+							className={`table-tile__tool-btn${ticketMenuOpen ? ' is-active' : ''}`}
+							title="Imprimir tickets"
+							aria-expanded={ticketMenuOpen}
+							aria-haspopup="menu"
+							aria-label="Imprimir tickets"
+						>
+							<Printer size={11} aria-hidden />
+						</button>
+						{ticketMenuOpen ? (
+							<OrderCardAnchoredMenu
+								anchorRef={ticketMenuRef}
+								isOpen={ticketMenuOpen}
+								onClose={() => setTicketMenuOpen(false)}
+								menuWidth={200}
+								menuHeight={120}
+							>
+								<button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchen}>
+									<ChefHat size={16} aria-hidden />
+									Ticket cocina
+								</button>
+								<button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printCashier}>
+									<Banknote size={16} aria-hidden />
+									Ticket caja
+								</button>
+							</OrderCardAnchoredMenu>
+						) : null}
+					</div>
+					{showPaidBadge ? (
+						<span className="table-tile__paid-badge" title="Ya pagado" aria-hidden>
+							<PickupBagIcon size={14} />
+						</span>
+					) : null}
+				</div>
+			</header>
+			<button
+				type="button"
+				className="table-tile__body"
+				onClick={() => onClick(order)}
+				aria-label={`${kindLabel} ${number}, ${statusLabel}, ${order.client_name || 'Cliente'}${showPaidBadge ? ', pagado' : ''}`}
+			>
+				<span className="table-tile__kind-icon" aria-hidden>
+					{kind === 'moto' ? (
+						<DeliveryMotoIcon className="table-tile__kind-svg table-tile__kind-svg--moto" />
+					) : kind === 'retiro' ? (
+						<PickupBagIcon className="table-tile__kind-svg table-tile__kind-svg--retiro" />
+					) : (
+						<TableRestaurantIcon className="table-tile__kind-svg table-tile__kind-svg--mesa" />
+					)}
 				</span>
-			) : null}
-			<span className="table-tile__kind-icon" aria-hidden>
-				{kind === 'moto' ? (
-					<DeliveryMotoIcon className="table-tile__kind-svg table-tile__kind-svg--moto" />
-				) : kind === 'retiro' ? (
-					<PickupBagIcon className="table-tile__kind-svg table-tile__kind-svg--retiro" />
-				) : (
-					<TableRestaurantIcon className="table-tile__kind-svg table-tile__kind-svg--mesa" />
-				)}
-			</span>
-			<span className="table-tile__meta">
 				<span className="table-tile__client">{order.client_name || 'Cliente'}</span>
-				<span className="table-tile__sub">
-					<Clock size={11} aria-hidden />
-					{formatTimeElapsed(order.created_at)}
-					{itemCount > 0 ? ` · ${itemCount} ítems` : ''}
+				<span className="table-tile__stats">
+					<span className="table-tile__stat table-tile__stat--time">
+						<Clock size={11} aria-hidden />
+						{formatTimeElapsed(order.created_at)}
+					</span>
+					{itemCount > 0 ? (
+						<>
+							<span className="table-tile__stat-sep" aria-hidden>|</span>
+							<span className="table-tile__stat table-tile__stat--items">
+								<Package size={11} aria-hidden />
+								{itemCount}
+							</span>
+						</>
+					) : null}
 				</span>
-			</span>
-		</button>
+			</button>
+		</div>
 	);
 }

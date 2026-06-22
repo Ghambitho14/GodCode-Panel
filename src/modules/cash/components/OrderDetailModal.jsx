@@ -30,6 +30,8 @@ import {
     resolveOrderClientRutForDisplay,
     resolveOrderClientNameForDisplay,
     isCajaGenericIdentity,
+    resolveItemKitchenNote,
+    isLegacyGlobalKitchenNote,
 } from '@/shared/utils/orderUtils';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -404,7 +406,7 @@ const OrderDetailModal = ({
                                     <h3 className="table-session-receipt__section-title">Ítems pedidos</h3>
                                     <ul className="table-session-receipt__items">
                                         {items.map((item, idx) => {
-                                            const itemNote = typeof item.note === 'string' ? item.note.trim() : '';
+                                            const itemNote = resolveItemKitchenNote(item, order.note) ?? '';
                                             return (
                                                 <li key={`${item.id ?? idx}-${idx}`} className="table-session-receipt__item">
                                                     <div className="table-session-receipt__item-main">
@@ -454,7 +456,7 @@ const OrderDetailModal = ({
                                 </div>
                             </section>
 
-                            {order.note && String(order.note).trim() ? (
+                            {isLegacyGlobalKitchenNote(order) ? (
                                 <section className="table-session-receipt__section">
                                     <h3 className="table-session-receipt__section-title">Nota</h3>
                                     <p className="order-detail-receipt-note">{String(order.note).trim()}</p>

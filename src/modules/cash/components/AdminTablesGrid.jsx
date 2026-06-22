@@ -351,7 +351,13 @@ export default function AdminTablesGrid({
 
 					{openSessions.map((order) => (
 
-						<TableTile key={order.id} order={order} onClick={setActiveOrder} />
+						<TableTile
+							key={order.id}
+							order={order}
+							onClick={setActiveOrder}
+							branchName={branch?.name ?? null}
+							logoUrl={logoUrl ?? null}
+						/>
 
 					))}
 

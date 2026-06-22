@@ -270,6 +270,94 @@ export function isPanelManualOrder(order) {
 }
 
 /**
+ * Extrae el segmento "Nota: ..." de la descripción de un ítem (menú digital).
+ * @param {string | null | undefined} description
+ * @returns {string | null}
+ */
+export function extractLineNote(description) {
+	if (!description || typeof description !== 'string') return null;
+	const segment = description
+		.split(' | ')
+		.map((p) => p.trim())
+		.find((p) => p.startsWith('Nota:'));
+	if (!segment) return null;
+	const text = segment.replace(/^Nota:\s*/i, '').trim();
+	return text || null;
+}
+
+/**
+ * Parsea líneas "Producto: nota" del resumen en orders.note (menú digital).
+ * @param {string | null | undefined} orderNote
+ * @returns {Array<{ productName: string, note: string }>}
+ */
+export function parseAggregatedLineNotes(orderNote) {
+	if (!orderNote?.trim()) return [];
+	return orderNote
+		.split('\n')
+		.map((l) => l.trim())
+		.filter(
+			(l) =>
+				l &&
+				!l.startsWith('[Sucursal:') &&
+				!l.startsWith('[Envio:'),
+		)
+		.map((line) => {
+			const colon = line.indexOf(':');
+			if (colon <= 0) return null;
+			return {
+				productName: line.slice(0, colon).trim(),
+				note: line.slice(colon + 1).trim(),
+			};
+		})
+		.filter(Boolean);
+}
+
+/**
+ * Resuelve la nota de cocina de un ítem: panel manual (item.note), menú (description) o fallback por nombre.
+ * @param {Record<string, unknown> | null | undefined} item
+ * @param {string | null | undefined} orderNote
+ * @returns {string | null}
+ */
+export function resolveItemKitchenNote(item, orderNote) {
+	const rawItemNote = item?.note;
+	if (rawItemNote != null) {
+		const s = typeof rawItemNote === 'string' ? rawItemNote : String(rawItemNote);
+		const trimmed = s.trim();
+		if (trimmed) return trimmed;
+	}
+
+	const fromDescription = extractLineNote(
+		typeof item?.description === 'string' ? item.description : null,
+	);
+	if (fromDescription) return fromDescription;
+
+	const aggregated = parseAggregatedLineNotes(orderNote);
+	const name = String(item?.name ?? '').trim();
+	if (!name) return null;
+	const match = aggregated.find(
+		(row) => row.productName.toLowerCase() === name.toLowerCase(),
+	);
+	return match?.note ?? null;
+}
+
+/**
+ * Pedido antiguo con una sola nota global en orders.note (sin notas por ítem del menú nuevo).
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {boolean}
+ */
+export function isLegacyGlobalKitchenNote(order) {
+	if (!order) return false;
+	const items = Array.isArray(order.items) ? order.items : [];
+	const anyLineNote = items.some((it) => resolveItemKitchenNote(it, null) != null);
+	if (anyLineNote) return false;
+	const aggregated = parseAggregatedLineNotes(
+		typeof order.note === 'string' ? order.note : null,
+	);
+	if (aggregated.length > 0) return false;
+	return Boolean(order.note && String(order.note).trim());
+}
+
+/**
  * Texto plano para pegar en WhatsApp o compartir el pedido.
  * @param {Record<string, unknown>} order
  * @param {string | null | undefined} branchName
@@ -297,10 +385,13 @@ export function buildOrderWhatsAppShareText(order, branchName) {
 		for (const it of items) {
 			const qty = it.quantity ?? 1;
 			const name = it.name ?? 'Ítem';
-			lines.push(`• ${qty}x ${name}`);
+			const lineNote = resolveItemKitchenNote(it, order.note);
+			lines.push(
+				lineNote ? `• ${qty}x ${name} — Nota: ${lineNote}` : `• ${qty}x ${name}`,
+			);
 		}
 	}
-	if (order.note && String(order.note).trim()) {
+	if (isLegacyGlobalKitchenNote(order)) {
 		lines.push(`Nota: ${String(order.note).trim()}`);
 	}
 	if (isOrderDelivery(order)) {
@@ -424,10 +515,13 @@ export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = 
 		for (const it of items) {
 			const qty = it.quantity ?? 1;
 			const name = it.name ?? 'Ítem';
-			lines.push(`• ${qty}x ${name}`);
+			const lineNote = resolveItemKitchenNote(it, order.note);
+			lines.push(
+				lineNote ? `• ${qty}x ${name} — Nota: ${lineNote}` : `• ${qty}x ${name}`,
+			);
 		}
 	}
-	if (order.note && String(order.note).trim()) {
+	if (isLegacyGlobalKitchenNote(order)) {
 		lines.push('');
 		lines.push(`Nota: ${String(order.note).trim()}`);
 	}
