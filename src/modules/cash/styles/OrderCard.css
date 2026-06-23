@@ -24,7 +24,7 @@
     gap: 0;
     transition: var(--transition-bounce);
     position: relative;
-    box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.08));
+    box-shadow: none;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -227,6 +227,7 @@
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-paid-badge,
+.admin-layout .kanban-card--receipt-clean .order-card-unpaid-badge,
 .admin-layout .kanban-card--receipt-clean .payment-badge {
     font-size: 0.68rem;
     padding: 3px 7px;
@@ -693,7 +694,7 @@
         padding: 12px 14px;
         border-radius: 12px;
         gap: 8px;
-        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+        box-shadow: none;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-top {
@@ -809,7 +810,7 @@
         padding: 12px 14px;
         border-radius: 12px;
         gap: 8px;
-        box-shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+        box-shadow: none;
     }
 
     .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card-top {
@@ -882,6 +883,12 @@
 .admin-layout .urgent-pulse {
     border-color: rgba(255, 68, 68, 0.5);
     animation: urgent-glow 2s infinite alternate;
+}
+
+/* Cocina y listos: mismo borde destacado que entrantes (urgent-pulse) */
+.admin-layout .col-active .column-body > .kanban-card,
+.admin-layout .col-completed .column-body > .kanban-card {
+    border-color: rgba(255, 68, 68, 0.5);
 }
 
 @keyframes urgent-glow {
@@ -991,6 +998,23 @@
 
 .admin-layout .order-card-paid-badge svg {
     flex-shrink: 0;
+}
+
+.admin-layout .order-card-unpaid-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #c05621;
+    background: rgba(234, 123, 75, 0.16);
+    border: 1px solid rgba(234, 123, 75, 0.38);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
 /* --- CLIENTE --- */
@@ -1327,8 +1351,8 @@
 }
 
 .admin-layout .btn-action.success {
-    background: #10b981;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    background: var(--accent-primary);
+    box-shadow: 0 4px 15px var(--accent-shadow, rgba(230, 57, 70, 0.3));
 }
 
 .admin-layout .kanban-card .btn-icon-action {

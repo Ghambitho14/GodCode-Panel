@@ -3,6 +3,8 @@ import {
 	flattenDeliveryAddress,
 	getOrderCouponDiscountMeta,
 	getPaymentLabel,
+	getOrderPaymentDisplayLabel,
+	getOrderPaymentPreferenceHint,
 	getPaymentSlug,
 	getOrderPaymentBreakdown,
 	buildPaymentBreakdownForOrder,
@@ -311,6 +313,52 @@ describe("orderUtils", () => {
 		expect(getPaymentLabel({ payment_type: "pendiente" })).toBe("Pago pendiente");
 	});
 
+	it("getOrderPaymentDisplayLabel shows pending state for deferred orders", () => {
+		const menuTarjeta = {
+			payment_method_specific: "tarjeta",
+			payment_type: "tarjeta",
+			total: 8000,
+		};
+		expect(getOrderPaymentDisplayLabel(menuTarjeta)).toBe("Pago pendiente");
+		expect(getPaymentLabel(menuTarjeta)).toBe("Tarjeta");
+		expect(getOrderPaymentPreferenceHint(menuTarjeta)).toBe("Prefiere tarjeta");
+
+		const cobrado = {
+			payment_method_specific: "tarjeta",
+			payment_type: "tarjeta",
+			payment_breakdown: { cash: 0, card: 8000, online: 0 },
+			total: 8000,
+		};
+		expect(getOrderPaymentDisplayLabel(cobrado)).toBe("Tarjeta");
+		expect(getOrderPaymentPreferenceHint(cobrado)).toBeNull();
+
+		expect(getOrderPaymentDisplayLabel({ payment_type: "tienda", total: 3000 })).toBe("Efectivo");
+	});
+
+	it("getOrderPaymentBreakdown returns stored single-method breakdown", () => {
+		const soloTarjeta = {
+			payment_type: "tarjeta",
+			payment_breakdown: { cash: 0, card: 22990, online: 0 },
+			total: 22990,
+		};
+		expect(getOrderPaymentBreakdown(soloTarjeta)).toEqual({
+			cash: 0,
+			card: 22990,
+			online: 0,
+		});
+
+		const soloEfectivo = {
+			payment_type: "tienda",
+			payment_breakdown: { cash: 5000, card: 0, online: 0 },
+			total: 5000,
+		};
+		expect(getOrderPaymentBreakdown(soloEfectivo)).toEqual({
+			cash: 5000,
+			card: 0,
+			online: 0,
+		});
+	});
+
 	it("isOrderPaymentSettled is false for deferred payment", () => {
 		expect(isOrderPaymentSettled({ payment_type: "pendiente", total: 5000 })).toBe(false);
 	});
@@ -342,6 +390,11 @@ describe("orderUtils", () => {
 		};
 		expect(isMenuOrderAwaitingPayment(cobradoEnCaja)).toBe(false);
 		expect(isOrderPaymentSettled(cobradoEnCaja)).toBe(true);
+		expect(getOrderPaymentBreakdown(cobradoEnCaja)).toEqual({
+			cash: 0,
+			card: 8000,
+			online: 0,
+		});
 
 		const cobradoOtroMetodo = {
 			payment_method_specific: "tarjeta",

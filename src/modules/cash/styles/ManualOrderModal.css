@@ -3316,6 +3316,19 @@
     padding-top: 4px;
 }
 
+/* Open mesa: formulario scrollea, confirm fijo al pie de la columna */
+.manual-order-checkout-col--payment > .manual-order-checkout {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow-y: auto;
+}
+
+.manual-order-checkout-col--payment > .manual-order-checkout-actions {
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
 .manual-order-checkout-back {
     flex: 0 0 auto;
     min-width: 96px;

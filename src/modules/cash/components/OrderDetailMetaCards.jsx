@@ -1,7 +1,7 @@
 import React from 'react';
 import { Phone } from 'lucide-react';
 import {
-	getPaymentLabel,
+	getOrderPaymentDisplayLabel,
 	getOrderFulfillmentKind,
 	getFulfillmentKindLabel,
 	isOrderPaymentDeferred,
@@ -45,7 +45,7 @@ export default function OrderDetailMetaCards({
 	const isDelivery = isOrderDelivery(order);
 	const deliveryFee = Number(order.delivery_fee) || 0;
 	const paymentDeferred = isOrderPaymentDeferred(order);
-	const paymentLabel = getPaymentLabel(order);
+	const paymentLabel = getOrderPaymentDisplayLabel(order);
 	const showPaidBadge = isOrderPaymentSettled(order);
 
 	const clientRut = resolveOrderClientRutForDisplay(order);

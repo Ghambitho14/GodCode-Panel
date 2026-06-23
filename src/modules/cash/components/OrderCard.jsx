@@ -49,8 +49,12 @@ const OrderCard = ({
     localOrderChannels = null,
     gridTile = false,
 }) => {
-    const { cashSystem, markOrderSessionPaid, closeOrderSession } = useAdmin();
+    const { cashSystem, markOrderSessionPaid, closeOrderSession, orders } = useAdmin();
     const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
+    const liveOrder = useMemo(
+        () => (orders || []).find((o) => o.id === order.id) ?? order,
+        [orders, order],
+    );
     const [editWizardOpen, setEditWizardOpen] = useState(false);
     const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
@@ -123,14 +127,15 @@ const OrderCard = ({
     const isVip = clientData?.total_orders >= 5;
     const itemsSummary = useMemo(() => buildItemsSummary(order.items), [order.items]);
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
-    const paymentDeferred = isOrderPaymentDeferred(order);
-    const showPaidBadge = isOrderPaymentSettled(order);
-    const fulfillmentKind = getOrderTileKind(order);
+    const paymentDeferred = isOrderPaymentDeferred(liveOrder);
+    const showPaidBadge = isOrderPaymentSettled(liveOrder);
+    const paymentMethodLabel = getPaymentLabel(liveOrder);
+    const fulfillmentKind = getOrderTileKind(liveOrder);
     const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
     const canMarkPaid =
         Boolean(markOrderSessionPaid) &&
         paymentDeferred &&
-        isOpenOrderSessionStatus(order.status);
+        isOpenOrderSessionStatus(liveOrder.status);
 
     const openMarkPaidModal = (eOrOrder) => {
         if (eOrOrder?.stopPropagation) eOrOrder.stopPropagation();
@@ -195,9 +200,18 @@ const OrderCard = ({
             </span>
         </div>
     ) : (
-        <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}${paymentDeferred ? ' payment-badge--pending' : ''}`}>
-            {getPaymentLabel(order)}
-        </span>
+        <div className="order-card-payment-stack order-card-payment-stack--inline">
+            {paymentDeferred ? (
+                <span className="order-card-unpaid-badge" title="Pago pendiente de cobro en caja">
+                    Sin pagar
+                </span>
+            ) : null}
+            {!paymentDeferred || paymentMethodLabel !== 'Pago pendiente' ? (
+                <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}${paymentDeferred ? ' payment-badge--pending' : ''}`}>
+                    {paymentMethodLabel}
+                </span>
+            ) : null}
+        </div>
     );
 
     const orderTimeEl = (
@@ -528,7 +542,7 @@ const OrderCard = ({
 
             {detailOpen ? (
                 <OrderDetailModal
-                    order={order}
+                    order={liveOrder}
                     onClose={() => setDetailOpen(false)}
                     branch={branch}
                     logoUrl={logoUrl ?? null}
@@ -544,7 +558,7 @@ const OrderCard = ({
                     isOpen
                     intent={paymentModalIntent}
                     onClose={() => setPaymentModalIntent(null)}
-                    order={order}
+                    order={liveOrder}
                     branch={branch}
                     showNotify={showNotify}
                     onConfirm={handlePaymentModalConfirm}

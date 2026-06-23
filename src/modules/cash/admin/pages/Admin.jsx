@@ -403,8 +403,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           title={pageTitle}
           hideTitleVisual={hideOrdersHeaderTitle}
         >
-            <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
-            <div className="header-actions-leading">
+            <div className="header-actions-toolbar-row">
               <AdminNotificationCenter
                 broadcasts={broadcasts}
                 broadcastsLoading={broadcastsLoading}
@@ -420,28 +419,30 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 canAccessProducts={canAccessTab('products')}
               />
               <OrderNotificationSoundControl />
-            </div>
-            {adminShortcutsEnabled ? (
+              {adminShortcutsEnabled ? (
+                <button
+                  type="button"
+                  className="btn-icon-refresh admin-icon-btn header-action-shortcuts"
+                  onClick={() => { setShortcutsHelpOpen(true); setCommandPaletteOpen(false); }}
+                  title="Atajos de teclado (?)"
+                  aria-label="Atajos de teclado"
+                >
+                  <HelpCircle size={24} strokeWidth={1.65} aria-hidden />
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="btn-icon-refresh admin-icon-btn header-action-shortcuts"
-                onClick={() => { setShortcutsHelpOpen(true); setCommandPaletteOpen(false); }}
-                title="Atajos de teclado (?)"
-                aria-label="Atajos de teclado"
+                onClick={handleRefreshAll}
+                className="btn-icon-refresh admin-icon-btn header-action-refresh"
+                disabled={refreshing}
+                title="Actualizar datos (Mod+Shift+R)"
+                aria-label="Actualizar datos"
               >
-                <HelpCircle size={24} strokeWidth={1.65} aria-hidden />
+                <RefreshCw size={24} strokeWidth={1.65} className={refreshing ? 'animate-spin' : ''} />
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleRefreshAll}
-              className="btn-icon-refresh admin-icon-btn header-action-refresh"
-              disabled={refreshing}
-              title="Actualizar datos (Mod+Shift+R)"
-              aria-label="Actualizar datos"
-            >
-              <RefreshCw size={24} strokeWidth={1.65} className={refreshing ? 'animate-spin' : ''} />
-            </button>
+            </div>
+
+            <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
 
             <AdminBranchSelector
               branches={branches}

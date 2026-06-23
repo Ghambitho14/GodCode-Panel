@@ -106,7 +106,7 @@ export function getOrderPaymentBreakdown(order) {
 	}
 
 	const stored = normalizePaymentBreakdown(order.payment_breakdown);
-	if (isMixedPaymentBreakdown(stored)) {
+	if (countActiveBreakdownMethods(stored) >= 1) {
 		return stored;
 	}
 
@@ -239,6 +239,29 @@ export function getPaymentLabel(order) {
 	if (type === 'tienda') return 'Efectivo';
 	if (type === 'pendiente') return 'Pago pendiente';
 	return type || '—';
+}
+
+/**
+ * Etiqueta de pago para UI de sesión abierta: prioriza "Pago pendiente" si aún no se cobró.
+ * @param {{ payment_type?: string; payment_method_specific?: string | null; payment_breakdown?: unknown }} order
+ * @returns {string}
+ */
+export function getOrderPaymentDisplayLabel(order) {
+	if (!order) return '—';
+	if (isOrderPaymentDeferred(order)) return 'Pago pendiente';
+	return getPaymentLabel(order);
+}
+
+/**
+ * Preferencia de pago del menú (no implica cobro real). Solo cuando el cobro sigue pendiente.
+ * @param {{ payment_type?: string; payment_method_specific?: string | null; payment_breakdown?: unknown }} order
+ * @returns {string | null}
+ */
+export function getOrderPaymentPreferenceHint(order) {
+	if (!order || !isOrderPaymentDeferred(order) || !isMenuOrder(order)) return null;
+	const label = getPaymentLabel(order);
+	if (!label || label === 'Pago pendiente') return null;
+	return `Prefiere ${label.toLowerCase()}`;
 }
 
 /**

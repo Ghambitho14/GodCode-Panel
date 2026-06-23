@@ -22,6 +22,7 @@ import {
     getOrderFulfillmentKind,
     getFulfillmentKindLabel,
     getPaymentLabel,
+    getOrderPaymentDisplayLabel,
     getOrderItemLineTotal,
     isOrderPaymentDeferred,
     isOrderPaymentSettled,
@@ -163,7 +164,7 @@ const OrderDetailModal = ({
     const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
 
     const paymentDeferred = isOrderPaymentDeferred(order);
-    const paymentLabel = getPaymentLabel(order);
+    const paymentLabel = getOrderPaymentDisplayLabel(order);
     const showPaidBadge = isOrderPaymentSettled(order);
     const canMarkPaid =
         Boolean(onMarkPaid) &&

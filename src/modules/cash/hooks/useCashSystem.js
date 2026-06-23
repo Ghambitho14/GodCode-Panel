@@ -8,7 +8,7 @@ import {
 import { computeShiftTotals } from '../utils/cashTotals';
 import { getExpectedByMethod } from '../utils/shiftCloseReconciliation';
 import { planSaleMovements, planRefundMovements, planSaleResyncMovements } from '../utils/orderPaymentMovements';
-import { countOpenOrderSessions } from '@/shared/utils/orderUtils';
+import { countOpenOrderSessions, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
 
 export const useCashSystem = (showNotify, branchId, orders = []) => {
     const [activeShift, setActiveShift] = useState(null);
@@ -381,7 +381,18 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
             if (saleAmount <= 0) return false;
 
             const planned = planSaleMovements(order, movements || []);
-            if (planned.length === 0) return true;
+            if (planned.length === 0) {
+                if (isOrderPaymentDeferred(order)) {
+                    if (showNotify) {
+                        showNotify(
+                            'No se registró la venta en caja; revisá que el turno esté abierto',
+                            'error',
+                        );
+                    }
+                    return false;
+                }
+                return true;
+            }
 
             const createdRows = [];
             for (const movement of planned) {

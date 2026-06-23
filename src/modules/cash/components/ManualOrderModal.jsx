@@ -882,14 +882,16 @@ const ManualOrderModal = ({
                             {openMesaChargeNow ? (
                                 <PaymentDetails {...paymentDetailsProps} hideCheckoutActions />
                             ) : null}
-                            <button
-                                type="button"
-                                className="manual-order-confirm-btn"
-                                onClick={submitOrder}
-                                disabled={loading || !isFormValid()}
-                            >
-                                {openMesaSubmitLabel}
-                            </button>
+                            <div className="manual-order-checkout-actions">
+                                <button
+                                    type="button"
+                                    className="manual-order-confirm-btn"
+                                    onClick={submitOrder}
+                                    disabled={loading || !isFormValid()}
+                                >
+                                    {openMesaSubmitLabel}
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className="manual-order-checkout-col manual-order-checkout-col--payment">

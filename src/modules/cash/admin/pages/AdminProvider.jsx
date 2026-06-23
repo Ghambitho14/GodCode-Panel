@@ -1113,6 +1113,10 @@ export const AdminProvider = ({
 			let nextOrder = order;
 			if (paymentPatch && !isOrderPaymentSettled(order)) {
 				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
+				if (!isOrderPaymentSettled(nextOrder)) {
+					showNotify('No se pudo registrar el método de pago en el pedido', 'error');
+					return false;
+				}
 			} else if (!isOrderPaymentSettled(order)) {
 				showNotify('Selecciona un método de pago', 'warning');
 				return false;
@@ -1136,6 +1140,10 @@ export const AdminProvider = ({
 			let nextOrder = order;
 			if (paymentPatch && !isOrderPaymentSettled(order)) {
 				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
+				if (!isOrderPaymentSettled(nextOrder)) {
+					showNotify('No se pudo registrar el método de pago en el pedido', 'error');
+					return false;
+				}
 			}
 			const saleOk = await cashSystem.registerSale(nextOrder);
 			if (!saleOk) {
