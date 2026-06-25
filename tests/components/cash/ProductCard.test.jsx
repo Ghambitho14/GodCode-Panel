@@ -34,13 +34,11 @@ describe("ProductCard", () => {
 			/>,
 		);
 
-		const addButtons = screen.getAllByRole("button");
-		const plus = addButtons.find((b) => b.querySelector("svg"));
-		if (plus) await user.click(plus);
+		await user.click(screen.getByRole("button", { name: /Agregar Pizza/i }));
 		expect(addItem).toHaveBeenCalledWith(product);
 	});
 
-	it("shows discount badge when product has discount", () => {
+	it("shows strikethrough price and discount price when product has discount", () => {
 		render(
 			<ProductCard
 				product={{ ...product, has_discount: true, discount_price: 4000 }}
@@ -51,6 +49,8 @@ describe("ProductCard", () => {
 				showProductImages={false}
 			/>,
 		);
-		expect(screen.getByText("Oferta")).toBeInTheDocument();
+		expect(screen.getByText("$5.000")).toHaveClass("line-through");
+		expect(screen.getByText("$4.000")).toBeInTheDocument();
+		expect(screen.queryByText("Oferta")).not.toBeInTheDocument();
 	});
 });

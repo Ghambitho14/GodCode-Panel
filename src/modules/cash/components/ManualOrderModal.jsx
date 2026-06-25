@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle2, MessageCircle, ShoppingBag, Banknote } from 'lucide-react';
+import { X, CheckCircle2, ShoppingBag, Banknote } from 'lucide-react';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { useOrderEdit } from '../hooks/useOrderEdit';
@@ -25,6 +25,30 @@ import OrderSummary from './manual-order/OrderSummary';
 import PaymentDetails from './manual-order/PaymentDetails';
 import CloseTableModal from './CloseTableModal';
 import { ADMIN_MOBILE_MQ } from '../constants/responsive';
+import { cn } from '@/lib/utils';
+
+const stepNavBackClass =
+    'flex max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-all';
+const stepNavNextClass =
+    'flex min-h-[44px] flex-1 items-center justify-center rounded-[4px] bg-gc-accent px-6 text-[13px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-all hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0';
+const confirmBtnClass =
+    'manual-order-checkout-actions__confirm flex min-h-[44px] w-full min-w-0 items-center justify-center gap-2 rounded-[4px] border border-transparent bg-gc-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-[background,border-color,color,box-shadow,transform] enabled:hover:-translate-y-0.5 enabled:hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border-gc-accent/40 disabled:bg-gc-accent/10 disabled:text-gc-accent disabled:shadow-none disabled:hover:translate-y-0';
+const checkoutColBase =
+    'manual-order-checkout-col flex min-h-0 min-w-0 flex-col overflow-hidden';
+const checkoutColCard =
+    'rounded-[4px] border border-gc-border bg-gc-card';
+const openMesaPaymentCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
+const openMesaSectionTitleClass =
+    'mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gc-text-muted';
+const openMesaToggleClass =
+    'flex min-h-[44px] items-center justify-center rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 text-xs font-semibold text-gc-text transition-colors sm:px-3';
+const openMesaToggleActiveClass = 'border-gc-accent bg-gc-accent/10 text-gc-accent';
+const openMesaHintClass =
+    'mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 text-xs leading-relaxed text-gc-text-muted';
+const checkoutActionsClass =
+    'manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col gap-2 border-t border-gc-border bg-gc-card pt-3';
+const checkoutBackBtnClass =
+    'manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
 
 function branchFlag(map, branchId, defaultOn = true) {
     if (!branchId || !map || typeof map !== 'object') return defaultOn;
@@ -130,7 +154,7 @@ const ManualOrderModal = ({
     const {
         manualOrder, loading, rutValid, phoneValid,
         receiptFile, receiptPreview,
-        updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType,
+        updateClientName, updateCouponCode, couponPreview, updatePaymentType,
         updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow,
         handleRutChange,
         handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
@@ -494,11 +518,6 @@ const ManualOrderModal = ({
 
     if (!isOpen) return null;
 
-    const sanitizeNote = (text) => {
-        if (text == null || text === '') return '';
-        return text.replace(/[<>]/g, '');
-    };
-
     const stepLabels = effectiveOpenMesaMode
         ? (isEditMode
             ? (isCompactNav ? ['Productos', 'Mesa'] : ['Productos', 'Editar sesión'])
@@ -508,37 +527,6 @@ const ManualOrderModal = ({
         : (isCompactNav
             ? ['Productos', 'Cliente', 'Pago']
             : ['Productos', 'Cliente y pago']);
-
-    const noteSection = (
-        <div className="manual-order-section manual-order-section--note">
-            <div className="manual-order-section-title manual-order-section-title--note">
-                <MessageCircle size={12} aria-hidden />
-                NOTA DEL PEDIDO
-            </div>
-            <div className="manual-order-note-wrap">
-                <textarea
-                    placeholder="Nota opcional..."
-                    className="manual-order-input manual-order-note-textarea"
-                    value={manualOrder.note}
-                    onChange={(e) => updateNote(sanitizeNote(e.target.value))}
-                    rows={2}
-                    maxLength={500}
-                    aria-label="Nota o comentario del pedido"
-                />
-                {manualOrder.note.length > 0 && (
-                    <div
-                        className={
-                            manualOrder.note.length > 450
-                                ? 'manual-order-note-count manual-order-note-count--warn'
-                                : 'manual-order-note-count'
-                        }
-                    >
-                        {manualOrder.note.length}/500
-                    </div>
-                )}
-            </div>
-        </div>
-    );
 
     const clientSection = (
         <ClientForm
@@ -582,10 +570,10 @@ const ManualOrderModal = ({
             {orderStep > 1 ? (
                 <button
                     type="button"
-                    className="manual-order-steps-nav__btn manual-order-steps-nav__btn--back"
+                    className={stepNavBackClass}
                     onClick={goPrevStep}
                 >
-                    Atrás
+                    ATRÁS
                 </button>
             ) : (
                 <span className="manual-order-steps-nav__spacer" aria-hidden />
@@ -612,7 +600,7 @@ const ManualOrderModal = ({
             ) : orderStep === 1 ? (
                 <button
                     type="button"
-                    className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                    className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1"
                     onClick={goNextStep}
                     disabled={!hasCartItems}
                 >
@@ -680,6 +668,72 @@ const ManualOrderModal = ({
         />
     );
 
+    const openMesaPaymentChoiceSection = showOpenMesaPaymentChoice ? (
+        <div className={openMesaPaymentCardClass}>
+            <div className={openMesaSectionTitleClass}>
+                <Banknote size={14} className="text-gc-accent" aria-hidden />
+                Pago
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+                <button
+                    type="button"
+                    className={cn(
+                        openMesaToggleClass,
+                        !manualOrder.charge_now && openMesaToggleActiveClass,
+                    )}
+                    onClick={() => updateChargeNow?.(false)}
+                >
+                    Pago pendiente
+                </button>
+                <button
+                    type="button"
+                    className={cn(
+                        openMesaToggleClass,
+                        manualOrder.charge_now && openMesaToggleActiveClass,
+                    )}
+                    onClick={() => updateChargeNow?.(true)}
+                >
+                    Ya pagado
+                </button>
+            </div>
+            <p className={openMesaHintClass}>
+                {manualOrder.charge_now
+                    ? 'Registra el método de pago al abrir la sesión.'
+                    : 'El cobro se registra al cerrar la mesa, retiro o delivery.'}
+            </p>
+        </div>
+    ) : null;
+
+    const openMesaSessionPaymentSection = isEditMode && isLocalSessionEdit ? (
+        <div className={openMesaPaymentCardClass}>
+            <div className={openMesaSectionTitleClass}>
+                <Banknote size={14} className="text-gc-accent" aria-hidden />
+                Pago
+            </div>
+            {sessionPaymentDeferred ? (
+                <p className={openMesaHintClass}>
+                    El cobro se registra al cerrar la mesa, retiro o delivery.
+                </p>
+            ) : (
+                <p className={openMesaHintClass}>
+                    {getPaymentLabel(liveEditOrder)}
+                </p>
+            )}
+            {canMarkPaidSession ? (
+                <button
+                    type="button"
+                    className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[4px] bg-gc-accent px-4 text-sm font-bold text-white transition-colors hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:opacity-55"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setPayModalOpen(true);
+                    }}
+                >
+                    Marcar pagado
+                </button>
+            ) : null}
+        </div>
+    ) : null;
+
     const mobileDock = isCompactNav ? (
         <div className="manual-order-mobile-dock" role="group" aria-label="Navegación del pedido">
             {orderStep === 1 ? (
@@ -714,7 +768,7 @@ const ManualOrderModal = ({
                     ) : (
                         <button
                             type="button"
-                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
                             onClick={goNextStep}
                             disabled={!hasCartItems}
                         >
@@ -727,15 +781,15 @@ const ManualOrderModal = ({
                 <div className="manual-order-mobile-dock__actions">
                     <button
                         type="button"
-                        className="manual-order-steps-nav__btn manual-order-steps-nav__btn--back"
+                        className={stepNavBackClass}
                         onClick={goPrevStep}
                     >
-                        Atrás
+                        ATRÁS
                     </button>
                     {effectiveOpenMesaMode && !openMesaChargeNow ? (
                         <button
                             type="button"
-                            className="manual-order-confirm-btn manual-order-mobile-dock__confirm"
+                            className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
                             onClick={submitOrder}
                             disabled={loading || !isFormValid()}
                         >
@@ -744,7 +798,7 @@ const ManualOrderModal = ({
                     ) : effectiveOpenMesaMode && openMesaChargeNow ? (
                         <button
                             type="button"
-                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                            className={stepNavNextClass}
                             onClick={goNextStep}
                             disabled={!isClientStepValid()}
                         >
@@ -753,7 +807,7 @@ const ManualOrderModal = ({
                     ) : (
                         <button
                             type="button"
-                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next"
+                            className={stepNavNextClass}
                             onClick={goNextStep}
                             disabled={!isClientStepValid()}
                         >
@@ -766,15 +820,18 @@ const ManualOrderModal = ({
                 <div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--confirm">
                     <button
                         type="button"
-                        className="manual-order-steps-nav__btn manual-order-steps-nav__btn--back"
+                        className={stepNavBackClass}
                         onClick={goPrevStep}
                     >
-                        Atrás
+                        ATRÁS
                     </button>
                     {canCancelOrder ? (
                         <button
                             type="button"
-                            className="manual-order-steps-nav__btn manual-order-steps-nav__btn--back manual-order-checkout-cancel"
+                            className={cn(
+                                stepNavBackClass,
+                                'max-w-[36%] text-[10px] text-gc-danger',
+                            )}
                             onClick={handleCancelOrder}
                             disabled={loading}
                         >
@@ -783,7 +840,7 @@ const ManualOrderModal = ({
                     ) : null}
                     <button
                         type="button"
-                        className="manual-order-confirm-btn manual-order-mobile-dock__confirm"
+                        className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
                         onClick={submitOrder}
                         disabled={loading || !isFormValid()}
                     >
@@ -795,11 +852,14 @@ const ManualOrderModal = ({
     ) : null;
 
     const sidebarSection = (
-        <div className="manual-order-sidebar">
+        <div className={cn(
+            'manual-order-sidebar flex min-h-0 w-full min-w-0 flex-shrink-0 flex-col gap-3 overflow-hidden !bg-gc-page lg:w-80',
+            orderStep === 2 && '!border-gc-border',
+        )}>
             {orderStep === 1 ? (
                 <>
                     <OrderSummary {...orderSummaryProps} />
-                    <div className="manual-order-footer">
+                    <div className="manual-order-footer relative z-10 flex-shrink-0">
                         {showEditSaveOnFooter ? (
                             <p className="manual-order-footer-edit-hint" role="status">
                                 Puedes guardar aquí sin pasar por los otros pasos.
@@ -809,83 +869,42 @@ const ManualOrderModal = ({
                     </div>
                 </>
             ) : (
-                <div className={`manual-order-checkout-stage${effectiveOpenMesaMode ? ' manual-order-checkout-stage--open-mesa' : ''}`}>
-                    <div className="manual-order-checkout-col manual-order-checkout-col--client">
-                        <div className="manual-order-client-stage">
+                <div className={cn(
+                    'manual-order-checkout-stage grid w-full max-w-[1280px] flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,1.15fr)_minmax(220px,1fr)_minmax(220px,1fr)]',
+                    effectiveOpenMesaMode && 'manual-order-checkout-stage--open-mesa',
+                )}>
+                    <div className={cn(checkoutColBase, 'manual-order-checkout-col--client')}>
+                        <div className="manual-order-client-stage flex w-full flex-col gap-3.5">
                             {clientSection}
-                            {noteSection}
                         </div>
                     </div>
-                    <div className="manual-order-checkout-col manual-order-checkout-col--summary">
+                    <div className={cn(checkoutColBase, 'manual-order-checkout-col--summary')}>
                         <OrderSummary {...orderSummaryProps} />
                     </div>
                     {effectiveOpenMesaMode ? (
-                        <div className="manual-order-checkout-col manual-order-checkout-col--payment">
-                            {showOpenMesaPaymentChoice ? (
-                                <div className="manual-order-section manual-order-section--flat">
-                                    <div className="manual-order-section-title">
-                                        <Banknote size={14} aria-hidden />
-                                        PAGO
-                                    </div>
-                                    <div className="manual-order-order-type-toggle manual-order-order-type-toggle--name">
-                                        <button
-                                            type="button"
-                                            className={`manual-order-order-type-btn${!manualOrder.charge_now ? ' is-active' : ''}`}
-                                            onClick={() => updateChargeNow?.(false)}
-                                        >
-                                            Pago pendiente
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`manual-order-order-type-btn${manualOrder.charge_now ? ' is-active' : ''}`}
-                                            onClick={() => updateChargeNow?.(true)}
-                                        >
-                                            Ya pagado
-                                        </button>
-                                    </div>
-                                    <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                                        {manualOrder.charge_now
-                                            ? 'Registra el método de pago al abrir la sesión.'
-                                            : 'El cobro se registra al cerrar la mesa, retiro o delivery.'}
-                                    </p>
-                                </div>
-                            ) : null}
-                            {isEditMode && isLocalSessionEdit ? (
-                                <div className="manual-order-section manual-order-section--flat">
-                                    <div className="manual-order-section-title">
-                                        <Banknote size={14} aria-hidden />
-                                        PAGO
-                                    </div>
-                                    {sessionPaymentDeferred ? (
-                                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                                            El cobro se registra al cerrar la mesa, retiro o delivery.
-                                        </p>
-                                    ) : (
-                                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
-                                            {getPaymentLabel(liveEditOrder)}
-                                        </p>
-                                    )}
-                                    {canMarkPaidSession ? (
-                                        <button
-                                            type="button"
-                                            className="table-session-receipt__cta"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setPayModalOpen(true);
-                                            }}
-                                        >
-                                            Marcar pagado
-                                        </button>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                            {openMesaChargeNow ? (
-                                <PaymentDetails {...paymentDetailsProps} hideCheckoutActions />
-                            ) : null}
-                            <div className="manual-order-checkout-actions">
+                        <div className={cn(
+                            checkoutColBase,
+                            checkoutColCard,
+                            'manual-order-checkout-col--payment manual-order-checkout-col--payment-open overflow-hidden p-0',
+                        )}>
+                            <div className="manual-order-checkout-col__scroll flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5">
+                                {openMesaPaymentChoiceSection}
+                                {openMesaSessionPaymentSection}
+                                {openMesaChargeNow ? (
+                                    <PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
+                                ) : null}
+                            </div>
+                            <div className={cn(checkoutActionsClass, 'px-5 pb-5')}>
                                 <button
                                     type="button"
-                                    className="manual-order-confirm-btn"
+                                    className={checkoutBackBtnClass}
+                                    onClick={goPrevStep}
+                                >
+                                    ATRÁS
+                                </button>
+                                <button
+                                    type="button"
+                                    className={confirmBtnClass}
                                     onClick={submitOrder}
                                     disabled={loading || !isFormValid()}
                                 >
@@ -894,7 +913,7 @@ const ManualOrderModal = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="manual-order-checkout-col manual-order-checkout-col--payment">
+                        <div className={cn(checkoutColBase, checkoutColCard, 'manual-order-checkout-col--payment gap-3.5 p-5')}>
                             <PaymentDetails {...paymentDetailsProps} />
                         </div>
                     )}
@@ -906,7 +925,7 @@ const ManualOrderModal = ({
     const modalUi = (
         <div className="manual-order-overlay" onClick={onClose}>
             <div
-                className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''}`}
+                className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
                 onClick={e => e.stopPropagation()}
             >
                 {/* ÁREA INVISIBLE PARA GESTOS */}
@@ -969,9 +988,17 @@ const ManualOrderModal = ({
                             </div>
                         ) : null}
                         {orderStep === 2 ? (
-                            <div className="manual-order-mobile-panel manual-order-mobile-panel--client">
-                                {clientSection}
-                                {noteSection}
+                            <div className="manual-order-mobile-panel manual-order-mobile-panel--client flex flex-col gap-3">
+                                {effectiveOpenMesaMode ? (
+                                    <>
+                                        {clientSection}
+                                        {openMesaPaymentChoiceSection}
+                                        {openMesaSessionPaymentSection}
+                                        <OrderSummary {...orderSummaryProps} />
+                                    </>
+                                ) : (
+                                    clientSection
+                                )}
                             </div>
                         ) : null}
                         {orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
@@ -982,8 +1009,10 @@ const ManualOrderModal = ({
                         ) : null}
                     </div>
                 ) : (
-                    <div className="manual-order-body">
-                        <div className="manual-order-stage">
+                    <div className={cn(
+                        'manual-order-body flex min-h-0 flex-1 gap-5 p-5 !bg-gc-page',
+                    )}>
+                        <div className="manual-order-stage min-h-0 flex-1 overflow-hidden">
                             {catalogBlock}
                         </div>
                         {sidebarSection}

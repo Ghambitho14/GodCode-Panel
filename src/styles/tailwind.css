@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  /* Admin tokens (fallback claro) */
+  --color-gc-page: var(--admin-page-bg, #fffffb);
+  --color-gc-card: var(--admin-card-bg, #ffffff);
+  --color-gc-border: var(--admin-border, #e5e5ea);
+  --color-gc-text: var(--admin-text, #1d1d1f);
+  --color-gc-text-muted: var(--admin-text-muted, #6e6e73);
+  --color-gc-muted: var(--admin-icon-bg, #f5f5f7);
+
+  /* Tenant tokens (fallbacks del panel anterior) */
+  --color-gc-primary: var(--accent-primary, #c31d2d);
+  --color-gc-primary-hover: var(--accent-hover, #a81828);
+  --color-gc-secondary: var(--accent-secondary, #ea7b4b);
+  --color-gc-price: var(--price-color, #c31d2d);
+  --color-gc-discount: var(--discount-color, #00e4bb);
+
+  /* Semantic shortcuts */
+  --color-gc-danger: #c31d2d;
+  --color-gc-success: #00e4bb;
+  --color-gc-blue: #0078ff;
+  --color-gc-accent: #4f5bff;
+  --color-gc-accent-hover: #3d48e6;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .gc-line-clamp-1 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+  }
+
+  .gc-line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}

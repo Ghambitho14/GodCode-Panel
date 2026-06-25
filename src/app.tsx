@@ -1,3 +1,4 @@
+import "./styles/tailwind.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./modules/cash/app-shell";
 import { AdminApp } from "./modules/cash/admin/admin-app";

@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useRef, useDeferredValue } from 'react';
-import { Search, ShoppingBag, CupSoda, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useRef, useDeferredValue, useEffect } from 'react';
+import { Search, ImageOff, Image, PackageX } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 
 /**
@@ -99,6 +100,12 @@ function scrollWithinCatalog(el, offsetTop = 12) {
     scrollParent.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
 }
 
+const sectionMeta = {
+    products: { eyebrow: 'Catálogo principal', title: 'Productos', note: 'Producto regular del menú para este pedido manual.' },
+    beverages: { eyebrow: 'Upsell sucursal', title: 'Bebidas', note: 'Opciones de bebida activas para esta sucursal.' },
+    extras: { eyebrow: 'Upsell sucursal', title: 'Extras', note: 'Complementos opcionales disponibles en carrito.' },
+};
+
 const ManualOrderCatalog = ({
     products = [],
     categories = [],
@@ -106,14 +113,12 @@ const ManualOrderCatalog = ({
     addItem,
     updateQuantity,
     removeItem,
-    getQty
+    getQty,
 }) => {
-    // --- ESTADOS LOCALES DEL CATÁLOGO ---
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchExpanded, setSearchExpanded] = useState(false);
     const [showProductImages, setShowProductImages] = useState(false);
+    const [activeCategory, setActiveCategory] = useState(null);
 
-    const searchInputRef = useRef(null);
     const catalogScrollRef = useRef(null);
     const productsSectionRef = useRef(null);
     const beveragesSectionRef = useRef(null);
@@ -125,34 +130,6 @@ const ManualOrderCatalog = ({
         else categoryRefsRef.current.delete(key);
     };
 
-    const scrollToCategory = (key) => {
-        let el = categoryRefsRef.current.get(key);
-        const scrollParent = catalogScrollRef.current;
-        if (!el && scrollParent) {
-            const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
-            el = scrollParent.querySelector(`[data-category-key="${escaped}"]`);
-        }
-        scrollWithinCatalog(el, 72);
-    };
-
-    const scrollToSection = (sectionRef) => {
-        scrollWithinCatalog(sectionRef?.current, 12);
-    };
-
-    const toggleSearch = () => {
-        setSearchExpanded(!searchExpanded);
-        if (!searchExpanded) {
-            setTimeout(() => searchInputRef.current?.focus(), 100);
-        }
-    };
-
-    const handleSearchBlur = () => {
-        if (!searchQuery) {
-            setSearchExpanded(false);
-        }
-    };
-
-    // --- FILTRADO DE CATÁLOGO (DEFERRED PARA PERF) ---
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const query = deferredSearchQuery.trim().toLowerCase();
 
@@ -194,7 +171,6 @@ const ManualOrderCatalog = ({
         });
     }, [cartUpsellCatalogs.extras, cartUpsellCatalogs.extrasEnabled, query]);
 
-    // --- AGRUPACIÓN ---
     const groupedBaseCatalog = useMemo(
         () => (baseProducts.length > 0 ? groupProductsByCategory(baseProducts, categories) : { groupedCategories: [], uncategorized: [] }),
         [baseProducts, categories],
@@ -215,7 +191,6 @@ const ManualOrderCatalog = ({
     const hasBeveragesSection = cartUpsellCatalogs.beveragesEnabled && beverageProducts.length > 0;
     const hasExtrasSection = cartUpsellCatalogs.extrasEnabled && extraProducts.length > 0;
 
-    // --- COMPILAR CATEGORÍAS SIDEBAR ---
     const sidebarCategories = useMemo(() => {
         const items = [];
         const pushFromCatalog = (catalog, variant) => {
@@ -249,62 +224,94 @@ const ManualOrderCatalog = ({
         hasExtrasSection,
     ]);
 
-    const renderCatalogSection = (catalog, sectionTitle, sourceLabel = '', variant = 'products', sectionNote = '') => {
+    const totalItems = baseProducts.length + beverageProducts.length + extraProducts.length;
+
+    const scrollToCategory = (key) => {
+        setActiveCategory(key);
+        let el = categoryRefsRef.current.get(key);
+        const scrollParent = catalogScrollRef.current;
+        if (!el && scrollParent) {
+            const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
+            el = scrollParent.querySelector(`[data-category-key="${escaped}"]`);
+        }
+        scrollWithinCatalog(el, 80);
+    };
+
+    const scrollToSection = (sectionRef) => {
+        scrollWithinCatalog(sectionRef?.current, 12);
+    };
+
+    // Highlight first category by default when catalog loads
+    useEffect(() => {
+        if (activeCategory == null && sidebarCategories.length > 0) {
+            setActiveCategory(sidebarCategories[0].key);
+        }
+    }, [sidebarCategories, activeCategory]);
+
+    const renderCatalogSection = (catalog, variant = 'products') => {
         if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
 
+        const meta = sectionMeta[variant];
         const totalCount = catalog.groupedCategories.reduce((sum, cat) => sum + cat.products.length, 0) + catalog.uncategorized.length;
 
         return (
-            <section className={`manual-order-catalog-section manual-order-catalog-section--${variant}`}>
-                <header className="manual-order-catalog-section__head">
-                    <div className="manual-order-catalog-section__title-wrap">
-                        <span className="manual-order-catalog-section__eyebrow">
-                            {variant === 'products' ? 'Catálogo principal' : variant === 'beverages' ? 'Upsell sucursal' : 'Complementos'}
+            <section className="mb-10 last:mb-0">
+                <header className="mb-5 flex items-end justify-between gap-4 border-b border-gc-border/80 pb-3">
+                    <div>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gc-text-muted">
+                            {meta.eyebrow}
                         </span>
-                        <h3 className="manual-order-catalog-section__title">{sectionTitle}</h3>
+                        <h2 className="mt-0.5 text-base font-bold text-gc-text">{meta.title}</h2>
                     </div>
-                    <div className="manual-order-catalog-section__meta">
-                        <span className="manual-order-catalog-section__count">{totalCount}</span>
-                        <span className="manual-order-catalog-section__count-label">{totalCount === 1 ? 'ítem' : 'ítems'}</span>
-                    </div>
+                    <span className="rounded-full border border-gc-border bg-gc-card px-2.5 py-1 text-[11px] font-semibold text-gc-text-muted">
+                        {totalCount} {totalCount === 1 ? 'ítem' : 'ítems'}
+                    </span>
                 </header>
-                {sectionNote ? <p className="manual-order-catalog-section__note">{sectionNote}</p> : null}
+                <p className="mb-5 text-xs leading-relaxed text-gc-text-muted">{meta.note}</p>
+
                 {catalog.groupedCategories.map((cat) => {
                     const navKey = buildCategoryNavKey(variant, cat.id);
                     return (
-                    <div
-                        key={`${variant}-${normalizeCategoryId(cat.id)}`}
-                        className="manual-order-category-section"
-                        data-category-key={navKey}
-                        ref={setCategoryRef(navKey)}
-                    >
-                        <h3 className="manual-order-category-title">{cat.name}</h3>
-                        <div className="manual-order-products-grid">
-                            {cat.products.map((p) => (
-                                <ProductCard
-                                    key={p.id}
-                                    product={p}
-                                    quantity={getQty(p.id)}
-                                    addItem={addItem}
-                                    updateQuantity={updateQuantity}
-                                    removeItem={removeItem}
-                                    showProductImages={showProductImages}
-                                    sourceLabel={sourceLabel}
-                                    variant={variant}
-                                />
-                            ))}
+                        <div
+                            key={`${variant}-${normalizeCategoryId(cat.id)}`}
+                            className="mb-6"
+                            data-category-key={navKey}
+                            ref={setCategoryRef(navKey)}
+                        >
+                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gc-text">
+                                <span className="h-4 w-0.5 rounded-full bg-gc-accent" aria-hidden />
+                                {cat.name}
+                            </h3>
+                            <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] min-[880px]:gap-5">
+                                {cat.products.map((p) => (
+                                    <ProductCard
+                                        key={p.id}
+                                        product={p}
+                                        quantity={getQty(p.id)}
+                                        addItem={addItem}
+                                        updateQuantity={updateQuantity}
+                                        removeItem={removeItem}
+                                        showProductImages={showProductImages}
+                                        sourceLabel={variant === 'beverages' ? 'Bebida' : variant === 'extras' ? 'Extra' : ''}
+                                        variant={variant}
+                                    />
+                                ))}
+                            </div>
                         </div>
-                    </div>
                     );
                 })}
+
                 {catalog.uncategorized.length > 0 && (
                     <div
-                        className="manual-order-category-section"
+                        className="mb-6"
                         data-category-key={buildCategoryNavKey(variant, '__uncat__')}
                         ref={setCategoryRef(buildCategoryNavKey(variant, '__uncat__'))}
                     >
-                        <h3 className="manual-order-category-title">Otros</h3>
-                        <div className="manual-order-products-grid">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gc-text">
+                            <span className="h-4 w-0.5 rounded-full bg-gc-text-muted" aria-hidden />
+                            Otros
+                        </h3>
+                        <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] min-[880px]:gap-5">
                             {catalog.uncategorized.map((p) => (
                                 <ProductCard
                                     key={p.id}
@@ -314,7 +321,7 @@ const ManualOrderCatalog = ({
                                     updateQuantity={updateQuantity}
                                     removeItem={removeItem}
                                     showProductImages={showProductImages}
-                                    sourceLabel={sourceLabel}
+                                    sourceLabel={variant === 'beverages' ? 'Bebida' : variant === 'extras' ? 'Extra' : ''}
                                     variant={variant}
                                 />
                             ))}
@@ -326,114 +333,140 @@ const ManualOrderCatalog = ({
     };
 
     return (
-        <div className="manual-order-products">
-            {/* FLOATING SEARCH PILL */}
-            <div
-                className={`manual-order-search-pill ${searchExpanded || searchQuery ? 'expanded' : ''}`}
-                onClick={toggleSearch}
-            >
-                <div className="manual-order-search-icon-wrapper">
-                    <Search size={20} />
+        <div className="flex h-full flex-col">
+            {/* Header */}
+            <div className="mb-4 flex flex-col gap-3 border-b border-gc-border/60 pb-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-gc-text">Productos disponibles</h2>
+                    <p className="mt-0.5 text-xs text-gc-text-muted">
+                        {totalItems} {totalItems === 1 ? 'ítem' : 'ítems'} en catálogo
+                    </p>
                 </div>
-                <input
-                    ref={searchInputRef}
-                    type="text"
-                    placeholder="Buscar..."
-                    className="manual-order-search-input-pill"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onBlur={handleSearchBlur}
-                    onClick={(e) => e.stopPropagation()}
-                />
+
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                    <div className="relative flex w-full min-w-0 items-center sm:w-auto">
+                        <Search size={15} className="pointer-events-none absolute left-3 text-gc-text-muted" />
+                        <input
+                            type="text"
+                            placeholder="Buscar producto..."
+                            className="h-9 w-full min-w-0 rounded-lg border border-gc-border bg-gc-card pl-9 pr-3 text-sm text-gc-text transition-all placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15 sm:w-44 sm:focus:w-52"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowProductImages((v) => !v)}
+                        className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                            showProductImages
+                                ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
+                                : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-text'
+                        }`}
+                        aria-pressed={showProductImages}
+                    >
+                        {showProductImages ? <Image size={15} /> : <ImageOff size={15} />}
+                        Imágenes
+                    </button>
+                </div>
             </div>
 
-            {/* IMAGES TOGGLE */}
-            <label className="manual-order-images-toggle" title="Mostrar/ocultar imágenes de productos">
-                <input
-                    type="checkbox"
-                    checked={showProductImages}
-                    onChange={(e) => setShowProductImages(e.target.checked)}
-                />
-                <span className="manual-order-images-toggle__track" aria-hidden="true">
-                    <span className="manual-order-images-toggle__thumb" />
-                </span>
-                <span className="manual-order-images-toggle__label">Mostrar imágenes</span>
-            </label>
+            {/* Layout */}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
+                {sidebarCategories.length > 0 ? (
+                    <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                        {sidebarCategories.map((it) => {
+                            const isActive = activeCategory === it.key;
+                            return (
+                                <button
+                                    key={`mobile-${it.key}`}
+                                    type="button"
+                                    onClick={() => scrollToCategory(it.key)}
+                                    className={cn(
+                                        'flex min-h-[40px] flex-shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors',
+                                        isActive
+                                            ? 'border-gc-accent bg-gc-accent text-white'
+                                            : 'border-gc-border bg-gc-card text-gc-text',
+                                    )}
+                                    aria-current={isActive ? 'true' : undefined}
+                                >
+                                    <span className="max-w-[9rem] truncate">{it.name}</span>
+                                    <span className={cn(
+                                        'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
+                                        isActive ? 'bg-white/20 text-white' : 'bg-gc-muted text-gc-text-muted',
+                                    )}>
+                                        {it.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ) : null}
 
-            {/* SECTIONS JUMP RAIL */}
-            <div className="manual-order-section-jumprail" aria-label="Navegación rápida del catálogo">
-                <button
-                    type="button"
-                    className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--products"
-                    onClick={() => scrollToSection(productsSectionRef)}
-                    disabled={!hasProductsSection}
-                    aria-label="Ir a Productos"
-                    title="Productos"
-                >
-                    <ShoppingBag size={18} aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--beverages"
-                    onClick={() => scrollToSection(beveragesSectionRef)}
-                    disabled={!hasBeveragesSection}
-                    aria-label="Ir a Bebidas"
-                    title="Bebidas"
-                >
-                    <CupSoda size={18} aria-hidden="true" />
-                </button>
-                <button
-                    type="button"
-                    className="manual-order-section-jumprail__btn manual-order-section-jumprail__btn--extras"
-                    onClick={() => scrollToSection(extrasSectionRef)}
-                    disabled={!hasExtrasSection}
-                    aria-label="Ir a Extras"
-                    title="Extras"
-                >
-                    <Sparkles size={18} aria-hidden="true" />
-                </button>
-            </div>
-
-            {/* LAYOUT: SIDEBAR CATEGORÍAS + SCROLL DE PRODUCTOS */}
-            <div className="manual-order-catalog-wrap">
+                <div className="flex min-h-0 flex-1 gap-4">
+                {/* Sidebar */}
                 {sidebarCategories.length > 0 && (
-                    <aside className="manual-order-categories-side" aria-label="Lista de categorías">
-                        {sidebarCategories.map((it) => (
-                            <button
-                                key={it.key}
-                                type="button"
-                                className={`manual-order-categories-side__btn manual-order-categories-side__btn--${it.variant}`}
-                                onClick={() => scrollToCategory(it.key)}
-                                title={it.name}
-                            >
-                                <span className="manual-order-categories-side__name">{it.name}</span>
-                                <span className="manual-order-categories-side__count">{it.count}</span>
-                            </button>
-                        ))}
+                    <aside className="hidden w-56 flex-shrink-0 flex-col gap-0.5 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-page p-2 lg:flex">
+                        <div className="mb-1.5 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gc-text-muted">
+                            Categorías
+                        </div>
+                        {sidebarCategories.map((it) => {
+                            const isActive = activeCategory === it.key;
+                            return (
+                                <button
+                                    key={it.key}
+                                    type="button"
+                                    onClick={() => scrollToCategory(it.key)}
+                                    className={`flex items-center justify-between rounded-[4px] border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                                        isActive
+                                            ? 'border-gc-accent bg-gc-accent text-white'
+                                            : 'border-gc-border text-gc-text hover:bg-gc-muted'
+                                    }`}
+                                    title={it.name}
+                                    aria-current={isActive ? 'true' : undefined}
+                                >
+                                    <span className="truncate pr-2">{it.name}</span>
+                                    <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive ? 'bg-white/20 text-white' : 'bg-gc-muted text-gc-text-muted'}`}>
+                                        {it.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </aside>
                 )}
-                <div ref={catalogScrollRef} className="manual-order-categories-scroll">
+
+                <div
+                    ref={catalogScrollRef}
+                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-page px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+                >
                     {!hasAnyResults ? (
-                        <div className="manual-order-empty-search" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                            No se encontraron productos
+                        <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gc-muted">
+                                <PackageX size={28} className="text-gc-text-muted" />
+                            </div>
+                            <div>
+                                <p className="text-base font-bold text-gc-text">No se encontraron productos</p>
+                                <p className="text-xs text-gc-text-muted">Probá con otra búsqueda o categoría.</p>
+                            </div>
                         </div>
                     ) : (
                         <>
                             <div ref={productsSectionRef}>
-                                {renderCatalogSection(groupedBaseCatalog, 'Productos', '', 'products', 'Producto regular del menú para este pedido manual.')}
+                                {renderCatalogSection(groupedBaseCatalog, 'products')}
                             </div>
                             {hasBeveragesSection ? (
                                 <div ref={beveragesSectionRef}>
-                                    {renderCatalogSection(groupedBeverageCatalog, 'Bebidas', 'Bebida', 'beverages', 'Opciones de bebida activas para esta sucursal.')}
+                                    {renderCatalogSection(groupedBeverageCatalog, 'beverages')}
                                 </div>
                             ) : null}
                             {hasExtrasSection ? (
                                 <div ref={extrasSectionRef}>
-                                    {renderCatalogSection(groupedExtrasCatalog, 'Extras', 'Extra', 'extras', 'Complementos opcionales disponibles en carrito.')}
+                                    {renderCatalogSection(groupedExtrasCatalog, 'extras')}
                                 </div>
                             ) : null}
                         </>
                     )}
+                </div>
                 </div>
             </div>
         </div>

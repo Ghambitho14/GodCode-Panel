@@ -10,6 +10,14 @@ const responsiveJs = readFileSync(
 	resolve("src/modules/cash/constants/responsive.js"),
 	"utf8",
 );
+const manualOrderModalJsx = readFileSync(
+	resolve("src/modules/cash/components/ManualOrderModal.jsx"),
+	"utf8",
+);
+const manualOrderCatalogJsx = readFileSync(
+	resolve("src/modules/cash/components/manual-order/ManualOrderCatalog.jsx"),
+	"utf8",
+);
 
 describe("manual order responsive CSS contracts", () => {
 	it("exports shared admin mobile breakpoint at 1024px", () => {
@@ -42,5 +50,23 @@ describe("manual order responsive CSS contracts", () => {
 		expect(manualOrderCss).toMatch(
 			/\.manual-order--mobile[\s\S]*?\.manual-order-sidebar\s*\{[\s\S]*?width:\s*100%/,
 		);
+	});
+
+	it("includes open mesa payment choice on mobile checkout panel", () => {
+		expect(manualOrderModalJsx).toMatch(/openMesaPaymentChoiceSection/);
+		expect(manualOrderModalJsx).toMatch(
+			/manual-order-mobile-panel--client[\s\S]*openMesaPaymentChoiceSection/,
+		);
+	});
+
+	it("uses responsive product grid breakpoints in catalog", () => {
+		expect(manualOrderCatalogJsx).toMatch(/grid-cols-1/);
+		expect(manualOrderCatalogJsx).toMatch(/min-\[400px\]:grid-cols-2/);
+		expect(manualOrderCatalogJsx).toMatch(/lg:hidden/);
+	});
+
+	it("styles checkout confirm CTA separately from back button on mobile", () => {
+		expect(manualOrderCss).toMatch(/\.manual-order-checkout-actions__confirm/);
+		expect(manualOrderCss).toMatch(/\.manual-order-checkout-actions__back/);
 	});
 });

@@ -798,8 +798,8 @@ export const useOrderEdit = (
 	}, [manualOrder]);
 
 	const getInputStyle = (isValid) => {
-		if (isValid === true) return { borderColor: '#25d366', boxShadow: '0 0 0 1px #25d366' };
-		if (isValid === false) return { borderColor: '#ff4444', boxShadow: '0 0 0 1px #ff4444' };
+		if (isValid === true) return { borderColor: '#4f5bff', boxShadow: '0 0 0 1px #4f5bff' };
+		if (isValid === false) return { borderColor: '#c31d2d', boxShadow: '0 0 0 1px #c31d2d' };
 		return {};
 	};
 

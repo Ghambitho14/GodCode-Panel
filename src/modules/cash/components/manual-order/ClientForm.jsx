@@ -19,6 +19,28 @@ import {
 import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import PickupBagIcon from '../PickupBagIcon';
+import { cn } from '@/lib/utils';
+
+const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
+const sectionTitleClass =
+    'mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gc-text-muted';
+const inputClass =
+    'w-full rounded-[4px] border border-gc-border bg-gc-page px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
+const inputReadonlyClass =
+    'cursor-not-allowed border-gc-border/50 bg-gc-muted/60 text-gc-text-muted focus:ring-0';
+const toggleBaseClass =
+    'flex min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 text-xs font-semibold text-gc-text transition-colors sm:px-3';
+const toggleActiveClass = 'border-gc-accent bg-gc-accent/10 text-gc-accent';
+const hintClass =
+    'mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 text-xs leading-relaxed text-gc-text-muted';
+const inlineActionClass =
+    'inline-flex items-center gap-1.5 self-start rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-2 text-xs font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50';
+
+const fulfillmentActiveClass = {
+    mesa: 'border-[var(--fulfillment-mesa-border)] bg-[var(--fulfillment-mesa-bg)] text-[var(--fulfillment-mesa-fg)]',
+    retiro: 'border-[var(--fulfillment-retiro-border)] bg-[var(--fulfillment-retiro-bg)] text-[var(--fulfillment-retiro-fg)]',
+    delivery: 'border-[var(--fulfillment-delivery-border)] bg-[var(--fulfillment-delivery-bg)] text-[var(--fulfillment-delivery-fg)]',
+};
 
 const sanitizeInputLive = (text) => {
     if (text == null || text === '') return '';
@@ -238,16 +260,45 @@ const ClientForm = ({
         updateOrderType(type, branchDeliveryCfg, Number(manualOrder.total) || 0);
     };
 
+    const validationIcon = (
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+            <CheckCircle2 size={18} className="text-gc-accent" aria-hidden />
+        </div>
+    );
+
+    const clientSuggestionsList = (suggestionsId) => showClientSuggestions ? (
+        <ul
+            id={suggestionsId}
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-card py-1 shadow-lg"
+            role="listbox"
+        >
+            {clientSuggestions.map((client) => (
+                <li key={client.id} role="option">
+                    <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-gc-muted focus-visible:bg-gc-muted focus-visible:outline-none"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSelectClient(client)}
+                    >
+                        <span className="text-[13px] font-bold text-gc-text">
+                            {client.name}
+                        </span>
+                        <span className="text-[10px] text-gc-text-muted">
+                            {[client.rut, client.phone].filter(Boolean).join(' · ')}
+                        </span>
+                    </button>
+                </li>
+            ))}
+        </ul>
+    ) : null;
+
     const registeredClientSearchField = (placeholder, suggestionsId = 'manual-order-client-suggestions') => (
-        <div className="manual-order-form-grid">
-            <div
-                className="manual-order-input-wrapper full-width manual-order-client-search"
-                ref={clientSearchRef}
-            >
+        <div className="grid gap-3">
+            <div className="relative w-full" ref={clientSearchRef}>
                 <input
                     type="text"
                     placeholder={placeholder}
-                    className="manual-order-input"
+                    className={inputClass}
                     value={manualOrder.client_name}
                     onChange={(e) => handleClientNameChange(e.target.value)}
                     onFocus={() => setClientSuggestionsOpen(true)}
@@ -259,39 +310,11 @@ const ClientForm = ({
                         paddingRight:
                             manualOrder.selected_client_id || manualOrder.client_name.length >= 3
                                 ? '40px'
-                                : '16px',
+                                : undefined,
                     }}
                 />
-                {(manualOrder.selected_client_id || manualOrder.client_name.length >= 3) && (
-                    <div className="manual-order-validation-icon">
-                        <CheckCircle2 size={18} color="#25d366" />
-                    </div>
-                )}
-                {showClientSuggestions && (
-                    <ul
-                        id={suggestionsId}
-                        className="manual-order-client-suggestions"
-                        role="listbox"
-                    >
-                        {clientSuggestions.map((client) => (
-                            <li key={client.id} role="option">
-                                <button
-                                    type="button"
-                                    className="manual-order-client-suggestion"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => handleSelectClient(client)}
-                                >
-                                    <span className="manual-order-client-suggestion__name">
-                                        {client.name}
-                                    </span>
-                                    <span className="manual-order-client-suggestion__meta">
-                                        {[client.rut, client.phone].filter(Boolean).join(' · ')}
-                                    </span>
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                {(manualOrder.selected_client_id || manualOrder.client_name.length >= 3) && validationIcon}
+                {clientSuggestionsList(suggestionsId)}
             </div>
         </div>
     );
@@ -302,15 +325,15 @@ const ClientForm = ({
         lockIdentityFields = false,
         allowClientSearch = true,
     }) => (
-        <div className="manual-order-form-grid manual-order-open-mesa-contact">
+        <div className="mt-3 grid gap-3">
             {allowClientSearch ? (
                 registeredClientSearchField(namePlaceholder, suggestionsId)
             ) : (
-                <div className="manual-order-input-wrapper full-width">
+                <div className="relative w-full">
                     <input
                         type="text"
                         placeholder={namePlaceholder}
-                        className="manual-order-input"
+                        className={inputClass}
                         value={manualOrder.client_name}
                         onChange={(e) => handleClientNameChange(e.target.value)}
                         autoComplete="off"
@@ -319,50 +342,42 @@ const ClientForm = ({
                 </div>
             )}
 
-            <div className="manual-order-input-wrapper">
+            <div className="relative w-full">
                 <input
                     type="text"
                     placeholder="RUT / DNI / Carnet *"
-                    className={`manual-order-input${lockIdentityFields ? ' manual-order-input--readonly' : ''}`}
+                    className={cn(inputClass, lockIdentityFields && inputReadonlyClass)}
                     value={manualOrder.client_rut}
                     onChange={handleRutChange}
                     readOnly={lockIdentityFields}
                     aria-readonly={lockIdentityFields}
                     style={{
                         ...(lockIdentityFields ? {} : getInputStyle(rutValid)),
-                        paddingRight: !lockIdentityFields && rutValid ? '40px' : '16px',
+                        paddingRight: !lockIdentityFields && rutValid ? '40px' : undefined,
                     }}
                 />
-                {!lockIdentityFields && rutValid ? (
-                    <div className="manual-order-validation-icon">
-                        <CheckCircle2 size={18} color="#25d366" />
-                    </div>
-                ) : null}
+                {!lockIdentityFields && rutValid ? validationIcon : null}
             </div>
 
-            <div className="manual-order-input-wrapper">
+            <div className="relative w-full">
                 <input
                     type="tel"
                     placeholder="+56 9..."
-                    className={`manual-order-input${lockIdentityFields ? ' manual-order-input--readonly' : ''}`}
+                    className={cn(inputClass, lockIdentityFields && inputReadonlyClass)}
                     value={manualOrder.client_phone}
                     onChange={handlePhoneChange}
                     readOnly={lockIdentityFields}
                     aria-readonly={lockIdentityFields}
                     style={{
                         ...(lockIdentityFields ? {} : getInputStyle(phoneValid)),
-                        paddingRight: !lockIdentityFields && phoneValid ? '40px' : '16px',
+                        paddingRight: !lockIdentityFields && phoneValid ? '40px' : undefined,
                     }}
                 />
-                {!lockIdentityFields && phoneValid ? (
-                    <div className="manual-order-validation-icon">
-                        <CheckCircle2 size={18} color="#25d366" />
-                    </div>
-                ) : null}
+                {!lockIdentityFields && phoneValid ? validationIcon : null}
             </div>
 
             {lockIdentityFields ? (
-                <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                <p className={hintClass}>
                     Documento y teléfono genéricos de caja ({OPEN_MESA_CAJA_DEFAULTS.client_rut},{' '}
                     {OPEN_MESA_CAJA_DEFAULTS.client_phone}).
                 </p>
@@ -370,15 +385,27 @@ const ClientForm = ({
         </div>
     );
 
+    const inputWithIcon = (icon, children, muted = false) => (
+        <div className="relative w-full">
+            <span className={cn(
+                'pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-gc-text-muted',
+                muted && 'opacity-70',
+            )}>
+                {icon}
+            </span>
+            {children}
+        </div>
+    );
+
     const deliveryFields = isDelivery ? (
-        <div className="manual-order-fulfillment-fields animate-fade-in">
+        <div className="mt-3 flex flex-col gap-2.5">
             {savedAddresses.length > 0 ? (
-                <div className="manual-order-input-wrapper full-width">
-                    <MapPin size={14} className="manual-order-input-icon" aria-hidden />
+                inputWithIcon(
+                    <MapPin size={14} aria-hidden />,
                     <select
                         id="manual-order-saved-address"
                         aria-label="Dirección guardada del cliente"
-                        className="manual-order-input"
+                        className={cn(inputClass, 'pl-10 font-semibold')}
                         value={manualOrder.selected_address_id || ''}
                         onChange={handleSavedAddressChange}
                     >
@@ -388,25 +415,25 @@ const ClientForm = ({
                                 {formatSavedAddressLabel(addr)}
                             </option>
                         ))}
-                    </select>
-                </div>
+                    </select>,
+                )
             ) : null}
 
             {namedAreaAutoMode ? (
                 <>
-                    <div className="manual-order-input-wrapper full-width">
-                        <MapPin size={14} className="manual-order-input-icon" aria-hidden />
+                    {inputWithIcon(
+                        <MapPin size={14} aria-hidden />,
                         <input
                             type="text"
                             placeholder="DIRECCIÓN DE ENTREGA *"
-                            className="manual-order-input"
+                            className={cn(inputClass, 'pl-10 font-semibold')}
                             value={manualOrder.delivery_address}
                             onChange={(e) => updateDeliveryAddress(e.target.value)}
-                        />
-                    </div>
+                        />,
+                    )}
                     <button
                         type="button"
-                        className="manual-order-inline-action"
+                        className={inlineActionClass}
                         onClick={handleDetectZone}
                         disabled={detectingZone || !manualOrder.delivery_address}
                     >
@@ -426,12 +453,12 @@ const ClientForm = ({
             ) : null}
 
             {showNamedZonePicker ? (
-                <div className="manual-order-input-wrapper full-width">
-                    <MapPin size={14} className="manual-order-input-icon" aria-hidden />
+                inputWithIcon(
+                    <MapPin size={14} aria-hidden />,
                     <select
                         id="manual-order-delivery-zone"
                         aria-label="Zona de entrega"
-                        className="manual-order-input"
+                        className={cn(inputClass, 'pl-10 font-semibold')}
                         value={manualOrder.delivery_named_area_id || ''}
                         onChange={(e) => {
                             const v = e.target.value;
@@ -451,54 +478,56 @@ const ClientForm = ({
                                 {z.name} — {formatMoney(z.feeFlat)}
                             </option>
                         ))}
-                    </select>
-                </div>
+                    </select>,
+                )
             ) : null}
 
             {showNamedZonePicker ? (
-                <div className="manual-order-input-wrapper full-width">
-                    <MapPin size={14} className="manual-order-input-icon manual-order-input-icon--muted" aria-hidden />
+                inputWithIcon(
+                    <MapPin size={14} className="opacity-70" aria-hidden />,
                     <input
                         type="text"
                         placeholder="REFERENCIA: CALLE, NÚMERO U OBSERVACIÓN (OPC.)"
-                        className="manual-order-input"
+                        className={cn(inputClass, 'pl-10')}
                         value={manualOrder.delivery_reference}
                         onChange={(e) => updateDeliveryReference(e.target.value)}
-                    />
-                </div>
+                    />,
+                    true,
+                )
             ) : null}
 
             {showDistancePricing ? (
-                <div className="manual-order-input-wrapper full-width">
-                    <MapPin size={14} className="manual-order-input-icon manual-order-input-icon--muted" aria-hidden />
+                inputWithIcon(
+                    <MapPin size={14} className="opacity-70" aria-hidden />,
                     <input
                         type="text"
                         inputMode="decimal"
                         placeholder="DISTANCIA APROX. (KM) — OPC."
-                        className="manual-order-input"
+                        className={cn(inputClass, 'pl-10')}
                         value={manualOrder.delivery_km}
                         onChange={(e) => updateDeliveryKm(e.target.value)}
-                    />
-                </div>
+                    />,
+                    true,
+                )
             ) : null}
 
             {!showNamedZonePicker ? (
-                <div className="manual-order-input-wrapper full-width">
-                    <MapPin size={14} className="manual-order-input-icon" aria-hidden />
+                inputWithIcon(
+                    <MapPin size={14} aria-hidden />,
                     <input
                         type="text"
                         placeholder={showDistancePricing ? 'DIRECCIÓN DE ENTREGA *' : 'DIRECCIÓN DE ENTREGA'}
-                        className="manual-order-input"
+                        className={cn(inputClass, 'pl-10 font-semibold')}
                         value={manualOrder.delivery_address}
                         onChange={(e) => updateDeliveryAddress(e.target.value)}
-                    />
-                </div>
+                    />,
+                )
             ) : null}
 
             {distanceAutoMode ? (
                 <button
                     type="button"
-                    className="manual-order-inline-action"
+                    className={inlineActionClass}
                     onClick={handleCalculateDistance}
                     disabled={calculatingDistance || !manualOrder.delivery_address}
                 >
@@ -517,13 +546,13 @@ const ClientForm = ({
             ) : null}
 
             {showDistancePricing && !distanceAutoMode && (
-                <p className="manual-order-fulfillment-hint">
+                <p className="text-xs italic leading-relaxed text-gc-text-muted">
                     Configura la ubicación del local en Settings → Delivery para autocalcular distancia.
                 </p>
             )}
 
-            <div className="manual-order-input-wrapper full-width">
-                <Banknote size={14} className="manual-order-input-icon" aria-hidden />
+            {inputWithIcon(
+                <Banknote size={14} aria-hidden />,
                 <input
                     type="number"
                     placeholder={
@@ -535,16 +564,16 @@ const ClientForm = ({
                                 ? 'COSTO ENVÍO (calculado automáticamente)'
                                 : 'COSTO DE ENVÍO')
                     }
-                    className="manual-order-input"
+                    className={cn(inputClass, 'pl-10 font-semibold')}
                     value={manualOrder.delivery_fee || ''}
                     onChange={(e) => updateDeliveryFee(e.target.value)}
                     readOnly={!canOverrideDeliveryFee}
                     aria-readonly={!canOverrideDeliveryFee}
-                />
-            </div>
+                />,
+            )}
         </div>
     ) : (
-        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+        <p className={hintClass}>
             El cliente retira en el local. No se requieren datos de despacho.
         </p>
     );
@@ -560,19 +589,29 @@ const ClientForm = ({
         const visibleModes = LOCAL_FULFILLMENT_MODES.filter((mode) => channels[mode]);
 
         return (
-            <div className="manual-order-client-form-component manual-order-client-form-component--open-mesa">
-                <div className="manual-order-section manual-order-section--flat">
-                    <div className="manual-order-section-title">
-                        <Store size={14} aria-hidden />
-                        TIPO DE PEDIDO LOCAL
+            <div className="w-full space-y-3.5">
+                <div className={sectionCardClass}>
+                    <div className={sectionTitleClass}>
+                        <Store size={14} className="text-gc-accent" aria-hidden />
+                        Tipo de pedido local
                     </div>
 
                     {visibleModes.length > 0 ? (
-                        <div className={`manual-order-order-type-toggle manual-order-order-type-toggle--triple${visibleModes.length === 1 ? ' manual-order-order-type-toggle--single' : ''}`}>
+                        <div className={cn(
+                            'grid gap-2.5',
+                            visibleModes.length === 1
+                                ? 'grid-cols-1'
+                                : visibleModes.length === 2
+                                  ? 'grid-cols-1 min-[400px]:grid-cols-2'
+                                  : 'grid-cols-1 min-[400px]:grid-cols-3',
+                        )}>
                             {channels.mesa ? (
                                 <button
                                     type="button"
-                                    className={`manual-order-order-type-btn manual-order-order-type-btn--mesa${isMesa ? ' is-active' : ''}`}
+                                    className={cn(
+                                        toggleBaseClass,
+                                        isMesa ? fulfillmentActiveClass.mesa : null,
+                                    )}
                                     onClick={() => updateLocalFulfillmentMode?.('mesa')}
                                 >
                                     <TableRestaurantIcon size={18} />
@@ -582,7 +621,10 @@ const ClientForm = ({
                             {channels.retiro ? (
                                 <button
                                     type="button"
-                                    className={`manual-order-order-type-btn manual-order-order-type-btn--retiro${isRetiro ? ' is-active' : ''}`}
+                                    className={cn(
+                                        toggleBaseClass,
+                                        isRetiro ? fulfillmentActiveClass.retiro : null,
+                                    )}
                                     onClick={() => updateLocalFulfillmentMode?.('retiro')}
                                 >
                                     <PickupBagIcon size={18} />
@@ -592,7 +634,10 @@ const ClientForm = ({
                             {channels.delivery ? (
                                 <button
                                     type="button"
-                                    className={`manual-order-order-type-btn manual-order-order-type-btn--delivery${isDelivery ? ' is-active' : ''}`}
+                                    className={cn(
+                                        toggleBaseClass,
+                                        isDelivery ? fulfillmentActiveClass.delivery : null,
+                                    )}
                                     onClick={() => updateLocalFulfillmentMode?.('delivery')}
                                 >
                                     <DeliveryMotoIcon size={18} />
@@ -601,20 +646,20 @@ const ClientForm = ({
                             ) : null}
                         </div>
                     ) : (
-                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                        <p className={hintClass}>
                             No hay tipos de pedido local habilitados para esta sucursal.
                         </p>
                     )}
 
                     {isMesa ? (
-                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                        <p className={hintClass}>
                             {manualOrder.charge_now
                                 ? 'Consumo en salón. El pago se registra al abrir la mesa.'
                                 : 'Consumo en salón. El pago se registra al cerrar la mesa.'}
                         </p>
                     ) : null}
                     {isRetiro ? (
-                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                        <p className={hintClass}>
                             {manualOrder.charge_now
                                 ? 'Retiro en local. El pago se registra al abrir el retiro.'
                                 : 'Retiro en local. El pago se registra al cerrar el retiro.'}
@@ -622,17 +667,17 @@ const ClientForm = ({
                     ) : null}
                 </div>
 
-                <div className="manual-order-section manual-order-section--flat">
-                    <div className="manual-order-section-title">
-                        <User size={14} aria-hidden />
-                        {isMesa ? 'MESA / CLIENTE' : 'CLIENTE'}
+                <div className={sectionCardClass}>
+                    <div className={sectionTitleClass}>
+                        <User size={14} className="text-gc-accent" aria-hidden />
+                        {isMesa ? 'Mesa / Cliente' : 'Cliente'}
                     </div>
 
                     {isMesa ? (
-                        <div className="manual-order-order-type-toggle manual-order-order-type-toggle--name">
+                        <div className="mb-3 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
                             <button
                                 type="button"
-                                className={`manual-order-order-type-btn${isMesero ? ' is-active' : ''}`}
+                                className={cn(toggleBaseClass, isMesero && toggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('mesero')}
                             >
                                 <User size={16} />
@@ -640,7 +685,7 @@ const ClientForm = ({
                             </button>
                             <button
                                 type="button"
-                                className={`manual-order-order-type-btn${!isMesero ? ' is-active' : ''}`}
+                                className={cn(toggleBaseClass, !isMesero && toggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('cliente')}
                             >
                                 <User size={16} />
@@ -667,21 +712,20 @@ const ClientForm = ({
                 </div>
 
                 {isDelivery ? (
-                    <div className="manual-order-section manual-order-section--flat">
-                        <div className="manual-order-section-title">
-                            <Truck size={14} aria-hidden />
-                            DATOS DE DELIVERY
+                    <div className={sectionCardClass}>
+                        <div className={sectionTitleClass}>
+                            <Truck size={14} className="text-gc-accent" aria-hidden />
+                            Datos de delivery
                         </div>
                         {branchDeliveryCfgLoading ? (
-                            <p className="manual-order-fulfillment-hint" role="status">
+                            <p className="flex items-center gap-2 text-xs text-gc-text-muted" role="status">
                                 <Loader2 size={14} className="animate-spin" aria-hidden />
-                                {' '}
                                 Cargando zonas y tarifas de delivery…
                             </p>
                         ) : (
                             deliveryFields
                         )}
-                        <p className="manual-order-fulfillment-hint manual-order-fulfillment-hint--pickup">
+                        <p className={hintClass}>
                             {manualOrder.charge_now
                                 ? 'El pago se registra al abrir el delivery.'
                                 : 'El pago se registra al cerrar el delivery.'}
@@ -693,138 +737,93 @@ const ClientForm = ({
     }
 
     return (
-        <div className="manual-order-client-form-component">
-            <div className="manual-order-client-columns">
-                {/* Columna 1: datos cliente */}
-                <div className="manual-order-client-col manual-order-client-col--customer">
-                    <div className="manual-order-section manual-order-section--flat">
-                        <div className="manual-order-section-title">
-                            <User size={14} aria-hidden />
-                            DATOS CLIENTE
+        <div className="w-full">
+            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                <div className={sectionCardClass}>
+                    <div className={sectionTitleClass}>
+                        <User size={14} className="text-gc-accent" aria-hidden />
+                        Datos cliente
+                    </div>
+
+                    <div className="grid gap-3">
+                        <div className="relative w-full" ref={clientSearchRef}>
+                            <input
+                                type="text"
+                                placeholder="NOMBRE COMPLETO *"
+                                className={inputClass}
+                                value={manualOrder.client_name}
+                                onChange={(e) => handleClientNameChange(e.target.value)}
+                                onFocus={() => setClientSuggestionsOpen(true)}
+                                autoComplete="off"
+                                aria-label="Nombre completo del cliente"
+                                aria-expanded={showClientSuggestions}
+                                aria-controls="manual-order-client-suggestions"
+                                style={{
+                                    paddingRight: manualOrder.client_name.length >= 3 ? '40px' : undefined,
+                                }}
+                            />
+                            {manualOrder.client_name.length >= 3 && validationIcon}
+                            {clientSuggestionsList('manual-order-client-suggestions')}
                         </div>
 
-                        <div className="manual-order-form-grid">
-                            <div
-                                className="manual-order-input-wrapper full-width manual-order-client-search"
-                                ref={clientSearchRef}
-                            >
-                                <input
-                                    type="text"
-                                    placeholder="NOMBRE COMPLETO *"
-                                    className="manual-order-input"
-                                    value={manualOrder.client_name}
-                                    onChange={(e) => handleClientNameChange(e.target.value)}
-                                    onFocus={() => setClientSuggestionsOpen(true)}
-                                    autoComplete="off"
-                                    aria-label="Nombre completo del cliente"
-                                    aria-expanded={showClientSuggestions}
-                                    aria-controls="manual-order-client-suggestions"
-                                    style={{
-                                        paddingRight: manualOrder.client_name.length >= 3 ? '40px' : '16px',
-                                    }}
-                                />
-                                {manualOrder.client_name.length >= 3 && (
-                                    <div className="manual-order-validation-icon">
-                                        <CheckCircle2 size={18} color="#25d366" />
-                                    </div>
-                                )}
-                                {showClientSuggestions && (
-                                    <ul
-                                        id="manual-order-client-suggestions"
-                                        className="manual-order-client-suggestions"
-                                        role="listbox"
-                                    >
-                                        {clientSuggestions.map((client) => (
-                                            <li key={client.id} role="option">
-                                                <button
-                                                    type="button"
-                                                    className="manual-order-client-suggestion"
-                                                    onMouseDown={(e) => e.preventDefault()}
-                                                    onClick={() => handleSelectClient(client)}
-                                                >
-                                                    <span className="manual-order-client-suggestion__name">
-                                                        {client.name}
-                                                    </span>
-                                                    <span className="manual-order-client-suggestion__meta">
-                                                        {[client.rut, client.phone].filter(Boolean).join(' · ')}
-                                                    </span>
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
+                        <div className="relative w-full">
+                            <input
+                                type="text"
+                                placeholder="RUT *"
+                                className={inputClass}
+                                value={manualOrder.client_rut}
+                                onChange={handleRutChange}
+                                style={{
+                                    ...getInputStyle(rutValid),
+                                    paddingRight: rutValid ? '40px' : undefined,
+                                }}
+                            />
+                            {rutValid && validationIcon}
+                        </div>
 
-                            <div className="manual-order-input-wrapper">
-                                <input
-                                    type="text"
-                                    placeholder="RUT *"
-                                    className="manual-order-input"
-                                    value={manualOrder.client_rut}
-                                    onChange={handleRutChange}
-                                    style={{
-                                        ...getInputStyle(rutValid),
-                                        paddingRight: rutValid ? '40px' : '16px',
-                                    }}
-                                />
-                                {rutValid && (
-                                    <div className="manual-order-validation-icon">
-                                        <CheckCircle2 size={18} color="#25d366" />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="manual-order-input-wrapper">
-                                <input
-                                    type="tel"
-                                    placeholder="+56 9..."
-                                    className="manual-order-input"
-                                    value={manualOrder.client_phone}
-                                    onChange={handlePhoneChange}
-                                    style={{
-                                        ...getInputStyle(phoneValid),
-                                        paddingRight: phoneValid ? '40px' : '16px',
-                                    }}
-                                />
-                                {phoneValid && (
-                                    <div className="manual-order-validation-icon">
-                                        <CheckCircle2 size={18} color="#25d366" />
-                                    </div>
-                                )}
-                            </div>
+                        <div className="relative w-full">
+                            <input
+                                type="tel"
+                                placeholder="+56 9..."
+                                className={inputClass}
+                                value={manualOrder.client_phone}
+                                onChange={handlePhoneChange}
+                                style={{
+                                    ...getInputStyle(phoneValid),
+                                    paddingRight: phoneValid ? '40px' : undefined,
+                                }}
+                            />
+                            {phoneValid && validationIcon}
                         </div>
                     </div>
                 </div>
 
-                {/* Columna 2: retiro / delivery */}
-                <div className="manual-order-client-col manual-order-client-col--fulfillment">
-                    <div className="manual-order-section manual-order-section--flat">
-                        <div className="manual-order-section-title">
-                            <Truck size={14} aria-hidden />
-                            RETIRO O DELIVERY
-                        </div>
-
-                        <div className="manual-order-order-type-toggle">
-                            <button
-                                type="button"
-                                className={`manual-order-order-type-btn${isPickup ? ' is-active' : ''}`}
-                                onClick={() => handleOrderTypeChange('pickup')}
-                            >
-                                <Store size={16} />
-                                LOCAL / RETIRO
-                            </button>
-                            <button
-                                type="button"
-                                className={`manual-order-order-type-btn${isDelivery ? ' is-active' : ''}`}
-                                onClick={() => handleOrderTypeChange('delivery')}
-                            >
-                                <Truck size={16} />
-                                DELIVERY
-                            </button>
-                        </div>
-
-                        {deliveryFields}
+                <div className={sectionCardClass}>
+                    <div className={sectionTitleClass}>
+                        <Truck size={14} className="text-gc-accent" aria-hidden />
+                        Retiro o delivery
                     </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+                        <button
+                            type="button"
+                            className={cn(toggleBaseClass, isPickup && toggleActiveClass)}
+                            onClick={() => handleOrderTypeChange('pickup')}
+                        >
+                            <Store size={16} />
+                            Local / Retiro
+                        </button>
+                        <button
+                            type="button"
+                            className={cn(toggleBaseClass, isDelivery && toggleActiveClass)}
+                            onClick={() => handleOrderTypeChange('delivery')}
+                        >
+                            <Truck size={16} />
+                            Delivery
+                        </button>
+                    </div>
+
+                    {deliveryFields}
                 </div>
             </div>
         </div>

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Minus } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../../constants/productImagePlaceholder';
 
 /**
- * Componente presentacional para la tarjeta de producto dentro del pedido manual.
+ * Tarjeta de producto para el catálogo del pedido manual.
  */
 const ProductCard = ({
     product,
@@ -13,8 +13,7 @@ const ProductCard = ({
     updateQuantity,
     removeItem,
     showProductImages,
-    sourceLabel = '',
-    variant = 'products'
+    sourceLabel: _sourceLabel = '',
 }) => {
     const { formatMoney } = useBranchMoney();
     const hasDiscount = Boolean(product.has_discount) && product.discount_price != null && Number(product.discount_price) > 0;
@@ -38,101 +37,106 @@ const ProductCard = ({
         }
     };
 
-    return (
-        <div
-            className={`manual-order-product-card manual-order-product-card--${variant} ${showProductImages ? '' : 'no-images'}`}
-            onClick={() => addItem(product)}
-            style={{ cursor: 'pointer', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
+    const priceBlock = hasDiscount ? (
+        <div className="flex flex-col leading-tight">
+            <span className="text-[11px] text-gc-text-muted line-through">
+                {formatMoney(Number(product.price))}
+            </span>
+            <span className="text-xl font-medium text-gc-price">
+                {formatMoney(unitPrice)}
+            </span>
+        </div>
+    ) : (
+        <span className="text-xl font-medium text-gc-price">
+            {formatMoney(Number(product.price))}
+        </span>
+    );
+
+    const actionBlock = quantity === 0 ? (
+        <button
+            type="button"
+            onClick={handleAddClick}
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-0 bg-gc-accent text-[22px] leading-none text-white transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
+            aria-label={`Agregar ${product.name}`}
         >
-            {sourceLabel && (
-                <div className="manual-order-product-source-badge">
-                    {sourceLabel}
-                </div>
-            )}
-            {hasDiscount && (
-                <div style={{
-                    position: 'absolute', top: '10px', left: '10px',
-                    background: 'rgba(230,57,70,0.95)', color: '#fff',
-                    fontSize: '10px', fontWeight: '800', padding: '4px 8px',
-                    borderRadius: '999px', letterSpacing: '1px',
-                    textTransform: 'uppercase', boxShadow: '0 8px 20px rgba(230,57,70,0.25)', zIndex: 2
-                }}>
-                    Oferta
-                </div>
-            )}
+            +
+        </button>
+    ) : (
+        <div className="flex flex-shrink-0 items-center gap-1">
+            <button
+                type="button"
+                onClick={handleMinusClick}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-gc-border text-gc-text transition-colors hover:border-gc-accent/30 hover:bg-gc-muted active:scale-95"
+                aria-label="Reducir cantidad"
+            >
+                <Minus size={14} strokeWidth={2.5} />
+            </button>
+            <span className="min-w-[1.25rem] text-center text-sm font-medium text-gc-text tabular-nums">
+                {quantity}
+            </span>
+            <button
+                type="button"
+                onClick={handleAddClick}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-gc-accent text-lg leading-none text-white transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
+                aria-label="Aumentar cantidad"
+            >
+                +
+            </button>
+        </div>
+    );
+
+    return (
+        <article
+            className="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[4px] border border-gc-border bg-gc-card transition-[border-color] duration-150 hover:border-gc-accent/25"
+            onClick={() => addItem(product)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') addItem(product); }}
+            role="button"
+            tabIndex={0}
+        >
             {showProductImages && (
-                <div className="manual-order-image-wrapper">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-gc-muted">
                     <img
                         src={product.image_url || PRODUCT_IMAGE_PLACEHOLDER}
                         alt={product.name}
-                        className={!product.image_url ? 'is-logo' : ''}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
                         decoding="async"
                         onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = PRODUCT_IMAGE_PLACEHOLDER;
-                            e.target.classList.add('is-logo');
                         }}
                     />
                 </div>
             )}
-            <div className="manual-order-card-content">
-                <h3 className="manual-order-card-title" title={product.name}>{product.name}</h3>
+
+            <div className="flex flex-1 flex-col gap-3 px-3 py-2.5">
+                <p
+                    className="text-base font-medium leading-[1.3] text-gc-text"
+                    title={product.name}
+                >
+                    {product.name}
+                </p>
+
                 {product.description && (
-                    <p className="manual-order-card-desc" title={product.description}>
+                    <p
+                        className="flex-1 text-[13px] leading-normal text-gc-text-muted"
+                        title={product.description}
+                    >
                         {product.description}
                     </p>
                 )}
-                <div className="manual-order-card-footer-row">
-                    <div className="manual-order-card-price">
-                        {hasDiscount ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                                <span style={{ fontSize: '11px', opacity: 0.65, textDecoration: 'line-through' }}>
-                                    {formatMoney(Number(product.price))}
-                                </span>
-                                <span style={{ fontSize: '14px', fontWeight: '900', color: '#e63946' }}>
-                                    {formatMoney(unitPrice)}
-                                </span>
-                            </div>
-                        ) : (
-                            formatMoney(Number(product.price))
-                        )}
-                    </div>
-                    <div className={`manual-order-stepper-container ${quantity > 0 ? 'active' : ''}`}>
-                        {quantity === 0 ? (
-                            <button
-                                type="button"
-                                className="manual-order-add-btn"
-                                onClick={handleAddClick}
-                                aria-label={`Agregar ${product.name}`}
-                            >
-                                <Plus size={18} />
-                            </button>
-                        ) : (
-                            <div className="manual-order-stepper animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                    type="button"
-                                    className="mo-step-btn minus"
-                                    onClick={handleMinusClick}
-                                    aria-label="Reducir cantidad"
-                                >
-                                    <Minus size={14} />
-                                </button>
-                                <span className="mo-step-count">{quantity}</span>
-                                <button
-                                    type="button"
-                                    className="mo-step-btn plus"
-                                    onClick={handleAddClick}
-                                    aria-label="Aumentar cantidad"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                            </div>
-                        )}
-                    </div>
+
+                <div className="h-px bg-gc-border/80" aria-hidden />
+
+                <div
+                    className="mt-2 flex items-center justify-between gap-4 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="min-w-0">{priceBlock}</div>
+                    {actionBlock}
                 </div>
             </div>
-        </div>
+        </article>
     );
 };
 
