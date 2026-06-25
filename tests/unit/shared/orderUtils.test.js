@@ -272,6 +272,27 @@ describe("orderUtils", () => {
 		expect(getFulfillmentKindLabel(getOrderFulfillmentKind({ order_type: "pickup", client_name: "Retiro" }))).toBe("Retiro");
 	});
 
+	it("getOrderFulfillmentKind treats open mesa mesero (CAJA identity) as mesa even with pickup channel", () => {
+		expect(
+			getOrderFulfillmentKind({
+				channel: "pickup",
+				status: "pending",
+				client_name: "Pedro",
+				client_rut: "1-9",
+				client_phone: "+56 9 0000 0000",
+			}),
+		).toBe("mesa");
+		expect(
+			getOrderFulfillmentKind({
+				channel: "pickup",
+				status: "pending",
+				client_name: "Retiro",
+				client_rut: "1-9",
+				client_phone: "+56 9 0000 0000",
+			}),
+		).toBe("retiro");
+	});
+
 	it("resolveOrderClientRutForDisplay hides placeholders", () => {
 		expect(resolveOrderClientRutForDisplay({ client_rut: "" })).toBeNull();
 		expect(resolveOrderClientRutForDisplay({ client_rut: "Sin RUT" })).toBeNull();

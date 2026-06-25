@@ -1101,7 +1101,7 @@ export const AdminProvider = ({
 				order_type: order.order_type,
 				coupon_code: order.coupon_code,
 			},
-			{ prevStatus: order.status },
+			{ prevStatus: order.status, preserveFulfillment: true },
 		);
 		setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
 		return nextOrder;

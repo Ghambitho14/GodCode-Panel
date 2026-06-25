@@ -920,6 +920,14 @@ export function getOrderFulfillmentKind(order) {
 		.trim()
 		.toLowerCase();
 	if (name === 'salón' || name === 'salon') return 'mesa';
+	// Mesa mesero: identidad CAJA genérica sin nombre "Retiro" (p. ej. channel pickup por regresión SQL).
+	if (
+		isLocalOpenSessionOrder(order) &&
+		isCajaGenericIdentity(order?.client_rut, order?.client_phone) &&
+		name !== 'retiro'
+	) {
+		return 'mesa';
+	}
 	return 'retiro';
 }
 

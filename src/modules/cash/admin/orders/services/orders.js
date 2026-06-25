@@ -603,6 +603,10 @@ export const ordersService = {
             ? (patch.payment_breakdown || null)
             : null;
 
+        const rpcOrderType = options.preserveFulfillment
+            ? 'sale'
+            : resolveRpcOrderType(patch);
+
         const { data: updated, error } = await supabase.rpc('update_order_transaction', {
             p_order_id: orderId,
             p_client_name: String(patch.client_name ?? ''),
@@ -611,7 +615,7 @@ export const ordersService = {
             p_items: itemsForOrder,
             p_payment_type: String(patch.payment_type ?? 'tienda'),
             p_note: typeof patch.note === 'string' ? patch.note : '',
-            p_order_type: resolveRpcOrderType(patch),
+            p_order_type: rpcOrderType,
             p_delivery_address: deliveryAddressRecord,
             p_delivery_fee: deliveryFee,
             p_coupon_code: normCoupon,

@@ -122,6 +122,36 @@ describe('ordersService security refactor', () => {
 		}
 	});
 
+	it('updateOrder with preserveFulfillment sends p_order_type sale to RPC', async () => {
+		rpcMock.mockResolvedValueOnce({
+			data: { id: 42, total: 7500, items: [], status: 'completed', channel: 'online' },
+			error: null,
+		});
+
+		await ordersService.updateOrder(
+			42,
+			{
+				client_name: 'Ana',
+				client_phone: '+56911111111',
+				client_rut: '',
+				order_type: 'sale',
+				items: [{ id: PRODUCT_ID, name: 'Pizza', price: 7500, quantity: 1 }],
+				payment_type: 'tienda',
+				payment_breakdown: { cash: 7500, card: 0, online: 0 },
+				note: '',
+			},
+			{ preserveFulfillment: true },
+		);
+
+		expect(rpcMock).toHaveBeenCalledWith(
+			'update_order_transaction',
+			expect.objectContaining({
+				p_order_id: 42,
+				p_order_type: 'sale',
+			}),
+		);
+	});
+
 	it('createOrder does not run post-create UPDATE on orders', async () => {
 		setupCreateOrderMocks();
 		rpcMock.mockResolvedValueOnce({
