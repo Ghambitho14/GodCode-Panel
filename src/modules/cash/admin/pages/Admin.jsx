@@ -84,6 +84,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     cashSystem,
     loadData,
     refreshAllData,
+    refreshOrders,
+    refreshClients,
+    refreshCatalog,
+    refreshCatalogAndInventory,
     refreshBranches,
     handleSelectClient,
     moveOrder,
@@ -546,7 +550,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             !ordersPanelSettingsReady ? (
             <AdminTabFallback />
             ) : ordersViewMode === 'mesas' ? (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
               <AdminTablesGrid
                 orders={orders}
                 moveOrder={moveOrder}
@@ -560,11 +564,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 products={products}
                 categories={categories}
                 localOrderChannels={localOrderChannels}
-                onOrderSaved={() => loadData(true)}
+                onOrderSaved={() => refreshOrders()}
               />
             </AdminErrorBoundary>
             ) : (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
               <AdminKanban
                 columns={kanbanColumns}
                 isMobile={isMobile}
@@ -580,12 +584,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 products={products}
                 categories={categories}
                 localOrderChannels={localOrderChannels}
-                onOrderSaved={() => loadData(true)}
+                onOrderSaved={() => refreshOrders()}
               />
             </AdminErrorBoundary>
             )
           ) : (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => loadData(true)}>
+            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
               <React.Suspense fallback={<AdminTabFallback />}>
                 <AdminHistoryTable
                   orders={historyOrders}
@@ -603,7 +607,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {activeTab === 'products' && (
           <AdminErrorBoundary
             tabLabel={tabLabels.products || 'Productos'}
-            onRetry={() => loadData(true)}
+            onRetry={() => refreshCatalog()}
           >
           <div className="products-view animate-fade">
             
@@ -710,7 +714,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
         {activeTab === 'inventory' && (
-          <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels.inventory || 'Inventario'} onRetry={() => refreshCatalogAndInventory()}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminInventory
                 showNotify={showNotify}
@@ -719,7 +723,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 companyId={companyIdForClients}
                 products={products}
                 categories={categories}
-                onRefreshCatalog={() => loadData(true)}
+                onRefreshCatalog={() => refreshCatalogAndInventory()}
               />
             </React.Suspense>
           </AdminErrorBoundary>
@@ -791,14 +795,14 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 4. CLIENTES */}
         {activeTab === 'clients' && (
-          <AdminErrorBoundary tabLabel={tabLabels.clients || 'Clientes'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels.clients || 'Clientes'} onRetry={() => refreshClients()}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminClients
                 clients={clients}
                 orders={orders}
                 onSelectClient={handleSelectClient}
-                onClientCreated={() => loadData(true)}
-                onClientDeleted={() => loadData(true)}
+                onClientCreated={() => refreshClients()}
+                onClientDeleted={() => refreshClients()}
                 showNotify={showNotify}
                 companyId={companyIdForClients}
               />
@@ -807,7 +811,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeTab === 'coupons' && (
-          <AdminErrorBoundary tabLabel={tabLabels.coupons || 'Cupones'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels.coupons || 'Cupones'} onRetry={() => refreshAllData()}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminCoupons showNotify={showNotify} companyId={companyIdForClients} />
             </React.Suspense>
@@ -815,13 +819,13 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId === 'module:tickets' && (
-          <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'} onRetry={() => refreshAllData()}>
             <TenantTicketsPanel showNotify={showNotify} primaryColor={primaryColor} />
           </AdminErrorBoundary>
         )}
 
         {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && (
-          <AdminErrorBoundary tabLabel={tabLabels[activeDynamicModule.tabId] || activeDynamicModule.label || 'Módulo'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels[activeDynamicModule.tabId] || activeDynamicModule.label || 'Módulo'} onRetry={() => refreshAllData()}>
           <div className="glass admin-dynamic-module">
             <div>
               <p className="admin-dynamic-module__desc">
@@ -855,7 +859,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {/* 5. CATEGORÍAS */}
         {activeTab === 'categories' && (
-          <AdminErrorBoundary tabLabel={tabLabels.categories || 'Categorías'} onRetry={() => loadData(true)}>
+          <AdminErrorBoundary tabLabel={tabLabels.categories || 'Categorías'} onRetry={() => refreshCatalog()}>
           <div className="cat-container">
             {(!selectedBranch || selectedBranch.id === 'all') ? (
               <div className="cat-empty-state">
@@ -1118,7 +1122,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         products={products}
         categories={categories}
         clients={clients}
-        onOrderSaved={() => loadData(true)}
+        onOrderSaved={() => refreshOrders()}
         showNotify={showNotify}
         branch={selectedBranch}
         logoUrl={logoUrl}

@@ -1166,8 +1166,40 @@ export function resolveOrderCouponCode(rawOrder) {
 	return '';
 }
 
-/** Select de pedidos con código de cupón vía FK `discount_coupon_id`. */
-export const ORDERS_SELECT_WITH_COUPON = '*, discount_coupons(code)';
+/** Columnas escalares + JSON usadas por kanban, detalle e impresión. */
+const ORDERS_PANEL_COLUMNS =
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
+
+/** Lista kanban / carga inicial sin JSONB items (hydrate puntual al expandir). */
+const ORDERS_LIST_COLUMNS =
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
+
+/** Kanban, historial, clientes y carga inicial del panel. */
+export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(code)`;
+
+/** Lista de pedidos del panel sin items. */
+export const ORDERS_LIST_SELECT = `${ORDERS_LIST_COLUMNS}, discount_coupons(code)`;
+
+/** Alias histórico; evita `select('*')` en lecturas bulk. */
+export const ORDERS_SELECT_WITH_COUPON = ORDERS_PANEL_SELECT;
+
+/** Analytics: métricas escalares sin items (hasta 5000 filas). */
+export const ORDERS_ANALYTICS_METRICS_SELECT =
+	'id, company_id, branch_id, status, created_at, total, delivery_fee, payment_type, payment_method_specific, payment_breakdown';
+
+/** @deprecated Usar ORDERS_ANALYTICS_METRICS_SELECT */
+export const ORDERS_ANALYTICS_SELECT = ORDERS_ANALYTICS_METRICS_SELECT;
+
+/** Export Excel: solo columnas del reporte. */
+export const ORDERS_EXPORT_SELECT =
+	'created_at, client_name, client_rut, client_phone, items, total, payment_type, payment_method_specific, payment_breakdown, payment_ref';
+
+/** Join embebido en movimientos de caja. */
+export const ORDERS_MOVEMENT_JOIN_SELECT =
+	'id, payment_type, payment_method_specific, payment_breakdown, client_name, total, status, shift_sequence, channel';
+
+/** Búsqueda fuzzy por número de pedido (scan liviano). */
+export const ORDERS_ID_SCAN_SELECT = 'id';
 
 /** @param {{ has_discount?: boolean; discount_price?: number | null; price?: number; quantity?: number }} item */
 export function getOrderItemLineTotal(item) {

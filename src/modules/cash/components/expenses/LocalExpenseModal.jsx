@@ -3,6 +3,7 @@ import {
     X, ArrowDownCircle, RotateCcw, DollarSign, CreditCard, FileText, Search, Loader2,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
+import { ORDERS_ID_SCAN_SELECT, ORDERS_PANEL_SELECT } from '@/shared/utils/orderUtils';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
@@ -35,10 +36,17 @@ async function findOrderByQuery({ companyId, branchId, query }) {
     const raw = String(query || '').trim().replace(/^#/, '');
     if (!raw || !companyId) return null;
 
-    let base = supabase.from(TABLES.orders).select('*').eq('company_id', companyId);
+    let base = supabase.from(TABLES.orders).select(ORDERS_ID_SCAN_SELECT).eq('company_id', companyId);
     if (branchId) base = base.eq('branch_id', branchId);
 
-    const { data: exact, error: exactErr } = await base.eq('id', raw).maybeSingle();
+    let exactQuery = supabase
+        .from(TABLES.orders)
+        .select(ORDERS_PANEL_SELECT)
+        .eq('company_id', companyId)
+        .eq('id', raw);
+    if (branchId) exactQuery = exactQuery.eq('branch_id', branchId);
+
+    const { data: exact, error: exactErr } = await exactQuery.maybeSingle();
     if (exactErr) throw exactErr;
     if (exact) return exact;
 
@@ -46,16 +54,31 @@ async function findOrderByQuery({ companyId, branchId, query }) {
     if (error) throw error;
 
     const num = raw.replace(/^0+/, '') || '0';
-    return (
-        (rows || []).find((o) => {
-            const sid = String(o.id);
-            return (
-                sid === raw ||
-                sid.replace(/^0+/, '') === num ||
-                sid.slice(-4).replace(/^0+/, '') === num
-            );
-        }) ?? null
-    );
+    const matchedId = (rows || []).find((o) => {
+        const sid = String(o.id);
+        return (
+            sid === raw ||
+            sid.replace(/^0+/, '') === num ||
+            sid.slice(-4).replace(/^0+/, '') === num
+        );
+    })?.id;
+    if (!matchedId) return null;
+
+    const { data: full, error: fullErr } = await (branchId
+        ? supabase
+            .from(TABLES.orders)
+            .select(ORDERS_PANEL_SELECT)
+            .eq('id', matchedId)
+            .eq('company_id', companyId)
+            .eq('branch_id', branchId)
+        : supabase
+            .from(TABLES.orders)
+            .select(ORDERS_PANEL_SELECT)
+            .eq('id', matchedId)
+            .eq('company_id', companyId)
+    ).maybeSingle();
+    if (fullErr) throw fullErr;
+    return full;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { supabase, TABLES } from '@/integrations/supabase';
+import { ORDERS_MOVEMENT_JOIN_SELECT } from '@/shared/utils/orderUtils';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)
@@ -169,7 +170,7 @@ export const cashService = {
 
 		const joined = await supabase
 			.from(TABLES.cash_movements)
-			.select(`*, ${TABLES.orders}(*)`)
+			.select(`*, ${TABLES.orders}(${ORDERS_MOVEMENT_JOIN_SELECT})`)
 			.eq('shift_id', sid)
 			.order('created_at', { ascending: false });
 
@@ -197,7 +198,7 @@ export const cashService = {
 
 		const { data: orderRows, error: ordersError } = await supabase
 			.from(TABLES.orders)
-			.select('*')
+			.select(ORDERS_MOVEMENT_JOIN_SELECT)
 			.in('id', orderIds);
 
 		if (ordersError || !orderRows?.length) {

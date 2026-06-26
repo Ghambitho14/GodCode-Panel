@@ -31,7 +31,9 @@ import {
     ymdLocal,
 } from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
-import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel } from '@/shared/utils/orderUtils';
+import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel, ORDERS_ANALYTICS_METRICS_SELECT, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
+import { fetchTopProducts } from '../services/analyticsService';
+import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { downloadExcel, openSpreadsheetInNewTab } from '@/shared/utils/exportUtils';
 import SpreadsheetPreviewModal from './SpreadsheetPreviewModal';
 import { isValidBranchId } from '@/shared/utils/safeIds';
@@ -209,6 +211,31 @@ function resolveExpenseChartRange(reportRange, expenseAgg, analyticsDate) {
     return resolveFromReportRange(reportRange);
 }
 
+function resolveTopProductsRange(reportRange) {
+    if (reportRange?.start) {
+        return {
+            startIso: reportRange.start.toISOString(),
+            endIso: reportRange.end
+                ? reportRange.end.toISOString()
+                : new Date().toISOString(),
+        };
+    }
+    const keys = reportRange?.chartDateKeys;
+    if (keys?.length) {
+        const start = new Date(`${keys[0]}T00:00:00`);
+        const end = new Date(`${keys[keys.length - 1]}T23:59:59.999`);
+        end.setDate(end.getDate() + 1);
+        return {
+            startIso: start.toISOString(),
+            endIso: end.toISOString(),
+        };
+    }
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 364);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 /** `orders` desde el panel sigue limitado a 100 filas (kanban). Los KPIs usan fetch propio vía `analyticsOrders`. */
 const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch, view = 'full' }) => {
     const { formatMoney: fmt, currency } = useMemo(
@@ -233,6 +260,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     /** Pedidos del rango para KPIs/gráficos (no el slice de 100 del provider). */
     const [analyticsOrders, setAnalyticsOrders] = useState([]);
     const [loadingAnalyticsOrders, setLoadingAnalyticsOrders] = useState(false);
+    const [topProductsFromRpc, setTopProductsFromRpc] = useState([]);
+    const [loadingTopProducts, setLoadingTopProducts] = useState(false);
     const [expenseRefreshNonce, setExpenseRefreshNonce] = useState(0);
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
     const [expensePreviewState, setExpensePreviewState] = useState(null);
@@ -269,7 +298,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         setLoadingAnalyticsOrders(true);
         (async () => {
             try {
-                let q = supabase.from(TABLES.orders).select('*').eq('company_id', companyId);
+                let q = supabase.from(TABLES.orders).select(ORDERS_ANALYTICS_METRICS_SELECT).eq('company_id', companyId);
                 if (reportRange.fetchStartIso) {
                     q = q.gte('created_at', reportRange.fetchStartIso);
                 }
@@ -294,6 +323,44 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             cancelled = true;
         };
     }, [companyId, selectedBranch?.id, reportRange.fetchStartIso, reportRange.fetchEndIso]);
+
+    useEffect(() => {
+        if (!companyId) {
+            setTopProductsFromRpc([]);
+            return;
+        }
+        let cancelled = false;
+        setLoadingTopProducts(true);
+        const { startIso, endIso } = resolveTopProductsRange(reportRange);
+        (async () => {
+            try {
+                const rows = await fetchTopProducts({
+                    companyId,
+                    branchId: selectedBranch?.id,
+                    startIso,
+                    endIso,
+                    limit: 5,
+                    showNotify,
+                });
+                if (!cancelled) setTopProductsFromRpc(rows);
+            } catch (e) {
+                console.error('Error fetching top products:', e);
+                if (!cancelled) setTopProductsFromRpc([]);
+            } finally {
+                if (!cancelled) setLoadingTopProducts(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        companyId,
+        selectedBranch?.id,
+        reportRange.start?.getTime(),
+        reportRange.end?.getTime(),
+        reportRange.chartDateKeys?.join(','),
+        showNotify,
+    ]);
 
     useEffect(() => {
         if (!companyId) {
@@ -582,7 +649,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         try {
             let query = supabase
                 .from(TABLES.orders)
-                .select('*')
+                .select(ORDERS_EXPORT_SELECT)
                 .gte('created_at', range.startIso)
                 .lt('created_at', range.endIso)
                 .order('created_at', { ascending: true });
@@ -595,9 +662,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 query = query.eq('branch_id', selectedBranch.id);
             }
 
-            const { data: fullMonthOrders, error } = await query;
-
-            if (error) throw error;
+            const fullMonthOrders = await fetchAllPaginated(query);
 
             if (!fullMonthOrders || fullMonthOrders.length === 0) {
                 if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
@@ -914,31 +979,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         };
     }, [clients, reportRange]);
 
-    // --- TOP 5 PRODUCTS ---
-    const topProducts = useMemo(() => {
-        if (!ordersForAnalytics) return [];
-        const filtered = ordersForAnalytics.filter(
-            (o) => o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange),
-        );
-        
-        const counts = {};
-        const revenue = {};
-        
-        filtered.forEach(o => {
-            if (o.items && Array.isArray(o.items)) {
-                o.items.forEach(item => {
-                    const name = item.name ? String(item.name).split(' (')[0] : 'Desconocido';
-                    counts[name] = (counts[name] || 0) + (item.quantity || 1);
-                    revenue[name] = (revenue[name] || 0) + ((item.price || 0) * (item.quantity || 1));
-                });
-            }
-        });
-
-        return Object.entries(counts)
-            .sort(([, a], [, b]) => b - a)
-            .slice(0, 5)
-            .map(([name, qty]) => ({ name, qty, revenue: revenue[name] || 0 }));
-    }, [ordersForAnalytics, reportRange]);
+    // --- TOP 5 PRODUCTS (RPC server-side) ---
+    const topProducts = topProductsFromRpc;
 
     // --- PEAK HOUR ---
     const peakHour = useMemo(() => {
@@ -1764,7 +1806,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             {/* TOP PRODUCTS */}
             <div className="rpt-products-card">
                 <h3><AdminIconSlot Icon={Package} slotSize="sm" tone="accent" /> Top productos vendidos</h3>
-                {topProducts.length === 0 ? (
+                {loadingTopProducts ? (
+                    <div className="rpt-empty">Cargando top productos…</div>
+                ) : topProducts.length === 0 ? (
                     <div className="rpt-empty">No hay datos de productos en este período.</div>
                 ) : (
                     <div className="rpt-products-list">

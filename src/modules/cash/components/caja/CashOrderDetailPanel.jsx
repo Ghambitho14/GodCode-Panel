@@ -17,6 +17,7 @@ import {
 	resolveOrderClientPhoneForDisplay,
 	isLegacyGlobalKitchenNote,
 	resolveItemKitchenNote,
+	ORDERS_PANEL_SELECT,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
@@ -121,7 +122,7 @@ export default function CashOrderDetailPanel({
 			try {
 				const { data, error } = await supabase
 					.from(TABLES.orders)
-					.select('*')
+					.select(ORDERS_PANEL_SELECT)
 					.eq('id', order.id)
 					.maybeSingle();
 				if (cancelled) return;

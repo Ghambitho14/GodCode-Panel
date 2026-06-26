@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { supabase, TABLES, createEphemeralSupabaseClient } from '@/integrations/supabase';
 import { Loader2, AlertCircle, XCircle, FileText, Trash2, Users, ChevronDown } from 'lucide-react';
 import { downloadExcel } from '@/shared/utils/exportUtils';
-import { getPaymentLabel } from '@/shared/utils/orderUtils';
+import { getPaymentLabel, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
+import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { callGuardedRpc } from '@/modules/cash/admin/utils/rpcGuard';
 
-const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, companyId }) => {
+const AdminDangerZone = ({ showNotify, refreshAllData, isMobile, selectedBranch, companyId }) => {
   const [analyticsDate, setAnalyticsDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -83,7 +84,7 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
       // (Evita el límite de 100 pedidos de la vista principal)
       let query = supabase
         .from(TABLES.orders)
-        .select('*')
+        .select(ORDERS_EXPORT_SELECT)
         .gte('created_at', range.startIso)
         .lt('created_at', range.endIso)
         .order('created_at', { ascending: true });
@@ -97,9 +98,7 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
         query = query.eq('branch_id', selectedBranch.id);
       }
 
-      const { data: fullMonthOrders, error } = await query;
-
-      if (error) throw error;
+      const fullMonthOrders = await fetchAllPaginated(query);
 
       if (!fullMonthOrders || fullMonthOrders.length === 0) {
         showNotify("No hay datos para exportar en este período", 'info');
@@ -232,7 +231,7 @@ const AdminDangerZone = ({ showNotify, loadData, isMobile, selectedBranch, compa
 
       // Cerrar modal solo después de éxito
       setIsDangerModalOpen(false);
-      loadData(true);
+      void refreshAllData?.();
     } catch (e) {
       showNotify(`Error: ${e.message}`, 'error');
     } finally {

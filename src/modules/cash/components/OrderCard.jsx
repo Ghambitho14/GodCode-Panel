@@ -1,7 +1,7 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
     Clock, XCircle, Upload, ImageIcon, Printer, Edit2, Copy, Send,
-    ChefHat, Banknote, Eye, ChevronDown, ChevronUp,
+    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
@@ -28,9 +28,12 @@ import ManualOrderModal from './ManualOrderModal';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 
-function buildItemsSummary(items) {
+function buildItemsSummary(items, { missingItems = false } = {}) {
     const list = Array.isArray(items) ? items : [];
     const count = list.length;
+    if (missingItems && count === 0) {
+        return { count: 0, text: 'Tocá Ver más para ver productos' };
+    }
     if (count === 0) return { count: 0, text: 'Sin productos' };
     const preview = list
         .slice(0, 2)
@@ -49,7 +52,7 @@ const OrderCard = ({
     localOrderChannels = null,
     gridTile = false,
 }) => {
-    const { cashSystem, markOrderSessionPaid, closeOrderSession, orders } = useAdmin();
+    const { cashSystem, markOrderSessionPaid, closeOrderSession, orders, hydrateOrderItems } = useAdmin();
     const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
     const liveOrder = useMemo(
         () => (orders || []).find((o) => o.id === order.id) ?? order,
@@ -60,6 +63,7 @@ const OrderCard = ({
     const [detailOpen, setDetailOpen] = useState(false);
     const [paymentModalIntent, setPaymentModalIntent] = useState(null);
     const [expanded, setExpanded] = useState(false);
+    const [itemsHydrating, setItemsHydrating] = useState(false);
     const ticketMenuRef = useRef(null);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
@@ -125,7 +129,28 @@ const OrderCard = ({
 
     const clientData = clients?.find((c) => c.id === order.client_id);
     const isVip = clientData?.total_orders >= 5;
-    const itemsSummary = useMemo(() => buildItemsSummary(order.items), [order.items]);
+    const hasLoadedItems = Array.isArray(liveOrder.items) && liveOrder.items.length > 0;
+    const itemsSummary = useMemo(
+        () => buildItemsSummary(liveOrder.items, { missingItems: !hasLoadedItems }),
+        [liveOrder.items, hasLoadedItems],
+    );
+
+    const handleExpandItems = useCallback(async (e) => {
+        e.stopPropagation();
+        if (!hasLoadedItems && hydrateOrderItems) {
+            setItemsHydrating(true);
+            try {
+                await hydrateOrderItems(order.id);
+            } catch (err) {
+                console.error('Error hydrating order items:', err);
+                showNotify?.('No se pudieron cargar los productos del pedido', 'error');
+            } finally {
+                setItemsHydrating(false);
+            }
+        }
+        setExpanded(true);
+    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
     const paymentDeferred = isOrderPaymentDeferred(liveOrder);
     const showPaidBadge = isOrderPaymentSettled(liveOrder);
@@ -389,21 +414,29 @@ const OrderCard = ({
                         <button
                             type="button"
                             className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setExpanded(true);
-                            }}
+                            onClick={handleExpandItems}
                             aria-expanded={false}
+                            disabled={itemsHydrating}
                         >
-                            <ChevronDown size={14} aria-hidden />
-                            Ver más ({itemsSummary.count})
+                            {itemsHydrating ? (
+                                <Loader2 size={14} className="animate-spin" aria-hidden />
+                            ) : (
+                                <ChevronDown size={14} aria-hidden />
+                            )}
+                            {hasLoadedItems ? `Ver más (${itemsSummary.count})` : 'Ver más'}
                         </button>
                     </div>
                 ) : (
                     <>
                         <div className="card-items card-items--expanded">
-                            {order.items.map((item, idx) => {
-                                const itemNote = resolveItemKitchenNote(item, order.note) ?? '';
+                            {itemsHydrating ? (
+                                <div className="card-items-hydrating">
+                                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                                    <span>Cargando productos…</span>
+                                </div>
+                            ) : Array.isArray(liveOrder.items) && liveOrder.items.length > 0 ? (
+                            liveOrder.items.map((item, idx) => {
+                                const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                 return (
                                     <div key={idx} className="order-item-row order-item-row--stacked">
                                         <div className="order-item-row__main">
@@ -428,7 +461,10 @@ const OrderCard = ({
                                         ) : null}
                                     </div>
                                 );
-                            })}
+                            })
+                            ) : (
+                                <p className="card-items-empty">Sin productos</p>
+                            )}
                             <button
                                 type="button"
                                 className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"

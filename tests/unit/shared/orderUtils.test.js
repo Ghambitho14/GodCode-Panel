@@ -37,6 +37,14 @@ import {
 	parseAggregatedLineNotes,
 	resolveItemKitchenNote,
 	isLegacyGlobalKitchenNote,
+	ORDERS_PANEL_SELECT,
+	ORDERS_LIST_SELECT,
+	ORDERS_SELECT_WITH_COUPON,
+	ORDERS_ANALYTICS_SELECT,
+	ORDERS_ANALYTICS_METRICS_SELECT,
+	ORDERS_EXPORT_SELECT,
+	ORDERS_MOVEMENT_JOIN_SELECT,
+	ORDERS_ID_SCAN_SELECT,
 } from "@/shared/utils/orderUtils";
 
 describe("orderUtils", () => {
@@ -551,6 +559,54 @@ Coca cola: Bien fría
 					items: [{ name: "Burger", note: "Extra queso" }],
 				}),
 			).toBe(false);
+		});
+	});
+
+	describe("order select constants (egress)", () => {
+		const allSelects = [
+			ORDERS_PANEL_SELECT,
+			ORDERS_LIST_SELECT,
+			ORDERS_SELECT_WITH_COUPON,
+			ORDERS_ANALYTICS_SELECT,
+			ORDERS_ANALYTICS_METRICS_SELECT,
+			ORDERS_EXPORT_SELECT,
+			ORDERS_MOVEMENT_JOIN_SELECT,
+			ORDERS_ID_SCAN_SELECT,
+		];
+
+		it("no select constant uses wildcard star", () => {
+			for (const sel of allSelects) {
+				expect(sel).not.toMatch(/\*/);
+			}
+		});
+
+		it("ORDERS_SELECT_WITH_COUPON aliases ORDERS_PANEL_SELECT", () => {
+			expect(ORDERS_SELECT_WITH_COUPON).toBe(ORDERS_PANEL_SELECT);
+		});
+
+		it("ORDERS_ANALYTICS_METRICS_SELECT omits items and heavy columns", () => {
+			expect(ORDERS_ANALYTICS_METRICS_SELECT).not.toContain("items");
+			expect(ORDERS_ANALYTICS_METRICS_SELECT).not.toContain("payment_ref");
+			expect(ORDERS_ANALYTICS_METRICS_SELECT).not.toContain("delivery_address");
+			expect(ORDERS_ANALYTICS_METRICS_SELECT).not.toContain("note");
+			expect(ORDERS_ANALYTICS_METRICS_SELECT).toContain("payment_breakdown");
+		});
+
+		it("ORDERS_ANALYTICS_SELECT aliases metrics select", () => {
+			expect(ORDERS_ANALYTICS_SELECT).toBe(ORDERS_ANALYTICS_METRICS_SELECT);
+		});
+
+		it("ORDERS_LIST_SELECT omits items", () => {
+			expect(ORDERS_LIST_SELECT).not.toContain("items");
+			expect(ORDERS_LIST_SELECT).toContain("discount_coupons");
+		});
+
+		it("ORDERS_MOVEMENT_JOIN_SELECT omits items", () => {
+			expect(ORDERS_MOVEMENT_JOIN_SELECT).not.toContain("items");
+		});
+
+		it("ORDERS_ID_SCAN_SELECT is minimal", () => {
+			expect(ORDERS_ID_SCAN_SELECT).toBe("id");
 		});
 	});
 });
