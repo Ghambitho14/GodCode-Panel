@@ -1,0 +1,1 @@
+INSERT INTO "public"."admin_users" ("id", "email", "role", "created_at") VALUES ('9b1f5a21-8ff3-475c-b107-2908760118fc', 'bel4ndria.d.jhon@gmail.com', 'super_admin', '2026-02-21 19:14:26.441388+00'), ('ea891412-d70c-44bf-9382-7d5bf47c8eb2', 'jjesuss1978@gmail.com', 'super_admin', '2026-02-21 19:14:26.441388+00');
