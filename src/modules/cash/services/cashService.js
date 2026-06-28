@@ -1,5 +1,12 @@
 import { supabase, TABLES } from '@/integrations/supabase';
 import { ORDERS_MOVEMENT_JOIN_SELECT } from '@/shared/utils/orderUtils';
+import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
+import {
+	CASH_MOVEMENTS_SELECT,
+	CASH_SHIFT_ACTIVE_SELECT,
+	CASH_SHIFT_META_SELECT,
+	CASH_SHIFT_PAST_SELECT,
+} from './cashSelects';
 
 /**
  * Servicio para la gestión de Caja (Shifts y Movements)
@@ -25,7 +32,7 @@ export const cashService = {
 	getActiveShift: async () => {
 		const { data, error } = await supabase
 			.from(TABLES.cash_shifts)
-			.select('*, cash_movements(count)')
+			.select(CASH_SHIFT_ACTIVE_SELECT)
 			.eq('status', 'open')
 			.limit(1)
 			.maybeSingle();
@@ -41,7 +48,7 @@ export const cashService = {
 		if (!branchId) return null;
 		const { data, error } = await supabase
 			.from(TABLES.cash_shifts)
-			.select('*, cash_movements(count)')
+			.select(CASH_SHIFT_ACTIVE_SELECT)
 			.eq('status', 'open')
 			.eq('branch_id', branchId)
 			.maybeSingle();
@@ -168,25 +175,25 @@ export const cashService = {
 				: String(shiftId);
 		if (!sid) return [];
 
-		const joined = await supabase
-			.from(TABLES.cash_movements)
-			.select(`*, ${TABLES.orders}(${ORDERS_MOVEMENT_JOIN_SELECT})`)
-			.eq('shift_id', sid)
-			.order('created_at', { ascending: false });
-
-		if (!joined.error && joined.data) {
-			return joined.data;
+		try {
+			return await fetchAllPaginated(
+				supabase
+					.from(TABLES.cash_movements)
+					.select(`${CASH_MOVEMENTS_SELECT}, ${TABLES.orders}(${ORDERS_MOVEMENT_JOIN_SELECT})`)
+					.eq('shift_id', sid)
+					.order('created_at', { ascending: false }),
+			);
+		} catch {
+			// Fallback sin embed (FK ambigua en PostgREST, etc.): traemos pedidos aparte.
 		}
 
-		const base = await supabase
-			.from(TABLES.cash_movements)
-			.select('*')
-			.eq('shift_id', sid)
-			.order('created_at', { ascending: false });
-
-		if (base.error) throw base.error;
-
-		const rows = base.data || [];
+		const rows = await fetchAllPaginated(
+			supabase
+				.from(TABLES.cash_movements)
+				.select(CASH_MOVEMENTS_SELECT)
+				.eq('shift_id', sid)
+				.order('created_at', { ascending: false }),
+		);
 		const orderIds = [
 			...new Set(
 				rows.map((r) => r.order_id).filter((id) => id != null && id !== '')
@@ -217,6 +224,7 @@ export const cashService = {
 
 	/**
 	 * Gastos manuales del local: `expense` sin `order_id`, en rango de fechas.
+	 * TODO(egress): agregar RPC de agregación si el gráfico no necesita filas crudas.
 	 * Si `endIso` se omite, solo se aplica cota inferior (hasta "ahora" en la BD).
 	 * Con `endIso`, intervalo half-open [start, end) como `getMonthRangeUtc`.
 	 * @param {{ companyId?: string | null; branchId?: string | null; startIso: string; endIso?: string | null; limit?: number }} params
@@ -294,14 +302,7 @@ export const cashService = {
 	getPastShifts: async (limit = 20, branchId = null) => {
 		let query = supabase
 			.from(TABLES.cash_shifts)
-			.select(`
-				*,
-				cash_movements (
-					amount,
-					type,
-					payment_method
-				)
-			`)
+			.select(CASH_SHIFT_PAST_SELECT)
 			.eq('status', 'closed')
 			.order('closed_at', { ascending: false })
 			.limit(limit);
@@ -323,7 +324,7 @@ export const cashService = {
 	getShiftById: async (shiftId) => {
 		const { data, error } = await supabase
 			.from(TABLES.cash_shifts)
-			.select('*')
+			.select(CASH_SHIFT_META_SELECT)
 			.eq('id', shiftId)
 			.maybeSingle();
 

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, TABLES, bootstrapSession, getCurrentUser, logout, onAuthEvent } from '@/integrations/supabase';
 import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
 import { useCashSystem } from '../../hooks/useCashSystem';
-import { ORDERS_LIST_SELECT, ORDERS_SELECT_WITH_COUPON, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
+import { ORDERS_CASH_REGISTER_SELECT, ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
 import { fetchOrderWithItems } from '../../services/analyticsService';
 import {
 	CATEGORIES_PANEL_SELECT,
@@ -12,6 +12,9 @@ import {
 	PRODUCT_PRICES_BRANCH_SELECT,
 	PRODUCTS_PANEL_SELECT,
 } from '../../services/panelCatalogSelects';
+import { BRANCHES_LIST_SELECT } from '../../services/branchSelects';
+import { INVENTORY_BRANCH_WITH_ITEM_SELECT } from '../../services/inventorySelects';
+import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
 import { ordersService } from '../orders/services/orders';
 import { getAppScopedPath } from '@/shared/utils/app-route';
@@ -25,6 +28,7 @@ import { playOrderNotificationSound, primeOrderNotificationAudio } from '../util
 import { shouldPlayOrderSound } from '../../utils/orderNotificationPrefs';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { branchSettingsService } from '../../services/branchSettingsService';
+import { invalidateBranchSettings } from '../../services/branchSettingsCache';
 import { parseLocalOrderChannels, parseOrdersViewMode } from '@/lib/delivery-settings';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import {
@@ -33,6 +37,7 @@ import {
 	invalidateAll,
 	invalidateBranchOverlay,
 	invalidateCompanyCatalog,
+	clearPanelSessionStorage,
 } from '../../services/panelCatalogCache';
 
 const DEFAULT_LOCAL_ORDER_CHANNELS = { mesa: true, retiro: true, delivery: true };
@@ -106,9 +111,6 @@ const PRODUCT_PHOTOS_STORAGE_KEY = 'godcode-admin-products-show-photos';
 /** Mínimo entre refrescos automáticos al volver al tab del navegador. */
 const DATA_STALE_MS = 60_000;
 
-const INVENTORY_BRANCH_SELECT =
-	'id, inventory_item_id, branch_id, current_stock, min_stock, updated_at, inventory_items(id, name, unit, min_stock, category)';
-
 /**
  * Fusiona catálogo global de empresa con overrides por sucursal.
  * @param {{
@@ -121,10 +123,12 @@ function mergeCatalogForBranch({ companyRaw, branchRaw, isAllBranches }) {
 	const categoryBranchRows = branchRaw?.categoryBranchRows || [];
 	const branchPrices = branchRaw?.branchPrices || [];
 	const branchStatuses = branchRaw?.branchStatuses || [];
+	const priceByProductId = new Map(branchPrices.map((p) => [p.product_id, p]));
+	const statusByProductId = new Map(branchStatuses.map((s) => [s.product_id, s]));
 	const mergedProducts = (companyRaw?.products || []).map((prod) => {
 		if (isAllBranches) return prod;
-		const priceData = branchPrices.find((p) => p.product_id === prod.id);
-		const statusData = branchStatuses.find((s) => s.product_id === prod.id);
+		const priceData = priceByProductId.get(prod.id);
+		const statusData = statusByProductId.get(prod.id);
 		return {
 			...prod,
 			price: priceData ? priceData.price : 0,
@@ -182,8 +186,9 @@ function orderPipelineRank(status) {
  */
 function mergeOrdersFromServer(prev, serverList) {
 	const serverById = new Map(serverList.map((o) => [o.id, o]));
+	const prevById = new Map(prev.map((o) => [o.id, o]));
 	const mergedCore = serverList.map((serverRow) => {
-		const p = prev.find((o) => o.id === serverRow.id);
+		const p = prevById.get(serverRow.id);
 		if (!p) return serverRow;
 		const ps = p.status;
 		const ss = serverRow.status;
@@ -307,6 +312,8 @@ export const AdminProvider = ({
 	const sessionRestoredRef = useRef(false);
 	const inventoryRefreshTimerRef = useRef(null);
 	const lastDataRefreshAtRef = useRef(/** @type {number | null} */ (null));
+	const loadDataInFlightRef = useRef(false);
+	const handleRealtimeEventRef = useRef(/** @type {(payload: unknown) => void} */ (() => {}));
 	/** Evita doble moveOrder al mismo pedido y coordina merge en loadData. */
 	const orderMoveInFlightRef = useRef(/** @type {Set<string>} */ (new Set()));
 	// Siempre false en el primer render (SSR = cliente) para evitar hydration mismatch;
@@ -314,6 +321,8 @@ export const AdminProvider = ({
 	const [isMobile, setIsMobile] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingProduct, setEditingProduct] = useState(null);
+	const isModalOpenRef = useRef(false);
+	const editingProductRef = useRef(/** @type {unknown} */ (null));
 	const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 	const [editingCategory, setEditingCategory] = useState(null);
 	const [notification, setNotification] = useState(null);
@@ -455,6 +464,14 @@ export const AdminProvider = ({
 	}, []);
 
 	useEffect(() => {
+		isModalOpenRef.current = isModalOpen;
+	}, [isModalOpen]);
+
+	useEffect(() => {
+		editingProductRef.current = editingProduct;
+	}, [editingProduct]);
+
+	useEffect(() => {
 		ordersViewModeRef.current = ordersViewMode;
 	}, [ordersViewMode]);
 
@@ -482,7 +499,7 @@ export const AdminProvider = ({
 		}
 
 		try {
-			const data = await branchSettingsService.getDeliverySettings(branchId);
+			const data = await branchSettingsService.getOrdersPanelSettings(branchId);
 			const view = parseOrdersViewMode(data?.ordersViewMode);
 			const channels = parseLocalOrderChannels(data?.localOrderChannels);
 			setOrdersViewModeState(view);
@@ -517,6 +534,7 @@ export const AdminProvider = ({
 				'postgres_changes',
 				{ event: 'UPDATE', schema: 'public', table: 'branches', filter: `id=eq.${branchId}` },
 				() => {
+					invalidateBranchSettings(branchId);
 					void loadOrdersPanelSettings(branchId);
 				},
 			)
@@ -697,6 +715,7 @@ export const AdminProvider = ({
 				verifyAdminAccess();
 			}
 			if (event === 'signed_out') {
+				clearPanelSessionStorage();
 				setUserRole(null);
 				setUserEmail(null);
 				setAssignedBranchId(null);
@@ -722,7 +741,7 @@ export const AdminProvider = ({
 		}
 		const { data, error } = await supabase
 			.from(TABLES.branches)
-			.select('*')
+			.select(BRANCHES_LIST_SELECT)
 			.eq('company_id', companyId)
 			.order('name');
 		if (!error && data?.length > 0) {
@@ -730,11 +749,15 @@ export const AdminProvider = ({
 			setSelectedBranch(prev => {
 				if (assignedBranchId) {
 					const assignedBranch = data.find(b => b.id === assignedBranchId);
-					return assignedBranch || data[0];
+					const next = assignedBranch || data[0];
+					if (prev?.id === next?.id) return prev;
+					return next;
 				}
 				if (!prev || prev.id === 'all') return prev || data[0];
 				const updated = data.find(b => b.id === prev.id);
-				return updated || data[0];
+				const next = updated || data[0];
+				if (prev?.id === next?.id) return prev;
+				return next;
 			});
 		} else {
 			setBranches([]);
@@ -756,9 +779,13 @@ export const AdminProvider = ({
 			return;
 		}
 		if (activeTab !== 'analytics' && (!selectedBranch || selectedBranch.id === 'all')) {
-			setSelectedBranch(branches[0]);
+			setSelectedBranch((prev) => {
+				const next = branches[0];
+				if (prev?.id === next?.id) return prev;
+				return next;
+			});
 		}
-	}, [activeTab, assignedBranchId, branches, selectedBranch]);
+	}, [activeTab, assignedBranchId, branches, selectedBranch?.id]);
 
 	useEffect(() => {
 		if (!userRole) return;
@@ -779,16 +806,11 @@ export const AdminProvider = ({
 		return getCompanyCatalog(
 			companyId,
 			async () => {
-				const [catsRes, globalProductsRes] = await Promise.all([
-					supabase.from(TABLES.categories).select(CATEGORIES_PANEL_SELECT).eq('company_id', companyId).order('order'),
-					supabase.from(TABLES.products).select(PRODUCTS_PANEL_SELECT).eq('company_id', companyId).order('name'),
+				const [categories, products] = await Promise.all([
+					fetchAllPaginated(supabase.from(TABLES.categories).select(CATEGORIES_PANEL_SELECT).eq('company_id', companyId).order('order')),
+					fetchAllPaginated(supabase.from(TABLES.products).select(PRODUCTS_PANEL_SELECT).eq('company_id', companyId).order('name')),
 				]);
-				if (catsRes.error) throw catsRes.error;
-				if (globalProductsRes.error) throw globalProductsRes.error;
-				return {
-					categories: catsRes.data || [],
-					products: globalProductsRes.data || [],
-				};
+				return { categories, products };
 			},
 			{ force: options.force },
 		);
@@ -801,18 +823,12 @@ export const AdminProvider = ({
 		return getBranchOverlay(
 			branchId,
 			async () => {
-				const [categoryBranchRes, pricesRes, branchStatusRes] = await Promise.all([
-					supabase.from(TABLES.category_branch).select('category_id, order, is_active').eq('branch_id', branchId),
-					supabase.from(TABLES.product_prices).select(PRODUCT_PRICES_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId),
-					supabase.from(TABLES.product_branch).select(PRODUCT_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId),
+				const [categoryBranchRows, branchPrices, branchStatuses] = await Promise.all([
+					fetchAllPaginated(supabase.from(TABLES.category_branch).select('category_id, order, is_active').eq('branch_id', branchId)),
+					fetchAllPaginated(supabase.from(TABLES.product_prices).select(PRODUCT_PRICES_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId)),
+					fetchAllPaginated(supabase.from(TABLES.product_branch).select(PRODUCT_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId)),
 				]);
-				if (pricesRes.error) throw pricesRes.error;
-				if (branchStatusRes.error) throw branchStatusRes.error;
-				return {
-					categoryBranchRows: categoryBranchRes.data || [],
-					branchPrices: pricesRes.data || [],
-					branchStatuses: branchStatusRes.data || [],
-				};
+				return { categoryBranchRows, branchPrices, branchStatuses };
 			},
 			{ force: options.force },
 		);
@@ -828,9 +844,11 @@ export const AdminProvider = ({
 		setProducts(mergedProducts);
 	}, []);
 
+	const selectedBranchId = selectedBranch?.id ?? null;
+
 	const fetchOrders = useCallback(async () => {
-		if (!selectedBranch || !companyId) return;
-		const isAllBranches = selectedBranch.id === 'all';
+		if (!selectedBranchId || !companyId) return;
+		const isAllBranches = selectedBranchId === 'all';
 		let query = supabase
 			.from(TABLES.orders)
 			.select(ORDERS_LIST_SELECT)
@@ -838,7 +856,7 @@ export const AdminProvider = ({
 			.order('created_at', { ascending: false })
 			.limit(100);
 		if (!isAllBranches) {
-			query = query.eq('branch_id', selectedBranch.id);
+			query = query.eq('branch_id', selectedBranchId);
 		}
 		const { data, error } = await query;
 		if (error) throw error;
@@ -846,15 +864,17 @@ export const AdminProvider = ({
 		setOrders((prev) =>
 			orderMoveInFlightRef.current.size > 0 ? mergeOrdersFromServer(prev, cleanOrders) : cleanOrders
 		);
-	}, [selectedBranch, companyId]);
+	}, [selectedBranchId, companyId]);
 
 	const hydrateOrderItems = useCallback(async (orderId) => {
 		if (orderId == null || orderId === '' || !companyId) return null;
 		const hydrated = await fetchOrderWithItems({ orderId, companyId });
 		if (!hydrated) return null;
-		setOrders((prev) =>
-			prev.map((o) => (o.id === hydrated.id ? { ...o, ...hydrated, items: hydrated.items } : o)),
-		);
+		const mergeHydrated = (prev) =>
+			prev.map((o) => (o.id === hydrated.id ? { ...o, ...hydrated, items: hydrated.items } : o));
+		setOrders(mergeHydrated);
+		setHistoryOrders(mergeHydrated);
+		setSelectedClientOrders(mergeHydrated);
 		return hydrated;
 	}, [companyId]);
 
@@ -871,42 +891,44 @@ export const AdminProvider = ({
 	}, [companyId]);
 
 	const refreshCatalogInner = useCallback(async ({ force = true } = {}) => {
-		if (!selectedBranch || !companyId) return;
+		if (!selectedBranchId || !companyId) return;
 		if (force) {
 			invalidateCompanyCatalog(companyId);
-			invalidateBranchOverlay(selectedBranch.id);
+			invalidateBranchOverlay(selectedBranchId);
 		}
-		const isAllBranches = selectedBranch.id === 'all';
+		const isAllBranches = selectedBranchId === 'all';
 		const [companyRaw, branchRaw] = await Promise.all([
 			fetchCompanyCatalog({ force }),
-			fetchBranchOverlay(selectedBranch.id, { force }),
+			fetchBranchOverlay(selectedBranchId, { force }),
 		]);
 		applyCatalogToState(companyRaw, branchRaw, isAllBranches);
-	}, [selectedBranch, companyId, fetchCompanyCatalog, fetchBranchOverlay, applyCatalogToState]);
+	}, [selectedBranchId, companyId, fetchCompanyCatalog, fetchBranchOverlay, applyCatalogToState]);
 
 	const refreshInventoryBranch = useCallback(async () => {
-		if (!selectedBranch || selectedBranch.id === 'all' || !companyId) {
+		if (!selectedBranchId || selectedBranchId === 'all' || !companyId) {
 			setInventoryBranchRows([]);
 			return;
 		}
-		const { data, error } = await supabase
-			.from(TABLES.inventory_branch)
-			.select(INVENTORY_BRANCH_SELECT)
-			.eq('branch_id', selectedBranch.id);
-		if (error) {
+		try {
+			const rows = await fetchAllPaginated(
+				supabase
+					.from(TABLES.inventory_branch)
+					.select(INVENTORY_BRANCH_WITH_ITEM_SELECT)
+					.eq('branch_id', selectedBranchId),
+			);
+			setInventoryBranchRows(rows);
+		} catch (error) {
 			console.warn('inventory_branch load:', error);
 			setInventoryBranchRows([]);
-			return;
 		}
-		setInventoryBranchRows(data || []);
-	}, [selectedBranch, companyId]);
+	}, [selectedBranchId, companyId]);
 
 	const loadPanelData = useCallback(async () => {
-		if (!selectedBranch || !companyId) return;
-		const isAllBranches = selectedBranch.id === 'all';
+		if (!selectedBranchId || !companyId) return;
+		const isAllBranches = selectedBranchId === 'all';
 		const [companyRaw, branchRaw] = await Promise.all([
 			fetchCompanyCatalog(),
-			fetchBranchOverlay(selectedBranch.id),
+			fetchBranchOverlay(selectedBranchId),
 		]);
 		applyCatalogToState(companyRaw, branchRaw, isAllBranches);
 		await Promise.all([
@@ -916,7 +938,7 @@ export const AdminProvider = ({
 		]);
 		touchLastRefresh();
 	}, [
-		selectedBranch,
+		selectedBranchId,
 		companyId,
 		fetchCompanyCatalog,
 		fetchBranchOverlay,
@@ -966,7 +988,7 @@ export const AdminProvider = ({
 	);
 
 	const loadData = useCallback(async (isRefresh = false, scope = 'all') => {
-		if (!selectedBranch) return;
+		if (!selectedBranchId) return;
 		if (!companyId) return;
 		if (isRefresh) setRefreshing(true);
 		else setLoading(true);
@@ -995,7 +1017,7 @@ export const AdminProvider = ({
 		}
 	}, [
 		showNotify,
-		selectedBranch,
+		selectedBranchId,
 		companyId,
 		loadPanelData,
 		fetchOrders,
@@ -1004,13 +1026,34 @@ export const AdminProvider = ({
 		touchLastRefresh,
 	]);
 
+	const refreshStaleData = useCallback(async ({ force = false } = {}) => {
+		if (!selectedBranchId || !companyId) return;
+		const isAllBranches = selectedBranchId === 'all';
+		const tasks = [fetchOrders(), fetchClients()];
+		if (force) {
+			invalidateCompanyCatalog(companyId);
+			if (!isAllBranches) invalidateBranchOverlay(selectedBranchId);
+		}
+		tasks.push(refreshCatalogInner({ force }));
+		if (!isAllBranches) tasks.push(refreshInventoryBranch());
+		await Promise.all(tasks);
+		touchLastRefresh();
+	}, [
+		selectedBranchId,
+		companyId,
+		fetchOrders,
+		fetchClients,
+		refreshCatalogInner,
+		refreshInventoryBranch,
+		touchLastRefresh,
+	]);
+
 	const refreshAllData = useCallback(async () => {
 		if (!selectedBranch || !companyId) return;
-		invalidateAll();
 		setRefreshing(true);
 		try {
 			await Promise.all([
-				loadPanelData(),
+				refreshStaleData({ force: true }),
 				refreshBranches(),
 				cashSystem.refresh?.() ?? Promise.resolve(),
 			]);
@@ -1019,7 +1062,7 @@ export const AdminProvider = ({
 		} finally {
 			setRefreshing(false);
 		}
-	}, [selectedBranch, companyId, loadPanelData, refreshBranches, cashSystem, showNotify]);
+	}, [selectedBranch, companyId, refreshStaleData, refreshBranches, cashSystem, showNotify]);
 
 	const loadClientHistory = useCallback(async (client) => {
 		if (!client) return;
@@ -1028,7 +1071,7 @@ export const AdminProvider = ({
 		try {
 			const { data, error } = await supabase
 				.from(TABLES.orders)
-				.select(ORDERS_SELECT_WITH_COUPON)
+				.select(ORDERS_LIST_SELECT)
 				.eq('client_id', client.id)
 				.eq('company_id', companyId)
 				.order('created_at', { ascending: false })
@@ -1055,8 +1098,9 @@ export const AdminProvider = ({
 		return String(bid);
 	};
 
+	// TODO P3: vista orders_realtime sin items o strip en handler para reducir egress en INSERT/UPDATE.
 	const handleRealtimeEvent = useCallback((payload) => {
-		const sid = selectedBranch?.id ?? null;
+		const sid = selectedBranchId;
 		if (!sid) return;
 
 		const isAllBranches = sid === 'all';
@@ -1117,7 +1161,7 @@ export const AdminProvider = ({
 			if (!raw?.id) return;
 			setOrders((prev) => prev.filter((o) => o.id !== raw.id));
 		}
-	}, [showNotify, refreshInventoryBranch, selectedBranch, branches]);
+	}, [showNotify, refreshInventoryBranch, selectedBranchId, branches]);
 
 	useEffect(() => {
 		const onFirstInteract = () => {
@@ -1138,38 +1182,58 @@ export const AdminProvider = ({
 	}, [companyId]);
 
 	useEffect(() => {
-		void loadData();
+		handleRealtimeEventRef.current = handleRealtimeEvent;
+	}, [handleRealtimeEvent]);
+
+	useEffect(() => {
+		if (!selectedBranchId || !companyId) return;
+		let cancelled = false;
+		(async () => {
+			if (loadDataInFlightRef.current) return;
+			loadDataInFlightRef.current = true;
+			try {
+				await loadData();
+			} finally {
+				if (!cancelled) loadDataInFlightRef.current = false;
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [selectedBranchId, companyId, loadData]);
+
+	useEffect(() => {
 		const onVisibilityChange = () => {
-			if (document.visibilityState !== 'visible' || isModalOpen || editingProduct) return;
+			if (document.visibilityState !== 'visible' || isModalOpenRef.current || editingProductRef.current) return;
 			const lastAt = lastDataRefreshAtRef.current;
 			const stale = !lastAt || Date.now() - lastAt >= DATA_STALE_MS;
-			if (stale) void refreshAllData();
+			if (stale) void refreshStaleData({ force: false });
 		};
 		document.addEventListener('visibilitychange', onVisibilityChange);
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
+	}, [refreshStaleData]);
 
-		// Sin sucursal resuelta no suscribimos: evita INSERT globales y sonidos ajenos al cargar.
-		if (!selectedBranch?.id) {
-			return () => {
-				document.removeEventListener('visibilitychange', onVisibilityChange);
-			};
-		}
+	useEffect(() => {
+		if (!selectedBranchId) return;
 
-		// Una sucursal: filtro server-side. "Todas": sin filtro; el handler acota sonido y estado.
 		const channel = supabase
-			.channel('table-db-changes')
+			.channel(`orders-realtime-${selectedBranchId}`)
 			.on('postgres_changes', {
 				event: '*',
 				schema: 'public',
 				table: 'orders',
-				filter: selectedBranch.id !== 'all' ? `branch_id=eq.${selectedBranch.id}` : undefined,
-			}, handleRealtimeEvent)
+				filter: selectedBranchId !== 'all' ? `branch_id=eq.${selectedBranchId}` : undefined,
+			}, (payload) => {
+				handleRealtimeEventRef.current(payload);
+			})
 			.subscribe();
 
 		return () => {
-			document.removeEventListener('visibilitychange', onVisibilityChange);
 			supabase.removeChannel(channel);
 		};
-	}, [loadData, refreshAllData, handleRealtimeEvent, isModalOpen, editingProduct, selectedBranch]);
+	}, [selectedBranchId]);
 
 	const moveOrder = useCallback(async (orderId, nextStatus) => {
 		if (orderMoveInFlightRef.current.has(orderId)) return;
@@ -1184,11 +1248,9 @@ export const AdminProvider = ({
 				.eq('company_id', companyId);
 			if (error) throw error;
 
-			const orderSelect =
-				'id, total, payment_type, payment_breakdown, payment_method_specific, client_name, branch_id, status';
 			const { data: freshOrder } = await supabase
 				.from(TABLES.orders)
-				.select(orderSelect)
+				.select(ORDERS_CASH_REGISTER_SELECT)
 				.eq('id', orderId)
 				.eq('company_id', companyId)
 				.maybeSingle();
@@ -1242,7 +1304,7 @@ export const AdminProvider = ({
 			const range = resolveReportPeriodRange(historyPeriod);
 			let query = supabase
 				.from(TABLES.orders)
-				.select(ORDERS_SELECT_WITH_COUPON)
+				.select(ORDERS_LIST_SELECT)
 				.eq('company_id', companyId)
 				.eq('branch_id', selectedBranch.id)
 				.in('status', ['picked_up', 'cancelled'])
@@ -1463,7 +1525,7 @@ export const AdminProvider = ({
 			if (Array.isArray(formData.recipe)) {
 				// 1. Eliminar receta anterior
 				const { error: delErr } = await supabase
-					.from('product_inventory_recipe')
+					.from(TABLES.product_inventory_recipe)
 					.delete()
 					.eq('product_id', productId)
 					.eq('company_id', companyId);
@@ -1482,7 +1544,7 @@ export const AdminProvider = ({
 
 				if (rowsToInsert.length > 0) {
 					const { error: insErr } = await supabase
-						.from('product_inventory_recipe')
+						.from(TABLES.product_inventory_recipe)
 						.insert(rowsToInsert);
 					if (insErr) console.warn('recipe insert:', insErr);
 				}
@@ -1720,14 +1782,37 @@ export const AdminProvider = ({
 	const kanbanColumns = useMemo(() => {
 		const byCreatedAsc = (a, b) =>
 			new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-		const sortCol = (list) => [...list].sort(byCreatedAsc);
-		return {
-			pending: sortCol(orders.filter((o) => o.status === 'pending')),
-			active: sortCol(orders.filter((o) => o.status === 'active')),
-			completed: sortCol(orders.filter((o) => o.status === 'completed')),
-			cancelled: orders.filter((o) => o.status === 'cancelled'),
-			history: orders.filter((o) => o.status === 'picked_up' || o.status === 'cancelled'),
-		};
+		const pending = [];
+		const active = [];
+		const completed = [];
+		const cancelled = [];
+		const history = [];
+		for (const o of orders) {
+			switch (o.status) {
+				case 'pending':
+					pending.push(o);
+					break;
+				case 'active':
+					active.push(o);
+					break;
+				case 'completed':
+					completed.push(o);
+					break;
+				case 'cancelled':
+					cancelled.push(o);
+					history.push(o);
+					break;
+				case 'picked_up':
+					history.push(o);
+					break;
+				default:
+					break;
+			}
+		}
+		pending.sort(byCreatedAsc);
+		active.sort(byCreatedAsc);
+		completed.sort(byCreatedAsc);
+		return { pending, active, completed, cancelled, history };
 	}, [orders]);
 
 	const processedProducts = useMemo(() => {

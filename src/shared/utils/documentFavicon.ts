@@ -1,5 +1,5 @@
-/** Fallback del `<link rel="icon">` en `index.html` (public/logo.png). */
-export const DEFAULT_FAVICON_HREF = "/logo.png";
+/** Fallback del `<link rel="icon">` en `index.html` (public/Gcode-logo.svg). */
+export const DEFAULT_FAVICON_HREF = "/Gcode-logo.svg";
 
 /**
  * URLs remotas permitidas para favicon (alineado a `resolveSafeLogoUrl` en tickets).

@@ -36,6 +36,21 @@ const toRgba = (hex: string, alpha: number, fallback: string) => {
 
 const sanitizeCssValue = (value: string) => value.replace(/<|>|"|'|`/g, "").trim();
 
+/**
+ * Valida una URL para inyectar dentro de `url(...)`. Solo admite rutas relativas
+ * (`/...`) o `https://`, y rechaza caracteres que permitirían romper el `url()`
+ * (paréntesis, `;`, comillas, espacios), evitando CSS injection vía `theme_config`.
+ */
+const sanitizeCssUrl = (value: string | null | undefined, fallback: string): string => {
+	const trimmed = String(value ?? "").trim();
+	if (!trimmed) return fallback;
+	if (/[()'"`;\s<>\\]/.test(trimmed)) return fallback;
+	const isRelative = trimmed.startsWith("/") && !trimmed.startsWith("//");
+	const isHttps = /^https:\/\//i.test(trimmed);
+	if (!isRelative && !isHttps) return fallback;
+	return trimmed;
+};
+
 type CompanyRow = {
 	theme_config?: DatabaseCompanyTheme | null;
 };
@@ -50,10 +65,10 @@ export function buildTenantThemeCss(company: CompanyRow | null): string {
 	const accentShadowStrong = toRgba(primaryColor, 0.5, "rgba(255, 71, 87, 0.5)");
 	const cardBorder = toRgba(primaryColor, 0.18, "rgba(255, 255, 255, 0.1)");
 	const backgroundColor = company?.theme_config?.backgroundColor ?? "#0a0a0a";
-	const backgroundImageUrl =
-		company?.theme_config?.backgroundImageUrl ?? "/tenant/menu-pattern.webp";
-	const backgroundImage = backgroundImageUrl
-		? `url(${backgroundImageUrl}), url(/tenant/menu-pattern.webp)`
-		: "url(/tenant/menu-pattern.webp)";
+	const backgroundImageUrl = sanitizeCssUrl(
+		company?.theme_config?.backgroundImageUrl,
+		"/tenant/menu-pattern.webp",
+	);
+	const backgroundImage = `url(${backgroundImageUrl}), url(/tenant/menu-pattern.webp)`;
 	return `.tenant-theme-vars,.manual-order-portal-scope{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:${sanitizeCssValue(backgroundImage)};}`;
 }

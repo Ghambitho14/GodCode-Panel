@@ -3,6 +3,7 @@ import { Tag, Plus, Loader2, Pencil, Ban, CircleCheck } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
+import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
 
 const emptyDraft = () => ({
 	id: "",
@@ -78,7 +79,7 @@ export default function AdminCoupons({ showNotify, companyId }) {
 			const [cRes, clRes] = await Promise.all([
 				supabase
 					.from(TABLES.discount_coupons)
-					.select("*")
+					.select(DISCOUNT_COUPONS_PANEL_SELECT)
 					.eq("company_id", cid)
 					.order("created_at", { ascending: false }),
 				supabase

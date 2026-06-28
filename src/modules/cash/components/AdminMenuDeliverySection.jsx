@@ -8,6 +8,7 @@ import {
 	normalizeDeliverySettings,
 } from "@/lib/delivery-settings";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
+import { invalidateBranchSettings } from "@/modules/cash/services/branchSettingsCache";
 import { createMoneyFormatter } from "@/shared/utils/money";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
@@ -284,6 +285,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				"postgres_changes",
 				{ event: "UPDATE", schema: "public", table: "branches", filter: `id=eq.${branchId}` },
 				() => {
+					invalidateBranchSettings(branchId);
 					void load();
 				},
 			)

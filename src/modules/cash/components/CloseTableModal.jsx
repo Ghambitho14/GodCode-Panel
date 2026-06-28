@@ -12,7 +12,7 @@ import {
 
 	getOrderTileKind,
 
-	getPaymentLabel,
+	getOrderPaymentDisplayLabel,
 
 	isOrderPaymentSettled,
 
@@ -286,7 +286,7 @@ export default function CloseTableModal({
 
 											<strong>Pago registrado</strong>
 
-											<p>{getPaymentLabel(order)} — confirma la entrega para cerrar.</p>
+											<p>{getOrderPaymentDisplayLabel(order)} — confirma la entrega para cerrar.</p>
 
 										</div>
 

@@ -10,9 +10,20 @@ type AccessMode = "caja" | "admin";
 
 export function LoginShell({ displayName }: LoginShellProps) {
   const [accessMode, setAccessMode] = useState<AccessMode>("caja");
+  const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
     resetDocumentMeta();
+  }, []);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) {
+      setIntroDone(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setIntroDone(true), 2000);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const panelCopy =
@@ -71,7 +82,31 @@ export function LoginShell({ displayName }: LoginShellProps) {
 
         <aside className="login-sliding-panel" aria-label="Cambiar tipo de acceso">
           <div className="login-sliding-panel__inner">
-            <div className="login-sliding-panel__deco" aria-hidden />
+            <div
+              className={`login-sliding-panel__deco${accessMode === "caja" && introDone ? " login-sliding-panel__deco--logo" : ""}`}
+              aria-hidden="true"
+            >
+              {accessMode === "caja" ? (
+                <>
+                  <img
+                    src="/Gcode-login.svg"
+                    alt=""
+                    className="login-sliding-panel__deco-img login-sliding-panel__deco-img--intro"
+                  />
+                  <img
+                    src="/Gcode-mark.svg"
+                    alt=""
+                    className="login-sliding-panel__deco-img login-sliding-panel__deco-img--mark"
+                  />
+                </>
+              ) : (
+                <img
+                  src="/Gcode-logo.svg"
+                  alt=""
+                  className="login-sliding-panel__deco-img login-sliding-panel__deco-img--brand"
+                />
+              )}
+            </div>
             <h3 className="login-sliding-panel__title">{panelCopy.heading}</h3>
             <p className="login-sliding-panel__text">{panelCopy.line}</p>
             <button

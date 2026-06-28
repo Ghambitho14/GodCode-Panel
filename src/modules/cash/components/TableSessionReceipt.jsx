@@ -2,8 +2,9 @@ import React, { useMemo } from 'react';
 import { Edit2, Trash2, X } from 'lucide-react';
 import {
 	getOrderItemLineTotal,
-	getPaymentLabel,
-	getFulfillmentKindLabel,
+	getOrderPaymentDisplayLabel,
+	getOrderPaymentPreferenceHint,
+	getOrderFulfillmentDisplayLabel,
 	isOrderDelivery,
 	isOrderPaymentDeferred,
 	isOrderPaymentSettled,
@@ -37,7 +38,7 @@ export default function TableSessionReceipt({
 	const items = order?.items || [];
 	const itemCount = items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
 	const tableNumber = order?.shift_sequence ?? order?.id;
-	const kindLabel = getFulfillmentKindLabel(kind);
+	const kindLabel = getOrderFulfillmentDisplayLabel(order);
 	const paymentDeferred = isOrderPaymentDeferred(order);
 	const showPaidBadge = isOrderPaymentSettled(order);
 	const isDelivery = isOrderDelivery(order);
@@ -52,7 +53,8 @@ export default function TableSessionReceipt({
 	);
 	const subtotal = Number(order.subtotal) > 0 ? Number(order.subtotal) : linesSubtotal;
 	const orderRef = formatOrderRef(order?.id);
-	const paymentLabel = paymentDeferred ? 'Pago pendiente' : getPaymentLabel(order);
+	const paymentLabel = getOrderPaymentDisplayLabel(order);
+	const paymentPreferenceHint = getOrderPaymentPreferenceHint(order);
 	const couponCode = resolveOrderCouponCode(order);
 
 	return (
@@ -90,6 +92,7 @@ export default function TableSessionReceipt({
 							}`}
 						>
 							{paymentLabel}
+							{paymentDeferred && paymentPreferenceHint ? ` (${paymentPreferenceHint})` : ''}
 						</span>
 						{couponCode ? (
 							<>

@@ -3,7 +3,7 @@ import {
     X, ArrowDownCircle, RotateCcw, DollarSign, CreditCard, FileText, Search, Loader2,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { ORDERS_ID_SCAN_SELECT, ORDERS_PANEL_SELECT } from '@/shared/utils/orderUtils';
+import { ORDERS_ID_SCAN_SELECT } from '@/shared/utils/orderUtils';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
@@ -32,6 +32,9 @@ function computeOrderNet(movements) {
     );
 }
 
+const ORDER_REFUND_SELECT =
+    'id, total, status, payment_type, payment_method_specific, payment_breakdown, client_name';
+
 async function findOrderByQuery({ companyId, branchId, query }) {
     const raw = String(query || '').trim().replace(/^#/, '');
     if (!raw || !companyId) return null;
@@ -41,7 +44,7 @@ async function findOrderByQuery({ companyId, branchId, query }) {
 
     let exactQuery = supabase
         .from(TABLES.orders)
-        .select(ORDERS_PANEL_SELECT)
+        .select(ORDER_REFUND_SELECT)
         .eq('company_id', companyId)
         .eq('id', raw);
     if (branchId) exactQuery = exactQuery.eq('branch_id', branchId);
@@ -67,13 +70,13 @@ async function findOrderByQuery({ companyId, branchId, query }) {
     const { data: full, error: fullErr } = await (branchId
         ? supabase
             .from(TABLES.orders)
-            .select(ORDERS_PANEL_SELECT)
+            .select(ORDER_REFUND_SELECT)
             .eq('id', matchedId)
             .eq('company_id', companyId)
             .eq('branch_id', branchId)
         : supabase
             .from(TABLES.orders)
-            .select(ORDERS_PANEL_SELECT)
+            .select(ORDER_REFUND_SELECT)
             .eq('id', matchedId)
             .eq('company_id', companyId)
     ).maybeSingle();

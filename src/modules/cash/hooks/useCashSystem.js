@@ -3,6 +3,12 @@ import { supabase, TABLES } from '@/integrations/supabase';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { cashService } from '../services/cashService';
 import {
+	CASH_SHIFT_ACTIVE_SELECT,
+	CASH_SHIFT_META_SELECT,
+	CASH_SHIFT_PAST_SELECT,
+	isCompleteCashMovementRow,
+} from '../services/cashSelects';
+import {
 	EXPENSE_KIND_CASH_WITHDRAWAL,
 } from '../utils/cashMovementKinds';
 import { computeShiftTotals } from '../utils/cashTotals';
@@ -51,7 +57,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
         try {
             const { data, error } = await supabase
                 .from(TABLES.cash_shifts)
-                .select('*')
+                .select(CASH_SHIFT_META_SELECT)
                 .eq('id', sid)
                 .eq('status', 'open')
                 .maybeSingle();
@@ -104,8 +110,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
         markLocalMovements(created);
         await refreshShiftMeta(shiftId);
         for (const row of created) prependMovement(row);
-        debouncedLoadMovements(shiftId);
-    }, [markLocalMovements, prependMovement, refreshShiftMeta, debouncedLoadMovements]);
+    }, [markLocalMovements, prependMovement, refreshShiftMeta]);
 
     /**
      * Carga el turno activo para la sucursal seleccionada
@@ -123,7 +128,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
         try {
             const { data: shift, error } = await supabase
                 .from(TABLES.cash_shifts)
-                .select(`*, ${TABLES.cash_movements}(count)`)
+                .select(CASH_SHIFT_ACTIVE_SELECT)
                 .eq('status', 'open')
                 .eq('branch_id', branchId) // FILTRO CRÍTICO POR SUCURSAL
                 .maybeSingle();
@@ -177,11 +182,29 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
                     if (payload.eventType === 'INSERT') {
                         const newRow = payload.new;
                         if (newRow && consumeLocalRealtimeInsert(newRow.id)) return;
-                        void refreshShiftMeta(shiftId);
+                        if (newRow && isCompleteCashMovementRow(newRow)) {
+                            prependMovement(newRow);
+                            void refreshShiftMeta(shiftId);
+                            return;
+                        }
                         debouncedLoadMovements(shiftId);
                     } else if (payload.eventType === 'DELETE') {
+                        const deletedId = payload.old?.id;
+                        if (deletedId != null) {
+                            setMovements((prev) => prev.filter((m) => m.id !== deletedId));
+                            void refreshShiftMeta(shiftId);
+                            return;
+                        }
                         debouncedLoadMovements(shiftId);
                     } else if (payload.eventType === 'UPDATE') {
+                        const updated = payload.new;
+                        if (updated?.id) {
+                            setMovements((prev) =>
+                                prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m))
+                            );
+                            void refreshShiftMeta(shiftId);
+                            return;
+                        }
                         debouncedLoadMovements(shiftId);
                     }
                 }
@@ -195,7 +218,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
             }
             channel.unsubscribe();
         };
-    }, [activeShift, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta]);
+    }, [activeShift, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta, prependMovement]);
 
     /**
      * Abre un nuevo turno
@@ -405,7 +428,12 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
                     p_order_id: order.id,
                 });
                 if (error) throw error;
-                if (data) createdRows.push(data);
+                if (data) {
+                    const deliveryFee = Number(order.delivery_fee) || 0;
+                    createdRows.push(
+                        deliveryFee > 0 ? { ...data, orders: { delivery_fee: deliveryFee } } : data,
+                    );
+                }
             }
 
             if (activeShift && activeShift.id === targetShift.id) {
@@ -525,15 +553,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
         if (!branchId || !isValidBranchId(branchId)) return [];
         const { data, error } = await supabase
             .from(TABLES.cash_shifts)
-            .select(`
-                *,
-                cash_movements (
-                    amount,
-                    type,
-                    payment_method
-                ),
-                orders(count)
-            `)
+            .select(CASH_SHIFT_PAST_SELECT)
             .eq('status', 'closed')
             .eq('branch_id', branchId) // FILTRO POR SUCURSAL
             .neq('orders.status', 'cancelled') // Excluir pedidos cancelados/devueltos del conteo del turno

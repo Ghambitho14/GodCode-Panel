@@ -10,6 +10,7 @@ import {
 } from "@/lib/delivery-settings";
 import { parseTagList } from "@/lib/inventory-taxonomy";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
+import { invalidateBranchSettings } from "@/modules/cash/services/branchSettingsCache";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
@@ -248,6 +249,7 @@ export default function AdminMenuCartUpsellSection({
 				"postgres_changes",
 				{ event: "UPDATE", schema: "public", table: "branches", filter: `id=eq.${branchId}` },
 				() => {
+					invalidateBranchSettings(branchId);
 					void load();
 				},
 			)

@@ -37,6 +37,28 @@ const BANNER_SELECT =
 	'id, branch_id, company_id, sort_order, is_active, created_at, image_url, expires_at, promotion_duration_enabled, promotion_duration_days';
 
 /**
+ * Valida la URL de imagen antes de persistirla. Las imagenes suben a Cloudinary
+ * (https), asi que exigimos `https://` y rechazamos esquemas peligrosos
+ * (`javascript:`, `data:`, etc.) que se renderizan luego en `<a href>`/`<img src>`.
+ * @param {unknown} rawUrl
+ * @returns {string}
+ */
+function sanitizeBannerImageUrl(rawUrl) {
+	const trimmed = String(rawUrl ?? '').trim();
+	if (!trimmed) return '';
+	let parsed;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		throw new Error('URL de imagen invalida');
+	}
+	if (parsed.protocol !== 'https:') {
+		throw new Error('La URL de imagen debe ser https');
+	}
+	return parsed.href;
+}
+
+/**
  * @param {unknown} raw
  * @returns {number}
  */
@@ -141,7 +163,7 @@ export async function createBanner({
 } = {}) {
 	if (!branchId) throw new Error('Falta branchId');
 	if (!companyId) throw new Error('Falta companyId');
-	const trimmedUrl = String(imageUrl ?? '').trim();
+	const trimmedUrl = sanitizeBannerImageUrl(imageUrl);
 	if (!trimmedUrl) throw new Error('Falta imageUrl');
 
 	const { count, error: countError } = await supabase
@@ -347,7 +369,7 @@ export async function patchBanner({ bannerId, companyId, patches } = {}) {
 		patch.is_active = patches.is_active;
 	}
 	if (typeof patches.image_url === 'string' && patches.image_url.trim().length > 0) {
-		patch.image_url = patches.image_url.trim();
+		patch.image_url = sanitizeBannerImageUrl(patches.image_url);
 	}
 
 	const promoFieldsSent =

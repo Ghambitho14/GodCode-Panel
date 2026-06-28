@@ -18,11 +18,18 @@ import {
 	Save,
 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
+import { fetchAllPaginated } from "@/shared/utils/fetchAllPaginated";
 import InventoryItemModal from "./InventoryItemModal";
 import { downloadExcel } from "@/shared/utils/exportUtils";
 import { isTypingContext } from "@/modules/cash/admin/utils/keyboardAdmin";
 import { getInputUnitOptions, getUnitLabel, normalizeUnit, recipeUnitSelectLabel, toNativeQty } from "@/lib/recipe-units";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
+import {
+	INVENTORY_BRANCH_PANEL_SELECT,
+	INVENTORY_ITEMS_PANEL_SELECT,
+	INVENTORY_MOVEMENTS_PANEL_SELECT,
+	PRODUCT_INVENTORY_RECIPE_SELECT,
+} from "@/modules/cash/services/inventorySelects";
 
 const SUB_TABS = [
 	{ id: "summary", label: "Resumen", icon: LayoutDashboard },
@@ -159,6 +166,21 @@ const AdminInventory = ({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [isModalOpen, recipeEditingProduct, recipePickProductOpen]);
 
+	const loadCompanyInventoryItems = useCallback(async () => {
+		if (!companyId) {
+			setCompanyInventoryItems([]);
+			return;
+		}
+		const data = await fetchAllPaginated(
+			supabase
+				.from(TABLES.inventory_items)
+				.select(INVENTORY_ITEMS_PANEL_SELECT)
+				.eq("company_id", companyId)
+				.order("name"),
+		);
+		setCompanyInventoryItems(data);
+	}, [companyId]);
+
 	const loadItems = useCallback(async () => {
 		if (!branchId) return;
 		if (!companyId) {
@@ -171,30 +193,27 @@ const AdminInventory = ({
 		setLoading(true);
 		let linkedInventoryIds = new Set();
 		try {
-			const { data: allItems, error: itemsError } = await supabase
-				.from(TABLES.inventory_items)
-				.select("*")
-				.eq("company_id", companyId)
-				.order("name");
+			const allItems = await fetchAllPaginated(
+				supabase
+					.from(TABLES.inventory_items)
+					.select(INVENTORY_ITEMS_PANEL_SELECT)
+					.eq("company_id", companyId)
+					.order("name"),
+			);
+			setCompanyInventoryItems(allItems);
 
-			if (itemsError) throw itemsError;
-			setCompanyInventoryItems(allItems || []);
-
-			let branchStock = [];
-			let query = supabase.from(TABLES.inventory_branch).select("*");
+			let query = supabase.from(TABLES.inventory_branch).select(INVENTORY_BRANCH_PANEL_SELECT);
 			if (branchId !== "all") {
 				query = query.eq("branch_id", branchId);
 			} else {
 				const validBranchIds = branches.filter((b) => b.id !== "all").map((b) => b.id);
 				if (validBranchIds.length > 0) query = query.in("branch_id", validBranchIds);
 			}
-			const { data, error: stockError } = await query;
-			if (stockError) throw stockError;
-			branchStock = data || [];
+			const branchStock = await fetchAllPaginated(query);
 
 			if (branchId !== "all") {
 				try {
-					const deliveryData = await branchSettingsService.getDeliverySettings(branchId);
+					const deliveryData = await branchSettingsService.getCartUpsellSettings(branchId);
 					if (deliveryData) {
 						const { linkedIds, unlinked } = extractCartInventoryLinkInfo(
 							deliveryData.cartBeveragesCatalog,
@@ -221,8 +240,15 @@ const AdminInventory = ({
 				setCartCatalogCategoryHints([]);
 			}
 
+			const stocksByItemId = new Map();
+			for (const s of branchStock || []) {
+				const list = stocksByItemId.get(s.inventory_item_id);
+				if (list) list.push(s);
+				else stocksByItemId.set(s.inventory_item_id, [s]);
+			}
+
 			let mergedItems = (allItems || []).map((item) => {
-				const itemStocks = branchStock?.filter((s) => s.inventory_item_id === item.id);
+				const itemStocks = stocksByItemId.get(item.id) || [];
 				const stockEntry = branchId !== "all" ? itemStocks.find((s) => s.branch_id === branchId) : null;
 				const totalStock =
 					branchId === "all"
@@ -275,7 +301,7 @@ const AdminInventory = ({
 		async (link, inventoryItemId) => {
 			if (!branchId || branchId === "all" || !link?.catalogItemId) return;
 			try {
-				const data = await branchSettingsService.getDeliverySettings(branchId);
+				const data = await branchSettingsService.getCartUpsellSettings(branchId);
 				if (!data) throw new Error("GET");
 				const key = link.variant === "beverages" ? "cartBeveragesCatalog" : "cartGlobalExtrasCatalog";
 				const arr = Array.isArray(data[key]) ? data[key] : [];
@@ -296,10 +322,6 @@ const AdminInventory = ({
 	);
 
 	useEffect(() => {
-		loadItems();
-	}, [loadItems]);
-
-	useEffect(() => {
 		if (!branchId || branchId === "all") {
 			setInventoryEnforceOnSale(true);
 			return;
@@ -307,7 +329,7 @@ const AdminInventory = ({
 		let cancelled = false;
 		(async () => {
 			try {
-				const data = await branchSettingsService.getDeliverySettings(branchId);
+				const data = await branchSettingsService.getCartUpsellSettings(branchId);
 				if (cancelled) return;
 				setInventoryEnforceOnSale(data?.inventoryEnforceOnSale !== false);
 			} catch {
@@ -368,7 +390,7 @@ const AdminInventory = ({
 		try {
 			const { data, error } = await supabase
 				.from(TABLES.inventory_movements)
-				.select("*")
+				.select(INVENTORY_MOVEMENTS_PANEL_SELECT)
 				.eq("branch_id", branchId)
 				.eq("company_id", companyId)
 				.order("created_at", { ascending: false })
@@ -383,26 +405,6 @@ const AdminInventory = ({
 		}
 	}, [branchId, companyId]);
 
-	const handleInventoryModalSaved = useCallback(
-		async (detail) => {
-			// Capturar antes de await: onClose() del modal vacía el ref en el mismo tick.
-			const link = pendingCatalogLinkRef.current;
-			await loadItems();
-			void loadMovements();
-			pendingCatalogLinkRef.current = null;
-			setNewItemPreset(null);
-			if (detail?.isNew && link && detail?.id) {
-				await patchCatalogInventoryLink(link, detail.id);
-				await loadItems();
-			}
-		},
-		[loadItems, loadMovements, patchCatalogInventoryLink],
-	);
-
-	useEffect(() => {
-		if (subTab === "movements") void loadMovements();
-	}, [subTab, loadMovements]);
-
 	const loadRecipes = useCallback(async () => {
 		if (!companyId) {
 			setRecipes([]);
@@ -410,12 +412,13 @@ const AdminInventory = ({
 		}
 		setRecipesLoading(true);
 		try {
-			const { data, error } = await supabase
-				.from(TABLES.product_inventory_recipe)
-				.select("*")
-				.eq("company_id", companyId);
-			if (error) throw error;
-			setRecipes(data || []);
+			const data = await fetchAllPaginated(
+				supabase
+					.from(TABLES.product_inventory_recipe)
+					.select(PRODUCT_INVENTORY_RECIPE_SELECT)
+					.eq("company_id", companyId),
+			);
+			setRecipes(data);
 		} catch (e) {
 			console.warn("recipes", e);
 			setRecipes([]);
@@ -424,9 +427,40 @@ const AdminInventory = ({
 		}
 	}, [companyId]);
 
+	const handleInventoryModalSaved = useCallback(
+		async (detail) => {
+			// Capturar antes de await: onClose() del modal vacía el ref en el mismo tick.
+			const link = pendingCatalogLinkRef.current;
+			if (subTab === "summary" || subTab === "supplies") {
+				await loadItems();
+			} else if (subTab === "movements") {
+				void loadMovements();
+			} else if (subTab === "recipes") {
+				await loadCompanyInventoryItems();
+				void loadRecipes();
+			}
+			pendingCatalogLinkRef.current = null;
+			setNewItemPreset(null);
+			if (detail?.isNew && link && detail?.id) {
+				await patchCatalogInventoryLink(link, detail.id);
+				if (subTab === "summary" || subTab === "supplies") {
+					await loadItems();
+				}
+			}
+		},
+		[subTab, loadItems, loadMovements, loadRecipes, loadCompanyInventoryItems, patchCatalogInventoryLink],
+	);
+
 	useEffect(() => {
-		if (subTab === "recipes") void loadRecipes();
-	}, [subTab, loadRecipes]);
+		if (subTab === "summary" || subTab === "supplies") {
+			void loadItems();
+		} else if (subTab === "movements") {
+			void loadMovements();
+		} else if (subTab === "recipes") {
+			void loadCompanyInventoryItems();
+			void loadRecipes();
+		}
+	}, [subTab, loadItems, loadMovements, loadRecipes, loadCompanyInventoryItems]);
 
 	const itemNameById = useMemo(() => {
 		const m = new Map();

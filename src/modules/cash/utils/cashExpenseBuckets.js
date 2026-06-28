@@ -3,15 +3,8 @@ import {
 	chartKeysBetween,
 	startOfLocalMonth,
 	startOfLocalWeek,
+	ymdLocal,
 } from './reportPeriodRange';
-
-/** @param {Date} d */
-function ymdLocal(d) {
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, '0');
-	const day = String(d.getDate()).padStart(2, '0');
-	return `${y}-${m}-${day}`;
-}
 
 /** Clave YYYY-MM-DD en calendario local del navegador (alineado al gráfico de ventas). */
 export function expenseDayKeyLocal(iso) {

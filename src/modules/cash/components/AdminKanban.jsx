@@ -173,4 +173,4 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
     );
 };
 
-export default AdminKanban;
+export default React.memo(AdminKanban);

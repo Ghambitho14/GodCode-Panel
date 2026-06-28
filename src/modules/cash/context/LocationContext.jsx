@@ -1,6 +1,21 @@
-import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { normalizeDeliverySettings } from '@/lib/delivery-settings';
+import React, { createContext, useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
+import {
+    BRANCHES_LIST_FIELD_KEYS,
+    BRANCHES_LIST_SELECT,
+    pickBranchListFields,
+} from '@/modules/cash/services/branchSelects';
+
+/** @param {Record<string, unknown>} b */
+function mapBranchListItem(b) {
+    const slim = pickBranchListFields(b);
+    return {
+        ...slim,
+        whatsappUrl: b.whatsapp_url ?? b.whatsappUrl,
+        instagramUrl: b.instagram_url ?? b.instagramUrl,
+        mapUrl: b.map_url ?? b.mapUrl,
+    };
+}
 
 export const LocationContext = createContext(null);
 
@@ -13,20 +28,12 @@ function getInitialBranch(storageKey) {
         const saved = window.localStorage.getItem(storageKey);
         if (!saved) return { branch: null, hasValidBranch: false };
         const parsed = JSON.parse(saved);
-        const hasValid = !!(parsed && parsed.id && String(parsed.id).length > 0);
-        return { branch: hasValid ? parsed : null, hasValidBranch: hasValid };
+        const slim = pickBranchListFields(parsed);
+        const hasValid = !!(slim && slim.id && String(slim.id).length > 0);
+        return { branch: hasValid ? slim : null, hasValidBranch: hasValid };
     } catch {
         return { branch: null, hasValidBranch: false };
     }
-}
-
-/** No exponer al cliente público (menú/checkout) el WhatsApp del repartidor de confianza. */
-function stripStaffOnlyDeliverySettings(raw) {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
-    const next = { ...raw };
-    delete next.trustedDriverWhatsApp;
-    delete next.trusted_driver_whatsapp;
-    return next;
 }
 
 /**
@@ -44,6 +51,7 @@ export const LocationProvider = ({ children, companyId }) => {
     const [allBranches, setAllBranches] = useState([]);
     const [loadingBranches, setLoadingBranches] = useState(true);
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(!initial.hasValidBranch);
+    const fetchBranchesDebouncedRef = useRef(null);
 
     useEffect(() => {
         const next = getInitialBranch(storageKey);
@@ -65,24 +73,13 @@ export const LocationProvider = ({ children, companyId }) => {
 
                 const { data, error } = await supabase
                     .from(TABLES.branches)
-                    .select('*')
+                    .select(BRANCHES_LIST_SELECT)
                     .eq('company_id', companyId)
                     .order('name');
 
                 if (error) throw error;
 
-                const mappedBranches = (data || []).map((b) => {
-                    const rawDel = b.delivery_settings ?? b.deliverySettings;
-                    const publicDel = stripStaffOnlyDeliverySettings(rawDel);
-                    return {
-                        ...b,
-                        delivery_settings: publicDel,
-                        whatsappUrl: b.whatsapp_url,
-                        instagramUrl: b.instagram_url,
-                        mapUrl: b.map_url,
-                        deliverySettings: normalizeDeliverySettings(publicDel),
-                    };
-                });
+                const mappedBranches = (data || []).map((b) => mapBranchListItem(b));
 
                 if (!alive) return;
                 setAllBranches(mappedBranches);
@@ -94,7 +91,7 @@ export const LocationProvider = ({ children, companyId }) => {
                         try { window.localStorage.removeItem(storageKey); } catch {}
                         return null;
                     }
-                    return fresh;
+                    return pickBranchListFields(fresh);
                 });
             } catch {
                 /* ignore */
@@ -102,6 +99,14 @@ export const LocationProvider = ({ children, companyId }) => {
                 if (!alive) return;
                 setLoadingBranches(false);
             }
+        };
+
+        const scheduleFetchBranches = () => {
+            if (fetchBranchesDebouncedRef.current) clearTimeout(fetchBranchesDebouncedRef.current);
+            fetchBranchesDebouncedRef.current = setTimeout(() => {
+                fetchBranchesDebouncedRef.current = null;
+                void fetchBranches();
+            }, 3000);
         };
 
         setLoadingBranches(true);
@@ -113,8 +118,28 @@ export const LocationProvider = ({ children, companyId }) => {
                 .on(
                     'postgres_changes',
                     { event: '*', schema: 'public', table: TABLES.branches },
-                    () => {
-                        void fetchBranches();
+                    (payload) => {
+                        if (payload.eventType === 'UPDATE' && payload.new?.id) {
+                            const incoming = mapBranchListItem(payload.new);
+                            setAllBranches((prev) =>
+                                prev.map((b) => (b.id === payload.new.id ? { ...b, ...incoming } : b))
+                            );
+                            setSelectedBranch((prev) => {
+                                if (!prev?.id || prev.id !== payload.new.id) return prev;
+                                const merged = pickBranchListFields({ ...prev, ...incoming });
+                                const changed = BRANCHES_LIST_FIELD_KEYS.some(
+                                    (key) => prev[key] !== merged[key]
+                                );
+                                if (changed) {
+                                    try {
+                                        window.localStorage.setItem(storageKey, JSON.stringify(merged));
+                                    } catch {}
+                                }
+                                return merged;
+                            });
+                            return;
+                        }
+                        scheduleFetchBranches();
                     }
                 )
                 .subscribe()
@@ -122,6 +147,10 @@ export const LocationProvider = ({ children, companyId }) => {
 
         return () => {
             alive = false;
+            if (fetchBranchesDebouncedRef.current) {
+                clearTimeout(fetchBranchesDebouncedRef.current);
+                fetchBranchesDebouncedRef.current = null;
+            }
             try {
                 if (channel) supabase.removeChannel(channel);
             } catch {}
@@ -135,8 +164,9 @@ export const LocationProvider = ({ children, companyId }) => {
     }, [selectedBranch]);
 
     const selectBranch = (branch) => {
-        setSelectedBranch(branch);
-        try { window.localStorage.setItem(storageKey, JSON.stringify(branch)); } catch {}
+        const slim = pickBranchListFields(branch);
+        setSelectedBranch(slim);
+        try { window.localStorage.setItem(storageKey, JSON.stringify(slim)); } catch {}
         setIsLocationModalOpen(false);
     };
 

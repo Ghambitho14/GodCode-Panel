@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
 	Search,
 	Filter,
@@ -13,8 +13,9 @@ import {
 	Eye,
 	Loader2,
 } from "lucide-react";
-import { getPaymentLabel, getOrderTileKind, resolveItemKitchenNote, isLegacyGlobalKitchenNote } from "@/shared/utils/orderUtils";
+import { getOrderPaymentDisplayLabel, getOrderPaymentPreferenceHint, isOrderPaymentDeferred, getOrderTileKind, resolveItemKitchenNote, isLegacyGlobalKitchenNote } from "@/shared/utils/orderUtils";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
+import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import ReportPeriodSelect from "./ReportPeriodSelect";
 import { ymdLocal } from "../utils/reportPeriodRange";
 import DeliveryMotoIcon from "./DeliveryMotoIcon";
@@ -54,16 +55,39 @@ const AdminHistoryTable = ({
 	setReceiptModalOrder,
 }) => {
 	const { formatMoney } = useBranchMoney();
+	const { hydrateOrderItems, showNotify } = useAdmin();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [filterStatus, setFilterStatus] = useState("all");
 	const [expandedRows, setExpandedRows] = useState(new Set());
+	const [hydratingOrderIds, setHydratingOrderIds] = useState(new Set());
 
-	const toggleRow = (id) => {
+	const toggleRow = useCallback(async (order) => {
+		const id = order.id;
 		const newSet = new Set(expandedRows);
-		if (newSet.has(id)) newSet.delete(id);
-		else newSet.add(id);
-		setExpandedRows(newSet);
-	};
+		const willExpand = !newSet.has(id);
+		if (willExpand) {
+			newSet.add(id);
+			setExpandedRows(newSet);
+			const hasItems = Array.isArray(order.items) && order.items.length > 0;
+			if (!hasItems && hydrateOrderItems) {
+				setHydratingOrderIds((prev) => new Set(prev).add(id));
+				try {
+					await hydrateOrderItems(id);
+				} catch {
+					showNotify?.("No se pudieron cargar los productos del pedido", "error");
+				} finally {
+					setHydratingOrderIds((prev) => {
+						const next = new Set(prev);
+						next.delete(id);
+						return next;
+					});
+				}
+			}
+		} else {
+			newSet.delete(id);
+			setExpandedRows(newSet);
+		}
+	}, [expandedRows, hydrateOrderItems, showNotify]);
 
 	const filteredOrders = useMemo(() => {
 		return (orders || []).filter((o) => {
@@ -173,12 +197,13 @@ const AdminHistoryTable = ({
 									{dayOrders.map((o) => {
 										const st = getStatusConfig(o.status);
 										const isExpanded = expandedRows.has(o.id);
+										const itemsHydrating = hydratingOrderIds.has(o.id);
 										const closedAt = o.updated_at ?? o.created_at;
 										return (
 											<React.Fragment key={o.id}>
 												<tr
 													className={`clickable-row${isExpanded ? " admin-history-row-expanded" : ""}`}
-													onClick={() => toggleRow(o.id)}
+													onClick={() => toggleRow(o)}
 												>
 													<td data-label="#">
 														<SessionBadge order={o} />
@@ -219,7 +244,7 @@ const AdminHistoryTable = ({
 																<DollarSign size={14} className="admin-history-icon-muted" aria-hidden />
 															)}
 															<span className="admin-history-payment-label">
-																{getPaymentLabel(o)}
+																{getOrderPaymentDisplayLabel(o)}
 															</span>
 														</div>
 													</td>
@@ -246,6 +271,12 @@ const AdminHistoryTable = ({
 																		<Package size={14} aria-hidden />
 																		Artículos del Pedido
 																	</h4>
+																	{itemsHydrating ? (
+																		<div className="admin-history-loading" role="status">
+																			<Loader2 size={18} className="animate-spin" aria-hidden />
+																			<span>Cargando productos…</span>
+																		</div>
+																	) : (
 																	<ul className="admin-history-items-list">
 																		{o.items?.map((item, idx) => {
 																			const itemNote = resolveItemKitchenNote(item, o.note);
@@ -273,6 +304,7 @@ const AdminHistoryTable = ({
 																			);
 																		})}
 																	</ul>
+																	)}
 																	{isLegacyGlobalKitchenNote(o) ? (
 																		<div className="admin-history-note">
 																			<span className="admin-history-note-label">
@@ -335,9 +367,17 @@ const AdminHistoryTable = ({
 																				</div>
 																			)}
 																		</div>
+																	) : isOrderPaymentDeferred(o) ? (
+																		<div className="admin-history-receipt-info">
+																			Pago pendiente de cobro en caja
+																			{getOrderPaymentPreferenceHint(o)
+																				? ` (${getOrderPaymentPreferenceHint(o)})`
+																				: ""}
+																			.
+																		</div>
 																	) : (
 																		<div className="admin-history-receipt-info">
-																			Pago registrado como {getPaymentLabel(o)}. No requiere
+																			Pago registrado como {getOrderPaymentDisplayLabel(o)}. No requiere
 																			comprobante.
 																		</div>
 																	)}

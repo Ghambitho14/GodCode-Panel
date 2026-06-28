@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag, Wallet } from 'lucide-react';
+import { getSafeFaviconUrl } from '@/shared/utils/documentFavicon';
 
 const SidebarIcon = ({ Icon, size }) => (
     <span className="nav-icon-slot">
@@ -153,7 +154,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         <aside className="admin-sidebar">
             <div className="sidebar-top">
                 <div className="logo-circle">
-                    <img src={logoUrl || '/tenant/logo-placeholder.svg'} alt="Logo" />
+                    <img src={getSafeFaviconUrl(logoUrl) || '/tenant/logo-placeholder.svg'} alt="Logo" />
                 </div>
                 <div className="brand-info">
                     <h3 className="brand-title">Admin del local</h3>

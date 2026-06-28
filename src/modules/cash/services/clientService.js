@@ -1,5 +1,6 @@
 import { supabase, TABLES } from '@/integrations/supabase';
 import { normalizePhoneDigits } from '@/shared/utils/phoneWhatsApp';
+import { CLIENT_ADDRESSES_PANEL_SELECT } from '@/modules/cash/services/panelCatalogSelects';
 
 /**
  * Normaliza teléfono chileno al formato canónico del panel: +56 9 XXXX XXXX
@@ -97,7 +98,7 @@ export async function fetchClientAddresses(clientId) {
 
 	const { data, error } = await supabase
 		.from(TABLES.client_addresses)
-		.select('*')
+		.select(CLIENT_ADDRESSES_PANEL_SELECT)
 		.eq('client_id', id)
 		.order('last_used_at', { ascending: false });
 

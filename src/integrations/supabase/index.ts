@@ -1,4 +1,4 @@
-export { supabase, createEphemeralSupabaseClient } from "./client";
+export { supabase } from "./client";
 export { TABLES } from "./tables";
 export {
   login,

@@ -43,6 +43,7 @@ export async function handleRefreshFromCookie(
       user: data.user,
     });
   } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : "Error de servidor." });
+    console.error("[auth/refresh] error inesperado:", e);
+    res.status(500).json({ error: "Error de servidor." });
   }
 }

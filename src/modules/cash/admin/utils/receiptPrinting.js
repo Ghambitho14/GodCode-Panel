@@ -2,6 +2,7 @@ import { formatMoney, formatMoneyOrFree, normalizeCurrencyCode } from '@/shared/
 import {
 	deliveryAddressLines,
 	getPaymentLabel,
+	isMenuOrder,
 	isOrderDelivery,
 	isOrderPaymentDeferred,
 	isLegacyGlobalKitchenNote,
@@ -184,7 +185,7 @@ function orderChannelForTicket(order, override) {
 	if (o) return o;
 	const ch = order?.order_channel != null ? String(order.order_channel).trim() : '';
 	if (ch) return ch;
-	return order?.payment_type === 'online' ? 'WEB' : 'PDV';
+	return isMenuOrder(order) ? 'WEB' : 'PDV';
 }
 
 /**
@@ -903,3 +904,5 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 	printWindow.document.close();
 	schedulePrintAfterLoad(printWindow, hasLogo);
 };
+
+export { orderChannelForTicket };

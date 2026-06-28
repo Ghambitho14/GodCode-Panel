@@ -4,6 +4,8 @@ export const COMPANY_CATALOG_MAX_AGE_MS = 5 * 60_000;
 /** TTL por defecto: overlay por sucursal (prices, product_branch, category_branch). */
 export const BRANCH_OVERLAY_MAX_AGE_MS = 3 * 60_000;
 
+const STORAGE_PREFIX = 'gc:panel:';
+
 /** @type {Map<string, { data: unknown, fetchedAt: number }>} */
 const entries = new Map();
 
@@ -16,6 +18,36 @@ function companyKey(companyId) {
 
 function branchKey(branchId) {
 	return `branch:${String(branchId)}`;
+}
+
+function storageKey(key) {
+	return STORAGE_PREFIX + key;
+}
+
+function readSession(key) {
+	try {
+		const raw = sessionStorage.getItem(storageKey(key));
+		return raw ? JSON.parse(raw) : null;
+	} catch {
+		return null;
+	}
+}
+
+/** @param {string} key @param {{ data: unknown, fetchedAt: number }} entry */
+function writeSession(key, entry) {
+	try {
+		sessionStorage.setItem(storageKey(key), JSON.stringify(entry));
+	} catch {
+		// QuotaExceededError: no persistir, RAM sigue OK
+	}
+}
+
+function removeSession(key) {
+	try {
+		sessionStorage.removeItem(storageKey(key));
+	} catch {
+		// ignore
+	}
 }
 
 function isFresh(entry, maxAgeMs) {
@@ -39,6 +71,12 @@ async function getCached(key, fetcher, options = {}) {
 		if (isFresh(hit, maxAgeMs)) {
 			return /** @type {T} */ (hit.data);
 		}
+
+		const sessionHit = readSession(key);
+		if (isFresh(sessionHit, maxAgeMs)) {
+			entries.set(key, sessionHit);
+			return /** @type {T} */ (sessionHit.data);
+		}
 	}
 
 	const pending = inFlight.get(key);
@@ -49,7 +87,9 @@ async function getCached(key, fetcher, options = {}) {
 	const promise = (async () => {
 		try {
 			const data = await fetcher();
-			entries.set(key, { data, fetchedAt: Date.now() });
+			const entry = { data, fetchedAt: Date.now() };
+			entries.set(key, entry);
+			writeSession(key, entry);
 			return data;
 		} finally {
 			inFlight.delete(key);
@@ -91,23 +131,49 @@ export function getBranchOverlay(branchId, fetcher, options) {
 /** @param {string | null | undefined} companyId */
 export function invalidateCompanyCatalog(companyId) {
 	if (!companyId) return;
-	entries.delete(companyKey(companyId));
-	inFlight.delete(companyKey(companyId));
+	const key = companyKey(companyId);
+	entries.delete(key);
+	inFlight.delete(key);
+	removeSession(key);
 }
 
 /** @param {string | null | undefined} branchId */
 export function invalidateBranchOverlay(branchId) {
 	if (!branchId || branchId === 'all') return;
-	entries.delete(branchKey(branchId));
-	inFlight.delete(branchKey(branchId));
+	const key = branchKey(branchId);
+	entries.delete(key);
+	inFlight.delete(key);
+	removeSession(key);
+}
+
+export function clearPanelSessionStorage() {
+	try {
+		const keysToRemove = [];
+		for (let i = 0; i < sessionStorage.length; i += 1) {
+			const k = sessionStorage.key(i);
+			if (k && k.startsWith(STORAGE_PREFIX)) {
+				keysToRemove.push(k);
+			}
+		}
+		keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+	} catch {
+		// ignore
+	}
 }
 
 export function invalidateAll() {
 	entries.clear();
 	inFlight.clear();
+	clearPanelSessionStorage();
 }
 
 /** Solo para tests. */
 export function resetPanelCatalogCacheForTests() {
 	invalidateAll();
+}
+
+/** Solo para tests: simula F5 (RAM vacía, sessionStorage intacto). */
+export function clearRamPanelCatalogCacheForTests() {
+	entries.clear();
+	inFlight.clear();
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock, Eye } from 'lucide-react';
-import { getPaymentLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
+import { getOrderPaymentDisplayLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 
 const ClientDetailsPanel = ({
@@ -232,7 +232,7 @@ const ClientDetailsPanel = ({
                                                 {formatDate(order.created_at)}
                                             </div>
                                             <span className="order-payment-method" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                {getPaymentLabel(order)}
+                                                {getOrderPaymentDisplayLabel(order)}
                                             </span>
                                             <span className="order-total">
                                                 {formatMoney(order.total ?? 0)}
@@ -240,11 +240,13 @@ const ClientDetailsPanel = ({
                                         </div>
 
                                         <div className="history-items">
-                                            {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
-                                                <span key={idx} className="item-pill">
-                                                    <b>{item.quantity}x</b> {item.name}
-                                                </span>
-                                            ))}
+                                            {(Array.isArray(order.items) ? order.items : []).length > 0 ? (
+                                                order.items.map((item, idx) => (
+                                                    <span key={idx} className="item-pill">
+                                                        <b>{item.quantity}x</b> {item.name}
+                                                    </span>
+                                                ))
+                                            ) : null}
                                         </div>
 
                                         <div className="history-card-footer">

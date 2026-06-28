@@ -34,10 +34,27 @@ function memoryIncrement(key: string, windowSeconds: number): number {
 	return existing.count;
 }
 
+let warnedMissingKv = false;
+
+function warnMissingKvOnce(): void {
+	if (warnedMissingKv) return;
+	warnedMissingKv = true;
+	if (process.env.NODE_ENV === "production") {
+		console.warn(
+			"[rate-limit] KV_REST_API_URL/KV_REST_API_TOKEN ausentes en producción: " +
+				"el rate limit cae a memoria por instancia y es evadible en brute-force distribuido. " +
+				"Configurá Vercel KV para protección efectiva.",
+		);
+	}
+}
+
 async function kvIncrement(key: string, windowSeconds: number): Promise<number | null> {
 	const baseUrl = String(process.env.KV_REST_API_URL ?? "").replace(/\/$/, "");
 	const token = String(process.env.KV_REST_API_TOKEN ?? "").trim();
-	if (!baseUrl || !token) return null;
+	if (!baseUrl || !token) {
+		warnMissingKvOnce();
+		return null;
+	}
 
 	const incrRes = await fetch(`${baseUrl}/incr/${encodeURIComponent(key)}`, {
 		method: "POST",

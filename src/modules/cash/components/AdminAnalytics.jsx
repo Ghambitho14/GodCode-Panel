@@ -32,7 +32,12 @@ import {
 } from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel, ORDERS_ANALYTICS_METRICS_SELECT, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
-import { fetchTopProducts } from '../services/analyticsService';
+import { fetchTopProducts, fetchAnalyticsSummary } from '../services/analyticsService';
+import {
+    countOrdersInRange,
+    confirmLargeExport,
+    MONTHLY_EXPORT_DISCLAIMER,
+} from '../services/analyticsExportUtils';
 import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { downloadExcel, openSpreadsheetInNewTab } from '@/shared/utils/exportUtils';
 import SpreadsheetPreviewModal from './SpreadsheetPreviewModal';
@@ -48,6 +53,11 @@ const CHART_KIND_OPTIONS = [
     { value: 'bar-solid', label: 'Barras', Icon: BarChart3 },
     { value: 'bar-gradient', label: 'Barras degradado', Icon: BarChart3 },
 ];
+
+function calcTrendPercent(current, prev) {
+    if (prev === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - prev) / prev) * 100);
+}
 
 function formatSalesChartLabel(isoDate, dayCount) {
     const d = new Date(`${isoDate}T12:00:00`);
@@ -257,8 +267,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
     const [exportLoading, setExportLoading] = useState(false);
-    /** Pedidos del rango para KPIs/gráficos (no el slice de 100 del provider). */
+    /** Pedidos del rango para KPIs/gráficos (fallback client-side). */
     const [analyticsOrders, setAnalyticsOrders] = useState([]);
+    const [analyticsSummary, setAnalyticsSummary] = useState(null);
+    /** @type {'rpc' | 'fallback' | 'none'} */
+    const [analyticsSource, setAnalyticsSource] = useState('none');
     const [loadingAnalyticsOrders, setLoadingAnalyticsOrders] = useState(false);
     const [topProductsFromRpc, setTopProductsFromRpc] = useState([]);
     const [loadingTopProducts, setLoadingTopProducts] = useState(false);
@@ -293,28 +306,83 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [expenseChartRange, expenseAgg]);
 
     useEffect(() => {
-        if (!companyId) return;
+        if (!companyId || view === 'expensesOnly') {
+            if (view === 'expensesOnly') {
+                setAnalyticsSummary(null);
+                setAnalyticsSource('none');
+                setAnalyticsOrders([]);
+                setLoadingAnalyticsOrders(false);
+            }
+            return;
+        }
         let cancelled = false;
         setLoadingAnalyticsOrders(true);
         (async () => {
             try {
-                let q = supabase.from(TABLES.orders).select(ORDERS_ANALYTICS_METRICS_SELECT).eq('company_id', companyId);
-                if (reportRange.fetchStartIso) {
-                    q = q.gte('created_at', reportRange.fetchStartIso);
+                const startIso = reportRange.start?.toISOString() ?? null;
+                const endIso = reportRange.end?.toISOString() ?? null;
+                const prevStartIso =
+                    reportRange.hasComparison && reportRange.prevStart
+                        ? reportRange.prevStart.toISOString()
+                        : null;
+                const prevEndIso =
+                    reportRange.hasComparison && reportRange.prevEnd
+                        ? reportRange.prevEnd.toISOString()
+                        : null;
+                const channel =
+                    chartTab === 'online' ? 'online' : chartTab === 'store' ? 'store' : 'all';
+
+                const { summary, error, notGranted } = await fetchAnalyticsSummary({
+                    companyId,
+                    branchId: selectedBranch?.id,
+                    startIso,
+                    endIso,
+                    prevStartIso,
+                    prevEndIso,
+                    channel,
+                    showNotify,
+                });
+
+                if (cancelled) return;
+
+                if (summary && !error && !notGranted) {
+                    setAnalyticsSummary(summary);
+                    setAnalyticsSource('rpc');
+                    setAnalyticsOrders([]);
+                    return;
                 }
-                if (reportRange.fetchEndIso) {
-                    q = q.lt('created_at', reportRange.fetchEndIso);
+
+                const fallbackStartIso =
+                    prevStartIso ?? reportRange.fetchStartIso ?? startIso ?? null;
+                const fallbackEndIso = endIso ?? reportRange.fetchEndIso ?? null;
+
+                let q = supabase
+                    .from(TABLES.orders)
+                    .select(ORDERS_ANALYTICS_METRICS_SELECT)
+                    .eq('company_id', companyId);
+                if (fallbackStartIso) {
+                    q = q.gte('created_at', fallbackStartIso);
+                }
+                if (fallbackEndIso) {
+                    q = q.lt('created_at', fallbackEndIso);
                 }
                 if (selectedBranch?.id && selectedBranch.id !== 'all') {
                     q = q.eq('branch_id', selectedBranch.id);
                 }
-                const { data, error } = await q.order('created_at', { ascending: false }).limit(5000);
+                const data = await fetchAllPaginated(
+                    q.order('created_at', { ascending: false }),
+                );
                 if (cancelled) return;
-                if (error) throw error;
-                setAnalyticsOrders(data ?? []);
+                setAnalyticsSummary(null);
+                setAnalyticsSource('fallback');
+                setAnalyticsOrders(data);
             } catch (e) {
                 console.error('Error fetching analytics orders:', e);
-                if (!cancelled) setAnalyticsOrders([]);
+                if (!cancelled) {
+                    setAnalyticsSummary(null);
+                    setAnalyticsSource('none');
+                    setAnalyticsOrders([]);
+                }
             } finally {
                 if (!cancelled) setLoadingAnalyticsOrders(false);
             }
@@ -322,7 +390,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return () => {
             cancelled = true;
         };
-    }, [companyId, selectedBranch?.id, reportRange.fetchStartIso, reportRange.fetchEndIso]);
+    }, [
+        companyId,
+        selectedBranch?.id,
+        reportRange.start?.getTime(),
+        reportRange.end?.getTime(),
+        reportRange.prevStart?.getTime(),
+        reportRange.prevEnd?.getTime(),
+        reportRange.hasComparison,
+        reportRange.fetchStartIso,
+        reportRange.fetchEndIso,
+        chartTab,
+        view,
+        showNotify,
+    ]);
 
     useEffect(() => {
         if (!companyId) {
@@ -370,11 +451,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [companyId, orders]);
 
     const ordersForAnalytics = useMemo(() => {
+        if (analyticsSource !== 'fallback') return [];
         if (loadingAnalyticsOrders && analyticsOrders.length === 0 && Array.isArray(orders) && orders.length > 0) {
             return orders;
         }
         return analyticsOrders;
-    }, [loadingAnalyticsOrders, analyticsOrders, orders]);
+    }, [analyticsSource, loadingAnalyticsOrders, analyticsOrders, orders]);
 
     const branchNameById = useMemo(() => {
         const map = {};
@@ -647,6 +729,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
         setExportLoading(true);
         try {
+            const orderCount = await countOrdersInRange({
+                companyId,
+                branchId: selectedBranch?.id,
+                startIso: range.startIso,
+                endIso: range.endIso,
+            });
+            if (orderCount === 0) {
+                if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
+                return;
+            }
+            if (!confirmLargeExport(orderCount)) {
+                return;
+            }
+
             let query = supabase
                 .from(TABLES.orders)
                 .select(ORDERS_EXPORT_SELECT)
@@ -794,14 +890,95 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     // --- CORE DATA ---
     const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
-        if (!ordersForAnalytics || ordersForAnalytics.length === 0) {
+        const emptyResult = {
+            salesChartPoints: [],
+            kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
+            trends: { total: 0, count: 0, delivery: 0, expenses: 0, net: 0 },
+            paymentBreakdown: { cash: 0, card: 0, online: 0 },
+            branchStats: [],
+        };
+
+        const buildExpensesByDate = (chartDateKeys) => {
+            const expensesByDate = {};
+            chartDateKeys.forEach((k) => {
+                expensesByDate[k] = 0;
+            });
+            for (const row of manualExpenseRows || []) {
+                const iso = row.created_at;
+                if (!iso) continue;
+                const localDate = new Date(iso).toLocaleDateString('en-CA');
+                if (expensesByDate[localDate] !== undefined) {
+                    expensesByDate[localDate] += Number(row.amount) || 0;
+                }
+            }
+            return expensesByDate;
+        };
+
+        if (analyticsSource === 'rpc' && analyticsSummary) {
+            const range = reportRange;
+            const cur = analyticsSummary.current;
+            const prev = analyticsSummary.prev;
+            const chartDateKeys = [...range.chartDateKeys];
+            const expensesByDate = buildExpensesByDate(chartDateKeys);
+            const totalSales = cur.totalSales;
+            const count = cur.orderCount;
+            const ticket = count > 0 ? totalSales / count : 0;
+            const prevSales = prev.totalSales;
+            const prevCount = prev.orderCount;
+            const totalNet = totalSales - (expensesData.total || 0);
+            const prevNet = prevSales - (expensesData.prevTotal || 0);
+            const realBranches = (branches || []).filter((b) => b.id && b.id !== 'all');
+            const branchNameLookup = {};
+            realBranches.forEach((b) => {
+                branchNameLookup[b.id] = b.name || 'Sucursal sin nombre';
+            });
+            const sortedBranches = cur.byBranch
+                .map((b) => ({
+                    id: b.branchId,
+                    name:
+                        branchNameLookup[b.branchId] ||
+                        (b.branchId === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada'),
+                    total: b.total,
+                    count: b.count,
+                }))
+                .filter((b) => b.total > 0 || b.count > 0)
+                .sort((a, b) => b.total - a.total);
+
             return {
-                salesChartPoints: [],
-                kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
-                trends: { total: 0, count: 0, delivery: 0, expenses: 0, net: 0 },
-                paymentBreakdown: { cash: 0, card: 0, online: 0 },
-                branchStats: []
+                salesChartPoints: chartDateKeys.map((k) => ({
+                    key: k,
+                    label: formatSalesChartLabel(k, range.dayCount),
+                    sales: Number(cur.byDay[k]) || 0,
+                    expenses: Number(expensesByDate[k]) || 0,
+                })),
+                kpis: {
+                    total: totalSales,
+                    count,
+                    ticket,
+                    deliveryTotal: cur.deliveryTotal,
+                    deliveryCount: cur.deliveryCount,
+                    net: totalNet,
+                },
+                trends: {
+                    total: calcTrendPercent(totalSales, prevSales),
+                    count: calcTrendPercent(count, prevCount),
+                    delivery: calcTrendPercent(cur.deliveryTotal, prev.deliveryTotal),
+                    expenses: !expensesData.prevTotal
+                        ? expensesData.total > 0
+                            ? 100
+                            : 0
+                        : Math.round(
+                              ((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100,
+                          ),
+                    net: calcTrendPercent(totalNet, prevNet),
+                },
+                paymentBreakdown: { ...cur.paymentBreakdown },
+                branchStats: sortedBranches,
             };
+        }
+
+        if (!ordersForAnalytics || ordersForAnalytics.length === 0) {
+            return emptyResult;
         }
         const range = reportRange;
         const prevRange = {
@@ -849,18 +1026,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             }
         });
 
-        const expensesByDate = {};
-        chartDateKeys.forEach((k) => {
-            expensesByDate[k] = 0;
-        });
-        for (const row of manualExpenseRows || []) {
-            const iso = row.created_at;
-            if (!iso) continue;
-            const localDate = new Date(iso).toLocaleDateString('en-CA');
-            if (expensesByDate[localDate] !== undefined) {
-                expensesByDate[localDate] += Number(row.amount) || 0;
-            }
-        }
+        const expensesByDate = buildExpensesByDate(chartDateKeys);
 
         // --- KPIS ---
         const totalSales = current.reduce((a, o) => a + Number(o.total), 0);
@@ -959,7 +1125,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
-    }, [ordersForAnalytics, reportRange, chartTab, branches, expensesData, manualExpenseRows]);
+    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange, chartTab, branches, expensesData, manualExpenseRows]);
 
     // --- NEW CLIENTS ---
     const newClientsInfo = useMemo(() => {
@@ -984,6 +1150,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     // --- PEAK HOUR ---
     const peakHour = useMemo(() => {
+        if (analyticsSource === 'rpc' && analyticsSummary) {
+            const hourCounts = analyticsSummary.current.byHour || {};
+            const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a);
+            if (sorted.length === 0) return null;
+            const h = parseInt(sorted[0][0], 10);
+            return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
+        }
+
         if (!ordersForAnalytics || ordersForAnalytics.length === 0) return null;
         
         const hourCounts = {};
@@ -998,7 +1172,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         
         const h = parseInt(sorted[0][0]);
         return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
-    }, [ordersForAnalytics, reportRange]);
+    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
 
 
     const activeChartKind =
@@ -1476,6 +1650,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text, #0f172a)' }}>
                 Descargar Reporte Mensual
             </h3>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: 'var(--admin-text-muted, #6b7280)' }}>
+                {MONTHLY_EXPORT_DISCLAIMER}
+            </p>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted, #6b7280)', fontWeight: 500 }}>Seleccionar mes</label>
@@ -1585,6 +1762,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     return (
         <div className="rpt-container rpt-container--compact-toolbar animate-fade">
             {reportPeriodHeader}
+            {analyticsSource === 'fallback' && (
+                <p className="rpt-kpi-meta" style={{ margin: '0 0 1rem 0' }}>
+                    Mostrando hasta 2000 pedidos; las métricas pueden estar truncadas.
+                </p>
+            )}
 
             {/* KPI ROW */}
             <div className="rpt-kpi-row">

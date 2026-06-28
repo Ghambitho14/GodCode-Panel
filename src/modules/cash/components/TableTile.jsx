@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Clock, Package, Printer, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
-import { getOrderTileKind, getFulfillmentKindLabel, isOrderPaymentSettled } from '@/shared/utils/orderUtils';
+import { getOrderTileKind, getOrderFulfillmentDisplayLabel, isOrderPaymentSettled } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import DeliveryMotoIcon from './DeliveryMotoIcon';
@@ -26,7 +26,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 	const statusClass = STATUS_CLASS[order.status] || 'table-tile--pending';
 	const statusLabel = STATUS_LABEL[order.status] || STATUS_LABEL.pending;
 	const itemCount = (order.items || []).reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
-	const kindLabel = getFulfillmentKindLabel(kind);
+	const kindLabel = getOrderFulfillmentDisplayLabel(order);
 	const showPaidBadge = isOrderPaymentSettled(order);
 	const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
 	const ticketMenuRef = useRef(null);

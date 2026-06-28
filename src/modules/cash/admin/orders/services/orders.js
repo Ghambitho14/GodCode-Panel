@@ -18,6 +18,7 @@ import { canOverrideDeliveryFee } from '@/modules/cash/utils/deliveryFeePermissi
 import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { normalizeManualPhone } from '@/modules/cash/services/clientService';
+import { branchSettingsService } from '@/modules/cash/services/branchSettingsService';
 
 function isFiniteLatLng(lat, lng) {
     const a = Number(lat);
@@ -201,13 +202,9 @@ export const ordersService = {
                 }
             }
 
-            const { data: branchCfg, error: branchCfgError } = await supabase
-                .from(TABLES.branches)
-                .select('delivery_settings, payment_methods, currency')
-                .eq('id', orderData.branch_id)
-                .maybeSingle();
+            const branchCfg = await branchSettingsService.getBranchOrderConfig(orderData.branch_id);
 
-            if (branchCfgError) {
+            if (!branchCfg) {
                 throw new Error('No se pudo validar la configuración de la sucursal. Intenta nuevamente.');
             }
 

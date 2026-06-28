@@ -860,20 +860,9 @@ function hasMenuOnlinePaymentReceipt(order) {
 }
 
 /**
- * Preferencia de pago presencial indicada en checkout del menú (`payment_method_specific`).
- * @param {Record<string, unknown> | null | undefined} order
- * @returns {'tienda' | 'tarjeta' | ''}
- */
-function menuInPersonPaymentPreferenceType(order) {
-	const specific = String(order?.payment_method_specific ?? '').trim().toLowerCase();
-	if (specific === 'efectivo') return 'tienda';
-	if (specific === 'tarjeta') return 'tarjeta';
-	return '';
-}
-
-/**
  * Pedido del menú web que aún no fue cobrado en caja (o sin comprobante de transferencia).
- * `payment_method_specific` es preferencia del cliente, no cobro real.
+ * `payment_method_specific` y `payment_type` del menú son solo la preferencia del cliente,
+ * no un cobro real: el pedido sigue pendiente hasta que caja registre el `payment_breakdown`.
  * @param {Record<string, unknown> | null | undefined} order
  * @returns {boolean}
  */
@@ -890,12 +879,6 @@ export function isMenuOrderAwaitingPayment(order) {
 		if (b.cash > 0 || b.card > 0 || b.online > 0) {
 			return false;
 		}
-	}
-
-	const pt = String(order.payment_type ?? '').trim().toLowerCase();
-	const preference = menuInPersonPaymentPreferenceType(order);
-	if (preference && pt !== preference && pt !== 'pendiente') {
-		return false;
 	}
 
 	return true;
@@ -941,6 +924,18 @@ export function getFulfillmentKindLabel(kind) {
 		default:
 			return 'Mesa';
 	}
+}
+
+/**
+ * Etiqueta visible en UI para delivery/retiro: origen del pedido (Web menú / PDV manual).
+ * Mesa siempre devuelve "Mesa".
+ * @param {Record<string, unknown>} order
+ * @returns {'Mesa' | 'Web' | 'PDV'}
+ */
+export function getOrderFulfillmentDisplayLabel(order) {
+	const kind = getOrderFulfillmentKind(order);
+	if (kind === 'mesa') return 'Mesa';
+	return isMenuOrder(order) ? 'Web' : 'PDV';
 }
 
 /** Defaults CAJA usados en UI de detalle (mismo valor que open mesa). */
@@ -1174,14 +1169,14 @@ const ORDERS_PANEL_COLUMNS =
 const ORDERS_LIST_COLUMNS =
 	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
 
-/** Kanban, historial, clientes y carga inicial del panel. */
+/** Detalle de un pedido (single-row): incluye items JSONB. */
 export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(code)`;
 
-/** Lista de pedidos del panel sin items. */
+/** Lista bulk sin items (kanban, historial, clientes). */
 export const ORDERS_LIST_SELECT = `${ORDERS_LIST_COLUMNS}, discount_coupons(code)`;
 
-/** Alias histórico; evita `select('*')` en lecturas bulk. */
-export const ORDERS_SELECT_WITH_COUPON = ORDERS_PANEL_SELECT;
+/** Alias histórico para lecturas bulk; sin items JSONB. */
+export const ORDERS_SELECT_WITH_COUPON = ORDERS_LIST_SELECT;
 
 /** Analytics: métricas escalares sin items (hasta 5000 filas). */
 export const ORDERS_ANALYTICS_METRICS_SELECT =
@@ -1196,7 +1191,11 @@ export const ORDERS_EXPORT_SELECT =
 
 /** Join embebido en movimientos de caja. */
 export const ORDERS_MOVEMENT_JOIN_SELECT =
-	'id, payment_type, payment_method_specific, payment_breakdown, client_name, total, status, shift_sequence, channel';
+	'id, payment_type, payment_method_specific, payment_breakdown, client_name, total, status, shift_sequence, channel, delivery_fee';
+
+/** Relectura tras mover pedido en kanban (registro de venta en caja). */
+export const ORDERS_CASH_REGISTER_SELECT =
+	'id, total, payment_type, payment_breakdown, payment_method_specific, client_name, branch_id, status, delivery_fee';
 
 /** Búsqueda fuzzy por número de pedido (scan liviano). */
 export const ORDERS_ID_SCAN_SELECT = 'id';

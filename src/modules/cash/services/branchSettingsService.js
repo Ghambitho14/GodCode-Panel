@@ -8,6 +8,7 @@ import {
 	parseOrdersViewMode,
 } from '@/lib/delivery-settings';
 import { isTenantExternalDeliveryAllowed } from '@/lib/company-integration-policy';
+import { getBranchSettings, invalidateBranchSettings } from './branchSettingsCache';
 
 /**
  * Servicio de configuración por sucursal (delivery + payment methods + cart upsell).
@@ -168,6 +169,65 @@ async function getBranchCompanyContext(branchId) {
 	return { companyId, integrationSettings: co?.integration_settings ?? null };
 }
 
+const BRANCH_SETTINGS_BUNDLE_SELECT =
+	'id, company_id, delivery_settings, origin_lat, origin_lng, payment_methods, is_active, currency';
+
+/**
+ * Fetch único de `branches` + contexto empresa. Usado por el cache RAM por sucursal.
+ * PostgREST devuelve el JSONB completo — el ahorro es no repetir el request.
+ *
+ * @param {string} branchId
+ * @returns {Promise<{
+ *   branch: Record<string, unknown>,
+ *   allowTenantExternalDelivery: boolean,
+ * }|null>}
+ */
+async function fetchBranchSettingsBundle(branchId) {
+	const { data: branch, error } = await supabase
+		.from(TABLES.branches)
+		.select(BRANCH_SETTINGS_BUNDLE_SELECT)
+		.eq('id', branchId)
+		.maybeSingle();
+
+	if (error) throw error;
+	if (!branch) return null;
+
+	let allowTenantExternalDelivery = true;
+	if (branch.company_id) {
+		const { data: co } = await supabase
+			.from(TABLES.companies)
+			.select('integration_settings')
+			.eq('id', branch.company_id)
+			.maybeSingle();
+		allowTenantExternalDelivery = isTenantExternalDeliveryAllowed(
+			co?.integration_settings,
+		);
+	}
+
+	return { branch, allowTenantExternalDelivery };
+}
+
+/**
+ * @param {Record<string, unknown>} branch
+ * @returns {{ lat: number|null, lng: number|null }}
+ */
+function parseBranchOrigin(branch) {
+	const olat = branch.origin_lat != null ? Number(branch.origin_lat) : null;
+	const olng = branch.origin_lng != null ? Number(branch.origin_lng) : null;
+	return {
+		lat: Number.isFinite(olat) ? olat : null,
+		lng: Number.isFinite(olng) ? olng : null,
+	};
+}
+
+/**
+ * @param {string} branchId
+ * @param {{ force?: boolean }} [options]
+ */
+async function loadCachedBranchBundle(branchId, options = {}) {
+	return getBranchSettings(branchId, () => fetchBranchSettingsBundle(branchId), options);
+}
+
 export const branchSettingsService = {
 	/**
 	 * (Existente) Devuelve `delivery_settings` expandido + `paymentMethods` para una sucursal.
@@ -176,70 +236,106 @@ export const branchSettingsService = {
 	 * @param {string} branchId
 	 * @returns {Promise<object|null>}
 	 */
-	getDeliveryConfig: async (branchId) => {
+	getDeliveryConfig: async (branchId, options = {}) => {
 		if (!branchId) return null;
 
-		const { data, error } = await supabase
-			.from(TABLES.branches)
-			.select('id, delivery_settings, payment_methods, is_active')
-			.eq('id', branchId)
-			.maybeSingle();
+		const bundle = await loadCachedBranchBundle(branchId, options);
+		if (!bundle) return null;
 
-		if (error) throw error;
-		if (!data) return null;
-
+		const { branch } = bundle;
 		const settings =
-			data.delivery_settings && typeof data.delivery_settings === 'object'
-				? data.delivery_settings
+			branch.delivery_settings && typeof branch.delivery_settings === 'object'
+				? branch.delivery_settings
 				: {};
 
 		return {
 			...settings,
-			paymentMethods: Array.isArray(data.payment_methods) ? data.payment_methods : [],
-			isBranchActive: data.is_active !== false,
+			paymentMethods: Array.isArray(branch.payment_methods) ? branch.payment_methods : [],
+			isBranchActive: branch.is_active !== false,
 		};
 	},
 
 	/**
 	 * Equivalente al GET de `/api/tenant-branch-delivery-enabled`.
 	 * Devuelve el payload normalizado + `originLat/Lng` + `allowTenantExternalDelivery`.
+	 * Subset: delivery completo + upsell + panel pedidos + inventario.
 	 *
 	 * @param {string} branchId
+	 * @param {{ force?: boolean }} [options]
 	 * @returns {Promise<object|null>} mismo shape que devolvia el endpoint legacy.
 	 */
-	getDeliverySettings: async (branchId) => {
+	getDeliverySettings: async (branchId, options = {}) => {
 		if (!branchId) return null;
 
-		const { data: branch, error } = await supabase
-			.from(TABLES.branches)
-			.select('id, company_id, delivery_settings, origin_lat, origin_lng')
-			.eq('id', branchId)
-			.maybeSingle();
+		const bundle = await loadCachedBranchBundle(branchId, options);
+		if (!bundle) throw new Error('Sucursal no encontrada');
 
-		if (error) throw error;
-		if (!branch) throw new Error('Sucursal no encontrada');
-
-		let allowTenantExternalDelivery = true;
-		if (branch.company_id) {
-			const { data: co } = await supabase
-				.from(TABLES.companies)
-				.select('integration_settings')
-				.eq('id', branch.company_id)
-				.maybeSingle();
-			allowTenantExternalDelivery = isTenantExternalDeliveryAllowed(
-				co?.integration_settings,
-			);
-		}
-
-		const olat = branch.origin_lat != null ? Number(branch.origin_lat) : null;
-		const olng = branch.origin_lng != null ? Number(branch.origin_lng) : null;
+		const { branch, allowTenantExternalDelivery } = bundle;
 
 		return {
-			...settingsResponse(branch.delivery_settings, {
-				lat: Number.isFinite(olat) ? olat : null,
-				lng: Number.isFinite(olng) ? olng : null,
-			}),
+			...settingsResponse(branch.delivery_settings, parseBranchOrigin(branch)),
 			allowTenantExternalDelivery,
+		};
+	},
+
+	/**
+	 * Solo panel de pedidos: `ordersViewMode` + `localOrderChannels`.
+	 * Usado por AdminProvider al cargar vista mesas/kanban.
+	 *
+	 * @param {string} branchId
+	 * @param {{ force?: boolean }} [options]
+	 */
+	getOrdersPanelSettings: async (branchId, options = {}) => {
+		if (!branchId) return null;
+
+		const bundle = await loadCachedBranchBundle(branchId, options);
+		if (!bundle) throw new Error('Sucursal no encontrada');
+
+		const raw = bundle.branch.delivery_settings;
+		return {
+			ordersViewMode: parseOrdersViewMode(raw),
+			localOrderChannels: parseLocalOrderChannels(raw),
+		};
+	},
+
+	/**
+	 * Catálogos upsell del carrito + flags por sucursal + `inventoryEnforceOnSale`.
+	 * Usado por Inventario y Upsell (lectura).
+	 *
+	 * @param {string} branchId
+	 * @param {{ force?: boolean }} [options]
+	 */
+	getCartUpsellSettings: async (branchId, options = {}) => {
+		if (!branchId) return null;
+
+		const bundle = await loadCachedBranchBundle(branchId, options);
+		if (!bundle) return null;
+
+		const raw = bundle.branch.delivery_settings;
+		return {
+			...extractCartUpsellSettings(raw),
+			inventoryEnforceOnSale: parseInventoryEnforceOnSale(raw),
+		};
+	},
+
+	/**
+	 * Config mínima para crear pedido: `delivery_settings`, `payment_methods`, `currency`.
+	 * Usado por orders.js al validar orden.
+	 *
+	 * @param {string} branchId
+	 * @param {{ force?: boolean }} [options]
+	 */
+	getBranchOrderConfig: async (branchId, options = {}) => {
+		if (!branchId) return null;
+
+		const bundle = await loadCachedBranchBundle(branchId, options);
+		if (!bundle) return null;
+
+		const { branch } = bundle;
+		return {
+			delivery_settings: branch.delivery_settings ?? null,
+			payment_methods: branch.payment_methods ?? null,
+			currency: branch.currency ?? null,
 		};
 	},
 
@@ -318,6 +414,8 @@ export const branchSettingsService = {
 			.eq('id', branchId);
 
 		if (upError) throw upError;
+
+		invalidateBranchSettings(branchId);
 
 		const { data: fresh, error: freshErr } = await supabase
 			.from(TABLES.branches)

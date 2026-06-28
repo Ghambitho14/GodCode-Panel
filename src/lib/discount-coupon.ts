@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
 
 export type DiscountCouponRow = {
 	id: string;
@@ -51,13 +52,13 @@ export async function fetchActiveCouponByCode(
 
 	const { data, error } = await supabase
 		.from(tableName)
-		.select("*")
+		.select(DISCOUNT_COUPONS_PANEL_SELECT)
 		.eq("company_id", companyId)
 		.eq("is_active", true);
 
 	if (error || !Array.isArray(data)) return null;
 
-	const row = (data as DiscountCouponRow[]).find((r) => couponCodesMatch(r.code, target));
+	const row = (data as unknown as DiscountCouponRow[]).find((r) => couponCodesMatch(r.code, target));
 	return row ?? null;
 }
 

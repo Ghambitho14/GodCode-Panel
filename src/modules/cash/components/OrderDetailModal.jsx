@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     X,
@@ -10,7 +10,9 @@ import {
     Send,
     ImageIcon,
     ExternalLink,
+    Loader2,
 } from 'lucide-react';
+import { supabase, TABLES } from '@/integrations/supabase';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
 import {
@@ -20,7 +22,7 @@ import {
     buildOrderDeliveryDriverPack,
     shareDeliveryPackViaWhatsApp,
     getOrderFulfillmentKind,
-    getFulfillmentKindLabel,
+    getOrderFulfillmentDisplayLabel,
     getPaymentLabel,
     getOrderPaymentDisplayLabel,
     getOrderItemLineTotal,
@@ -33,6 +35,8 @@ import {
     isCajaGenericIdentity,
     resolveItemKitchenNote,
     isLegacyGlobalKitchenNote,
+    ORDERS_PANEL_SELECT,
+    sanitizeOrder,
 } from '@/shared/utils/orderUtils';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -125,6 +129,37 @@ const OrderDetailModal = ({
     onMarkPaid = null,
 }) => {
     const { formatMoney: fmt } = useMemo(() => createMoneyFormatter(branch), [branch]);
+    const [liveOrder, setLiveOrder] = useState(order);
+    const [refreshingOrder, setRefreshingOrder] = useState(false);
+
+    useEffect(() => {
+        if (!order?.id) {
+            setLiveOrder(null);
+            return;
+        }
+        setLiveOrder(order);
+        let cancelled = false;
+        setRefreshingOrder(true);
+        (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from(TABLES.orders)
+                    .select(ORDERS_PANEL_SELECT)
+                    .eq('id', order.id)
+                    .maybeSingle();
+                if (cancelled) return;
+                if (error) throw error;
+                if (data) setLiveOrder(sanitizeOrder(data));
+            } catch {
+                /* conservar snapshot del listado */
+            } finally {
+                if (!cancelled) setRefreshingOrder(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [order?.id]);
 
     useEffect(() => {
         if (!order) return;
@@ -137,49 +172,49 @@ const OrderDetailModal = ({
 
     if (!order || typeof document === 'undefined') return null;
 
-    const items = parseItems(order.items);
+    const items = parseItems(liveOrder?.items);
     const itemCount = items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
-    const isDelivery = isOrderDelivery(order);
-    const addrLines = deliveryAddressLines(order.delivery_address);
+    const isDelivery = isOrderDelivery(liveOrder);
+    const addrLines = deliveryAddressLines(liveOrder.delivery_address);
     const addrObj =
-        order.delivery_address && typeof order.delivery_address === 'object' && !Array.isArray(order.delivery_address)
-            ? order.delivery_address
+        liveOrder.delivery_address && typeof liveOrder.delivery_address === 'object' && !Array.isArray(liveOrder.delivery_address)
+            ? liveOrder.delivery_address
             : null;
     const mapsUrl = addrObj?.maps_url ? String(addrObj.maps_url).trim() : '';
     const handoff =
-        order.handoff_code != null && String(order.handoff_code).trim() !== ''
-            ? String(order.handoff_code).trim()
+        liveOrder.handoff_code != null && String(liveOrder.handoff_code).trim() !== ''
+            ? String(liveOrder.handoff_code).trim()
             : '';
     const addressRows = structuredAddressRows(addrObj, addrLines);
 
-    const fulfillmentKind = getOrderFulfillmentKind(order);
-    const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
-    const sessionNumber = order.shift_sequence ?? order.id;
-    const orderRef = formatOrderRef(order.id);
+    const fulfillmentKind = getOrderFulfillmentKind(liveOrder);
+    const fulfillmentLabel = getOrderFulfillmentDisplayLabel(liveOrder);
+    const sessionNumber = liveOrder.shift_sequence ?? liveOrder.id;
+    const orderRef = formatOrderRef(liveOrder.id);
 
-    const clientPhone = resolveOrderClientPhoneForDisplay(order);
-    const clientRut = resolveOrderClientRutForDisplay(order);
-    const clientDisplay = resolveOrderClientNameForDisplay(order, fulfillmentKind);
+    const clientPhone = resolveOrderClientPhoneForDisplay(liveOrder);
+    const clientRut = resolveOrderClientRutForDisplay(liveOrder);
+    const clientDisplay = resolveOrderClientNameForDisplay(liveOrder, fulfillmentKind);
     const showCajaHint = isCajaGenericIdentity(clientRut, clientPhone);
     const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
 
-    const paymentDeferred = isOrderPaymentDeferred(order);
-    const paymentLabel = getOrderPaymentDisplayLabel(order);
-    const showPaidBadge = isOrderPaymentSettled(order);
+    const paymentDeferred = isOrderPaymentDeferred(liveOrder);
+    const paymentLabel = getOrderPaymentDisplayLabel(liveOrder);
+    const showPaidBadge = isOrderPaymentSettled(liveOrder);
     const canMarkPaid =
         Boolean(onMarkPaid) &&
         paymentDeferred &&
-        isOpenOrderSessionStatus(order.status);
-    const statusLabel = STATUS_LABELS[order.status] || order.status || '—';
-    const couponCode = resolveOrderCouponCode(order);
-    const createdAt = new Date(order.created_at);
+        isOpenOrderSessionStatus(liveOrder.status);
+    const statusLabel = STATUS_LABELS[liveOrder.status] || liveOrder.status || '—';
+    const couponCode = resolveOrderCouponCode(liveOrder);
+    const createdAt = new Date(liveOrder.created_at);
 
-    const deliveryFee = isDelivery ? Number(order.delivery_fee) || 0 : 0;
-    const taxTotal = Number(order.tax_total) || 0;
-    const discountTotal = Number(order.discount_total) || 0;
-    const total = Number(order.total) || 0;
+    const deliveryFee = isDelivery ? Number(liveOrder.delivery_fee) || 0 : 0;
+    const taxTotal = Number(liveOrder.tax_total) || 0;
+    const discountTotal = Number(liveOrder.discount_total) || 0;
+    const total = Number(liveOrder.total) || 0;
     const linesSubtotal = Math.round(items.reduce((sum, item) => sum + getOrderItemLineTotal(item), 0));
-    const subtotal = Number(order.subtotal) > 0 ? Number(order.subtotal) : linesSubtotal;
+    const subtotal = Number(liveOrder.subtotal) > 0 ? Number(liveOrder.subtotal) : linesSubtotal;
 
     const ticketPrintOpts = (variant) => ({
         variant,
@@ -188,7 +223,7 @@ const OrderDetailModal = ({
     });
 
     const handleCopyShare = async () => {
-        const text = buildOrderWhatsAppShareText(order, branch?.name);
+        const text = buildOrderWhatsAppShareText(liveOrder, branch?.name);
         try {
             await navigator.clipboard.writeText(text);
             showNotify?.('Resumen del pedido copiado.', 'success');
@@ -198,7 +233,7 @@ const OrderDetailModal = ({
     };
 
     const handleDeliveryWhatsApp = async () => {
-        const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null);
+        const text = buildOrderDeliveryDriverPack(liveOrder, branch?.name ?? null, branch?.address ?? null);
         await shareDeliveryPackViaWhatsApp(text, {
             onError: (msg) => showNotify?.(msg, 'error'),
         });
@@ -352,7 +387,7 @@ const OrderDetailModal = ({
                                     <button
                                         type="button"
                                         className="table-session-receipt__cta order-detail-mark-paid-btn"
-                                        onClick={() => onMarkPaid(order)}
+                                        onClick={() => onMarkPaid(liveOrder)}
                                     >
                                         <Banknote size={16} aria-hidden />
                                         Marcar pagado
@@ -402,12 +437,19 @@ const OrderDetailModal = ({
                                 </section>
                             ) : null}
 
+                            {refreshingOrder && items.length === 0 ? (
+                                <section className="table-session-receipt__section" role="status">
+                                    <Loader2 size={20} className="animate-spin" aria-hidden />
+                                    <span>Cargando ítems…</span>
+                                </section>
+                            ) : null}
+
                             {items.length > 0 ? (
                                 <section className="table-session-receipt__section">
                                     <h3 className="table-session-receipt__section-title">Ítems pedidos</h3>
                                     <ul className="table-session-receipt__items">
                                         {items.map((item, idx) => {
-                                            const itemNote = resolveItemKitchenNote(item, order.note) ?? '';
+                                            const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                             return (
                                                 <li key={`${item.id ?? idx}-${idx}`} className="table-session-receipt__item">
                                                     <div className="table-session-receipt__item-main">
@@ -457,19 +499,19 @@ const OrderDetailModal = ({
                                 </div>
                             </section>
 
-                            {isLegacyGlobalKitchenNote(order) ? (
+                            {isLegacyGlobalKitchenNote(liveOrder) ? (
                                 <section className="table-session-receipt__section">
                                     <h3 className="table-session-receipt__section-title">Nota</h3>
-                                    <p className="order-detail-receipt-note">{String(order.note).trim()}</p>
+                                    <p className="order-detail-receipt-note">{String(liveOrder.note).trim()}</p>
                                 </section>
                             ) : null}
 
-                            {order.payment_type === 'online' &&
-                            order.payment_ref &&
-                            String(order.payment_ref).startsWith('http') ? (
+                            {liveOrder.payment_type === 'online' &&
+                            liveOrder.payment_ref &&
+                            String(liveOrder.payment_ref).startsWith('http') ? (
                                 <section className="table-session-receipt__section">
                                     <a
-                                        href={order.payment_ref}
+                                        href={liveOrder.payment_ref}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="table-session-receipt__link"
@@ -487,7 +529,7 @@ const OrderDetailModal = ({
                                     type="button"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
-                                        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
+                                        printOrderTicket(liveOrder, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
                                     }}
                                 >
                                     <ChefHat size={16} aria-hidden />
@@ -497,7 +539,7 @@ const OrderDetailModal = ({
                                     type="button"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
-                                        printOrderTicket(order, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
+                                        printOrderTicket(liveOrder, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
                                     }}
                                 >
                                     <Banknote size={16} aria-hidden />
@@ -532,12 +574,12 @@ const OrderDetailModal = ({
                                         Envío
                                     </button>
                                 ) : null}
-                                {order.payment_type === 'online' && setReceiptModalOrder ? (
+                                {liveOrder.payment_type === 'online' && setReceiptModalOrder ? (
                                     <button
                                         type="button"
                                         className="order-detail-receipt-action"
                                         onClick={() => {
-                                            setReceiptModalOrder(order);
+                                            setReceiptModalOrder(liveOrder);
                                             onClose?.();
                                         }}
                                     >

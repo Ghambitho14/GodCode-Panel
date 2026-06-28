@@ -138,11 +138,13 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				hidden={activeSubTab !== "delivery"}
 				className="admin-menu-options-subpanel"
 			>
-				<AdminMenuDeliverySection
-					showNotify={showNotify}
-					selectedBranch={selectedBranch}
-					onSaved={onDeliverySaved}
-				/>
+				{activeSubTab === "delivery" ? (
+					<AdminMenuDeliverySection
+						showNotify={showNotify}
+						selectedBranch={selectedBranch}
+						onSaved={onDeliverySaved}
+					/>
+				) : null}
 			</div>
 
 			<div

@@ -282,7 +282,7 @@ export default function AdminTablesGrid({
 
 	const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
 
-	const openSessions = filterOpenOrderSessions(orders);
+	const openSessions = useMemo(() => filterOpenOrderSessions(orders), [orders]);
 
 	const [activeOrder, setActiveOrder] = useState(null);
 

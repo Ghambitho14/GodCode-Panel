@@ -12,9 +12,11 @@ import {
     buildOrderDeliveryDriverPack,
     shareDeliveryPackViaWhatsApp,
     getPaymentLabel,
+    getOrderPaymentDisplayLabel,
+    getOrderPaymentPreferenceHint,
     getOrderCouponDiscountMeta,
     getOrderTileKind,
-    getFulfillmentKindLabel,
+    getOrderFulfillmentDisplayLabel,
     isOrderDelivery,
     isOrderPaymentDeferred,
     isOrderPaymentSettled,
@@ -127,7 +129,10 @@ const OrderCard = ({
         });
     };
 
-    const clientData = clients?.find((c) => c.id === order.client_id);
+    const clientData = useMemo(
+        () => clients?.find((c) => c.id === order.client_id),
+        [clients, order.client_id],
+    );
     const isVip = clientData?.total_orders >= 5;
     const hasLoadedItems = Array.isArray(liveOrder.items) && liveOrder.items.length > 0;
     const itemsSummary = useMemo(
@@ -154,9 +159,10 @@ const OrderCard = ({
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
     const paymentDeferred = isOrderPaymentDeferred(liveOrder);
     const showPaidBadge = isOrderPaymentSettled(liveOrder);
-    const paymentMethodLabel = getPaymentLabel(liveOrder);
+    const paymentMethodLabel = getOrderPaymentDisplayLabel(liveOrder);
+    const paymentPreferenceHint = getOrderPaymentPreferenceHint(liveOrder);
     const fulfillmentKind = getOrderTileKind(liveOrder);
-    const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
+    const fulfillmentLabel = getOrderFulfillmentDisplayLabel(liveOrder);
     const canMarkPaid =
         Boolean(markOrderSessionPaid) &&
         paymentDeferred &&
@@ -231,8 +237,15 @@ const OrderCard = ({
                     Sin pagar
                 </span>
             ) : null}
-            {!paymentDeferred || paymentMethodLabel !== 'Pago pendiente' ? (
-                <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}${paymentDeferred ? ' payment-badge--pending' : ''}`}>
+            {paymentDeferred && paymentPreferenceHint ? (
+                <span
+                    className="payment-badge payment-badge--pending"
+                    title="Método elegido en el menú (preferencia, todavía sin cobrar)"
+                >
+                    {paymentPreferenceHint}
+                </span>
+            ) : !paymentDeferred && paymentMethodLabel !== 'Pago pendiente' ? (
+                <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}`}>
                     {paymentMethodLabel}
                 </span>
             ) : null}
@@ -626,4 +639,4 @@ const OrderCard = ({
     );
 };
 
-export default OrderCard;
+export default React.memo(OrderCard);

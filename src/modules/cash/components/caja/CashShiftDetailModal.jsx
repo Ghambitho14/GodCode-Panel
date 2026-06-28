@@ -8,7 +8,7 @@ import {
     isOperatingLocalExpense,
 } from '../../utils/cashMovementKinds';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { getPaymentLabel, getOrderTileKind, getFulfillmentKindLabel } from '@/shared/utils/orderUtils';
+import { getPaymentLabel, getOrderTileKind, getOrderFulfillmentDisplayLabel } from '@/shared/utils/orderUtils';
 import { getClosedShiftReconciliation, diffCounted } from '../../utils/shiftCloseReconciliation';
 import { isCourierPayoutMovement } from '../../utils/cashTotals';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
@@ -555,7 +555,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                 ) : fulfillmentKind && m.type === 'sale' ? (
                                                                     <>
                                                                         <FulfillmentTypeIcon kind={fulfillmentKind} />
-                                                                        {getFulfillmentKindLabel(fulfillmentKind)}
+                                                                        {getOrderFulfillmentDisplayLabel(linkedOrder)}
                                                                     </>
                                                                 ) : (
                                                                     movementTypeLabel(m)

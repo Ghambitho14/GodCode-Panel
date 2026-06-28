@@ -16,12 +16,12 @@ export default defineConfig(({ mode }) => ({
       devOptions: {
         enabled: true,
       },
-      includeAssets: ["favicon.svg", "logo.png"],
+      includeAssets: ["favicon.svg", "Gcode-logo.svg"],
       manifest: {
         name: "GodCode Caja",
         short_name: "GodCode",
         description: "Sistema de Caja y Panel de Control de GodCode",
-        theme_color: "#aa3bff",
+        theme_color: "#4F5BFF",
         background_color: "#16171d",
         display: "standalone",
         start_url: "/",
@@ -29,9 +29,9 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait-primary",
         icons: [
           {
-            src: "/logo.png",
-            sizes: "192x192 512x512",
-            type: "image/png",
+            src: "/Gcode-logo.svg",
+            sizes: "512x512",
+            type: "image/svg+xml",
             purpose: "any maskable",
           },
           {

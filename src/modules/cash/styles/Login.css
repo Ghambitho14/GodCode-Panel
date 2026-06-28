@@ -906,7 +906,10 @@
 /* --- Login split: caja = tema oscuro + acento producto; admin = azul / blanco --- */
 
 .login-shell.login-shell--split[data-mode="admin"] {
-    --login-accent: #3b82f6;
+    --login-accent: #4f5bff;
+    --login-brand-blue: #4f5bff;
+    --login-brand-blue-dark: #3d47cc;
+    --login-brand-blue-light: #6b75ff;
     background:
         radial-gradient(900px 480px at 12% 18%, rgba(147, 197, 253, 0.45), transparent 62%),
         radial-gradient(720px 420px at 88% 72%, rgba(191, 219, 254, 0.35), transparent 58%),
@@ -916,7 +919,7 @@
 .login-shell.login-shell--split[data-mode="admin"]::before {
     background:
         radial-gradient(520px 380px at 22% 32%, rgba(255, 255, 255, 0.85), transparent 70%),
-        radial-gradient(600px 420px at 78% 58%, rgba(59, 130, 246, 0.12), transparent 72%);
+        radial-gradient(600px 420px at 78% 58%, rgba(79, 91, 255, 0.12), transparent 72%);
     filter: blur(12px) saturate(1.05);
     opacity: 0.9;
 }
@@ -928,25 +931,25 @@
 }
 
 .login-shell.login-shell--split[data-mode="caja"] {
-    --login-accent: var(--accent-primary);
+    --login-accent: #f4f4f5;
     background:
-        radial-gradient(1250px 560px at 10% -10%, rgba(255, 255, 255, 0.12), transparent 55%),
-        radial-gradient(980px 520px at 100% 0%, rgba(255, 255, 255, 0.08), transparent 58%),
-        radial-gradient(circle at top right, #1c1c1f, #090a0d);
+        radial-gradient(900px 480px at 12% 18%, rgba(255, 255, 255, 0.06), transparent 62%),
+        radial-gradient(720px 420px at 88% 72%, rgba(255, 255, 255, 0.04), transparent 58%),
+        linear-gradient(168deg, #0a0a0b 0%, #12151c 45%, #0a0a0b 100%);
 }
 
 .login-shell.login-shell--split[data-mode="caja"]::before {
     background:
-        radial-gradient(620px 460px at 16% 26%, rgba(255, 255, 255, 0.22), transparent 68%),
-        radial-gradient(700px 500px at 82% 70%, color-mix(in srgb, var(--login-accent) 36%, transparent), transparent 72%);
-    filter: blur(14px) saturate(1.15);
+        radial-gradient(620px 460px at 16% 26%, rgba(255, 255, 255, 0.1), transparent 68%),
+        radial-gradient(700px 500px at 82% 70%, rgba(255, 255, 255, 0.05), transparent 72%);
+    filter: blur(14px) saturate(1);
     opacity: 1;
 }
 
 .login-shell.login-shell--split[data-mode="caja"]::after {
     background:
-        linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.2) 46%, transparent 72%);
-    opacity: 0.68;
+        linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.08) 46%, transparent 72%);
+    opacity: 0.5;
 }
 
 .login-slide-card {
@@ -954,7 +957,9 @@
     width: 100%;
     max-width: 920px;
     min-height: 420px;
-    border-radius: 24px;
+    --login-shell-radius: 6%;
+    --login-control-radius: 12px;
+    border-radius: var(--login-shell-radius);
     /* Evita que el arco del panel sobresalga y tape el formulario */
     overflow: hidden;
     z-index: 1;
@@ -975,18 +980,18 @@
 }
 
 .login-slide-card[data-mode="caja"] {
-    background: #111317;
-    border: 1px solid #2a2e38;
+    background: #0a0a0b;
+    border: 1px solid #2a2a2e;
     box-shadow:
-        0 24px 48px rgba(0, 0, 0, 0.35),
-        0 0 0 1px color-mix(in srgb, var(--accent-primary) 14%, #2a2e38);
+        0 24px 48px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .login-slide-card[data-mode="caja"].glass {
-    background: linear-gradient(180deg, rgba(17, 19, 23, 0.97) 0%, rgba(12, 14, 18, 0.99) 100%);
+    background: linear-gradient(180deg, rgba(10, 10, 11, 0.98) 0%, rgba(12, 14, 18, 0.99) 100%);
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border: 1px solid #2a2e38;
+    border: 1px solid #2a2a2e;
 }
 
 .login-slide-brand {
@@ -1115,13 +1120,12 @@
     left: 0;
     width: 42%;
     z-index: 3;
-    /* Modo caja: mismo lenguaje oscuro que el formulario (sin franja azul) */
-    background: linear-gradient(165deg, #1f232c 0%, #171a20 48%, #12151c 100%);
-    border-radius: 24px 0 0 24px;
+    background: linear-gradient(165deg, #1a1d24 0%, #12151c 48%, #0a0a0b 100%);
+    border-radius: var(--login-shell-radius) 0 0 var(--login-shell-radius);
     box-shadow:
         0 20px 44px rgba(0, 0, 0, 0.42),
         inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    border-right: 1px solid #2a2e38;
+    border-right: 1px solid #2a2a2e;
     transition:
         left 0.72s cubic-bezier(0.65, 0, 0.35, 1),
         border-radius 0.72s cubic-bezier(0.65, 0, 0.35, 1),
@@ -1133,12 +1137,12 @@
 
 .login-slide-card[data-mode="admin"] .login-sliding-panel {
     left: 58%;
-    border-radius: 0 24px 24px 0;
-    background: linear-gradient(155deg, #1e40af 0%, #3b82f6 42%, #0ea5e9 100%);
+    border-radius: 0 var(--login-shell-radius) var(--login-shell-radius) 0;
+    background: linear-gradient(155deg, #3d47cc 0%, #4f5bff 42%, #6b75ff 100%);
     border-right: none;
     border-left: none;
     box-shadow:
-        0 24px 40px rgba(37, 99, 235, 0.35),
+        0 24px 40px rgba(79, 91, 255, 0.35),
         inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
@@ -1156,20 +1160,43 @@
 }
 
 .login-sliding-panel__deco {
+    position: relative;
     width: 88px;
     height: 88px;
     margin-bottom: 18px;
-    border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.35);
-    border-top-color: rgba(255, 255, 255, 0.9);
-    opacity: 0.85;
-    animation: loginPanelDecoSpin 10s linear infinite;
+    flex-shrink: 0;
 }
 
-.login-slide-card[data-mode="caja"] .login-sliding-panel__deco {
-    border-color: rgba(255, 255, 255, 0.12);
-    border-top-color: color-mix(in srgb, var(--accent-primary) 75%, #fff);
+.login-sliding-panel__deco-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: opacity 0.4s ease;
+}
+
+.login-sliding-panel__deco-img--intro {
     opacity: 1;
+    border-radius: var(--login-control-radius);
+}
+
+.login-sliding-panel__deco-img--mark {
+    opacity: 0;
+}
+
+.login-sliding-panel__deco--logo .login-sliding-panel__deco-img--intro {
+    opacity: 0;
+}
+
+.login-sliding-panel__deco--logo .login-sliding-panel__deco-img--mark {
+    opacity: 1;
+}
+
+.login-slide-card[data-mode="admin"] .login-sliding-panel__deco-img--brand {
+    position: relative;
+    opacity: 1;
+    border-radius: var(--login-control-radius);
 }
 
 .login-sliding-panel__title {
@@ -1195,7 +1222,7 @@
     justify-content: center;
     min-height: 46px;
     padding: 0 28px;
-    border-radius: 999px;
+    border-radius: var(--login-control-radius);
     font-family: inherit;
     font-size: 0.95rem;
     font-weight: 700;
@@ -1212,19 +1239,19 @@
 
 .login-sliding-panel__btn:hover {
     background: rgba(255, 255, 255, 0.95);
-    color: #1d4ed8;
+    color: #4f5bff;
     transform: translateY(-1px);
 }
 
 .login-slide-card[data-mode="caja"] .login-sliding-panel__btn:hover {
-    background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
-    color: #fff;
-    border-color: color-mix(in srgb, var(--accent-primary) 65%, #fff);
+    background: #f4f4f5;
+    color: #0a0a0b;
+    border-color: #f4f4f5;
 }
 
 .login-slide-card[data-mode="admin"] .login-sliding-panel__btn:hover {
     background: rgba(255, 255, 255, 0.95);
-    color: #1d4ed8;
+    color: #3d47cc;
 }
 
 .login-sliding-panel__btn:focus-visible {
@@ -1232,14 +1259,21 @@
     outline-offset: 3px;
 }
 
-@keyframes loginPanelDecoSpin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
 .login-slide-card .login-form .form-group {
     margin-bottom: 14px;
+}
+
+.login-slide-card .login-form .form-input {
+    border-radius: var(--login-control-radius);
+}
+
+.login-slide-card .login-submit-button,
+.login-slide-card .login-admin-external-link.login-submit-button {
+    border-radius: var(--login-control-radius);
+}
+
+.login-slide-card .login-submit-button.btn-primary {
+    box-shadow: none;
 }
 
 /* --- Formulario: solo tema claro/azul en modo admin --- */
@@ -1254,7 +1288,6 @@
     background: #e8edf4;
     border: 1px solid #cbd5e1;
     color: #0f172a;
-    border-radius: 12px;
 }
 
 .login-slide-card[data-mode="admin"] .login-form .form-input::placeholder {
@@ -1267,8 +1300,8 @@
 }
 
 .login-slide-card[data-mode="admin"] .login-form .form-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    border-color: #4f5bff;
+    box-shadow: 0 0 0 3px rgba(79, 91, 255, 0.2);
 }
 
 .login-slide-card[data-mode="admin"] .input-icon {
@@ -1276,8 +1309,8 @@
 }
 
 .login-slide-card[data-mode="admin"] .login-password-toggle:hover {
-    background: rgba(37, 99, 235, 0.1);
-    color: #1d4ed8;
+    background: rgba(79, 91, 255, 0.1);
+    color: #4f5bff;
 }
 
 .login-slide-card[data-mode="admin"] .login-error {
@@ -1287,8 +1320,8 @@
 }
 
 .login-slide-card[data-mode="admin"] .login-submit-button.btn-primary {
-    background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #0ea5e9 100%);
-    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+    background: linear-gradient(90deg, #3d47cc 0%, #4f5bff 55%, #6b75ff 100%);
+    box-shadow: 0 12px 28px rgba(79, 91, 255, 0.35);
 }
 
 .login-slide-card[data-mode="admin"] .login-submit-button.btn-primary:hover {
@@ -1307,7 +1340,9 @@
     background: #171b22;
     border: 1px solid #313845;
     color: #ffffff;
-    border-radius: 12px;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .login-slide-card[data-mode="caja"] .login-form .form-input::placeholder {
@@ -1335,17 +1370,18 @@
 
 .login-slide-card[data-mode="caja"] .login-error {
     background: #1a1e25;
-    color: var(--login-accent);
-    border: 1px solid #343a45;
+    color: #f4a4a4;
+    border: 1px solid #3a3a3e;
 }
 
 .login-slide-card[data-mode="caja"] .login-submit-button.btn-primary {
-    background: var(--login-accent);
-    box-shadow: 0 4px 15px var(--accent-shadow, rgba(230, 57, 70, 0.3));
+    background: #f4f4f5;
+    color: #0a0a0b;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
 }
 
 .login-slide-card[data-mode="caja"] .login-submit-button.btn-primary:hover {
-    filter: brightness(1.06);
+    filter: brightness(0.95);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1355,8 +1391,8 @@
         transition: none;
     }
 
-    .login-sliding-panel__deco {
-        animation: none;
+    .login-sliding-panel__deco-img {
+        transition: none;
     }
 }
 
@@ -1364,7 +1400,7 @@
     .login-slide-card {
         display: flex;
         flex-direction: column;
-        border-radius: 20px;
+        border-radius: var(--login-shell-radius);
         min-height: 0;
         overflow: hidden;
     }
@@ -1408,6 +1444,40 @@
         width: 56px;
         height: 56px;
         margin-bottom: 12px;
+    }
+
+    .login-slide-card .login-form .form-input,
+    .login-slide-card .input-with-icon input {
+        border-radius: var(--login-control-radius);
+    }
+
+    .login-slide-card .login-submit-button,
+    .login-slide-card .login-admin-external-link.login-submit-button {
+        border-radius: var(--login-control-radius);
+    }
+
+    .login-slide-card .login-sliding-panel__btn {
+        border-radius: var(--login-control-radius);
+    }
+
+    .login-slide-card[data-mode="caja"] .login-form .form-input,
+    .login-slide-card[data-mode="caja"] .input-with-icon input {
+        background: #171b22;
+        border-color: #313845;
+        color: #ffffff;
+    }
+
+    .login-slide-card[data-mode="caja"] .login-submit-button.btn-primary {
+        background: #f4f4f5;
+        color: #0a0a0b;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    }
+
+    .login-slide-card[data-mode="admin"] .login-submit-button.btn-primary,
+    .login-slide-card[data-mode="admin"] .login-admin-external-link.login-submit-button {
+        background: linear-gradient(90deg, #3d47cc 0%, #4f5bff 55%, #6b75ff 100%);
+        color: #fff;
+        box-shadow: 0 12px 28px rgba(79, 91, 255, 0.35);
     }
 
     .login-slide-form-header {

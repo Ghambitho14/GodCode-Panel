@@ -13,7 +13,7 @@ import {
 	shareDeliveryPackViaWhatsApp,
 	sanitizeOrder,
 	getOrderFulfillmentKind,
-	getFulfillmentKindLabel,
+	getOrderFulfillmentDisplayLabel,
 	resolveOrderClientPhoneForDisplay,
 	isLegacyGlobalKitchenNote,
 	resolveItemKitchenNote,
@@ -169,7 +169,7 @@ export default function CashOrderDetailPanel({
 	const clientPhone = resolveOrderClientPhoneForDisplay(displayOrder);
 	const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
 	const fulfillmentKind = getOrderFulfillmentKind(displayOrder);
-	const fulfillmentLabel = getFulfillmentKindLabel(fulfillmentKind);
+	const fulfillmentLabel = getOrderFulfillmentDisplayLabel(displayOrder);
 	const sessionNumber = displayOrder.shift_sequence ?? null;
 
 	const ticketPrintOpts = (variant) => ({
