@@ -12,15 +12,21 @@ function resolveServerConfig(): { url: string; anonKey: string } {
   // Preferimos vars sin prefijo VITE_ (server-only). Caemos a las VITE_* que ya
   // existen en el proyecto Vercel para no duplicar configuracion.
   const url = String(
-    process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "",
+    process.env.SUPABASE_URL ??
+      process.env.VITE_SUPABASE_URL ??
+      process.env.NEXT_PUBLIC_SUPABASE_URL ??
+      "",
   ).trim();
   const anonKey = String(
-    process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? "",
+    process.env.SUPABASE_ANON_KEY ??
+      process.env.VITE_SUPABASE_ANON_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      "",
   ).trim();
 
   if (!url || !anonKey) {
     throw new Error(
-      "[GodCode BFF] Faltan SUPABASE_URL / SUPABASE_ANON_KEY (o sus equivalentes VITE_*) en el entorno del servidor.",
+      "[GodCode BFF] Faltan SUPABASE_URL / SUPABASE_ANON_KEY (o VITE_* / NEXT_PUBLIC_*) en el entorno del servidor.",
     );
   }
 

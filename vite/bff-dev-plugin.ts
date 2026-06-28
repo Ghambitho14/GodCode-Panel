@@ -12,6 +12,29 @@ import { loadEnv, type Plugin, type ViteDevServer } from "vite";
 
 const ROUTES = ["login", "logout", "refresh", "session"] as const;
 
+/** Alias NEXT_PUBLIC_* → SUPABASE_* / VITE_* para .env heredados de Next. */
+function normalizeSupabaseEnv(): void {
+  const url =
+    process.env.SUPABASE_URL?.trim() ||
+    process.env.VITE_SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "";
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    "";
+
+  if (url) {
+    if (!process.env.SUPABASE_URL?.trim()) process.env.SUPABASE_URL = url;
+    if (!process.env.VITE_SUPABASE_URL?.trim()) process.env.VITE_SUPABASE_URL = url;
+  }
+  if (anonKey) {
+    if (!process.env.SUPABASE_ANON_KEY?.trim()) process.env.SUPABASE_ANON_KEY = anonKey;
+    if (!process.env.VITE_SUPABASE_ANON_KEY?.trim()) process.env.VITE_SUPABASE_ANON_KEY = anonKey;
+  }
+}
+
 /** Lee el body crudo del request y lo intenta parsear como JSON. */
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolveBody) => {
@@ -61,6 +84,7 @@ export function bffDevPlugin(mode: string): Plugin {
       for (const [key, value] of Object.entries(env)) {
         if (process.env[key] === undefined) process.env[key] = value;
       }
+      normalizeSupabaseEnv();
     },
     resolveId(source, importer) {
       // Los handlers importan con extension `.js` (NodeNext). En dev mapeamos al `.ts`.

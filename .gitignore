@@ -11,6 +11,8 @@ node_modules
 dist
 dev-dist
 dist-ssr
+.next
+.vercel
 *.local
 
 # Variables de entorno: nunca commitear secrets ni credenciales del proyecto.

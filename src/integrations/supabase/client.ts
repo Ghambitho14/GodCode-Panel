@@ -5,8 +5,16 @@ const CONFIG_WARN =
   "[GodCode] Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. Copiá .env.example a .env y pegá URL + anon key del proyecto (Supabase → Settings → API).";
 
 function resolveConfig(): { url: string; anonKey: string } {
-  const url = String(import.meta.env.VITE_SUPABASE_URL ?? "").trim();
-  const anonKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
+  const url = String(
+    import.meta.env.VITE_SUPABASE_URL ??
+      import.meta.env.NEXT_PUBLIC_SUPABASE_URL ??
+      "",
+  ).trim();
+  const anonKey = String(
+    import.meta.env.VITE_SUPABASE_ANON_KEY ??
+      import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+      "",
+  ).trim();
 
   if (url && anonKey) {
     return { url, anonKey };

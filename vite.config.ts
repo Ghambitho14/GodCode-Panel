@@ -8,6 +8,7 @@ import { bffDevPlugin } from "./vite/bff-dev-plugin";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => ({
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   plugins: [
     bffDevPlugin(mode),
     react(),
