@@ -813,7 +813,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         {activeTab === 'coupons' && (
           <AdminErrorBoundary tabLabel={tabLabels.coupons || 'Cupones'} onRetry={() => refreshAllData()}>
             <React.Suspense fallback={<AdminTabFallback />}>
-              <AdminCoupons showNotify={showNotify} companyId={companyIdForClients} />
+              <AdminCoupons showNotify={showNotify} companyId={companyIdForClients} clients={clients} />
             </React.Suspense>
           </AdminErrorBoundary>
         )}

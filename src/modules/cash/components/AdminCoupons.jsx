@@ -56,10 +56,9 @@ function formatCouponRowDates(row) {
 	return { from: fmt(row.valid_from), until: fmt(row.valid_until) };
 }
 
-export default function AdminCoupons({ showNotify, companyId }) {
+export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 	const { formatMoney } = useBranchMoney();
 	const [rows, setRows] = useState([]);
-	const [clients, setClients] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [draft, setDraft] = useState(() => emptyDraft());
@@ -70,29 +69,19 @@ export default function AdminCoupons({ showNotify, companyId }) {
 	const load = useCallback(async () => {
 		if (!cid) {
 			setRows([]);
-			setClients([]);
 			setLoading(false);
 			return;
 		}
 		setLoading(true);
 		try {
-			const [cRes, clRes] = await Promise.all([
-				supabase
-					.from(TABLES.discount_coupons)
-					.select(DISCOUNT_COUPONS_PANEL_SELECT)
-					.eq("company_id", cid)
-					.order("created_at", { ascending: false }),
-				supabase
-					.from(TABLES.clients)
-					.select("id, name, phone")
-					.eq("company_id", cid)
-					.order("last_order_at", { ascending: false })
-					.limit(500),
-			]);
-			if (cRes.error) throw cRes.error;
-			if (clRes.error) throw clRes.error;
-			setRows(cRes.data || []);
-			setClients(clRes.data || []);
+			// La lista de clientes la provee AdminProvider (sin query duplicada aquí).
+			const { data, error } = await supabase
+				.from(TABLES.discount_coupons)
+				.select(DISCOUNT_COUPONS_PANEL_SELECT)
+				.eq("company_id", cid)
+				.order("created_at", { ascending: false });
+			if (error) throw error;
+			setRows(data || []);
 		} catch (e) {
 			showNotify?.(e.message || "Error al cargar cupones", "error");
 		} finally {

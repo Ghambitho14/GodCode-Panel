@@ -12,7 +12,7 @@ import {
 	PRODUCT_PRICES_BRANCH_SELECT,
 	PRODUCTS_PANEL_SELECT,
 } from '../../services/panelCatalogSelects';
-import { BRANCHES_LIST_SELECT } from '../../services/branchSelects';
+import { useLocation as useBranchLocation } from '../../context/useLocation';
 import { INVENTORY_BRANCH_WITH_ITEM_SELECT } from '../../services/inventorySelects';
 import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
@@ -29,6 +29,7 @@ import { shouldPlayOrderSound } from '../../utils/orderNotificationPrefs';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { branchSettingsService } from '../../services/branchSettingsService';
 import { invalidateBranchSettings } from '../../services/branchSettingsCache';
+import { subscribeBranchUpdate } from '../../services/branchRealtimeHub';
 import { parseLocalOrderChannels, parseOrdersViewMode } from '@/lib/delivery-settings';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import {
@@ -39,6 +40,15 @@ import {
 	invalidateCompanyCatalog,
 	clearPanelSessionStorage,
 } from '../../services/panelCatalogCache';
+import {
+	getBranchOrders,
+	getCompanyClients,
+	invalidateAllPanelData,
+	invalidateBranchOrders,
+	invalidateCompanyClients,
+} from '../../services/panelDataCache';
+import { monitor } from '@/shared/monitor';
+import { subscribeMonitored } from '@/shared/subscribeMonitored';
 
 const DEFAULT_LOCAL_ORDER_CHANNELS = { mesa: true, retiro: true, delivery: true };
 
@@ -234,6 +244,7 @@ export const useAdmin = () => {
  * @param {import('react').ReactNode} props.children
  * @param {string} props.companyId
  * @param {string | null | undefined} [props.initialUserRole]
+ * @param {string | null | undefined} [props.initialAssignedBranchId]
  * @param {string[] | null | undefined} [props.panelAccess]
  * @param {any[]} [props.dynamicModules]
  */
@@ -242,6 +253,7 @@ export const useAdmin = () => {
  * @param {React.ReactNode} root0.children
  * @param {string} root0.companyId
  * @param {string | null} [root0.initialUserRole]
+ * @param {string | null} [root0.initialAssignedBranchId]
  * @param {string[] | null | undefined} [root0.panelAccess]
  * @param {any[]} [root0.dynamicModules]
  * @param {Record<string, string>} [root0.resolvedTabLabels]
@@ -251,6 +263,7 @@ export const AdminProvider = ({
 	children,
 	companyId,
 	initialUserRole = null,
+	initialAssignedBranchId = null,
 	panelAccess,
 	dynamicModules = /** @type {any[]} */ ([]),
 	resolvedTabLabels = /** @type {Record<string, string>} */ ({}),
@@ -265,8 +278,14 @@ export const AdminProvider = ({
 	const [categories, setCategories] = useState([]);
 	const [orders, setOrders] = useState([]);
 	const [clients, setClients] = useState([]);
-	const [branches, setBranches] = useState([]);
-	const [selectedBranch, setSelectedBranch] = useState(null);
+	const {
+		selectedBranch: locationSelectedBranch,
+		allBranches,
+		loadingBranches,
+		selectBranch,
+		refetchBranches,
+	} = useBranchLocation();
+	const [isAllBranchView, setIsAllBranchView] = useState(false);
 	const [isHistoryView, setIsHistoryView] = useState(false);
 	const [historyPeriod, setHistoryPeriod] = useState('week');
 	const [historyOrders, setHistoryOrders] = useState([]);
@@ -334,12 +353,31 @@ export const AdminProvider = ({
 	const [categoryToDelete, setCategoryToDelete] = useState(null);
 	const [userRole, setUserRole] = useState(() => normalizePanelUserRole(initialUserRole));
 	const [userEmail, setUserEmail] = useState(null);
-	const [assignedBranchId, setAssignedBranchId] = useState(null);
+	const [assignedBranchId, setAssignedBranchId] = useState(initialAssignedBranchId ?? null);
+	/**
+	 * Snapshot de rol/sucursal ya autenticado en admin-app. Se consume una sola vez
+	 * para evitar la segunda consulta a `users` en el arranque; luego la verificación
+	 * normal por red sigue corriendo (visibilidad / eventos de auth).
+	 */
+	const initialAuthSnapshotRef = useRef(
+		initialUserRole
+			? { role: initialUserRole, branchId: initialAssignedBranchId ?? null, consumed: false }
+			: null,
+	);
 	const [selectedClient, setSelectedClient] = useState(null);
 	const [selectedClientOrders, setSelectedClientOrders] = useState([]);
 	const [clientHistoryLoading, setClientHistoryLoading] = useState(false);
 	/** Filas `inventory_branch` + `inventory_items` de la sucursal seleccionada (alertas campana / inventario). */
 	const [inventoryBranchRows, setInventoryBranchRows] = useState(/** @type {any[]} */ ([]));
+
+	/** Lista de sucursales: única fuente es LocationContext (sin segundo fetch). */
+	const branches = allBranches;
+	/** Sucursal virtual "todas" (solo vista admin: analytics / gastos). Nunca se persiste. */
+	const allBranchesOption = useMemo(() => ({ id: 'all', name: 'Todas las sucursales' }), []);
+	/** Sucursal efectiva: la virtual "todas" o la real de LocationContext. */
+	const selectedBranch = isAllBranchView ? allBranchesOption : locationSelectedBranch;
+	/** Compat: el botón "actualizar" y reintentos siguen llamando refreshBranches(). */
+	const refreshBranches = refetchBranches;
 
 	const normalizedPanelAccess = useMemo(
 		() => normalizePanelAccess(panelAccess),
@@ -416,12 +454,14 @@ export const AdminProvider = ({
 			if (storedTab && canAccessTab(storedTab)) {
 				setActiveTab(storedTab);
 			}
-			if (!isBranchLocked) {
-				const bid = localStorage.getItem(`godcode-panel:${companyId}:branchId`);
+			// Migración one-shot: si existe la key legacy del panel y LocationContext
+			// todavía no tiene sucursal, la trasladamos al contexto unificado.
+			if (!isBranchLocked && !locationSelectedBranch) {
+				const bid = readStoredBranchId(companyId);
 				if (bid) {
 					const b = branches.find((branch) => branch.id === bid);
 					if (b) {
-						setSelectedBranch(b);
+						selectBranch(b);
 					}
 				}
 			}
@@ -429,7 +469,7 @@ export const AdminProvider = ({
 			/* ignore */
 		}
 		sessionRestoredRef.current = true;
-	}, [userRole, branches, companyId, canAccessTab, isBranchLocked]);
+	}, [userRole, branches, companyId, canAccessTab, isBranchLocked, locationSelectedBranch, selectBranch]);
 
 	useEffect(() => {
 		if (!userRole || typeof window === 'undefined') return;
@@ -439,16 +479,6 @@ export const AdminProvider = ({
 			/* ignore */
 		}
 	}, [activeTab, companyId, userRole]);
-
-	useEffect(() => {
-		if (!userRole || typeof window === 'undefined') return;
-		if (!selectedBranch?.id || selectedBranch.id === 'all') return;
-		try {
-			localStorage.setItem(`godcode-panel:${companyId}:branchId`, selectedBranch.id);
-		} catch {
-			/* ignore */
-		}
-	}, [selectedBranch?.id, companyId, userRole]);
 
 	useEffect(() => {
 		const mq = window.matchMedia(ADMIN_MOBILE_MQ);
@@ -528,24 +558,10 @@ export const AdminProvider = ({
 	useEffect(() => {
 		const branchId = selectedBranch?.id;
 		if (!branchId || branchId === 'all') return;
-		const channel = supabase
-			.channel(`branch-orders-view-mode-${branchId}`)
-			.on(
-				'postgres_changes',
-				{ event: 'UPDATE', schema: 'public', table: 'branches', filter: `id=eq.${branchId}` },
-				() => {
-					invalidateBranchSettings(branchId);
-					void loadOrdersPanelSettings(branchId);
-				},
-			)
-			.subscribe();
-		return () => {
-			try {
-				supabase.removeChannel(channel);
-			} catch {
-				/* ignore */
-			}
-		};
+		return subscribeBranchUpdate(branchId, () => {
+			invalidateBranchSettings(branchId);
+			void loadOrdersPanelSettings(branchId);
+		});
 	}, [selectedBranch?.id, loadOrdersPanelSettings]);
 
 	const saveOrdersPanelSettings = useCallback(async ({ ordersViewMode: nextView, localOrderChannels: nextChannels }) => {
@@ -596,19 +612,18 @@ export const AdminProvider = ({
 	}, [canAccessTab, showNotify]);
 
 	const setSelectedBranchWithGuard = useCallback((nextBranch) => {
-		if (!isBranchLocked) {
-			setSelectedBranch(nextBranch);
-			return;
-		}
-
 		const nextBranchId = nextBranch?.id || null;
-		if (nextBranchId === assignedBranchId) {
-			setSelectedBranch(nextBranch);
+		if (isBranchLocked && nextBranchId !== assignedBranchId) {
+			showNotify('Tu correo está asignado a un local específico y no puedes cambiar de sucursal.', 'error');
 			return;
 		}
-
-		showNotify('Tu correo está asignado a un local específico y no puedes cambiar de sucursal.', 'error');
-	}, [assignedBranchId, isBranchLocked, showNotify]);
+		if (nextBranchId === 'all') {
+			setIsAllBranchView(true);
+			return;
+		}
+		setIsAllBranchView(false);
+		selectBranch(nextBranch);
+	}, [assignedBranchId, isBranchLocked, showNotify, selectBranch]);
 
 	const cashSystem = useCashSystem(showNotify, selectedBranch?.id, orders);
 
@@ -628,6 +643,21 @@ export const AdminProvider = ({
 		}
 
 		setUserEmail(user.email.trim().toLowerCase());
+
+		// Primera verificación: usa el snapshot ya resuelto en admin-app (sin re-consultar
+		// `users`). Mantiene la validación de rol permitido; si el rol sembrado no aplica,
+		// cae a la verificación normal por red.
+		const seed = initialAuthSnapshotRef.current;
+		if (seed && !seed.consumed) {
+			seed.consumed = true;
+			const allowedRoles = ['owner', 'admin', 'ceo', 'cashier'];
+			const effectiveRole = normalizePanelUserRole(seed.role);
+			if (effectiveRole && allowedRoles.includes(effectiveRole)) {
+				setUserRole(effectiveRole);
+				setAssignedBranchId(seed.branchId || null);
+				return;
+			}
+		}
 
 		const { data: userRowByAuth, error: userByAuthError } = await supabase
 			.from(TABLES.users)
@@ -732,60 +762,33 @@ export const AdminProvider = ({
 		};
 	}, [navigate, verifyAdminAccess]);
 
-	const refreshBranches = useCallback(async () => {
-		if (!companyId) {
-			setBranches([]);
-			setSelectedBranch(null);
-			setLoading(false);
-			return;
-		}
-		const { data, error } = await supabase
-			.from(TABLES.branches)
-			.select(BRANCHES_LIST_SELECT)
-			.eq('company_id', companyId)
-			.order('name');
-		if (!error && data?.length > 0) {
-			setBranches(data);
-			setSelectedBranch(prev => {
-				if (assignedBranchId) {
-					const assignedBranch = data.find(b => b.id === assignedBranchId);
-					const next = assignedBranch || data[0];
-					if (prev?.id === next?.id) return prev;
-					return next;
-				}
-				if (!prev || prev.id === 'all') return prev || data[0];
-				const updated = data.find(b => b.id === prev.id);
-				const next = updated || data[0];
-				if (prev?.id === next?.id) return prev;
-				return next;
-			});
-		} else {
-			setBranches([]);
-			setSelectedBranch(null);
-			/* Sin sucursal loadData() no corre; sin esto el panel queda en spinner infinito. */
+	// Sin sucursales disponibles loadData() no corre; evitamos el spinner infinito.
+	useEffect(() => {
+		if (!loadingBranches && allBranches.length === 0) {
 			setLoading(false);
 		}
-	}, [assignedBranchId, companyId]);
-
-	useEffect(() => { refreshBranches(); }, [refreshBranches]);
+	}, [loadingBranches, allBranches.length]);
 
 	useEffect(() => {
 		if (branches.length === 0) return;
 		if (assignedBranchId) {
+			if (isAllBranchView) setIsAllBranchView(false);
 			const assignedBranch = branches.find((branch) => branch.id === assignedBranchId);
-			if (assignedBranch && selectedBranch?.id !== assignedBranch.id) {
-				setSelectedBranch(assignedBranch);
+			if (assignedBranch && locationSelectedBranch?.id !== assignedBranch.id) {
+				selectBranch(assignedBranch);
 			}
 			return;
 		}
-		if (activeTab !== 'analytics' && (!selectedBranch || selectedBranch.id === 'all')) {
-			setSelectedBranch((prev) => {
-				const next = branches[0];
-				if (prev?.id === next?.id) return prev;
-				return next;
-			});
+		// Fuera de analytics la vista "todas" no aplica: volvemos a una sucursal concreta.
+		if (activeTab !== 'analytics' && isAllBranchView) {
+			setIsAllBranchView(false);
+			return;
 		}
-	}, [activeTab, assignedBranchId, branches, selectedBranch?.id]);
+		// Garantiza una sucursal concreta por defecto (el panel nunca arranca sin selección).
+		if (!isAllBranchView && !locationSelectedBranch) {
+			selectBranch(branches[0]);
+		}
+	}, [activeTab, assignedBranchId, branches, locationSelectedBranch, isAllBranchView, selectBranch]);
 
 	useEffect(() => {
 		if (!userRole) return;
@@ -846,21 +849,23 @@ export const AdminProvider = ({
 
 	const selectedBranchId = selectedBranch?.id ?? null;
 
-	const fetchOrders = useCallback(async () => {
+	const fetchOrders = useCallback(async ({ force = false } = {}) => {
 		if (!selectedBranchId || !companyId) return;
 		const isAllBranches = selectedBranchId === 'all';
-		let query = supabase
-			.from(TABLES.orders)
-			.select(ORDERS_LIST_SELECT)
-			.eq('company_id', companyId)
-			.order('created_at', { ascending: false })
-			.limit(100);
-		if (!isAllBranches) {
-			query = query.eq('branch_id', selectedBranchId);
-		}
-		const { data, error } = await query;
-		if (error) throw error;
-		const cleanOrders = (data || []).map(sanitizeOrder);
+		const cleanOrders = await getBranchOrders(companyId, selectedBranchId, async () => {
+			let query = supabase
+				.from(TABLES.orders)
+				.select(ORDERS_LIST_SELECT)
+				.eq('company_id', companyId)
+				.order('created_at', { ascending: false })
+				.limit(100);
+			if (!isAllBranches) {
+				query = query.eq('branch_id', selectedBranchId);
+			}
+			const { data, error } = await query;
+			if (error) throw error;
+			return (data || []).map(sanitizeOrder);
+		}, { force });
 		setOrders((prev) =>
 			orderMoveInFlightRef.current.size > 0 ? mergeOrdersFromServer(prev, cleanOrders) : cleanOrders
 		);
@@ -878,15 +883,18 @@ export const AdminProvider = ({
 		return hydrated;
 	}, [companyId]);
 
-	const fetchClients = useCallback(async () => {
+	const fetchClients = useCallback(async ({ force = false } = {}) => {
 		if (!companyId) return;
-		const { data, error } = await supabase
-			.from(TABLES.clients)
-			.select(CLIENTS_PANEL_SELECT)
-			.eq('company_id', companyId)
-			.order('last_order_at', { ascending: false })
-			.limit(200);
-		if (error) throw error;
+		const data = await getCompanyClients(companyId, async () => {
+			const { data: rows, error } = await supabase
+				.from(TABLES.clients)
+				.select(CLIENTS_PANEL_SELECT)
+				.eq('company_id', companyId)
+				.order('last_order_at', { ascending: false })
+				.limit(200);
+			if (error) throw error;
+			return rows || [];
+		}, { force });
 		setClients(data || []);
 	}, [companyId]);
 
@@ -965,12 +973,12 @@ export const AdminProvider = ({
 	}, [selectedBranch, companyId, showNotify, touchLastRefresh]);
 
 	const refreshOrders = useCallback(
-		() => runPartialRefresh(fetchOrders),
+		() => runPartialRefresh(() => fetchOrders({ force: true })),
 		[runPartialRefresh, fetchOrders],
 	);
 
 	const refreshClients = useCallback(
-		() => runPartialRefresh(fetchClients),
+		() => runPartialRefresh(() => fetchClients({ force: true })),
 		[runPartialRefresh, fetchClients],
 	);
 
@@ -1010,6 +1018,7 @@ export const AdminProvider = ({
 					await loadPanelData();
 			}
 		} catch {
+			monitor.error('data', 'load_failed', { scope, isRefresh });
 			showNotify('Error de conexión', 'error');
 		} finally {
 			setLoading(false);
@@ -1029,7 +1038,7 @@ export const AdminProvider = ({
 	const refreshStaleData = useCallback(async ({ force = false } = {}) => {
 		if (!selectedBranchId || !companyId) return;
 		const isAllBranches = selectedBranchId === 'all';
-		const tasks = [fetchOrders(), fetchClients()];
+		const tasks = [fetchOrders({ force }), fetchClients({ force })];
 		if (force) {
 			invalidateCompanyCatalog(companyId);
 			if (!isAllBranches) invalidateBranchOverlay(selectedBranchId);
@@ -1054,15 +1063,16 @@ export const AdminProvider = ({
 		try {
 			await Promise.all([
 				refreshStaleData({ force: true }),
-				refreshBranches(),
+				refetchBranches(),
 				cashSystem.refresh?.() ?? Promise.resolve(),
 			]);
 		} catch {
+			monitor.error('data', 'refresh_all_failed', {});
 			showNotify('Error de conexión', 'error');
 		} finally {
 			setRefreshing(false);
 		}
-	}, [selectedBranch, companyId, refreshStaleData, refreshBranches, cashSystem, showNotify]);
+	}, [selectedBranch, companyId, refreshStaleData, refetchBranches, cashSystem, showNotify]);
 
 	const loadClientHistory = useCallback(async (client) => {
 		if (!client) return;
@@ -1098,10 +1108,16 @@ export const AdminProvider = ({
 		return String(bid);
 	};
 
-	// TODO P3: vista orders_realtime sin items o strip en handler para reducir egress en INSERT/UPDATE.
+	// P3: el payload de Realtime de `orders` ya no incluye `items` (lista de columnas
+	// en la publicación supabase_realtime); sanitizeOrder normaliza items a [] y el
+	// detalle se hidrata bajo demanda. Ver supabase/migrations/*_orders_realtime_exclude_items.sql.
 	const handleRealtimeEvent = useCallback((payload) => {
 		const sid = selectedBranchId;
 		if (!sid) return;
+
+		// El estado en memoria queda autoritativo; invalidamos la caché de pedidos
+		// para que un refetch posterior dentro del TTL no devuelva datos viejos.
+		invalidateBranchOrders(companyId, sid);
 
 		const isAllBranches = sid === 'all';
 		const isSingleBranch = sid !== 'all';
@@ -1161,7 +1177,7 @@ export const AdminProvider = ({
 			if (!raw?.id) return;
 			setOrders((prev) => prev.filter((o) => o.id !== raw.id));
 		}
-	}, [showNotify, refreshInventoryBranch, selectedBranchId, branches]);
+	}, [showNotify, refreshInventoryBranch, selectedBranchId, branches, companyId]);
 
 	useEffect(() => {
 		const onFirstInteract = () => {
@@ -1179,6 +1195,7 @@ export const AdminProvider = ({
 
 	useEffect(() => {
 		invalidateAll();
+		invalidateAllPanelData();
 	}, [companyId]);
 
 	useEffect(() => {
@@ -1218,17 +1235,19 @@ export const AdminProvider = ({
 	useEffect(() => {
 		if (!selectedBranchId) return;
 
-		const channel = supabase
-			.channel(`orders-realtime-${selectedBranchId}`)
-			.on('postgres_changes', {
-				event: '*',
-				schema: 'public',
-				table: 'orders',
-				filter: selectedBranchId !== 'all' ? `branch_id=eq.${selectedBranchId}` : undefined,
-			}, (payload) => {
-				handleRealtimeEventRef.current(payload);
-			})
-			.subscribe();
+		const channel = subscribeMonitored(
+			supabase
+				.channel(`orders-realtime-${selectedBranchId}`)
+				.on('postgres_changes', {
+					event: '*',
+					schema: 'public',
+					table: 'orders',
+					filter: selectedBranchId !== 'all' ? `branch_id=eq.${selectedBranchId}` : undefined,
+				}, (payload) => {
+					handleRealtimeEventRef.current(payload);
+				}),
+			{ name: 'orders', context: { branchId: selectedBranchId } },
+		);
 
 		return () => {
 			supabase.removeChannel(channel);
@@ -1238,6 +1257,7 @@ export const AdminProvider = ({
 	const moveOrder = useCallback(async (orderId, nextStatus) => {
 		if (orderMoveInFlightRef.current.has(orderId)) return;
 		orderMoveInFlightRef.current.add(orderId);
+		invalidateBranchOrders(companyId, selectedBranchId);
 		const previousRow = orders.find((o) => o.id === orderId);
 		setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
 		try {
@@ -1292,7 +1312,7 @@ export const AdminProvider = ({
 		} finally {
 			orderMoveInFlightRef.current.delete(orderId);
 		}
-	}, [orders, cashSystem, showNotify, companyId]);
+	}, [orders, cashSystem, showNotify, companyId, selectedBranchId]);
 
 	const loadHistoryOrders = useCallback(async () => {
 		if (!companyId || !selectedBranch?.id || selectedBranch.id === 'all') {
@@ -1844,7 +1864,7 @@ export const AdminProvider = ({
 		categories, setCategories,
 		orders, setOrders,
 		clients, setClients,
-		branches, setBranches,
+		branches,
 		selectedBranch, setSelectedBranch: setSelectedBranchWithGuard,
 		assignedBranchId,
 		isBranchLocked,

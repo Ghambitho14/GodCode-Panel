@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { monitor } from '@/shared/monitor';
 
 export class AdminErrorBoundary extends React.Component {
 	constructor(props) {
@@ -15,6 +16,12 @@ export class AdminErrorBoundary extends React.Component {
 		if (typeof console !== 'undefined' && console.error) {
 			console.error('AdminErrorBoundary', error, info);
 		}
+		const { tabLabel } = this.props;
+		monitor.error('ui', 'boundary_caught', {
+			tabLabel: tabLabel ?? undefined,
+			message: error?.message,
+			componentStack: info?.componentStack?.slice(0, 500),
+		});
 	}
 
 	handleRetry = () => {

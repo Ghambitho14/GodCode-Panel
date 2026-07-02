@@ -7,7 +7,7 @@
 
 .admin-layout .tables-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
 	gap: 12px;
 	width: 100%;
 }
@@ -96,10 +96,11 @@
 	display: inline-flex;
 	align-items: center;
 	min-width: 0;
-	padding: 2px 4px;
-	font-size: 0.58rem;
+	flex: 1 1 auto;
+	padding: 2px 5px;
+	font-size: 0.62rem;
 	font-weight: 700;
-	line-height: 1;
+	line-height: 1.15;
 	letter-spacing: 0.01em;
 	white-space: nowrap;
 	overflow: hidden;
@@ -317,12 +318,14 @@
 
 .admin-layout .table-tile__client {
 	grid-row: 2;
-	font-size: 0.78rem;
+	font-size: 0.86rem;
 	font-weight: 700;
+	line-height: 1.25;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	max-width: 100%;
+	padding: 0 2px;
 	color: #2c2924;
 }
 
@@ -920,7 +923,7 @@
 
 @media (max-width: 480px) {
 	.admin-layout .tables-grid {
-		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
 		gap: 10px;
 	}
 

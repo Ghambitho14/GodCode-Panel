@@ -11,6 +11,8 @@ import {
 import { parseTagList } from "@/lib/inventory-taxonomy";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
 import { invalidateBranchSettings } from "@/modules/cash/services/branchSettingsCache";
+import { subscribeBranchUpdate } from "@/modules/cash/services/branchRealtimeHub";
+import { subscribeMonitored } from "@/shared/subscribeMonitored";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
@@ -180,21 +182,23 @@ export default function AdminMenuCartUpsellSection({
 	useEffect(() => {
 		if (!branchId) return;
 		const ch = `cart-upsell-inv-${branchId}`;
-		const channel = supabase
-			.channel(ch)
-			.on(
-				"postgres_changes",
-				{
-					event: "*",
-					schema: "public",
-					table: TABLES.inventory_branch,
-					filter: `branch_id=eq.${branchId}`,
-				},
-				() => {
-					void refreshInventoryOptions();
-				},
-			)
-			.subscribe();
+		const channel = subscribeMonitored(
+			supabase
+				.channel(ch)
+				.on(
+					"postgres_changes",
+					{
+						event: "*",
+						schema: "public",
+						table: TABLES.inventory_branch,
+						filter: `branch_id=eq.${branchId}`,
+					},
+					() => {
+						void refreshInventoryOptions();
+					},
+				),
+			{ name: "inventory_branch", context: { branchId } },
+		);
 		return () => {
 			try {
 				supabase.removeChannel(channel);
@@ -242,24 +246,11 @@ export default function AdminMenuCartUpsellSection({
 
 	useEffect(() => {
 		if (!branchId) return;
-		const ch = `branch-delivery-upsell-${variant}-${branchId}`;
-		const channel = supabase
-			.channel(ch)
-			.on(
-				"postgres_changes",
-				{ event: "UPDATE", schema: "public", table: "branches", filter: `id=eq.${branchId}` },
-				() => {
-					invalidateBranchSettings(branchId);
-					void load();
-				},
-			)
-			.subscribe();
-		return () => {
-			try {
-				supabase.removeChannel(channel);
-			} catch {}
-		};
-	}, [branchId, load, variant]);
+		return subscribeBranchUpdate(branchId, () => {
+			invalidateBranchSettings(branchId);
+			void load();
+		});
+	}, [branchId, load]);
 
 	const persistCatalog = useCallback(
 		async (nextItems) => {

@@ -1,5 +1,6 @@
-import React, { createContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
+import { subscribeMonitored } from '@/shared/subscribeMonitored';
 import {
     BRANCHES_LIST_FIELD_KEYS,
     BRANCHES_LIST_SELECT,
@@ -21,18 +22,15 @@ export const LocationContext = createContext(null);
 
 /** @param {string} storageKey */
 function getInitialBranch(storageKey) {
-    if (typeof window === 'undefined') {
-        return { branch: null, hasValidBranch: false };
-    }
+    if (typeof window === 'undefined') return null;
     try {
         const saved = window.localStorage.getItem(storageKey);
-        if (!saved) return { branch: null, hasValidBranch: false };
+        if (!saved) return null;
         const parsed = JSON.parse(saved);
         const slim = pickBranchListFields(parsed);
-        const hasValid = !!(slim && slim.id && String(slim.id).length > 0);
-        return { branch: hasValid ? slim : null, hasValidBranch: hasValid };
+        return slim && slim.id && String(slim.id).length > 0 ? slim : null;
     } catch {
-        return { branch: null, hasValidBranch: false };
+        return null;
     }
 }
 
@@ -47,16 +45,14 @@ export const LocationProvider = ({ children, companyId }) => {
 
     const initial = useMemo(() => getInitialBranch(storageKey), [storageKey]);
 
-    const [selectedBranch, setSelectedBranch] = useState(initial.branch);
+    const [selectedBranch, setSelectedBranch] = useState(initial);
     const [allBranches, setAllBranches] = useState([]);
     const [loadingBranches, setLoadingBranches] = useState(true);
-    const [isLocationModalOpen, setIsLocationModalOpen] = useState(!initial.hasValidBranch);
     const fetchBranchesDebouncedRef = useRef(null);
+    const fetchBranchesRef = useRef(/** @type {null | (() => Promise<void>)} */ (null));
 
     useEffect(() => {
-        const next = getInitialBranch(storageKey);
-        setSelectedBranch(next.branch);
-        setIsLocationModalOpen(!next.hasValidBranch);
+        setSelectedBranch(getInitialBranch(storageKey));
     }, [storageKey]);
 
     useEffect(() => {
@@ -101,6 +97,8 @@ export const LocationProvider = ({ children, companyId }) => {
             }
         };
 
+        fetchBranchesRef.current = fetchBranches;
+
         const scheduleFetchBranches = () => {
             if (fetchBranchesDebouncedRef.current) clearTimeout(fetchBranchesDebouncedRef.current);
             fetchBranchesDebouncedRef.current = setTimeout(() => {
@@ -113,12 +111,17 @@ export const LocationProvider = ({ children, companyId }) => {
         fetchBranches();
 
         const channel = companyId
-            ? supabase
-                .channel(`branches-realtime-${companyId}`)
-                .on(
-                    'postgres_changes',
-                    { event: '*', schema: 'public', table: TABLES.branches },
-                    (payload) => {
+            ? subscribeMonitored(
+                supabase
+                    .channel(`branches-realtime-${companyId}`)
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: TABLES.branches },
+                        (payload) => {
+                        const rowCompanyId = payload.new?.company_id ?? payload.old?.company_id ?? null;
+                        if (rowCompanyId && companyId && String(rowCompanyId) !== String(companyId)) {
+                            return;
+                        }
                         if (payload.eventType === 'UPDATE' && payload.new?.id) {
                             const incoming = mapBranchListItem(payload.new);
                             setAllBranches((prev) =>
@@ -141,12 +144,14 @@ export const LocationProvider = ({ children, companyId }) => {
                         }
                         scheduleFetchBranches();
                     }
-                )
-                .subscribe()
+                ),
+                { name: 'branches', context: { companyId } },
+            )
             : null;
 
         return () => {
             alive = false;
+            fetchBranchesRef.current = null;
             if (fetchBranchesDebouncedRef.current) {
                 clearTimeout(fetchBranchesDebouncedRef.current);
                 fetchBranchesDebouncedRef.current = null;
@@ -157,35 +162,27 @@ export const LocationProvider = ({ children, companyId }) => {
         };
     }, [companyId, storageKey]);
 
-    useEffect(() => {
-        if (!selectedBranch) {
-            setIsLocationModalOpen(true);
-        }
-    }, [selectedBranch]);
-
-    const selectBranch = (branch) => {
+    const selectBranch = useCallback((branch) => {
         const slim = pickBranchListFields(branch);
         setSelectedBranch(slim);
         try { window.localStorage.setItem(storageKey, JSON.stringify(slim)); } catch {}
-        setIsLocationModalOpen(false);
-    };
+    }, [storageKey]);
 
-    const clearBranch = () => {
-        setSelectedBranch(null);
-        try { window.localStorage.removeItem(storageKey); } catch {}
-        setIsLocationModalOpen(true);
-    };
+    const refetchBranches = useCallback(() => {
+        if (fetchBranchesRef.current) return fetchBranchesRef.current();
+        return Promise.resolve();
+    }, []);
+
+    const value = useMemo(() => ({
+        selectedBranch,
+        selectBranch,
+        allBranches,
+        loadingBranches,
+        refetchBranches,
+    }), [selectedBranch, selectBranch, allBranches, loadingBranches, refetchBranches]);
 
     return (
-        <LocationContext.Provider value={{
-            selectedBranch,
-            selectBranch,
-            clearBranch,
-            isLocationModalOpen,
-            setIsLocationModalOpen,
-            allBranches,
-            loadingBranches
-        }}>
+        <LocationContext.Provider value={value}>
             {children}
         </LocationContext.Provider>
     );

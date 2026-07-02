@@ -85,3 +85,11 @@ AZUL: #0078ff
 FONDO EN TODO: #fffffb
 NARANJA: #ea7b4b
 AZL OSCURO: #12597a
+
+## Especificaciones de onboarding (docs/)
+
+Specs de implementación para capacitación del panel (no son manuales de usuario):
+
+- [`docs/README.md`](docs/README.md) — índice y flujo de referencia del pedido manual
+- [`docs/KIOSK-DEMO-PEDIDO-MANUAL.md`](docs/KIOSK-DEMO-PEDIDO-MANUAL.md) — demo automática en loop (kiosk)
+- [`docs/TOUR-PANEL-CAJA.md`](docs/TOUR-PANEL-CAJA.md) — tour interactivo en el panel autenticado

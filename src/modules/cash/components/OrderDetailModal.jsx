@@ -138,6 +138,10 @@ const OrderDetailModal = ({
             return;
         }
         setLiveOrder(order);
+        // Si el pedido ya viene con items hidratados desde memoria, evitamos el refetch puntual.
+        if (Array.isArray(order.items) && order.items.length > 0) {
+            return;
+        }
         let cancelled = false;
         setRefreshingOrder(true);
         (async () => {

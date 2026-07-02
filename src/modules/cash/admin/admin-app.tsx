@@ -8,7 +8,6 @@ import "../styles/AdminContextualHelp.css";
 import { AdminPage } from "./pages/Admin";
 import { AdminProvider } from "./pages/AdminProvider";
 import { LocationProvider } from "../context/LocationContext";
-import { BusinessProvider } from "../context/BusinessContext";
 import { applyDocumentFavicon } from "@/shared/utils/documentFavicon";
 import { resetDocumentMeta, setDocumentMeta } from "@/shared/utils/documentMeta";
 
@@ -56,6 +55,10 @@ export function AdminApp({
 	const [resolvedCompanyName, setResolvedCompanyName] = useState(companyNameProp);
 	const [resolvedUserEmail, setResolvedUserEmail] = useState<string | null>(userEmailProp ?? null);
 	const [resolvedThemeConfig, setResolvedThemeConfig] = useState<DatabaseCompanyTheme | null>(null);
+	// Rol / sucursal asignada resueltos al gatear: se pasan a AdminProvider para
+	// evitar una segunda consulta a `users` en el arranque.
+	const [resolvedUserRole, setResolvedUserRole] = useState<string | null>(initialUserRole);
+	const [resolvedAssignedBranchId, setResolvedAssignedBranchId] = useState<string | null>(null);
 	const [gateLoading, setGateLoading] = useState(() => !companyIdProp?.trim());
 
 	useEffect(() => {
@@ -95,14 +98,14 @@ export function AdminApp({
 
 			let { data: row } = await supabase
 				.from(TABLES.users)
-				.select("company_id")
+				.select("company_id, role, branch_id")
 				.eq("auth_user_id", uid)
 				.maybeSingle();
 
 			if (!row?.company_id && emailNorm) {
 				const r2 = await supabase
 					.from(TABLES.users)
-					.select("company_id")
+					.select("company_id, role, branch_id")
 					.ilike("email", emailNorm)
 					.maybeSingle();
 				row = r2.data;
@@ -130,6 +133,8 @@ export function AdminApp({
 			if (co?.name) setResolvedCompanyName(co.name);
 			setResolvedThemeConfig((co?.theme_config as DatabaseCompanyTheme) ?? null);
 			setResolvedUserEmail(emailNorm || null);
+			setResolvedUserRole((row.role as string | null) ?? null);
+			setResolvedAssignedBranchId(row.branch_id ? String(row.branch_id) : null);
 			setGateLoading(false);
 		})();
 
@@ -184,24 +189,23 @@ export function AdminApp({
 			<style>{buildTenantThemeCss({ theme_config: resolvedThemeConfig })}</style>
 			<div className="tenant-theme-vars">
 				<LocationProvider companyId={resolvedCompanyId}>
-					<BusinessProvider>
-						<AdminProvider
-							companyId={resolvedCompanyId}
-							initialUserRole={initialUserRole}
-							panelAccess={panelAccess}
-							dynamicModules={dynamicModules}
-							resolvedTabLabels={resolvedTabLabels}
-							adminShortcutsEnabled={adminShortcutsEnabled}
-						>
-							<AdminPage
-								companyName={resolvedCompanyName}
-								logoUrl={effectiveLogoUrl}
-								userEmail={resolvedUserEmail ?? userEmailProp}
-								primaryColor={primaryColor}
-								storefrontMenuUrl={storefrontMenuUrl}
-							/>
-						</AdminProvider>
-					</BusinessProvider>
+					<AdminProvider
+						companyId={resolvedCompanyId}
+						initialUserRole={initialUserRole ?? resolvedUserRole}
+						initialAssignedBranchId={resolvedAssignedBranchId}
+						panelAccess={panelAccess}
+						dynamicModules={dynamicModules}
+						resolvedTabLabels={resolvedTabLabels}
+						adminShortcutsEnabled={adminShortcutsEnabled}
+					>
+						<AdminPage
+							companyName={resolvedCompanyName}
+							logoUrl={effectiveLogoUrl}
+							userEmail={resolvedUserEmail ?? userEmailProp}
+							primaryColor={primaryColor}
+							storefrontMenuUrl={storefrontMenuUrl}
+						/>
+					</AdminProvider>
 				</LocationProvider>
 			</div>
 		</>

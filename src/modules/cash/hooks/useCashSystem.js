@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
+import { subscribeMonitored } from '@/shared/subscribeMonitored';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { cashService } from '../services/cashService';
 import {
@@ -168,17 +169,18 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
         const shiftId = activeShift.id;
 
         // Subscribe a cambios en cash_movements para este shift
-        const channel = supabase
-            .channel(`cash_movements:shift_id=eq.${shiftId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*', // Escuchar INSERT, UPDATE, DELETE
-                    schema: 'public',
-                    table: TABLES.cash_movements,
-                    filter: `shift_id=eq.${shiftId}`
-                },
-                (payload) => {
+        const channel = subscribeMonitored(
+            supabase
+                .channel(`cash_movements:shift_id=eq.${shiftId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*', // Escuchar INSERT, UPDATE, DELETE
+                        schema: 'public',
+                        table: TABLES.cash_movements,
+                        filter: `shift_id=eq.${shiftId}`
+                    },
+                    (payload) => {
                     if (payload.eventType === 'INSERT') {
                         const newRow = payload.new;
                         if (newRow && consumeLocalRealtimeInsert(newRow.id)) return;
@@ -208,8 +210,9 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
                         debouncedLoadMovements(shiftId);
                     }
                 }
-            )
-            .subscribe();
+            ),
+            { name: 'cash_movements', context: { shiftId } },
+        );
 
         return () => {
             if (movementsRefreshTimerRef.current) {

@@ -1,3 +1,5 @@
+import { monitor } from "@/shared/monitor";
+
 /**
  * Gestor de sesion del panel (cliente del BFF de cookies httpOnly).
  *
@@ -146,7 +148,10 @@ export async function bootstrapSession(): Promise<SessionUser | null> {
         headers: { "X-GC-Auth": "1" },
       });
       if (!res.ok) {
-        if (res.status === 401) clearSession(false);
+        if (res.status === 401) {
+          monitor.info("auth", "bootstrap_401");
+          clearSession(false);
+        }
         return current?.user ?? null;
       }
       const payload = (await res.json()) as SessionPayload;
@@ -154,6 +159,7 @@ export async function bootstrapSession(): Promise<SessionUser | null> {
       emit("signed_in");
       return user;
     } catch {
+      monitor.warn("auth", "bootstrap_network_error");
       return current?.user ?? null;
     } finally {
       bootstrapInFlight = null;
@@ -168,13 +174,17 @@ function refreshAccessToken(): Promise<string | null> {
     try {
       const res = await postBff(REFRESH_URL);
       if (!res.ok) {
-        if (res.status === 401) clearSession(true);
+        if (res.status === 401) {
+          monitor.warn("auth", "refresh_401");
+          clearSession(true);
+        }
         return current?.accessToken ?? null;
       }
       const payload = (await res.json()) as SessionPayload;
       applyPayload(payload);
       return current?.accessToken ?? null;
     } catch {
+      monitor.warn("auth", "refresh_network_error");
       // Error de red: conservamos el token actual (si lo hay) y reintentaremos luego.
       return current?.accessToken ?? null;
     } finally {
