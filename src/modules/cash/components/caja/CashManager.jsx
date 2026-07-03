@@ -13,6 +13,7 @@ import CashMovementModal from './CashMovementModal';
 import CashShiftDetailModal from './CashShiftDetailModal';
 import CashOrderDetailPanel from './CashOrderDetailPanel';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { getPaymentLabel, getOrderTileKind } from '@/shared/utils/orderUtils';
 import AdminIconSlot from '../AdminIconSlot';
 import PickupBagIcon from '../PickupBagIcon';
@@ -68,8 +69,9 @@ const CashManager = ({
     logoUrl = null,
     companyName = null,
 }) => {
-    const { cashSystem } = useAdmin();
+    const { cashSystem, companyProfile } = useAdmin();
     const { formatMoney: fmt } = useBranchMoney();
+    const { formatOrderAmount } = useOrderMoney();
     const {
         activeShift, loading: loadingSystem, movements,
         openShift, closeShift, addManualMovement,
@@ -382,7 +384,11 @@ const CashManager = ({
                                                     {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                                     {isCancel ? ' · Cancelado' : ''}
                                                     {!isCancel && order && Number(order.delivery_fee) > 0
-                                                        ? ` · Envío ${fmt(Number(order.delivery_fee))}`
+                                                        ? ` · Envío ${formatOrderAmount({
+                                                            amountUsd: Number(order.delivery_fee),
+                                                            order,
+                                                            paymentMethod: order.payment_method_specific,
+                                                        })}`
                                                         : ''}
                                                 </span>
                                             </div>
@@ -391,7 +397,14 @@ const CashManager = ({
                                             ) : (
                                                 <div className="cash-recent-amount-col">
                                                     <span className={`cash-recent-amount ${m.type === 'expense' ? 'negative' : 'positive'}`}>
-                                                        {m.type === 'expense' ? '-' : '+'}{fmt(m.amount)}
+                                                        {m.type === 'expense' ? '-' : '+'}
+                                                        {order && m.type === 'sale'
+                                                            ? formatOrderAmount({
+                                                                amountUsd: m.amount,
+                                                                order,
+                                                                paymentMethod: order.payment_method_specific,
+                                                            })
+                                                            : fmt(m.amount)}
                                                     </span>
                                                     {paymentLabel ? (
                                                         <span className="cash-recent-pay-method">{paymentLabel}</span>
@@ -539,6 +552,7 @@ const CashManager = ({
                 showNotify={showNotify}
                 logoUrl={logoUrl}
                 companyName={companyName}
+                companyProfile={companyProfile}
                 onClose={() => setSelectedMovementOrder(null)}
             />
         </div>

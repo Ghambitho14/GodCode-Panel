@@ -12,7 +12,7 @@ import { parseTagList } from "@/lib/inventory-taxonomy";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
 import { invalidateBranchSettings } from "@/modules/cash/services/branchSettingsCache";
 import { subscribeBranchUpdate } from "@/modules/cash/services/branchRealtimeHub";
-import { subscribeMonitored } from "@/shared/subscribeMonitored";
+import { subscribeMonitored, closeMonitoredChannel } from "@/shared/subscribeMonitored";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
@@ -201,7 +201,7 @@ export default function AdminMenuCartUpsellSection({
 		);
 		return () => {
 			try {
-				supabase.removeChannel(channel);
+				closeMonitoredChannel(supabase, channel);
 			} catch {
 				/* ignore */
 			}

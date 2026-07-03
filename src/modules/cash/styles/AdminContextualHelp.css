@@ -198,3 +198,29 @@
 .admin-layout .admin-cart-upsell-catalog-toggle .admin-help-tip__bubble::after {
 	border-bottom-color: rgba(255, 255, 255, 0.98);
 }
+
+.admin-menu-channel-banner {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin: 0 0 12px;
+	padding: 12px 14px;
+	border-left: 4px solid var(--gc-accent, #0078ff);
+}
+
+.admin-menu-channel-banner__icon {
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: var(--gc-accent, #0078ff);
+}
+
+.admin-menu-channel-banner__text p {
+	margin: 0;
+	font-size: 0.9rem;
+	line-height: 1.45;
+	color: var(--gc-text, #12597a);
+}
+
+.admin-menu-channel-banner__text p + p {
+	margin-top: 6px;
+}

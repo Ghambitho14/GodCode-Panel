@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { subscribeMonitored } from '@/shared/subscribeMonitored';
+import { subscribeMonitored, closeMonitoredChannel } from '@/shared/subscribeMonitored';
 import {
     BRANCHES_LIST_FIELD_KEYS,
     BRANCHES_LIST_SELECT,
@@ -157,7 +157,7 @@ export const LocationProvider = ({ children, companyId }) => {
                 fetchBranchesDebouncedRef.current = null;
             }
             try {
-                if (channel) supabase.removeChannel(channel);
+                if (channel) closeMonitoredChannel(supabase, channel);
             } catch {}
         };
     }, [companyId, storageKey]);

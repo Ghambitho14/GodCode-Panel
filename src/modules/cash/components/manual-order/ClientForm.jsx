@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Store, Truck, MapPin, User, CheckCircle2, Loader2, Banknote } from 'lucide-react';
-import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
+import { getFormStrategy } from '@/lib/geo/country-forms';
+import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { geocodeAddress } from '../../services/geocodeService';
 import { geocodeToCoords } from '../../services/placesService';
 import { haversineKm, isValidLatLng } from '@/lib/geo';
@@ -94,6 +96,11 @@ const ClientForm = ({
     isEditMode = false,
 }) => {
     const { formatMoney } = useBranchMoney();
+    const { companyProfile } = useAdmin();
+    const formStrategy = useMemo(() => {
+        const country = resolveEffectiveCountry(branch, companyProfile);
+        return getFormStrategy(country);
+    }, [branch, companyProfile]);
     const [detectingZone, setDetectingZone] = useState(false);
     const [calculatingDistance, setCalculatingDistance] = useState(false);
     const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
@@ -345,7 +352,7 @@ const ClientForm = ({
             <div className="relative w-full">
                 <input
                     type="text"
-                    placeholder="RUT / DNI / Carnet *"
+                    placeholder={`${formStrategy.idName} *`}
                     className={cn(inputClass, lockIdentityFields && inputReadonlyClass)}
                     value={manualOrder.client_rut}
                     onChange={handleRutChange}
@@ -769,7 +776,7 @@ const ClientForm = ({
                         <div className="relative w-full">
                             <input
                                 type="text"
-                                placeholder="RUT *"
+                                placeholder={`${formStrategy.idName} *`}
                                 className={inputClass}
                                 value={manualOrder.client_rut}
                                 onChange={handleRutChange}

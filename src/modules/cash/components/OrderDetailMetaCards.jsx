@@ -37,6 +37,7 @@ export default function OrderDetailMetaCards({
 	order,
 	branch = null,
 	fmt,
+	idLabel = 'RUT / DNI',
 	phoneVariant = 'default',
 	statusExtra = null,
 }) {
@@ -143,7 +144,7 @@ export default function OrderDetailMetaCards({
 							</dd>
 						</div>
 						<div className="order-detail-client-row">
-							<dt>RUT / DNI</dt>
+							<dt>{idLabel}</dt>
 							<dd>
 								{clientRut ? (
 									clientRut

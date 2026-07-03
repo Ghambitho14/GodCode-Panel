@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Lock, Unlock, AlertTriangle, CheckCircle2, Clock, DollarSign, CreditCard, Smartphone, ChevronDown, ChevronUp } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import {
     getExpectedByMethod,
     diffCounted,
@@ -72,6 +73,7 @@ function MethodCountRow({ id, label, Icon, expected, value, onChange, fmt, curre
 
 const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movements = [], getTotals, orders = [] }) => {
     const { formatMoney: fmt, currency } = useBranchMoney();
+    const { formatOrderAmount } = useOrderMoney();
     const [amount, setAmount] = useState('');
     const [countedCash, setCountedCash] = useState('');
     const [countedCard, setCountedCard] = useState('');
@@ -91,7 +93,7 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
         return getExpectedByMethod(totals, activeShift);
     }, [totals, activeShift]);
 
-    const salesRows = useMemo(() => buildShiftSalesRows(movements), [movements]);
+    const salesRows = useMemo(() => buildShiftSalesRows(movements, orders), [movements, orders]);
     const otherRows = useMemo(() => buildShiftOtherMovementRows(movements), [movements]);
 
     const openSessions = useMemo(() => {
@@ -342,7 +344,15 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
                                                         </td>
                                                         <td>{row.label}</td>
                                                         <td>{row.methodLabel}</td>
-                                                        <td className="cash-shift-close-sales-table__num">{fmt(row.amount)}</td>
+                                                        <td className="cash-shift-close-sales-table__num">
+                                                            {row.order
+                                                                ? formatOrderAmount({
+                                                                    amountUsd: row.amount,
+                                                                    order: row.order,
+                                                                    paymentMethod: row.order.payment_method_specific,
+                                                                })
+                                                                : fmt(row.amount)}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>

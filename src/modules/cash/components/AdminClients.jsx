@@ -8,9 +8,12 @@ import { downloadExcel } from '@/shared/utils/exportUtils';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
+import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
     const { formatMoney } = useBranchMoney();
+    const { companyProfile, selectedBranch } = useAdmin();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -664,6 +667,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 onClientCreated={onClientCreated}
                 showNotify={showNotify}
                 companyId={companyId}
+                formCountry={resolveEffectiveCountry(selectedBranch, companyProfile)}
             />
 
         </div>

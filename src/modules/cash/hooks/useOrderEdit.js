@@ -13,7 +13,7 @@
  */
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { validateImageFile } from '@/shared/utils/cloudinary';
-import { formatRut, validateRut } from '@/shared/utils/formatters';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { ordersService } from '../admin/orders/services/orders';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -143,7 +143,9 @@ export const useOrderEdit = (
 	initialOrder,
 	resyncOrderSale = null,
 	userRole = null,
+	formCountry = 'CL',
 ) => {
+	const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
 	const initialState = useMemo(
 		() => buildInitialState(initialOrder),
 		[initialOrder],
@@ -159,11 +161,10 @@ export const useOrderEdit = (
 	}));
 
 	const [rutValid, setRutValid] = useState(() =>
-		validateRut(String(initialOrder?.client_rut ?? '')),
+		strategy.validateId(String(initialOrder?.client_rut ?? '')),
 	);
 	const [phoneValid, setPhoneValid] = useState(() => {
-		const digitCount = String(initialOrder?.client_phone ?? '').replace(/\D/g, '').length;
-		return digitCount >= 11;
+		return strategy.validatePhone(String(initialOrder?.client_phone ?? ''));
 	});
 
 	useEffect(() => {
@@ -240,7 +241,7 @@ export const useOrderEdit = (
 		const { branchDeliveryCfg: cfg = null, subtotal = 0 } = opts;
 		const name = String(client.name ?? '').trim();
 		const rutRaw = String(client.rut ?? client.document ?? '').trim();
-		const rut = rutRaw ? formatRut(rutRaw) : '';
+		const rut = rutRaw ? strategy.formatId(rutRaw) : '';
 		const phone = normalizeManualPhone(client.phone) || '+56 9 ';
 		const clientId = client.id != null ? String(client.id) : '';
 
@@ -271,9 +272,8 @@ export const useOrderEdit = (
 			return next;
 		});
 
-		setRutValid(rut ? validateRut(rut) : false);
-		const digitCount = phone.replace(/\D/g, '').length;
-		setPhoneValid(digitCount >= 11);
+		setRutValid(rut ? strategy.validateId(rut) : false);
+		setPhoneValid(strategy.validatePhone(phone));
 	}, []);
 
 	const updateClientName = (val, opts = {}) =>
@@ -399,9 +399,9 @@ export const useOrderEdit = (
 
 	const handleRutChange = (e) => {
 		const rawValue = e.target.value;
-		const formatted = formatRut(rawValue);
+		const formatted = strategy.formatId(rawValue);
 		setManualOrder((prev) => ({ ...prev, client_rut: formatted }));
-		setRutValid(validateRut(formatted));
+		setRutValid(strategy.validateId(formatted));
 	};
 
 	const handlePhoneChange = (e) => {
@@ -538,7 +538,7 @@ export const useOrderEdit = (
 			if (prev) URL.revokeObjectURL(prev);
 			return null;
 		});
-		setRutValid(validateRut(initialState.client_rut));
+		setRutValid(strategy.validateId(initialState.client_rut));
 		const digitCount = initialState.client_phone.replace(/\D/g, '').length;
 		setPhoneValid(digitCount >= 11);
 	}, [initialState]);
@@ -641,8 +641,8 @@ export const useOrderEdit = (
 			return;
 		}
 		const rutRaw = String(manualOrder.client_rut || '').trim();
-		if (rutRaw && !validateRut(rutRaw)) {
-			showNotify?.('El RUT ingresado no es válido. Borralo o corrigelo.', 'error');
+		if (rutRaw && !strategy.validateId(rutRaw)) {
+			showNotify?.(`El ${strategy.idName} ingresado no es válido. Borralo o corrigelo.`, 'error');
 			return;
 		}
 

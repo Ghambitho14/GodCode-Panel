@@ -14,7 +14,7 @@ import {
 	Loader2,
 } from "lucide-react";
 import { getOrderPaymentDisplayLabel, getOrderPaymentPreferenceHint, isOrderPaymentDeferred, getOrderTileKind, resolveItemKitchenNote, isLegacyGlobalKitchenNote } from "@/shared/utils/orderUtils";
-import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
+import { useOrderMoney } from "@/modules/cash/hooks/useOrderMoney";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import ReportPeriodSelect from "./ReportPeriodSelect";
 import { ymdLocal } from "../utils/reportPeriodRange";
@@ -54,7 +54,7 @@ const AdminHistoryTable = ({
 	onPeriodChange,
 	setReceiptModalOrder,
 }) => {
-	const { formatMoney } = useBranchMoney();
+	const { formatMoney, formatOrderAmount } = useOrderMoney();
 	const { hydrateOrderItems, showNotify } = useAdmin();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [filterStatus, setFilterStatus] = useState("all");
@@ -249,7 +249,11 @@ const AdminHistoryTable = ({
 														</div>
 													</td>
 													<td data-label="Total" className="admin-history-total">
-														{formatMoney(o.total)}
+														{formatOrderAmount({
+															amountUsd: o.total,
+															paymentMethod: o.payment_method_specific,
+															order: o,
+														})}
 													</td>
 													<td data-label="Estado">
 														<span className={`status-badge ${st.className}`}>{st.label}</span>

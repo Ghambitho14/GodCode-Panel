@@ -18,6 +18,7 @@ import AdminCommandPalette from '../../components/AdminCommandPalette';
 import AdminShortcutsModal from '../../components/AdminShortcutsModal';
 import AdminTabFallback from '../../components/AdminTabFallback';
 import AdminBroadcastsBanner from '../../components/AdminBroadcastsBanner';
+import AdminMenuChannelBanner from '../../components/AdminMenuChannelBanner';
 import AdminTopBar from '../../components/AdminTopBar';
 import AdminNotificationCenter from '../../components/AdminNotificationCenter';
 import AdminBranchSelector from '../../components/AdminBranchSelector';
@@ -85,6 +86,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     loadData,
     refreshAllData,
     refreshOrders,
+    upsertOrder,
     refreshClients,
     refreshCatalog,
     refreshCatalogAndInventory,
@@ -120,6 +122,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     toggleCategoryActive,
     resolvedTabLabels,
     adminShortcutsEnabled,
+    menuCapabilities,
+    companyProfile,
     lastDataRefreshAt,
     loading,
     inventoryBranchRows,
@@ -521,6 +525,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           onAcknowledge={acknowledgeBroadcast}
         />
 
+        <AdminMenuChannelBanner menuCapabilities={menuCapabilities} />
+
         {branches.length === 0 && !loading ? (
           <div className="admin-empty-branches glass animate-fade" role="status">
             <div className="admin-empty-branches__icon" aria-hidden>
@@ -564,7 +570,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 products={products}
                 categories={categories}
                 localOrderChannels={localOrderChannels}
-                onOrderSaved={() => refreshOrders()}
+                onOrderSaved={upsertOrder}
               />
             </AdminErrorBoundary>
             ) : (
@@ -584,7 +590,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 products={products}
                 categories={categories}
                 localOrderChannels={localOrderChannels}
-                onOrderSaved={() => refreshOrders()}
+                onOrderSaved={upsertOrder}
               />
             </AdminErrorBoundary>
             )
@@ -1122,7 +1128,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         products={products}
         categories={categories}
         clients={clients}
-        onOrderSaved={() => refreshOrders()}
+        onOrderSaved={upsertOrder}
         showNotify={showNotify}
         branch={selectedBranch}
         logoUrl={logoUrl}

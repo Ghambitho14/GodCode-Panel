@@ -59,4 +59,14 @@ describe('monitor', () => {
 	it('isEnabled es true en entorno de test (DEV)', () => {
 		expect(monitor.isEnabled()).toBe(true);
 	});
+
+	it('countByEvent agrupa area/event del buffer', () => {
+		monitor.info('cache', 'fetch_ok', { key: 'orders:1' });
+		monitor.info('cache', 'fetch_ok', { key: 'clients:1' });
+		monitor.info('realtime', 'subscribed', { channel: 'orders' });
+		expect(monitor.countByEvent()).toEqual({
+			'cache/fetch_ok': 2,
+			'realtime/subscribed': 1,
+		});
+	});
 });

@@ -13,7 +13,11 @@ import {
     Loader2,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
+import { getFormStrategy, paymentMethodRequiresReceipt } from '@/lib/geo/country-forms';
+import { isVenezuelaCountry, resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
+import { paymentMethodUsesBolivaresInVenezuela } from '@/lib/money/venezuela-payment-copy';
+import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
 import {
     isOrderDelivery,
@@ -128,9 +132,31 @@ const OrderDetailModal = ({
     setReceiptModalOrder,
     onMarkPaid = null,
 }) => {
-    const { formatMoney: fmt } = useMemo(() => createMoneyFormatter(branch), [branch]);
+    const { companyProfile } = useAdmin();
+    const orderMoney = useOrderMoney();
+    const fmt = orderMoney.formatMoney;
+    const fmtOrder = (amount, orderRow) => orderMoney.formatOrderAmount({
+        amountUsd: amount,
+        paymentMethod: orderRow?.payment_method_specific,
+        order: orderRow,
+    });
+    const idLabel = useMemo(() => {
+        const country = resolveEffectiveCountry(branch, companyProfile);
+        return getFormStrategy(country).idName;
+    }, [branch, companyProfile]);
     const [liveOrder, setLiveOrder] = useState(order);
     const [refreshingOrder, setRefreshingOrder] = useState(false);
+    const showVeRateDisclaimer = useMemo(() => {
+        const country = resolveEffectiveCountry(branch, companyProfile);
+        if (!isVenezuelaCountry(country)) return false;
+        if (orderMoney.exchangeRate == null) return false;
+        return paymentMethodUsesBolivaresInVenezuela(liveOrder?.payment_method_specific);
+    }, [branch, companyProfile, orderMoney.exchangeRate, liveOrder?.payment_method_specific]);
+    const highlightReceipt = useMemo(() => {
+        const method = liveOrder?.payment_method_specific;
+        return paymentMethodRequiresReceipt(method)
+            || (liveOrder?.payment_type === 'online' && liveOrder?.payment_ref);
+    }, [liveOrder?.payment_method_specific, liveOrder?.payment_type, liveOrder?.payment_ref]);
 
     useEffect(() => {
         if (!order?.id) {
@@ -224,10 +250,19 @@ const OrderDetailModal = ({
         variant,
         branchAddress: branch?.address ?? null,
         companyName: companyName ?? null,
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
     });
 
+    const shareLocale = useMemo(() => ({
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
+    }), [branch, companyProfile, orderMoney.exchangeRate]);
+
     const handleCopyShare = async () => {
-        const text = buildOrderWhatsAppShareText(liveOrder, branch?.name);
+        const text = buildOrderWhatsAppShareText(liveOrder, branch?.name, shareLocale);
         try {
             await navigator.clipboard.writeText(text);
             showNotify?.('Resumen del pedido copiado.', 'success');
@@ -237,7 +272,7 @@ const OrderDetailModal = ({
     };
 
     const handleDeliveryWhatsApp = async () => {
-        const text = buildOrderDeliveryDriverPack(liveOrder, branch?.name ?? null, branch?.address ?? null);
+        const text = buildOrderDeliveryDriverPack(liveOrder, branch?.name ?? null, branch?.address ?? null, shareLocale);
         await shareDeliveryPackViaWhatsApp(text, {
             onError: (msg) => showNotify?.(msg, 'error'),
         });
@@ -350,7 +385,7 @@ const OrderDetailModal = ({
                                         </dd>
                                     </div>
                                     <div className="order-detail-receipt-dl__row">
-                                        <dt>RUT / DNI</dt>
+                                        <dt>{idLabel}</dt>
                                         <dd>
                                             {clientRut ? (
                                                 clientRut
@@ -499,8 +534,13 @@ const OrderDetailModal = ({
                                 ) : null}
                                 <div className="table-session-receipt__total-row table-session-receipt__total-row--final">
                                     <span>Total a pagar</span>
-                                    <span>{fmt(total)}</span>
+                                    <span>{fmtOrder(total, liveOrder)}</span>
                                 </div>
+                                {showVeRateDisclaimer ? (
+                                    <p className="order-detail-ve-rate-disclaimer order-detail-muted">
+                                        Equivalente en Bs. con tasa actual; el checkout no guarda tasa histórica.
+                                    </p>
+                                ) : null}
                             </section>
 
                             {isLegacyGlobalKitchenNote(liveOrder) ? (
@@ -510,10 +550,11 @@ const OrderDetailModal = ({
                                 </section>
                             ) : null}
 
-                            {liveOrder.payment_type === 'online' &&
+                            {(liveOrder.payment_type === 'online' &&
                             liveOrder.payment_ref &&
-                            String(liveOrder.payment_ref).startsWith('http') ? (
-                                <section className="table-session-receipt__section">
+                            String(liveOrder.payment_ref).startsWith('http')) ||
+                            (highlightReceipt && liveOrder.payment_ref && String(liveOrder.payment_ref).startsWith('http')) ? (
+                                <section className={`table-session-receipt__section${highlightReceipt ? ' table-session-receipt__section--receipt-highlight' : ''}`}>
                                     <a
                                         href={liveOrder.payment_ref}
                                         target="_blank"
@@ -521,8 +562,16 @@ const OrderDetailModal = ({
                                         className="table-session-receipt__link"
                                     >
                                         <ImageIcon size={16} aria-hidden />
-                                        Ver comprobante de pago
+                                        {paymentMethodRequiresReceipt(liveOrder.payment_method_specific)
+                                            ? 'Ver comprobante de pago (requerido)'
+                                            : 'Ver comprobante de pago'}
                                     </a>
+                                </section>
+                            ) : highlightReceipt && !liveOrder.payment_ref ? (
+                                <section className="table-session-receipt__section table-session-receipt__section--receipt-highlight">
+                                    <p className="order-detail-muted">
+                                        Este método requiere comprobante de pago; aún no hay referencia cargada.
+                                    </p>
                                 </section>
                             ) : null}
                         </div>

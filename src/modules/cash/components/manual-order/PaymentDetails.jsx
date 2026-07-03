@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import { Tag, Store, CreditCard, Receipt as ReceiptIcon, Upload, CheckCircle2, FileText, Coins, Split } from 'lucide-react';
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import {
     computeChangeDue,
     getCashDueAmount,
@@ -11,6 +11,15 @@ import { cn } from '@/lib/utils';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 
 const BILL_SHORTCUTS = [1000, 2000, 5000, 10000, 20000];
+
+function resolveManualCheckoutPaymentMethod(manualOrder) {
+    if (manualOrder?.payment_method_specific) return manualOrder.payment_method_specific;
+    const pt = manualOrder?.payment_type;
+    if (pt === 'tienda') return 'efectivo';
+    if (pt === 'tarjeta') return 'tarjeta';
+    if (pt === 'online') return 'transferencia_bancaria';
+    return pt;
+}
 
 const sectionTitleClass =
     'mb-2.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-gc-text-muted';
@@ -54,7 +63,13 @@ const PaymentDetails = ({
     variant = 'default',
 }) => {
     const isReceipt = variant === 'receipt';
-    const { formatMoney } = createMoneyFormatter(branch);
+    const orderMoney = useOrderMoney();
+    const { formatMoney, formatOrderAmount } = orderMoney;
+    const checkoutPaymentMethod = resolveManualCheckoutPaymentMethod(manualOrder);
+    const formatCheckoutTotal = (amount) => formatOrderAmount({
+        amountUsd: amount,
+        paymentMethod: checkoutPaymentMethod,
+    });
     const deliveryFeeAmt = manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
     const grossItems = manualOrder.total;
     const couponDiscountApplied =
@@ -368,7 +383,7 @@ const PaymentDetails = ({
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
                     <span className="text-[11px] font-extrabold uppercase tracking-wide text-gc-text-muted">Total a pagar</span>
-                    <span className="text-xl font-black text-gc-price">{formatMoney(totalToPay)}</span>
+                    <span className="text-xl font-black text-gc-price">{formatCheckoutTotal(totalToPay)}</span>
                 </div>
             </div>
             ) : hideCouponSection ? (

@@ -4,12 +4,24 @@ import { Loader2 } from "lucide-react";
 import { supabase, TABLES, bootstrapSession, logout } from "@/integrations/supabase";
 import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
 import { buildTenantThemeCss } from "@/shared/utils/panel-theme-css";
+import { buildResolvedTabLabels } from "@/shared/constants/admin-panel-tabs";
+import {
+	extractMenuSettingsFromIntegration,
+	resolvePanelCapabilities,
+} from "@/lib/tenant/menu-settings";
 import "../styles/AdminContextualHelp.css";
 import { AdminPage } from "./pages/Admin";
 import { AdminProvider } from "./pages/AdminProvider";
 import { LocationProvider } from "../context/LocationContext";
 import { applyDocumentFavicon } from "@/shared/utils/documentFavicon";
 import { resetDocumentMeta, setDocumentMeta } from "@/shared/utils/documentMeta";
+
+interface CompanyProfile {
+	country?: string | null;
+	currency?: string | null;
+	integration_settings?: unknown;
+	planFeatures?: unknown;
+}
 
 interface AdminAppProps {
 	/** Opcional: forzar empresa (solo si necesitás override explícito; por defecto se toma de la sesión). */
@@ -33,6 +45,20 @@ interface AdminAppProps {
 	storefrontMenuUrl?: string | null;
 	resolvedTabLabels?: Record<string, string>;
 	adminShortcutsEnabled?: boolean;
+	companyProfile?: CompanyProfile | null;
+}
+
+function extractPlanFeatures(planRow: unknown): unknown {
+	if (!planRow || typeof planRow !== "object") return null;
+	const row = planRow as Record<string, unknown>;
+	if ("features" in row) return row.features;
+	if (Array.isArray(planRow)) {
+		const first = planRow[0];
+		if (first && typeof first === "object" && "features" in (first as Record<string, unknown>)) {
+			return (first as Record<string, unknown>).features;
+		}
+	}
+	return null;
 }
 
 export function AdminApp({
@@ -41,12 +67,13 @@ export function AdminApp({
 	logoUrl: logoUrlProp,
 	userEmail: userEmailProp,
 	initialUserRole = null,
-	panelAccess,
+	panelAccess: panelAccessProp,
 	dynamicModules = [],
 	primaryColor,
 	storefrontMenuUrl = null,
-	resolvedTabLabels = {},
-	adminShortcutsEnabled = true,
+	resolvedTabLabels: resolvedTabLabelsProp = {},
+	adminShortcutsEnabled: adminShortcutsEnabledProp,
+	companyProfile: companyProfileProp = null,
 }: AdminAppProps) {
 	const navigate = useNavigate();
 	const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(() =>
@@ -55,11 +82,42 @@ export function AdminApp({
 	const [resolvedCompanyName, setResolvedCompanyName] = useState(companyNameProp);
 	const [resolvedUserEmail, setResolvedUserEmail] = useState<string | null>(userEmailProp ?? null);
 	const [resolvedThemeConfig, setResolvedThemeConfig] = useState<DatabaseCompanyTheme | null>(null);
-	// Rol / sucursal asignada resueltos al gatear: se pasan a AdminProvider para
-	// evitar una segunda consulta a `users` en el arranque.
+	const [resolvedCompanyProfile, setResolvedCompanyProfile] = useState<CompanyProfile | null>(
+		companyProfileProp,
+	);
+	const [resolvedPanelAccess, setResolvedPanelAccess] = useState<string[] | null | undefined>(
+		panelAccessProp,
+	);
+	const [resolvedTabLabels, setResolvedTabLabels] = useState<Record<string, string>>(
+		resolvedTabLabelsProp,
+	);
+	const [resolvedAdminShortcutsEnabled, setResolvedAdminShortcutsEnabled] = useState(
+		adminShortcutsEnabledProp ?? true,
+	);
 	const [resolvedUserRole, setResolvedUserRole] = useState<string | null>(initialUserRole);
 	const [resolvedAssignedBranchId, setResolvedAssignedBranchId] = useState<string | null>(null);
 	const [gateLoading, setGateLoading] = useState(() => !companyIdProp?.trim());
+
+	const applyCompanyRow = (co: Record<string, unknown> | null | undefined) => {
+		if (!co) return;
+		const theme = (co.theme_config as DatabaseCompanyTheme) ?? null;
+		setResolvedThemeConfig(theme);
+		setResolvedCompanyProfile({
+			country: typeof co.country === "string" ? co.country : null,
+			currency: typeof co.currency === "string" ? co.currency : null,
+			integration_settings: co.integration_settings ?? null,
+			planFeatures: extractPlanFeatures(co.plans),
+		});
+		if (panelAccessProp == null) {
+			setResolvedPanelAccess(Array.isArray(theme?.panelAccess) ? theme.panelAccess : null);
+		}
+		if (!Object.keys(resolvedTabLabelsProp).length) {
+			setResolvedTabLabels(buildResolvedTabLabels(theme?.tabLabels));
+		}
+		if (adminShortcutsEnabledProp == null) {
+			setResolvedAdminShortcutsEnabled(theme?.adminShortcutsEnabled !== false);
+		}
+	};
 
 	useEffect(() => {
 		let cancelled = false;
@@ -75,12 +133,12 @@ export function AdminApp({
 			});
 			void supabase
 				.from(TABLES.companies)
-				.select("theme_config")
+				.select("theme_config, country, currency, integration_settings, plan_id, plans(features)")
 				.eq("id", cid)
 				.maybeSingle()
 				.then(({ data: co }) => {
 					if (cancelled) return;
-					setResolvedThemeConfig((co?.theme_config as DatabaseCompanyTheme) ?? null);
+					applyCompanyRow(co as Record<string, unknown> | null);
 				});
 			return () => {
 				cancelled = true;
@@ -123,7 +181,7 @@ export function AdminApp({
 
 			const { data: co } = await supabase
 				.from(TABLES.companies)
-				.select("name, theme_config")
+				.select("name, theme_config, country, currency, integration_settings, plan_id, plans(features)")
 				.eq("id", cid)
 				.maybeSingle();
 
@@ -131,7 +189,7 @@ export function AdminApp({
 
 			setResolvedCompanyId(cid);
 			if (co?.name) setResolvedCompanyName(co.name);
-			setResolvedThemeConfig((co?.theme_config as DatabaseCompanyTheme) ?? null);
+			applyCompanyRow(co as Record<string, unknown> | null);
 			setResolvedUserEmail(emailNorm || null);
 			setResolvedUserRole((row.role as string | null) ?? null);
 			setResolvedAssignedBranchId(row.branch_id ? String(row.branch_id) : null);
@@ -141,16 +199,27 @@ export function AdminApp({
 		return () => {
 			cancelled = true;
 		};
-	}, [companyIdProp, navigate]);
+	}, [companyIdProp, navigate, panelAccessProp, resolvedTabLabelsProp, adminShortcutsEnabledProp]);
 
-	// El logo del negocio vive en `companies.theme_config.logoUrl` (Cloudinary).
-	// El prop `logoUrlProp` sigue ganando si el caller lo provee explicitamente.
+	const menuCapabilities = useMemo(() => {
+		const profile = companyProfileProp ?? resolvedCompanyProfile;
+		const menuSettings = extractMenuSettingsFromIntegration(profile?.integration_settings);
+		return resolvePanelCapabilities(menuSettings, profile?.planFeatures);
+	}, [companyProfileProp, resolvedCompanyProfile]);
+
 	const themeLogoUrl = useMemo(() => {
 		return typeof resolvedThemeConfig?.logoUrl === "string" && resolvedThemeConfig.logoUrl.trim()
 			? resolvedThemeConfig.logoUrl.trim()
 			: null;
 	}, [resolvedThemeConfig]);
 	const effectiveLogoUrl = logoUrlProp ?? themeLogoUrl;
+	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
+	const effectivePanelAccess = panelAccessProp ?? resolvedPanelAccess;
+	const effectiveTabLabels = Object.keys(resolvedTabLabelsProp).length
+		? resolvedTabLabelsProp
+		: resolvedTabLabels;
+	const effectiveAdminShortcuts =
+		adminShortcutsEnabledProp ?? resolvedAdminShortcutsEnabled;
 
 	useEffect(() => {
 		if (gateLoading || !resolvedCompanyId) return;
@@ -193,10 +262,12 @@ export function AdminApp({
 						companyId={resolvedCompanyId}
 						initialUserRole={initialUserRole ?? resolvedUserRole}
 						initialAssignedBranchId={resolvedAssignedBranchId}
-						panelAccess={panelAccess}
+						panelAccess={effectivePanelAccess}
 						dynamicModules={dynamicModules}
-						resolvedTabLabels={resolvedTabLabels}
-						adminShortcutsEnabled={adminShortcutsEnabled}
+						resolvedTabLabels={effectiveTabLabels}
+						adminShortcutsEnabled={effectiveAdminShortcuts}
+						companyProfile={effectiveCompanyProfile}
+						menuCapabilities={menuCapabilities}
 					>
 						<AdminPage
 							companyName={resolvedCompanyName}

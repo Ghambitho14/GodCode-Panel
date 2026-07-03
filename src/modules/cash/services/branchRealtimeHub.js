@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase';
-import { subscribeMonitored } from '@/shared/subscribeMonitored';
+import { subscribeMonitored, closeMonitoredChannel } from '@/shared/subscribeMonitored';
 
 /**
  * Hub de Realtime para UPDATE de `branches`. Mantiene un único canal por sucursal
@@ -56,7 +56,7 @@ export function subscribeBranchUpdate(branchId, onUpdate) {
 		current.listeners.delete(onUpdate);
 		if (current.listeners.size === 0) {
 			try {
-				supabase.removeChannel(current.channel);
+				closeMonitoredChannel(supabase, current.channel);
 			} catch {
 				/* ignore */
 			}

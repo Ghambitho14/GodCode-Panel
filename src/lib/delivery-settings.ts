@@ -377,6 +377,8 @@ export type DeliverySettingsNormalized = {
 	taxRate: number | null;
 	/** Si true, los precios del catálogo ya incluyen IVA. */
 	taxIncluded: boolean;
+	/** Tasa manual USD → Bs. (Venezuela); fallback si BCV no responde en menú. */
+	exchangeRate: number | null;
 };
 
 export type DeliverySettingsPublic = DeliverySettingsNormalized;
@@ -402,6 +404,7 @@ const DEFAULTS: DeliverySettingsNormalized = {
 	namedAreas: [],
 	taxRate: null,
 	taxIncluded: true,
+	exchangeRate: null,
 };
 
 function clampNonNeg(n: number, max: number): number {
@@ -414,6 +417,13 @@ function parseOptionalCap(raw: unknown): number | null {
 	const n = Number(raw);
 	if (!Number.isFinite(n) || n < 0) return null;
 	return Math.min(DELIVERY_MAX_FEE_CAP, n);
+}
+
+function parseOptionalExchangeRate(raw: unknown): number | null {
+	if (raw === null || raw === undefined || raw === "") return null;
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0) return null;
+	return Math.round(n * 1000) / 1000;
 }
 
 function parseOptionalTaxRate(raw: unknown): number | null {
@@ -759,6 +769,7 @@ export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormali
 		customerNotes: parseNotes(notes),
 		taxRate: parseOptionalTaxRate(o.taxRate ?? o.tax_rate),
 		taxIncluded: parseBool(o.taxIncluded ?? o.tax_included, DEFAULTS.taxIncluded),
+		exchangeRate: parseOptionalExchangeRate(o.exchangeRate ?? o.exchange_rate),
 	};
 }
 
@@ -923,6 +934,19 @@ export function mergeDeliverySettingsJson(
 	if ("taxIncluded" in patch && typeof patch.taxIncluded === "boolean") {
 		next.taxIncluded = patch.taxIncluded;
 		delete next.tax_included;
+	}
+	if ("exchangeRate" in patch) {
+		const v = patch.exchangeRate;
+		if (v === null || v === "") {
+			next.exchangeRate = null;
+			delete next.exchange_rate;
+		} else {
+			const parsed = parseOptionalExchangeRate(v);
+			if (parsed != null) {
+				next.exchangeRate = parsed;
+				delete next.exchange_rate;
+			}
+		}
 	}
 
 	/** Solo panel staff; no forma parte del contrato público de cotización. */

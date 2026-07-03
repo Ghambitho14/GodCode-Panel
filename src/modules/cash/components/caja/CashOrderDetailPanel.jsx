@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-	X, KeyRound, MapPin, Send, ExternalLink, ChefHat, Banknote,
+	X, KeyRound, MapPin, Send, ExternalLink, ChefHat, Banknote, Phone,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import {
 	isOrderDelivery,
@@ -20,7 +21,7 @@ import {
 	ORDERS_PANEL_SELECT,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
-import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
+import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
 import OrderDetailMetaCards from '../OrderDetailMetaCards';
 import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
@@ -103,8 +104,15 @@ export default function CashOrderDetailPanel({
 	showNotify,
 	logoUrl = null,
 	companyName = null,
+	companyProfile = null,
 }) {
-	const { formatMoney: fmt } = useMemo(() => createMoneyFormatter(branch), [branch]);
+	const orderMoney = useOrderMoney();
+	const { formatMoney: fmt, formatOrderAmount } = orderMoney;
+	const formStrategy = useMemo(
+		() => getFormStrategy(branch?.country ?? companyProfile?.country),
+		[branch?.country, companyProfile?.country],
+	);
+	const idLabel = formStrategy.idName;
 	const [liveOrder, setLiveOrder] = useState(order);
 	const [refreshingOrder, setRefreshingOrder] = useState(false);
 
@@ -172,6 +180,10 @@ export default function CashOrderDetailPanel({
 	const hasNote = Boolean(noteBranchLine || noteBody);
 	const clientPhone = resolveOrderClientPhoneForDisplay(displayOrder);
 	const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
+	const telDigits = clientPhone ? normalizePhoneDigits(clientPhone) : '';
+	const telHref = telDigits
+		? `tel:+${telDigits.startsWith('56') ? telDigits : `56${telDigits}`}`
+		: null;
 	const fulfillmentKind = getOrderFulfillmentKind(displayOrder);
 	const fulfillmentLabel = getOrderFulfillmentDisplayLabel(displayOrder);
 	const sessionNumber = displayOrder.shift_sequence ?? null;
@@ -180,13 +192,23 @@ export default function CashOrderDetailPanel({
 		variant,
 		branchAddress: branch?.address ?? null,
 		companyName: companyName ?? null,
+		branch,
+		company: companyProfile,
+		exchangeRate: orderMoney.exchangeRate,
 	});
+
+	const shareLocale = useMemo(() => ({
+		branch,
+		company: companyProfile,
+		exchangeRate: orderMoney.exchangeRate,
+	}), [branch, companyProfile, orderMoney.exchangeRate]);
 
 	const handleDeliveryWhatsApp = async () => {
 		const text = buildOrderDeliveryDriverPack(
 			displayOrder,
 			branch?.name ?? null,
 			branch?.address ?? null,
+			shareLocale,
 		);
 		await shareDeliveryPackViaWhatsApp(text, {
 			onError: (msg) => showNotify?.(msg, 'error'),
@@ -233,6 +255,7 @@ export default function CashOrderDetailPanel({
 						order={displayOrder}
 						branch={branch}
 						fmt={fmt}
+						idLabel={idLabel}
 						phoneVariant="cash"
 						statusExtra={
 							refreshingOrder ? (
@@ -393,7 +416,13 @@ export default function CashOrderDetailPanel({
 				<div className="order-detail-foot cash-order-detail-foot">
 					<div className="order-detail-total-row cash-order-detail-total-row">
 						<span className="order-detail-label order-detail-label--inline">Total</span>
-						<span className="order-detail-total">{fmt(displayOrder.total || 0)}</span>
+						<span className="order-detail-total">
+							{formatOrderAmount({
+								amountUsd: displayOrder.total || 0,
+								order: displayOrder,
+								paymentMethod: displayOrder.payment_method_specific,
+							})}
+						</span>
 					</div>
 					<button type="button" className="admin-btn primary order-detail-done" onClick={onClose}>
 						Cerrar

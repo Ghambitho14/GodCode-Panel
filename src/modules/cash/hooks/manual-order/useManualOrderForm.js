@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { formatRut, validateRut } from '@/shared/utils/formatters';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { firstEnabledLocalChannel, parseLocalOrderChannels } from '@/lib/delivery-settings';
 import {
     normalizeManualPhone,
@@ -20,7 +20,8 @@ const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
  * nombre del cliente, RUT (formateo y validación), teléfono, notas del pedido, tipo de despacho,
  * dirección de entrega, kilómetros, tarifas y comprobantes de pago.
  */
-export const useManualOrderForm = (enabledLocalChannels = null) => {
+export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'CL') => {
+    const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
     const resolvedChannels = useMemo(
         () => parseLocalOrderChannels(enabledLocalChannels),
         [
@@ -190,15 +191,16 @@ export const useManualOrderForm = (enabledLocalChannels = null) => {
 
     const handleRutChange = useCallback((e) => {
         const rawValue = e.target.value;
-        const formatted = formatRut(rawValue);
+        const formatted = strategy.formatId(rawValue);
         setForm(prev => ({ ...prev, client_rut: formatted }));
-        setRutValid(validateRut(formatted));
-    }, []);
+        setRutValid(strategy.validateId(formatted));
+    }, [strategy]);
 
     const handlePhoneChange = useCallback((e) => {
         let input = e.target.value;
-        if (!input.startsWith("+56 9")) {
-            if (input.length < 6) input = "+56 9 ";
+        const prefix = strategy.phonePrefix;
+        if (!input.startsWith(prefix.trim())) {
+            if (input.length < prefix.trim().length + 2) input = prefix;
         }
         const cleaned = input;
         setForm((prev) => ({
@@ -211,9 +213,8 @@ export const useManualOrderForm = (enabledLocalChannels = null) => {
             } : {}),
         }));
 
-        const digitCount = cleaned.replace(/\D/g, '').length;
-        setPhoneValid(digitCount >= 11);
-    }, []);
+        setPhoneValid(strategy.validatePhone(cleaned));
+    }, [strategy]);
 
     const applyClientRecord = useCallback(async (client, opts = {}) => {
         if (!client || typeof client !== 'object') return;
@@ -221,8 +222,8 @@ export const useManualOrderForm = (enabledLocalChannels = null) => {
         const { branchDeliveryCfg = null, subtotal = 0 } = opts;
         const name = String(client.name ?? '').trim();
         const rutRaw = String(client.rut ?? client.document ?? '').trim();
-        const rut = rutRaw ? formatRut(rutRaw) : '';
-        const phone = normalizeManualPhone(client.phone) || '+56 9 ';
+        const rut = rutRaw ? strategy.formatId(rutRaw) : '';
+        const phone = normalizeManualPhone(client.phone) || strategy.phonePrefix;
         const clientId = client.id != null ? String(client.id) : '';
 
         let savedAddresses = [];
@@ -257,10 +258,9 @@ export const useManualOrderForm = (enabledLocalChannels = null) => {
             return next;
         });
 
-        setRutValid(rut ? validateRut(rut) : false);
-        const digitCount = phone.replace(/\D/g, '').length;
-        setPhoneValid(digitCount >= 11);
-    }, []);
+        setRutValid(rut ? strategy.validateId(rut) : false);
+        setPhoneValid(strategy.validatePhone(phone));
+    }, [strategy]);
 
     const resetForm = useCallback(() => {
         setForm({ ...initialFormState });

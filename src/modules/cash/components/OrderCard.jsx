@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
 import {
     buildOrderWhatsAppShareText,
@@ -54,8 +54,22 @@ const OrderCard = ({
     localOrderChannels = null,
     gridTile = false,
 }) => {
-    const { cashSystem, markOrderSessionPaid, closeOrderSession, orders, hydrateOrderItems } = useAdmin();
-    const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
+    const { cashSystem, markOrderSessionPaid, closeOrderSession, orders, hydrateOrderItems, companyProfile } = useAdmin();
+    const orderMoney = useOrderMoney();
+    const shareLocale = useMemo(() => ({
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
+    }), [branch, companyProfile, orderMoney.exchangeRate]);
+    const formatMoney = orderMoney.formatMoney;
+    const formatOrderTotal = useCallback(
+        (orderRow) => orderMoney.formatOrderAmount({
+            amountUsd: orderRow?.total,
+            paymentMethod: orderRow?.payment_method_specific,
+            order: orderRow,
+        }),
+        [orderMoney],
+    );
     const liveOrder = useMemo(
         () => (orders || []).find((o) => o.id === order.id) ?? order,
         [orders, order],
@@ -66,6 +80,7 @@ const OrderCard = ({
     const [paymentModalIntent, setPaymentModalIntent] = useState(null);
     const [expanded, setExpanded] = useState(false);
     const [itemsHydrating, setItemsHydrating] = useState(false);
+    const [editPreparing, setEditPreparing] = useState(false);
     const ticketMenuRef = useRef(null);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
@@ -74,6 +89,9 @@ const OrderCard = ({
         variant,
         branchAddress: branch?.address ?? null,
         companyName: companyName ?? null,
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
     });
 
     const menuOpen = ticketMenuOpen;
@@ -108,7 +126,7 @@ const OrderCard = ({
 
     const handleCopyShare = async (e) => {
         e.stopPropagation();
-        const text = buildOrderWhatsAppShareText(order, branch?.name);
+        const text = buildOrderWhatsAppShareText(order, branch?.name, shareLocale);
         try {
             await navigator.clipboard.writeText(text);
             showNotify?.(
@@ -123,7 +141,7 @@ const OrderCard = ({
 
     const handleDeliveryWhatsApp = async (e) => {
         e.stopPropagation();
-        const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null);
+        const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null, shareLocale);
         await shareDeliveryPackViaWhatsApp(text, {
             onError: (msg) => showNotify?.(msg, 'error'),
         });
@@ -154,6 +172,24 @@ const OrderCard = ({
             }
         }
         setExpanded(true);
+    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+
+    const handleOpenEdit = useCallback(async (e) => {
+        e.stopPropagation();
+        setTicketMenuOpen(false);
+        if (!hasLoadedItems && hydrateOrderItems) {
+            setEditPreparing(true);
+            try {
+                await hydrateOrderItems(order.id);
+            } catch (err) {
+                console.error('Error hydrating order items for edit:', err);
+                showNotify?.('No se pudieron cargar los productos del pedido', 'error');
+                return;
+            } finally {
+                setEditPreparing(false);
+            }
+        }
+        setEditWizardOpen(true);
     }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
 
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
@@ -523,7 +559,7 @@ const OrderCard = ({
                 <div className={`card-total${gridTile ? ' kanban-card-receipt-total kanban-card-receipt-total--final' : ''}`}>
                     <span className="total-label">{gridTile ? 'Total' : 'TOTAL'}</span>
                     <div className="card-total-amounts">
-                        <span className="total-amount">{formatMoney(order.total)}</span>
+                        <span className="total-amount">{formatOrderTotal(liveOrder)}</span>
                         {discountMeta ? (
                             <span
                                 className="card-total-before"
@@ -575,16 +611,13 @@ const OrderCard = ({
                     ) : null}
                     <button
                         type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setTicketMenuOpen(false);
-                            setEditWizardOpen(true);
-                        }}
+                        onClick={handleOpenEdit}
                         className="btn-icon-action"
                         title="Editar pedido"
                         aria-label="Editar pedido"
+                        disabled={editPreparing}
                     >
-                        <Edit2 size={16} />
+                        {editPreparing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Edit2 size={16} />}
                     </button>
                 </div>
             </div>
@@ -617,7 +650,7 @@ const OrderCard = ({
             {editWizardOpen ? (
                 <ManualOrderModal
                     isOpen={editWizardOpen}
-                    editOrder={order}
+                    editOrder={liveOrder}
                     moveOrder={moveOrder}
                     onClose={() => setEditWizardOpen(false)}
                     products={products}

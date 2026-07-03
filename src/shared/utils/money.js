@@ -1,4 +1,5 @@
 import { safeNumber } from '@/shared/utils/numberSafe';
+import { resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
 
 /** @typedef {{ currency?: string | null, country?: string | null }} BranchMoneySource */
 
@@ -100,10 +101,11 @@ export function formatMoneyOrFree(amount, freeLabel = 'GRATIS') {
 
 /**
  * @param {BranchMoneySource | null | undefined} branch
+ * @param {{ currency?: string | null; country?: string | null } | null | undefined} [company]
  * @returns {{ currency: string, locale: string, formatMoney: (amount: unknown) => string, formatMoneyPlain: (amount: unknown) => string }}
  */
-export function createMoneyFormatter(branch) {
-	const currency = normalizeCurrencyCode(branch?.currency);
+export function createMoneyFormatter(branch, company) {
+	const currency = resolveEffectiveCurrency(branch, company);
 	const locale = localeForCurrency(currency);
 	const fractionDigits = fractionDigitsForCurrency(currency);
 
@@ -117,8 +119,9 @@ export function createMoneyFormatter(branch) {
 
 /**
  * @param {BranchMoneySource | null | undefined} branch
+ * @param {{ currency?: string | null; country?: string | null } | null | undefined} [company]
  * @returns {string}
  */
-export function branchCurrencyCode(branch) {
-	return normalizeCurrencyCode(branch?.currency);
+export function branchCurrencyCode(branch, company) {
+	return resolveEffectiveCurrency(branch, company);
 }

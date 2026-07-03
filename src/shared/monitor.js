@@ -105,6 +105,21 @@ function getRecent(limit = 50) {
 	return buffer.slice(-n);
 }
 
+/**
+ * Agrupa eventos del buffer por `area/event` (útil para medir ruido vs fetches reales).
+ * @param {number} [limit]
+ * @returns {Record<string, number>}
+ */
+function countByEvent(limit = BUFFER_MAX) {
+	const n = Math.max(1, Math.min(limit, BUFFER_MAX));
+	const counts = /** @type {Record<string, number>} */ ({});
+	for (const entry of buffer.slice(-n)) {
+		const key = `${entry.area}/${entry.event}`;
+		counts[key] = (counts[key] ?? 0) + 1;
+	}
+	return counts;
+}
+
 function clear() {
 	buffer.length = 0;
 }
@@ -134,6 +149,7 @@ export const monitor = {
 	error,
 	isEnabled,
 	getRecent,
+	countByEvent,
 	clear,
 	resetForTests,
 };
@@ -141,6 +157,7 @@ export const monitor = {
 if (typeof window !== 'undefined' && isDev()) {
 	window.__gcMonitor = {
 		getRecent,
+		countByEvent,
 		clear,
 		isEnabled,
 	};

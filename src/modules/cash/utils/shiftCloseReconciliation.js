@@ -1,4 +1,5 @@
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
+import { getOrderForMovement } from './getOrderForMovement';
 
 /**
  * Cuadre guardado en turno cerrado (usa snapshots en BD o fallback desde movimientos).
@@ -75,8 +76,9 @@ function saleRowLabel(m) {
 /**
  * Ventas del turno para tabla de cierre.
  * @param {Array<Record<string, unknown>>} movements
+ * @param {Array<Record<string, unknown>>} [ordersList]
  */
-export function buildShiftSalesRows(movements) {
+export function buildShiftSalesRows(movements, ordersList = []) {
     return (movements || [])
         .filter((m) => m.type === 'sale')
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -86,6 +88,7 @@ export function buildShiftSalesRows(movements) {
             label: saleRowLabel(m),
             methodLabel: movementPaymentLabel(m),
             amount: Number(m.amount) || 0,
+            order: getOrderForMovement(m, ordersList),
         }));
 }
 

@@ -3,6 +3,8 @@ import { Clock, Package, Printer, ChefHat, Banknote } from 'lucide-react';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
 import { getOrderTileKind, getOrderFulfillmentDisplayLabel, isOrderPaymentSettled } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
+import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import DeliveryMotoIcon from './DeliveryMotoIcon';
 import TableRestaurantIcon from './TableRestaurantIcon';
@@ -20,7 +22,9 @@ const STATUS_LABEL = {
 	completed: 'Listo',
 };
 
-export default function TableTile({ order, onClick, branchName = null, logoUrl = null }) {
+export default function TableTile({ order, onClick, branchName = null, logoUrl = null, branch = null }) {
+	const { companyProfile } = useAdmin();
+	const orderMoney = useOrderMoney();
 	const kind = getOrderTileKind(order);
 	const number = order.shift_sequence ?? order.id;
 	const statusClass = STATUS_CLASS[order.status] || 'table-tile--pending';
@@ -31,15 +35,22 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 	const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
 	const ticketMenuRef = useRef(null);
 
+	const ticketPrintOpts = (variant) => ({
+		variant,
+		branch,
+		company: companyProfile,
+		exchangeRate: orderMoney.exchangeRate,
+	});
+
 	const printKitchen = (e) => {
 		e.stopPropagation();
-		printOrderTicket(order, branchName, logoUrl ?? null, { variant: 'kitchen' });
+		printOrderTicket(order, branchName, logoUrl ?? null, ticketPrintOpts('kitchen'));
 		setTicketMenuOpen(false);
 	};
 
 	const printCashier = (e) => {
 		e.stopPropagation();
-		printOrderTicket(order, branchName, logoUrl ?? null, { variant: 'cashier' });
+		printOrderTicket(order, branchName, logoUrl ?? null, ticketPrintOpts('cashier'));
 		setTicketMenuOpen(false);
 	};
 

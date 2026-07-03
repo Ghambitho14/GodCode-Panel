@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 
 import { CheckCircle2 } from 'lucide-react';
 
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
 import {
 
@@ -73,7 +73,13 @@ export default function CloseTableModal({
 
 	const kind = useMemo(() => getOrderTileKind(order), [order]);
 
-	const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
+	const orderMoney = useOrderMoney();
+	const { formatMoney, formatOrderAmount } = orderMoney;
+	const formatOrderTotal = (amount, orderRow) => formatOrderAmount({
+		amountUsd: amount,
+		order: orderRow,
+		paymentMethod: orderRow?.payment_method_specific,
+	});
 
 	const [form, setForm] = useState(DEFAULT_FORM);
 
@@ -263,6 +269,8 @@ export default function CloseTableModal({
 							order={order}
 
 							formatMoney={formatMoney}
+
+							formatOrderTotal={formatOrderTotal}
 
 							kind={kind}
 

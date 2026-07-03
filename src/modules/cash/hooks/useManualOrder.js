@@ -4,7 +4,8 @@ import { useManualOrderForm } from './manual-order/useManualOrderForm';
 import { useCouponValidation } from './manual-order/useCouponValidation';
 import { useReceiptUpload } from './manual-order/useReceiptUpload';
 import { createManualOrder } from '../admin/orders/services/orders';
-import { validateRut } from '@/shared/utils/formatters';
+import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
@@ -23,7 +24,12 @@ import {
  * Hook orquestador principal del pedido manual.
  * Delega lógicas específicas a sub-hooks especializados y expone una API unificada compatible.
  */
-export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false, localOrderChannels = null) => {
+export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false, localOrderChannels = null, companyProfile = null) => {
+    const formCountry = useMemo(
+        () => resolveEffectiveCountry(branch, companyProfile),
+        [branch, companyProfile],
+    );
+    const formStrategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
     
     // 1. Sub-hook para el Carrito
     const {
@@ -65,7 +71,7 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         resetForm,
         resetOpenMesaForm,
         getInputStyle
-    } = useManualOrderForm(localOrderChannels);
+    } = useManualOrderForm(localOrderChannels, formCountry);
 
     // 3. Sub-hook para Cupones
     const {
@@ -236,15 +242,13 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
                     showNotify('Busca y selecciona un cliente registrado o escribe un nombre', 'error');
                     return;
                 }
-                const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
-                if (!form.client_rut || !validateRut(form.client_rut) || digitCount < 11) {
-                    showNotify('Faltan datos de cliente o son incorrectos (RUT y teléfono)', 'error');
+                if (!form.client_rut || !formStrategy.validateId(form.client_rut) || !formStrategy.validatePhone(form.client_phone || '')) {
+                    showNotify(`Faltan datos de cliente o son incorrectos (${formStrategy.idName} y teléfono)`, 'error');
                     return;
                 }
             }
         } else {
-            const digitCount = (form.client_phone || '').replace(/\D/g, '').length;
-            if (!form.client_name || form.client_name.trim().length < 3 || digitCount < 11 || items.length === 0) {
+            if (!form.client_name || form.client_name.trim().length < 3 || !formStrategy.validatePhone(form.client_phone || '') || items.length === 0) {
                 showNotify('Faltan datos obligatorios o son incorrectos', 'error');
                 return;
             }
@@ -286,8 +290,8 @@ export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branch
         }
 
         if (!openMesaMode) {
-            if (!form.client_rut || !validateRut(form.client_rut)) {
-                showNotify('El RUT ingresado no es válido', 'error');
+            if (!form.client_rut || !formStrategy.validateId(form.client_rut)) {
+                showNotify(`El ${formStrategy.idName} ingresado no es válido`, 'error');
                 return;
             }
         }

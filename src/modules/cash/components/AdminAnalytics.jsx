@@ -31,6 +31,8 @@ import {
     ymdLocal,
 } from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
+import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel, ORDERS_ANALYTICS_METRICS_SELECT, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
 import { fetchTopProducts, fetchAnalyticsSummary } from '../services/analyticsService';
 import {
@@ -249,9 +251,27 @@ function resolveTopProductsRange(reportRange) {
 /** `orders` desde el panel sigue limitado a 100 filas (kanban). Los KPIs usan fetch propio vía `analyticsOrders`. */
 const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch, view = 'full' }) => {
     const { formatMoney: fmt, currency } = useMemo(
-        () => createMoneyFormatter(selectedBranch),
-        [selectedBranch],
+        () => createMoneyFormatter(selectedBranch, companyProfile),
+        [selectedBranch, companyProfile],
     );
+
+    const multiCurrencyWarning = useMemo(() => {
+        if (selectedBranch?.id !== 'all') return null;
+        const realBranches = (branches || []).filter((b) => b.id && b.id !== 'all');
+        if (realBranches.length < 2) return null;
+        const currencies = new Set(
+            realBranches.map((b) => resolveEffectiveCurrency(b, companyProfile)),
+        );
+        if (currencies.size <= 1) return null;
+        return `Las sucursales usan monedas distintas (${[...currencies].join(', ')}). Los totales no convierten entre monedas.`;
+    }, [selectedBranch?.id, branches, companyProfile]);
+
+    const exportIdLabel = useMemo(() => {
+        const country = selectedBranch?.id === 'all'
+            ? companyProfile?.country
+            : resolveEffectiveCountry(selectedBranch, companyProfile);
+        return getFormStrategy(country).idName;
+    }, [selectedBranch, companyProfile]);
     const [filterPeriod, setFilterPeriod] = useState(() => (view === 'expensesOnly' ? 'month' : '7'));
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('bar-gradient');
@@ -280,7 +300,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [expensePreviewState, setExpensePreviewState] = useState(null);
     /** @type {'all' | 'operating' | 'cash_withdrawal' | 'order_refund'} */
     const [expenseKindFilter, setExpenseKindFilter] = useState('all');
-    const { cashSystem, moveOrder } = useAdmin();
+    const { cashSystem, moveOrder, companyProfile } = useAdmin();
 
     const reportRange = useMemo(
         () => resolveReportPeriodRange(filterPeriod),
@@ -765,6 +785,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 return;
             }
 
+            const branchById = Object.fromEntries(
+                (branches || [])
+                    .filter((b) => b?.id && b.id !== 'all')
+                    .map((b) => [String(b.id), b]),
+            );
+
             const dataToExport = fullMonthOrders.map(order => {
                 const d = new Date(order.created_at);
                 let items = Array.isArray(order.items) ? order.items : [];
@@ -772,14 +798,17 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     try { items = JSON.parse(order.items); } catch {}
                 }
                 const itemsText = items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
+                const orderBranch = branchById[String(order.branch_id)] ?? null;
+                const orderCurrency = resolveEffectiveCurrency(orderBranch, companyProfile);
                 return {
                     Fecha: d.toLocaleDateString('es-CL'),
                     Hora: d.toLocaleTimeString('es-CL'),
                     Cliente: order.client_name,
-                    RUT: order.client_rut,
+                    [exportIdLabel]: order.client_rut,
                     Teléfono: order.client_phone,
                     Items: itemsText,
                     Total: order.total,
+                    Moneda: orderCurrency,
                     'Método Pago': getPaymentLabel(order) || '',
                     'Ref. Pago': order.payment_ref || ''
                 };
@@ -1762,6 +1791,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     return (
         <div className="rpt-container rpt-container--compact-toolbar animate-fade">
             {reportPeriodHeader}
+            {multiCurrencyWarning ? (
+                <p className="rpt-kpi-meta rpt-multi-currency-warning" style={{ margin: '0 0 1rem 0' }}>
+                    {multiCurrencyWarning}
+                </p>
+            ) : null}
             {analyticsSource === 'fallback' && (
                 <p className="rpt-kpi-meta" style={{ margin: '0 0 1rem 0' }}>
                     Mostrando hasta 2000 pedidos; las métricas pueden estar truncadas.

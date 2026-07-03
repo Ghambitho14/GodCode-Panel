@@ -16,6 +16,7 @@ import {
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
+import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 
 // Subcomponentes presentacionales
@@ -107,7 +108,7 @@ const ManualOrderModal = ({
     openMesaMode = false,
     localOrderChannels = null,
 }) => {
-    const { userRole, markOrderSessionPaid, orders } = useAdmin();
+    const { userRole, markOrderSessionPaid, orders, companyProfile } = useAdmin();
     const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
     const isEditMode = Boolean(editOrder?.id);
     const liveEditOrder = useMemo(() => {
@@ -127,7 +128,7 @@ const ManualOrderModal = ({
         beverages: [],
         extras: [],
     });
-    const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
+    const { formatMoney } = useMemo(() => createMoneyFormatter(branch, companyProfile), [branch, companyProfile]);
 
     const createHook = useManualOrder(
         showNotify,
@@ -138,6 +139,7 @@ const ManualOrderModal = ({
         userRole,
         openMesaMode,
         localOrderChannels,
+        companyProfile,
     );
 
     const editHook = useOrderEdit(
@@ -146,9 +148,10 @@ const ManualOrderModal = ({
         onClose,
         branch,
         branchDeliveryCfg,
-        isEditMode ? editOrder : null,
+        isEditMode ? liveEditOrder : null,
         resyncOrderSale,
         userRole,
+        resolveEffectiveCountry(branch, companyProfile),
     );
 
     const {

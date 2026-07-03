@@ -14,7 +14,7 @@ dist-ssr
 .next
 .vercel
 *.local
-
+supabase-backup/
 # Variables de entorno: nunca commitear secrets ni credenciales del proyecto.
 # `.env.example` SI se versiona (template publico, sin valores reales).
 .env

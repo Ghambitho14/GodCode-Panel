@@ -25,6 +25,7 @@ function formatOrderRef(orderId) {
 export default function TableSessionReceipt({
 	order,
 	formatMoney,
+	formatOrderTotal,
 	kind,
 	mode = 'session',
 	titleId,
@@ -194,7 +195,11 @@ export default function TableSessionReceipt({
 					) : null}
 					<div className="table-session-receipt__total-row table-session-receipt__total-row--final">
 						<span>Total a pagar</span>
-						<span>{formatMoney(total)}</span>
+						<span>
+							{formatOrderTotal
+								? formatOrderTotal(total, order)
+								: formatMoney(total)}
+						</span>
 					</div>
 				</section>
 

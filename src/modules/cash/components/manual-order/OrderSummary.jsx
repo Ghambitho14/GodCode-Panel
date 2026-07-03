@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ShoppingBag, Printer, ChefHat, Banknote, Minus, Plus, StickyNote, Trash2, Receipt } from 'lucide-react';
-import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../../constants/productImagePlaceholder';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ const OrderSummary = ({
     printManualCaja,
     showCheckoutTotals = false,
 }) => {
-    const { formatMoney } = useBranchMoney();
+    const { formatMoney, formatOrderAmount } = useOrderMoney();
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
     const [openNoteIds, setOpenNoteIds] = useState(() => new Set());
     const printMenuRef = useRef(null);
@@ -248,7 +248,19 @@ const OrderSummary = ({
                     </div>
                     <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
                         <span className="text-xs font-black uppercase tracking-wider text-gc-text-muted">Total</span>
-                        <span className="text-lg font-black text-gc-text">{formatMoney(checkoutTotal)}</span>
+                        <span className="text-lg font-black text-gc-text">
+                            {formatOrderAmount({
+                                amountUsd: checkoutTotal,
+                                paymentMethod: manualOrder.payment_method_specific
+                                    ?? (manualOrder.payment_type === 'tienda'
+                                        ? 'efectivo'
+                                        : manualOrder.payment_type === 'tarjeta'
+                                            ? 'tarjeta'
+                                            : manualOrder.payment_type === 'online'
+                                                ? 'transferencia_bancaria'
+                                                : manualOrder.payment_type),
+                            })}
+                        </span>
                     </div>
                 </div>
             )}

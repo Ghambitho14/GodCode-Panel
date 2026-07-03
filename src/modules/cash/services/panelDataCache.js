@@ -28,6 +28,10 @@ function ordersKey(companyId, branchId) {
 	return `orders:${String(companyId)}:${String(branchId)}`;
 }
 
+function inventoryKey(branchId) {
+	return `inventory:${String(branchId)}`;
+}
+
 function storageKey(key) {
 	return STORAGE_PREFIX + key;
 }
@@ -78,9 +82,6 @@ async function getCached(key, fetcher, options = {}) {
 	if (!force) {
 		const hit = entries.get(key);
 		if (isFresh(hit, maxAgeMs)) {
-			if (import.meta.env.DEV) {
-				monitor.info('cache', 'hit_ram', { key });
-			}
 			return /** @type {T} */ (hit.data);
 		}
 
@@ -88,9 +89,6 @@ async function getCached(key, fetcher, options = {}) {
 			const sessionHit = readSession(key);
 			if (isFresh(sessionHit, maxAgeMs)) {
 				entries.set(key, sessionHit);
-				if (import.meta.env.DEV) {
-					monitor.info('cache', 'hit_session', { key });
-				}
 				return /** @type {T} */ (sessionHit.data);
 			}
 		}
@@ -98,9 +96,6 @@ async function getCached(key, fetcher, options = {}) {
 
 	const pending = inFlight.get(key);
 	if (pending) {
-		if (import.meta.env.DEV) {
-			monitor.info('cache', 'inflight_dedup', { key });
-		}
 		return /** @type {Promise<T>} */ (pending);
 	}
 
@@ -167,6 +162,23 @@ export function invalidateCompanyClients(companyId) {
 export function invalidateBranchOrders(companyId, branchId) {
 	if (!companyId || !branchId) return;
 	invalidate(ordersKey(companyId, branchId), false);
+}
+
+/**
+ * @template T
+ * @param {string | null | undefined} branchId
+ * @param {() => Promise<T>} fetcher
+ * @param {{ force?: boolean }} [options]
+ */
+export function getBranchInventory(branchId, fetcher, options) {
+	if (!branchId || branchId === 'all') return fetcher();
+	return getCached(inventoryKey(branchId), fetcher, { force: options?.force });
+}
+
+/** @param {string | null | undefined} branchId */
+export function invalidateBranchInventory(branchId) {
+	if (!branchId || branchId === 'all') return;
+	invalidate(inventoryKey(branchId), false);
 }
 
 export function invalidateAllPanelData() {

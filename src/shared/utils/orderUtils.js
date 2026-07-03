@@ -1,5 +1,6 @@
 /** Etiquetas para método de pago específico (coincide con keys del carrito/SaaS). */
 import { formatMoney, normalizeCurrencyCode } from '@/shared/utils/money';
+import { formatOrderAmountForShare, shareIdLabelFromLocale } from '@/lib/money/order-amount';
 
 export const PAYMENT_METHOD_LABELS = {
 	efectivo: 'Efectivo',
@@ -384,9 +385,10 @@ export function isLegacyGlobalKitchenNote(order) {
  * Texto plano para pegar en WhatsApp o compartir el pedido.
  * @param {Record<string, unknown>} order
  * @param {string | null | undefined} branchName
+ * @param {{ branch?: object | null; company?: object | null; exchangeRate?: unknown }} [shareLocale]
  * @returns {string}
  */
-export function buildOrderWhatsAppShareText(order, branchName) {
+export function buildOrderWhatsAppShareText(order, branchName, shareLocale = {}) {
 	if (!order) return '';
 	const idPart = order.display_id ?? order.order_number ?? order.id;
 	const header = idPart != null && idPart !== '' ? `Pedido ${idPart}` : 'Pedido';
@@ -395,12 +397,13 @@ export function buildOrderWhatsAppShareText(order, branchName) {
 	lines.push(`Cliente: ${order.client_name || '—'}`);
 	if (order.client_phone) lines.push(`Tel: ${order.client_phone}`);
 	if (order.client_rut && String(order.client_rut).trim()) {
-		lines.push(`Doc: ${String(order.client_rut).trim()}`);
+		const idLabel = shareIdLabelFromLocale(shareLocale);
+		lines.push(`${idLabel}: ${String(order.client_rut).trim()}`);
 	}
 	lines.push(`Pago: ${getPaymentLabel(order)}`);
 	const total = Number(order.total);
 	if (Number.isFinite(total) && total > 0) {
-		lines.push(`Total: ${formatMoney(total, { currency: normalizeCurrencyCode(order.currency) })}`);
+		lines.push(`Total: ${formatOrderAmountForShare(order, shareLocale.branch, shareLocale.company, shareLocale.exchangeRate, total)}`);
 	}
 	const items = order.items;
 	if (Array.isArray(items) && items.length > 0) {
@@ -429,7 +432,7 @@ export function buildOrderWhatsAppShareText(order, branchName) {
 			lines.push(`Código verificación (pedir al cliente): ${handoff}`);
 		}
 		if (Number.isFinite(fee) && fee > 0) {
-			lines.push(`Cargo envío: ${formatMoney(fee, { currency: normalizeCurrencyCode(order.currency) })}`);
+			lines.push(`Cargo envío: ${formatOrderAmountForShare(order, shareLocale.branch, shareLocale.company, shareLocale.exchangeRate, fee)}`);
 		}
 		const addr = order.delivery_address;
 		const addrLines = deliveryAddressLines(addr);
@@ -455,9 +458,10 @@ export function buildOrderWhatsAppShareText(order, branchName) {
  * @param {Record<string, unknown>} order
  * @param {string | null | undefined} branchName
  * @param {string | null | undefined} branchAddress Dirección del local (origen), opcional
+ * @param {{ branch?: object | null; company?: object | null; exchangeRate?: unknown }} [shareLocale]
  * @returns {string}
  */
-export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = null) {
+export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = null, shareLocale = {}) {
 	if (!order || !isOrderDelivery(order)) return '';
 	const idPart = order.display_id ?? order.order_number ?? order.id;
 	const lines = [];
@@ -517,19 +521,19 @@ export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = 
 		}
 	}
 	if (order.client_rut && String(order.client_rut).trim()) {
-		lines.push(`Doc: ${String(order.client_rut).trim()}`);
+		const idLabel = shareIdLabelFromLocale(shareLocale);
+		lines.push(`${idLabel}: ${String(order.client_rut).trim()}`);
 	}
 	lines.push('');
 	lines.push('Pago y montos');
 	lines.push(`Método: ${getPaymentLabel(order)}`);
 	const fee = Number(order.delivery_fee);
-	const orderCur = normalizeCurrencyCode(order.currency);
 	if (Number.isFinite(fee) && fee > 0) {
-		lines.push(`Cargo envío: ${formatMoney(fee, { currency: orderCur })}`);
+		lines.push(`Cargo envío: ${formatOrderAmountForShare(order, shareLocale.branch, shareLocale.company, shareLocale.exchangeRate, fee)}`);
 	}
 	const total = Number(order.total);
 	if (Number.isFinite(total) && total > 0) {
-		lines.push(`Total pedido: ${formatMoney(total, { currency: orderCur })}`);
+		lines.push(`Total pedido: ${formatOrderAmountForShare(order, shareLocale.branch, shareLocale.company, shareLocale.exchangeRate, total)}`);
 	}
 	const items = order.items;
 	if (Array.isArray(items) && items.length > 0) {
@@ -1304,4 +1308,55 @@ export function sanitizeOrder(rawOrder) {
 	}
 
 	return normalized;
+}
+
+/** @param {unknown} raw */
+function rowIncludesItems(raw) {
+	if (!raw || typeof raw !== 'object') return false;
+	const items = /** @type {{ items?: unknown }} */ (raw).items;
+	if (items == null) return false;
+	if (Array.isArray(items)) return items.length > 0;
+	if (typeof items === 'string') {
+		const trimmed = items.trim();
+		if (!trimmed || trimmed === '[]') return false;
+		try {
+			const parsed = JSON.parse(trimmed);
+			return Array.isArray(parsed) && parsed.length > 0;
+		} catch {
+			return false;
+		}
+	}
+	return false;
+}
+
+/**
+ * Fusiona un row Realtime/RPC en el pedido ya cargado en memoria.
+ * Conserva `items` hidratados cuando el payload no trae JSONB (publicación Realtime).
+ *
+ * @param {object | null | undefined} prevOrder
+ * @param {object | null | undefined} rawRow
+ * @returns {object | null}
+ */
+export function mergeOrderInMemory(prevOrder, rawRow) {
+	const next = sanitizeOrder(rawRow);
+	if (!next) return prevOrder ?? null;
+	if (!prevOrder) return next;
+
+	if (
+		!rowIncludesItems(rawRow) &&
+		Array.isArray(prevOrder.items) &&
+		prevOrder.items.length > 0
+	) {
+		next.items = prevOrder.items;
+	}
+
+	if (
+		!next.coupon_code &&
+		prevOrder.coupon_code &&
+		next.discount_coupon_id === prevOrder.discount_coupon_id
+	) {
+		next.coupon_code = prevOrder.coupon_code;
+	}
+
+	return next;
 }

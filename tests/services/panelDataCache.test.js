@@ -4,6 +4,8 @@ import {
 	getCompanyClients,
 	invalidateBranchOrders,
 	invalidateCompanyClients,
+	getBranchInventory,
+	invalidateBranchInventory,
 	resetPanelDataCacheForTests,
 } from '@/modules/cash/services/panelDataCache';
 
@@ -81,5 +83,23 @@ describe('panelDataCache', () => {
 		await getCompanyClients(null, fetcher);
 		await getCompanyClients(null, fetcher);
 		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('sirve inventario desde caché e inFlight dedup y permite invalidate', async () => {
+		const fetcher = vi.fn().mockResolvedValue([{ id: 'item1', current_stock: 10 }]);
+
+		const a = await getBranchInventory('b1', fetcher);
+		const b = await getBranchInventory('b1', fetcher);
+
+		expect(a).toEqual([{ id: 'item1', current_stock: 10 }]);
+		expect(b).toEqual([{ id: 'item1', current_stock: 10 }]);
+		expect(fetcher).toHaveBeenCalledTimes(1);
+
+		invalidateBranchInventory('b1');
+		const nextFetcher = vi.fn().mockResolvedValue([{ id: 'item1', current_stock: 15 }]);
+		const c = await getBranchInventory('b1', nextFetcher);
+
+		expect(c).toEqual([{ id: 'item1', current_stock: 15 }]);
+		expect(nextFetcher).toHaveBeenCalledTimes(1);
 	});
 });

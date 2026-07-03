@@ -18,7 +18,7 @@ import {
 	Save,
 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { fetchAllPaginated } from "@/shared/utils/fetchAllPaginated";
+import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from "@/shared/utils/fetchAllPaginated";
 import InventoryItemModal from "./InventoryItemModal";
 import { downloadExcel } from "@/shared/utils/exportUtils";
 import { isTypingContext } from "@/modules/cash/admin/utils/keyboardAdmin";
@@ -152,6 +152,11 @@ const AdminInventory = ({
 	const [newItemPreset, setNewItemPreset] = useState(null);
 	const pendingCatalogLinkRef = useRef(null);
 
+	const allViewBranchIdsKey = useMemo(
+		() => branches.filter((b) => b.id !== "all").map((b) => String(b.id)).sort().join(","),
+		[branches],
+	);
+
 	useEffect(() => {
 		const onKey = (e) => {
 			if (isModalOpen || recipeEditingProduct || recipePickProductOpen) return;
@@ -177,6 +182,7 @@ const AdminInventory = ({
 				.select(INVENTORY_ITEMS_PANEL_SELECT)
 				.eq("company_id", companyId)
 				.order("name"),
+			{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
 		);
 		setCompanyInventoryItems(data);
 	}, [companyId]);
@@ -199,6 +205,7 @@ const AdminInventory = ({
 					.select(INVENTORY_ITEMS_PANEL_SELECT)
 					.eq("company_id", companyId)
 					.order("name"),
+				{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
 			);
 			setCompanyInventoryItems(allItems);
 
@@ -206,10 +213,10 @@ const AdminInventory = ({
 			if (branchId !== "all") {
 				query = query.eq("branch_id", branchId);
 			} else {
-				const validBranchIds = branches.filter((b) => b.id !== "all").map((b) => b.id);
+				const validBranchIds = allViewBranchIdsKey ? allViewBranchIdsKey.split(",") : [];
 				if (validBranchIds.length > 0) query = query.in("branch_id", validBranchIds);
 			}
-			const branchStock = await fetchAllPaginated(query);
+			const branchStock = await fetchAllPaginated(query, { pageSize: PANEL_PAGINATION_PAGE_SIZE });
 
 			if (branchId !== "all") {
 				try {
@@ -295,7 +302,7 @@ const AdminInventory = ({
 		} finally {
 			setLoading(false);
 		}
-	}, [showNotify, branchId, companyId, branches]);
+	}, [showNotify, branchId, companyId, allViewBranchIdsKey]);
 
 	const patchCatalogInventoryLink = useCallback(
 		async (link, inventoryItemId) => {
@@ -417,6 +424,7 @@ const AdminInventory = ({
 					.from(TABLES.product_inventory_recipe)
 					.select(PRODUCT_INVENTORY_RECIPE_SELECT)
 					.eq("company_id", companyId),
+				{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
 			);
 			setRecipes(data);
 		} catch (e) {

@@ -12,6 +12,7 @@ import { getPaymentLabel, getOrderTileKind, getOrderFulfillmentDisplayLabel } fr
 import { getClosedShiftReconciliation, diffCounted } from '../../utils/shiftCloseReconciliation';
 import { isCourierPayoutMovement } from '../../utils/cashTotals';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import AdminIconSlot from '../AdminIconSlot';
 import PickupBagIcon from '../PickupBagIcon';
@@ -93,6 +94,7 @@ function FulfillmentTypeIcon({ kind, size = 12 }) {
 
 const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], onMovementClick }) => {
     const { formatMoney: fmtHist } = useBranchMoney();
+    const { formatOrderAmount } = useOrderMoney();
     const [movements, setMovements] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openedByLabel, setOpenedByLabel] = useState('');
@@ -587,7 +589,11 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                         ) : null}
                                                                         {Number(linkedOrder.delivery_fee) > 0 ? (
                                                                             <span className="cash-shift-detail-movement-order__delivery">
-                                                                                Envío: {fmtHist(linkedOrder.delivery_fee)}
+                                                                                Envío: {formatOrderAmount({
+                                                                                    amountUsd: Number(linkedOrder.delivery_fee),
+                                                                                    order: linkedOrder,
+                                                                                    paymentMethod: linkedOrder.payment_method_specific,
+                                                                                })}
                                                                             </span>
                                                                         ) : null}
                                                                     </div>
@@ -609,7 +615,13 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                     }
                                                                 >
                                                                     {m.type === 'expense' ? '−' : '+'}
-                                                                    {fmtHist(m.amount)}
+                                                                    {linkedOrder && m.type === 'sale'
+                                                                        ? formatOrderAmount({
+                                                                            amountUsd: m.amount,
+                                                                            order: linkedOrder,
+                                                                            paymentMethod: linkedOrder.payment_method_specific,
+                                                                        })
+                                                                        : fmtHist(m.amount)}
                                                                 </span>
                                                             )}
                                                             {m.type !== 'cancel' ? (

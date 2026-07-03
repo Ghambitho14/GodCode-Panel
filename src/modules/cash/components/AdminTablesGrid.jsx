@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 
 import { ChefHat, CheckCircle2 } from 'lucide-react';
 
-import { createMoneyFormatter } from '@/shared/utils/money';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
 import {
 
@@ -47,6 +47,8 @@ function TableSessionModal({
 	order,
 
 	formatMoney,
+
+	formatOrderTotal,
 
 	onClose,
 
@@ -186,6 +188,8 @@ function TableSessionModal({
 
 							formatMoney={formatMoney}
 
+							formatOrderTotal={formatOrderTotal}
+
 							kind={kind}
 
 							mode="session"
@@ -280,7 +284,13 @@ export default function AdminTablesGrid({
 
 }) {
 
-	const { formatMoney } = useMemo(() => createMoneyFormatter(branch), [branch]);
+	const orderMoney = useOrderMoney();
+	const { formatMoney, formatOrderAmount } = orderMoney;
+	const formatOrderTotal = (amount, orderRow) => formatOrderAmount({
+		amountUsd: amount,
+		order: orderRow,
+		paymentMethod: orderRow?.payment_method_specific,
+	});
 
 	const openSessions = useMemo(() => filterOpenOrderSessions(orders), [orders]);
 
@@ -355,6 +365,7 @@ export default function AdminTablesGrid({
 							key={order.id}
 							order={order}
 							onClick={setActiveOrder}
+							branch={branch}
 							branchName={branch?.name ?? null}
 							logoUrl={logoUrl ?? null}
 						/>
@@ -374,6 +385,8 @@ export default function AdminTablesGrid({
 					order={activeOrder}
 
 					formatMoney={formatMoney}
+
+					formatOrderTotal={formatOrderTotal}
 
 					onClose={() => setActiveOrder(null)}
 

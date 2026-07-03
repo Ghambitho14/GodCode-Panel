@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock, Eye } from 'lucide-react';
 import { getOrderPaymentDisplayLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
-import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
 const ClientDetailsPanel = ({
     selectedClient,
@@ -12,7 +12,7 @@ const ClientDetailsPanel = ({
     onOrderClick,
     orderDetailOpen = false,
 }) => {
-    const { formatMoney } = useBranchMoney();
+    const { formatMoney, formatOrderAmount } = useOrderMoney();
     
     // --- 1. CIERRE CON ESCAPE (UX) ---
     useEffect(() => {
@@ -208,7 +208,11 @@ const ClientDetailsPanel = ({
                                 </div>
                             ) : (
                                 selectedClientOrders.map(order => {
-                                    const orderTotal = formatMoney(order.total ?? 0);
+                                    const orderTotal = formatOrderAmount({
+                                        amountUsd: order.total ?? 0,
+                                        order,
+                                        paymentMethod: order.payment_method_specific,
+                                    });
                                     const orderDateLabel = formatDate(order.created_at);
                                     return (
                                     <div
@@ -235,7 +239,11 @@ const ClientDetailsPanel = ({
                                                 {getOrderPaymentDisplayLabel(order)}
                                             </span>
                                             <span className="order-total">
-                                                {formatMoney(order.total ?? 0)}
+                                                {formatOrderAmount({
+                                                    amountUsd: order.total ?? 0,
+                                                    order,
+                                                    paymentMethod: order.payment_method_specific,
+                                                })}
                                             </span>
                                         </div>
 

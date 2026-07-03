@@ -10,6 +10,9 @@ import { branchSettingsService } from "@/modules/cash/services/branchSettingsSer
 import { invalidateBranchSettings } from "@/modules/cash/services/branchSettingsCache";
 import { subscribeBranchUpdate } from "@/modules/cash/services/branchRealtimeHub";
 import { createMoneyFormatter } from "@/shared/utils/money";
+import { isVenezuelaCountry, resolveEffectiveCountry } from "@/lib/geo/tenant-locale";
+import { fetchBcvRate } from "@/lib/money/bcv-rate";
+import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
 import DeliveryPlaceSuggestInput from "./DeliveryPlaceSuggestInput";
@@ -29,6 +32,7 @@ const emptyDraft = () => ({
 	originLng: "",
 	uberDirectStoreId: "",
 	externalDeliveryDisplayText: "",
+	exchangeRate: "",
 });
 
 const emptyZoneRow = () => ({
@@ -146,6 +150,7 @@ const DELIVERY_PAYMENT_CHIP_TITLE = {
  * Lee y escribe `branches.delivery_settings` (JSONB) para la sucursal seleccionada.
  */
 export default function AdminMenuDeliverySection({ showNotify, selectedBranch, onSaved }) {
+	const { companyProfile } = useAdmin();
 	const branchId =
 		selectedBranch?.id && selectedBranch.id !== "all" ? selectedBranch.id : null;
 
@@ -164,6 +169,25 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	/** `true` = permitido para delivery (clave = id de método) */
 	const [deliveryPaymentChecked, setDeliveryPaymentChecked] = useState({});
 	const deliveryPaymentCheckedRef = useRef({});
+	const [bcvRate, setBcvRate] = useState(null);
+	const [savingExchangeRate, setSavingExchangeRate] = useState(false);
+
+	const effectiveCountry = useMemo(
+		() => resolveEffectiveCountry(selectedBranch, companyProfile),
+		[selectedBranch, companyProfile],
+	);
+	const isVenezuela = isVenezuelaCountry(effectiveCountry);
+
+	useEffect(() => {
+		if (!isVenezuela) return;
+		let cancelled = false;
+		void fetchBcvRate().then((rate) => {
+			if (!cancelled) setBcvRate(rate);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [isVenezuela, branchId]);
 
 	const applyServerPayload = useCallback((data) => {
 		const n = normalizeDeliverySettings(data);
@@ -196,6 +220,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 				typeof data.externalDeliveryDisplayText === "string"
 					? data.externalDeliveryDisplayText
 					: "",
+			exchangeRate: n.exchangeRate != null ? String(n.exchangeRate) : "",
 		});
 		setShowExternalDeliveryFee(data.showExternalDeliveryFeeAmount !== false);
 		const z = Array.isArray(n.zones) && n.zones.length > 0
@@ -379,9 +404,28 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	}, [normalizedFromDraft]);
 
 	const branchMoney = useMemo(
-		() => createMoneyFormatter(selectedBranch),
-		[selectedBranch],
+		() => createMoneyFormatter(selectedBranch, companyProfile),
+		[selectedBranch, companyProfile],
 	);
+
+	const saveExchangeRate = async () => {
+		if (!branchId) return;
+		setSavingExchangeRate(true);
+		try {
+			const raw = draft.exchangeRate.trim();
+			const payload = {
+				exchangeRate: raw === "" ? null : Number(raw),
+			};
+			const data = await branchSettingsService.saveDeliverySettings(branchId, payload);
+			applyServerPayload(data);
+			showNotify("Tasa de cambio guardada.");
+			if (typeof onSaved === "function") onSaved();
+		} catch (e) {
+			showNotify(e instanceof Error ? e.message : "Error al guardar tasa", "error");
+		} finally {
+			setSavingExchangeRate(false);
+		}
+	};
 
 	const toggle = async (next) => {
 		if (!branchId) return;
@@ -468,6 +512,10 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					draft.externalDeliveryDisplayText.trim().slice(0, 500) || null;
 			} else {
 				payload.externalDeliveryDisplayText = null;
+			}
+			if (isVenezuela) {
+				const rawRate = draft.exchangeRate.trim();
+				payload.exchangeRate = rawRate === "" ? null : Number(rawRate);
 			}
 			const data = await branchSettingsService.saveDeliverySettings(branchId, payload);
 			applyServerPayload(data);
@@ -572,6 +620,46 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					</button>
 				</div>
 			</div>
+
+			{isVenezuela ? (
+				<div className="admin-delivery-ve-exchange" style={{ marginBottom: 16 }}>
+					<p className="admin-menu-options-section-label" style={{ marginBottom: 8 }}>
+						Tasa de cambio (Bs. por USD)
+					</p>
+					<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
+						Respaldo manual si el BCV no responde en el carrito del menú.
+						{bcvRate != null ? (
+							<>
+								{" "}
+								Referencia BCV actual: <strong>{bcvRate.toLocaleString("es-VE")}</strong> Bs./USD.
+							</>
+						) : null}
+					</p>
+					<div className="admin-delivery-inline-row">
+						<label className="admin-menu-options-field">
+							<span className="admin-menu-options-field-label">Tasa manual</span>
+							<input
+								type="number"
+								min="0"
+								step="0.001"
+								className="admin-menu-options-input"
+								value={draft.exchangeRate}
+								onChange={(e) => setDraft((prev) => ({ ...prev, exchangeRate: e.target.value }))}
+								placeholder="Ej. 639.703"
+								disabled={loading || savingExchangeRate}
+							/>
+						</label>
+						<button
+							type="button"
+							className="btn-primary"
+							disabled={loading || savingExchangeRate || !branchId}
+							onClick={() => void saveExchangeRate()}
+						>
+							{savingExchangeRate ? "Guardando…" : "Guardar tasa"}
+						</button>
+					</div>
+				</div>
+			) : null}
 
 			{!loading ? (
 				<div

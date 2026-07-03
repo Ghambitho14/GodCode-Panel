@@ -1,4 +1,5 @@
 import { formatMoney, formatMoneyOrFree, normalizeCurrencyCode } from '@/shared/utils/money';
+import { formatOrderAmount } from '@/lib/money/order-amount';
 import {
 	deliveryAddressLines,
 	getPaymentLabel,
@@ -13,8 +14,26 @@ function orderCurrency(order) {
 	return normalizeCurrencyCode(order?.currency);
 }
 
-function fmtOrder(order, amount) {
-	return formatMoney(amount, { currency: orderCurrency(order) });
+/**
+ * @param {{
+ *   branch?: object | null;
+ *   company?: object | null;
+ *   exchangeRate?: unknown;
+ * }} [printOptions]
+ */
+function createFmtOrder(printOptions = {}) {
+	const branch = printOptions.branch ?? null;
+	const company = printOptions.company ?? null;
+	const exchangeRate = printOptions.exchangeRate;
+	return (order, amount) => formatOrderAmount({
+		order,
+		branch,
+		company,
+		exchangeRate,
+		amountUsd: amount,
+		paymentMethod: order?.payment_method_specific,
+		context: 'display',
+	});
 }
 
 /**
@@ -123,12 +142,12 @@ function whereLabelForClientTicket(order) {
 }
 
 /** Bloque compacto dirección/envío para tickets térmicos. */
-function deliveryShipmentSectionHtml(order) {
+function deliveryShipmentSectionHtml(order, fmt) {
 	if (!isOrderDelivery(order)) return '';
 	const feeNum = Number(order?.delivery_fee);
 	const feeLbl =
 		Number.isFinite(feeNum) && feeNum > 0
-			? fmtOrder(order, feeNum)
+			? fmt(order, feeNum)
 			: 'GRATIS';
 	const hc = order?.handoff_code;
 	const codeLine =
@@ -337,9 +356,13 @@ function cssThermalBase(contentMm) {
  *   ticketFooterLine?: string | null;
  *   orderChannel?: string | null;
  *   companyName?: string | null;
+ *   branch?: object | null;
+ *   company?: object | null;
+ *   exchangeRate?: unknown;
  * }} [printOptions]
  */
 function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {}) {
+	const fmt = createFmtOrder(printOptions);
 	// El titulo grande del ticket cliente muestra el nombre de la EMPRESA
 	// (companyName). La sucursal ya viaja en el prefijo `[Sucursal: X]` de
 	// la nota; no queremos duplicarla. Si nadie pasa `companyName`, caemos al
@@ -553,7 +576,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 			<div class="c-item c-item-extra">
 				<div class="c-row">
 					<span class="c-line-text">+ ${extraQty}x ${extraName}</span>
-					<span class="c-price">${fmtOrder(order, extraLineTotal)}</span>
+					<span class="c-price">${fmt(order, extraLineTotal)}</span>
 				</div>
 			</div>
 			`;
@@ -572,7 +595,7 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 		<div class="c-item">
 			<div class="c-row">
 				<span class="c-line-text">${leftCol}</span>
-				<span class="c-price">${fmtOrder(order, lineTotal)}</span>
+				<span class="c-price">${fmt(order, lineTotal)}</span>
 			</div>
 			${itemNoteHtml}
 		</div>
@@ -582,14 +605,14 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 
 	const deliveryFeeRow =
 		isOrderDelivery(order) && deliveryFee > 0
-			? `<div class="c-money-row"><span>Envío</span><span>${fmtOrder(order, deliveryFee)}</span></div>`
+			? `<div class="c-money-row"><span>Envío</span><span>${fmt(order, deliveryFee)}</span></div>`
 			: isOrderDelivery(order)
 				? `<div class="c-money-row"><span>Envío</span><span>GRATIS</span></div>`
 				: '';
 
 	const discountRow =
 		discountTotal > 0
-			? `<div class="c-money-row"><span>Descuento</span><span>−${fmtOrder(order, discountTotal)}</span></div>`
+			? `<div class="c-money-row"><span>Descuento</span><span>−${fmt(order, discountTotal)}</span></div>`
 			: '';
 
 	return `
@@ -827,15 +850,15 @@ function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {})
 				<p class="c-band-order">${orderBandLine}</p>
 				<p class="c-band-ref">${refLineHtml}</p>
 			</div>
-			${deliveryShipmentSectionHtml(order)}
+			${deliveryShipmentSectionHtml(order, fmt)}
 			<p class="c-client-name">${safeClientName}</p>
 			${clientPhoneHtml}
 			<div class="c-items">${itemsHtml}</div>
 			<div class="c-money-block">
-				<div class="c-money-row"><span>Subtotal</span><span>${fmtOrder(order, itemsSubtotal)}</span></div>
+				<div class="c-money-row"><span>Subtotal</span><span>${fmt(order, itemsSubtotal)}</span></div>
 				${discountRow}
 				${deliveryFeeRow}
-				<div class="c-total-big"><span>Total</span><span>${fmtOrder(order, grandTotal)}</span></div>
+				<div class="c-total-big"><span>Total</span><span>${fmt(order, grandTotal)}</span></div>
 				<p class="c-legal">Este documento no tiene valor fiscal.</p>
 			</div>
 			<div class="c-pay-block">
