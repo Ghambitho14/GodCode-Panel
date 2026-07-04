@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
 import { callGuardedRpc } from '../utils/rpcGuard';
@@ -380,7 +380,7 @@ export function useAdminCatalog({
 		}
 	}, [categoryToDelete, showNotify, refreshCatalogInner, companyId]);
 
-	return {
+	return useMemo(() => ({
 		isModalOpen,
 		setIsModalOpen,
 		editingProduct,
@@ -415,5 +415,40 @@ export function useAdminCatalog({
 		toggleCategoryActive,
 		deleteCategory,
 		confirmDeleteCategory,
-	};
+	}), [
+		isModalOpen,
+		setIsModalOpen,
+		editingProduct,
+		setEditingProduct,
+		isModalOpenRef,
+		editingProductRef,
+		isCategoryModalOpen,
+		setIsCategoryModalOpen,
+		editingCategory,
+		setEditingCategory,
+		receiptModalOrder,
+		setReceiptModalOrder,
+		receiptPreview,
+		setReceiptPreview,
+		uploadingReceipt,
+		setUploadingReceipt,
+		scopeModal,
+		setScopeModal,
+		productToDelete,
+		setProductToDelete,
+		categoryToDelete,
+		setCategoryToDelete,
+		uploadReceiptToOrder,
+		handleReceiptFileChange,
+		handleSaveProduct,
+		deleteProduct,
+		confirmDeleteProduct,
+		toggleProductActive,
+		handleScopeConfirm,
+		handleSaveCategory,
+		reorderCategories,
+		toggleCategoryActive,
+		deleteCategory,
+		confirmDeleteCategory,
+	]);
 }

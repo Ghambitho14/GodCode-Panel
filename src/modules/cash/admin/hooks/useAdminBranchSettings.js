@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { parseLocalOrderChannels, parseOrdersViewMode, normalizeDeliverySettings } from '@/lib/delivery-settings';
 import { branchSettingsService } from '../../services/branchSettingsService';
 import { invalidateBranchSettings } from '../../services/branchSettingsCache';
@@ -134,7 +134,7 @@ export function useAdminBranchSettings({ companyId, selectedBranch, showNotify }
 		}
 	}, [selectedBranch?.id, companyId, showNotify]);
 
-	return {
+	return useMemo(() => ({
 		ordersViewMode,
 		ordersViewModeSaving,
 		localOrderChannels,
@@ -142,5 +142,5 @@ export function useAdminBranchSettings({ companyId, selectedBranch, showNotify }
 		branchExchangeRate,
 		inventoryEnforceOnSale,
 		saveOrdersPanelSettings,
-	};
+	}), [ordersViewMode, ordersViewModeSaving, localOrderChannels, ordersPanelSettingsReady, branchExchangeRate, inventoryEnforceOnSale, saveOrdersPanelSettings]);
 }

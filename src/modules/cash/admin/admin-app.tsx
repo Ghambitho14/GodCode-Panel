@@ -49,6 +49,7 @@ interface CompanyProfile {
 
 /** Referencia estable para props opcionales de objeto (evita re-ejecutar el gate en cada render). */
 const EMPTY_TAB_LABELS: Record<string, string> = {};
+const EMPTY_DYNAMIC_MODULES: AdminAppProps["dynamicModules"] = [];
 
 interface AdminAppProps {
 	/** Opcional: forzar empresa (solo si necesitás override explícito; por defecto se toma de la sesión). */
@@ -95,7 +96,7 @@ export function AdminApp({
 	userEmail: userEmailProp,
 	initialUserRole = null,
 	panelAccess: panelAccessProp,
-	dynamicModules = [],
+	dynamicModules = EMPTY_DYNAMIC_MODULES,
 	primaryColor,
 	storefrontMenuUrl = null,
 	resolvedTabLabels: resolvedTabLabelsProp,

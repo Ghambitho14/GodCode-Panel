@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 import { supabase, TABLES, bootstrapSession, getCurrentUser, logout, onAuthEvent } from '@/integrations/supabase';
 
@@ -415,23 +415,14 @@ export function useAdminAuth({
 
 
 
-	return {
-
+	return useMemo(() => ({
 		userRole,
-
 		setUserRole,
-
 		userEmail,
-
 		assignedBranchId,
-
 		setAssignedBranchId,
-
 		verifyAdminAccess,
-
 		signOut,
-
-	};
-
+	}), [userRole, setUserRole, userEmail, assignedBranchId, setAssignedBranchId, verifyAdminAccess, signOut]);
 }
 

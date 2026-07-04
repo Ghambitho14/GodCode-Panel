@@ -34,6 +34,9 @@ import {
 const ALL_ADMIN_TABS = ADMIN_PANEL_TAB_IDS;
 const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
 
+const EMPTY_DYNAMIC_MODULES = /** @type {any[]} */ ([]);
+const EMPTY_TAB_LABELS = /** @type {Record<string, string>} */ ({});
+
 const PRODUCT_PHOTOS_STORAGE_KEY = 'godcode-admin-products-show-photos';
 
 function readShowProductPhotosPreference() {
@@ -98,8 +101,8 @@ export const AdminProvider = ({
 	initialUserRole = null,
 	initialAssignedBranchId = null,
 	panelAccess,
-	dynamicModules = /** @type {any[]} */ ([]),
-	resolvedTabLabels = /** @type {Record<string, string>} */ ({}),
+	dynamicModules = EMPTY_DYNAMIC_MODULES,
+	resolvedTabLabels = EMPTY_TAB_LABELS,
 	adminShortcutsEnabled = true,
 	companyProfile = null,
 	menuCapabilities: menuCapabilitiesProp = null,

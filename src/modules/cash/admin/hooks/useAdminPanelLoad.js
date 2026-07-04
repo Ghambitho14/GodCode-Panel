@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import {
 	ORDERS_LIST_SELECT,
@@ -483,7 +483,7 @@ export function useAdminPanelLoad({
 		};
 	}, [refreshStaleData, showNotify, isModalOpenRef, editingProductRef]);
 
-	return {
+	return useMemo(() => ({
 		lastDataRefreshAt,
 		inventoryBranchRows,
 		loadGenerationRef,
@@ -506,5 +506,28 @@ export function useAdminPanelLoad({
 		upsertOrder,
 		hydrateOrderItems,
 		fetchOrders,
-	};
+	}), [
+		lastDataRefreshAt,
+		inventoryBranchRows,
+		loadGenerationRef,
+		loadedPanelScopeRef,
+		loadDataRef,
+		fetchOrdersRef,
+		forcePanelReloadRef,
+		orderMoveInFlightRef,
+		lastDataRefreshAtRef,
+		loadPanelData,
+		loadData,
+		refreshAllData,
+		refreshOrders,
+		refreshClients,
+		refreshCatalog,
+		refreshCatalogAndInventory,
+		refreshInventoryBranch,
+		refreshCatalogInner,
+		refreshStaleData,
+		upsertOrder,
+		hydrateOrderItems,
+		fetchOrders,
+	]);
 }
