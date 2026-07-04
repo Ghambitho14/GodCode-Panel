@@ -77,6 +77,7 @@ function settingsResponse(deliverySettingsRaw, origin) {
 		cartBeveragesCatalog: cart.cartBeveragesCatalog,
 		cartGlobalExtrasCatalog: cart.cartGlobalExtrasCatalog,
 		inventoryEnforceOnSale: parseInventoryEnforceOnSale(deliverySettingsRaw),
+		exchangeRate: n.exchangeRate,
 		ordersViewMode: parseOrdersViewMode(deliverySettingsRaw),
 		localOrderChannels: parseLocalOrderChannels(deliverySettingsRaw),
 	};
@@ -172,6 +173,39 @@ async function getBranchCompanyContext(branchId) {
 const BRANCH_SETTINGS_BUNDLE_SELECT =
 	'id, company_id, delivery_settings, origin_lat, origin_lng, payment_methods, is_active, currency';
 
+/** Cache RAM de `companies.integration_settings` (misma empresa, varias sucursales). */
+const companyIntegrationCache = new Map();
+const COMPANY_INTEGRATION_TTL_MS = 3 * 60_000;
+
+/**
+ * @param {string} companyId
+ * @param {{ force?: boolean }} [options]
+ */
+async function getCompanyIntegrationSettings(companyId, options = {}) {
+	if (!companyId) return null;
+	if (!options.force) {
+		const hit = companyIntegrationCache.get(companyId);
+		if (hit && Date.now() - hit.fetchedAt < COMPANY_INTEGRATION_TTL_MS) {
+			return hit.integrationSettings;
+		}
+	}
+	const { data: co } = await supabase
+		.from(TABLES.companies)
+		.select('integration_settings')
+		.eq('id', companyId)
+		.maybeSingle();
+	const integrationSettings = co?.integration_settings ?? null;
+	companyIntegrationCache.set(companyId, {
+		integrationSettings,
+		fetchedAt: Date.now(),
+	});
+	return integrationSettings;
+}
+
+export function clearCompanyIntegrationCache() {
+	companyIntegrationCache.clear();
+}
+
 /**
  * Fetch único de `branches` + contexto empresa. Usado por el cache RAM por sucursal.
  * PostgREST devuelve el JSONB completo — el ahorro es no repetir el request.
@@ -194,14 +228,8 @@ async function fetchBranchSettingsBundle(branchId) {
 
 	let allowTenantExternalDelivery = true;
 	if (branch.company_id) {
-		const { data: co } = await supabase
-			.from(TABLES.companies)
-			.select('integration_settings')
-			.eq('id', branch.company_id)
-			.maybeSingle();
-		allowTenantExternalDelivery = isTenantExternalDeliveryAllowed(
-			co?.integration_settings,
-		);
+		const integrationSettings = await getCompanyIntegrationSettings(String(branch.company_id));
+		allowTenantExternalDelivery = isTenantExternalDeliveryAllowed(integrationSettings);
 	}
 
 	return { branch, allowTenantExternalDelivery };

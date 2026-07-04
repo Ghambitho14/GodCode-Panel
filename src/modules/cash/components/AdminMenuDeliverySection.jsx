@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Truck, Plus, Trash2 } from "lucide-react";
+import { Truck } from "lucide-react";
 import {
 	buildDefaultDeliveryPaymentKeys,
 	computeDeliveryFee,
@@ -13,138 +13,21 @@ import { createMoneyFormatter } from "@/shared/utils/money";
 import { isVenezuelaCountry, resolveEffectiveCountry } from "@/lib/geo/tenant-locale";
 import { fetchBcvRate } from "@/lib/money/bcv-rate";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
+import AdminDeliveryZonesPanel from "@/modules/cash/admin/menu/delivery/AdminDeliveryZonesPanel";
+import {
+	buildDeliveryPreviewText,
+	buildNamedPlacesPayload,
+	buildZonesPayload,
+	DELIVERY_PAYMENT_CHIP_TITLE,
+	DELIVERY_PAYMENT_LABELS,
+	DELIVERY_TOOLTIPS,
+	emptyDraft,
+	emptyNamedPlaceRow,
+	emptyZoneRow,
+} from "@/modules/cash/admin/menu/delivery/deliveryZoneHelpers";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
-import DeliveryPlaceSuggestInput from "./DeliveryPlaceSuggestInput";
 import AdminHelpTip from "./AdminHelpTip";
-
-const emptyDraft = () => ({
-	pricePerKm: "",
-	baseFee: "",
-	minFee: "",
-	maxFee: "",
-	maxDeliveryKm: "",
-	freeDeliveryFromSubtotal: "",
-	minOrderSubtotal: "",
-	customerNotes: "",
-	trustedDriverWhatsApp: "",
-	originLat: "",
-	originLng: "",
-	uberDirectStoreId: "",
-	externalDeliveryDisplayText: "",
-	exchangeRate: "",
-});
-
-const emptyZoneRow = () => ({
-	id: `z${Date.now()}`,
-	radiusKm: "",
-	feeFlat: "",
-});
-
-const emptyNamedPlaceRow = () => ({
-	id: `p${Date.now()}`,
-	name: "",
-	feeFlat: "",
-	aliasesStr: "",
-});
-
-const DELIVERY_PAYMENT_LABELS = {
-	tienda: "Efectivo al recibir",
-	tarjeta: "Tarjeta",
-	paypal: "PayPal",
-	stripe: "Stripe",
-	pago_movil: "Pago móvil",
-	zelle: "Zelle",
-	transferencia_bancaria: "Transferencia",
-};
-
-/** Textos de ayuda al pasar el cursor (title) y para lectores de pantalla */
-const DELIVERY_TOOLTIPS = {
-	removeDistanceRing:
-		"Quita este anillo: si el pedido llega dentro del radio (km) desde el local, aplicas la tarifa fija de la fila. Si no entra en ningún anillo, se usa precio por km + cargo base. Si solo queda una fila, no se borra (evita lista vacía).",
-	removeNamedZoneRow:
-		"Quita esta zona: nombre en el checkout, tarifa de envío y alias opcionales. Debe quedar al menos una fila. No borra datos guardados hasta que pulses Guardar.",
-	addDistanceRing:
-		"Añade otro anillo: ordena por radio del más pequeño al más grande; el primero que cubra la distancia gana.",
-	addNamedZone:
-		"Añade otra zona con nombre, tarifa y alias (opcional). Máximo 40 filas.",
-	headerSwitch:
-		"Activa o desactiva el envío a domicilio para esta sucursal. Si está apagado, el cliente solo puede retirar o consumir en local; el resto de opciones queda bloqueado.",
-	strategyIntro:
-		"Elige una sola modalidad: por distancia, por zonas con nombre o Uber Direct / consultar con tienda (cotización opcional vía API).",
-	strategyDistance:
-		"Cobro por distancia en línea recta desde el local: precio por km, cargo base opcional y anillos con tarifa fija por radio.",
-	strategyNamedAreas:
-		"Cada zona (comuna, barrio…) tiene un precio de envío fijo; no se suma precio por km ni cargo base de la otra modalidad.",
-	strategyExternal:
-		"Uber Direct: con Store ID (esta sucursal) y credenciales OAuth a nivel empresa, el menú puede cotizar envío en tiempo real. Si desactivas “Mostrar monto”, el cliente solo ve texto. Client ID/Secret los configura GodCode en admin SaaS (Global de la empresa), no aquí.",
-	uberStoreId:
-		"Identificador del local de recogida en Uber para esta sucursal (no es el Client ID OAuth). Lo obtienes en el portal de Uber.",
-	uberShowFee:
-		"Activo: el cliente ve precio estimado de envío en el carrito. Apagado: solo texto informativo sin monto.",
-	uberDisplayText:
-		"Mensaje en checkout cuando no hay monto de envío o como texto de apoyo.",
-	namedManual:
-		"El cliente elige la zona en una lista al pagar. Útil cuando quieres nombres exactos y control total.",
-	namedAddress:
-		"El cliente escribe su dirección; el sistema intenta asignar zona y precio automáticamente (datos de mapa abiertos).",
-	zonesCheckoutSection:
-		"Define cómo el cliente indica su zona en el checkout: lista para elegir o detección automática desde la dirección escrita.",
-	pricePerKm:
-		"Se multiplica por los kilómetros de distancia cuando ningún anillo cubre el pedido (modalidad por distancia).",
-	baseFee:
-		"Suma fija que se añade al costo por km antes de aplicar mínimos, máximos o envío gratis por subtotal.",
-	originLat:
-		"Latitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -33.4489.",
-	originLng:
-		"Longitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -70.6693.",
-	saveButton:
-		"Guarda tarifas, zonas, métodos de pago permitidos en delivery, WhatsApp del repartidor y opciones avanzadas en el servidor.",
-	preview:
-		"Ejemplo de envío con valores actuales (distancia o primera zona y subtotal de ejemplo).",
-	driverWhatsApp:
-		"Número al que el equipo puede enviar el mensaje de envío desde el tablero (WhatsApp abre en la app; tú eliges el contacto).",
-	minFee:
-		"Piso del costo de envío si el cálculo quedara por debajo (opcional).",
-	maxFee:
-		"Tope máximo del costo de envío aunque el cálculo sea mayor (opcional).",
-	maxDeliveryKm:
-		"No se aceptan pedidos de delivery si la distancia supera este valor (modalidad por km).",
-	freeDeliveryFromSubtotal:
-		"Si el subtotal del carrito alcanza este monto, el envío sale $0 (salvo que otra regla lo impida).",
-	minOrderSubtotal:
-		"Subtotal mínimo para permitir un pedido con delivery.",
-	customerNotes:
-		"Texto breve que ve el cliente en el checkout de envío (tiempos, condiciones, etc.).",
-	originLatNamed:
-		"Opcional: ayuda a ordenar sugerencias al escribir nombres de zona (modalidad por zonas con nombre).",
-	originLngNamed:
-		"Opcional: junto con la latitud, mejora sugerencias de lugares cercanos al local.",
-	paymentSection:
-		"Restringe qué medios de pago puede elegir el cliente solo cuando el pedido es delivery.",
-	distanceRingsHelp:
-		"Opcional: si el pedido entra dentro del radio (km) desde el local, aplicas la tarifa fija de esa fila; si no encaja en ningún anillo, se usa precio por km + cargo base.",
-	zoneRingRadius:
-		"Distancia máxima en km desde el local: si el pedido cae dentro de este radio, se aplica la tarifa fija de la misma fila.",
-	zoneRingFee:
-		"Precio de envío completo cuando la distancia entra en este anillo (no se suma precio por km ni cargo base de otras filas).",
-	namedZoneName:
-		"Nombre que verá el cliente o que se intentará casar con la dirección, según el modo de checkout.",
-	namedZoneFee: "Costo de envío fijo para esta zona (modalidad por zonas con nombre).",
-	namedZoneAliases:
-		"Sinónimos separados por coma para reconocer la misma zona (ej. abreviaturas o barrios cercanos).",
-};
-
-/** Tooltips por chip de método de pago (delivery) */
-const DELIVERY_PAYMENT_CHIP_TITLE = {
-	tienda: "Permite pagar en efectivo al recibir el pedido en domicilio.",
-	tarjeta: "Permite tarjeta al recibir o según tu configuración de métodos de pago.",
-	paypal: "Permite PayPal en checkout si lo tienes activo en la sucursal.",
-	stripe: "Permite Stripe en checkout si lo tienes activo en la sucursal.",
-	pago_movil: "Permite pago móvil si lo tienes configurado en métodos de pago.",
-	zelle: "Permite Zelle si lo tienes configurado en métodos de pago.",
-	transferencia_bancaria: "Permite transferencia bancaria si la tienes activa en la sucursal.",
-};
 
 /**
  * Lee y escribe `branches.delivery_settings` (JSONB) para la sucursal seleccionada.
@@ -310,47 +193,12 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 		});
 	}, [branchId, load]);
 
-	const zonesPayload = useMemo(() => {
-		const out = [];
-		for (const row of zoneRows) {
-			const r = Number(String(row.radiusKm).replace(",", "."));
-			const f = Number(String(row.feeFlat).replace(",", "."));
-			if (!Number.isFinite(r) || r <= 0) continue;
-			if (!Number.isFinite(f) || f < 0) continue;
-			out.push({
-				id: typeof row.id === "string" && row.id.trim() ? row.id.trim() : `z${out.length}`,
-				radiusKm: r,
-				feeFlat: f,
-			});
-		}
-		return out;
-	}, [zoneRows]);
+	const zonesPayload = useMemo(() => buildZonesPayload(zoneRows), [zoneRows]);
 
-	const namedPlacesPayload = useMemo(() => {
-		const out = [];
-		for (const row of namedPlaceRows) {
-			const nm = String(row.name ?? "").trim();
-			const f = Number(String(row.feeFlat).replace(",", "."));
-			if (!nm) continue;
-			if (!Number.isFinite(f) || f < 0) continue;
-			const aliasesStr = String(row.aliasesStr ?? "")
-				.split(",")
-				.map((s) => s.trim())
-				.filter(Boolean)
-				.slice(0, 8);
-			const o = {
-				id:
-					typeof row.id === "string" && row.id.trim()
-						? row.id.trim()
-						: `p${out.length}`,
-				name: nm.slice(0, 120),
-				feeFlat: f,
-			};
-			if (aliasesStr.length > 0) o.aliases = aliasesStr;
-			out.push(o);
-		}
-		return out;
-	}, [namedPlaceRows]);
+	const namedPlacesPayload = useMemo(
+		() => buildNamedPlacesPayload(namedPlaceRows),
+		[namedPlaceRows],
+	);
 
 	const normalizedFromDraft = useMemo(() => {
 		return normalizeDeliverySettings({
@@ -546,29 +394,11 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	const branchLabel = selectedBranch?.name ? ` · ${selectedBranch.name}` : "";
 	const lockOptions = !deliveryEnabled || loading || savingFields || saving;
 
-	const previewText =
-		normalizedFromDraft.deliveryPricingStrategy === "external"
-			? previewFee.fee === -2
-				? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
-				: previewFee.waivedFreeShipping
-					? "Modalidad externa: el cliente no ve precio de envío (solo “Consultar con la tienda” o tu mensaje). En el ejemplo, umbral de envío gratis podría aplicar al total sin mostrar monto de delivery."
-					: normalizedFromDraft.showExternalDeliveryFeeAmount
-						? "Uber Direct: con Store ID y credenciales de empresa, el menú cotiza el envío y muestra monto al cliente (requiere ubicación en el mapa)."
-						: "Uber Direct / externo: el cliente solo ve texto (sin monto de envío en checkout), p. ej. “Consultar con la tienda”."
-			: previewFee.fee < 0
-				? previewFee.fee === -1
-					? "Ejemplo no aplicable: distancia fuera del máximo configurado."
-					: previewFee.fee === -2
-						? "Ejemplo no aplicable: subtotal inferior al pedido mínimo."
-						: "Ejemplo no aplicable."
-				: effectiveDeliveryPricingMode(normalizedFromDraft) === "named" &&
-					  normalizedFromDraft.namedAreas?.length > 0
-					? previewFee.waivedFreeShipping
-						? `Ejemplo (primera zona, subtotal ${branchMoney.formatMoney(15000)}): envío gratuito por umbral.`
-						: `Ejemplo (primera zona, subtotal ${branchMoney.formatMoney(15000)}): envío ≈ ${branchMoney.formatMoney(Math.round(previewFee.fee))}.`
-					: previewFee.waivedFreeShipping
-						? `Ejemplo (3 km, subtotal ${branchMoney.formatMoney(15000)}): envío gratuito por umbral.`
-						: `Ejemplo (3 km, subtotal ${branchMoney.formatMoney(15000)}): envío ≈ ${branchMoney.formatMoney(Math.round(previewFee.fee))}.`;
+	const previewText = buildDeliveryPreviewText({
+		normalizedFromDraft,
+		previewFee,
+		branchMoney,
+	});
 
 	return (
 		<section
@@ -670,492 +500,23 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					}
 					aria-disabled={lockOptions}
 				>
-					<details className="admin-delivery-fold">
-						<summary className="admin-delivery-fold__summary">
-							<div className="admin-delivery-fold__summary-text">
-								<span className="admin-delivery-fold__eyebrow">Cobro</span>
-								<span className="admin-delivery-fold__title">Tarifas de envío</span>
-							</div>
-						</summary>
-						<div className="admin-delivery-fold__body">
-					<div className="admin-delivery-strategy-block" style={{ marginTop: 0 }}>
-						<p
-							className="admin-menu-options-section-label admin-menu-options-section-label--with-tip"
-							style={{ marginBottom: 8 }}
-						>
-							¿Cómo cobras el envío?
-							<AdminHelpTip text={DELIVERY_TOOLTIPS.strategyIntro} />
-						</p>
-						<div className="admin-delivery-strategy-pills">
-							<button
-								type="button"
-								disabled={lockOptions}
-								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "distance" ? "is-active" : ""}`}
-								onClick={() => setPricingStrategy("distance")}
-							>
-								Por distancia (km)
-								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-									{DELIVERY_TOOLTIPS.strategyDistance}
-								</span>
-							</button>
-							<button
-								type="button"
-								disabled={lockOptions}
-								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "named_areas" ? "is-active" : ""}`}
-								onClick={() => setPricingStrategy("named_areas")}
-							>
-								Por zonas con nombre
-								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-									{DELIVERY_TOOLTIPS.strategyNamedAreas}
-								</span>
-							</button>
-							{allowTenantExternalDelivery ? (
-								<button
-									type="button"
-									disabled={lockOptions}
-									className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "external" ? "is-active" : ""}`}
-									onClick={() => setPricingStrategy("external")}
-								>
-									Consultar con tienda / externo
-									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-										{DELIVERY_TOOLTIPS.strategyExternal}
-									</span>
-								</button>
-							) : null}
-						</div>
-					</div>
-
-					{pricingStrategy === "distance" ? (
-						<>
-							<div className="admin-branch-delivery-grid" style={{ marginTop: 18 }}>
-								<div className="form-group">
-									<label htmlFor="adm-del-price-km">
-										Precio por km
-										<AdminHelpTip text={DELIVERY_TOOLTIPS.pricePerKm} />
-									</label>
-									<input
-										id="adm-del-price-km"
-										type="number"
-										min={0}
-										step="any"
-										className="form-input"
-										disabled={lockOptions}
-										value={draft.pricePerKm}
-										onChange={(ev) =>
-											setDraft((d) => ({ ...d, pricePerKm: ev.target.value }))
-										}
-									/>
-								</div>
-								<div className="form-group">
-									<label htmlFor="adm-del-base">
-										Cargo fijo base
-										<AdminHelpTip text={DELIVERY_TOOLTIPS.baseFee} />
-									</label>
-									<input
-										id="adm-del-base"
-										type="number"
-										min={0}
-										step="any"
-										className="form-input"
-										disabled={lockOptions}
-										value={draft.baseFee}
-										onChange={(ev) =>
-											setDraft((d) => ({ ...d, baseFee: ev.target.value }))
-										}
-									/>
-								</div>
-								<div className="form-group">
-									<label htmlFor="adm-del-olat">
-										Ubicación del local · latitud
-										<AdminHelpTip text={DELIVERY_TOOLTIPS.originLat} />
-									</label>
-									<input
-										id="adm-del-olat"
-										type="text"
-										inputMode="decimal"
-										className="form-input"
-										placeholder="Ej: -33.4489"
-										disabled={lockOptions}
-										value={draft.originLat}
-										onChange={(ev) =>
-											setDraft((d) => ({ ...d, originLat: ev.target.value }))
-										}
-									/>
-								</div>
-								<div className="form-group">
-									<label htmlFor="adm-del-olng">
-										Ubicación del local · longitud
-										<AdminHelpTip text={DELIVERY_TOOLTIPS.originLng} />
-									</label>
-									<input
-										id="adm-del-olng"
-										type="text"
-										inputMode="decimal"
-										className="form-input"
-										placeholder="Ej: -70.6693"
-										disabled={lockOptions}
-										value={draft.originLng}
-										onChange={(ev) =>
-											setDraft((d) => ({ ...d, originLng: ev.target.value }))
-										}
-									/>
-								</div>
-							</div>
-							<div className="admin-branch-delivery-zones" style={{ marginTop: 8 }}>
-								<p
-									className="admin-menu-options-card-desc admin-delivery-inline-tip"
-									style={{ marginBottom: 10 }}
-								>
-									<strong>Anillos por distancia (opcional):</strong> si el pedido cae dentro del radio
-									en km desde el local, aplicas la tarifa fija de esa fila; si no, se usa precio por km
-									+ cargo fijo.{" "}
-									<AdminHelpTip text={DELIVERY_TOOLTIPS.distanceRingsHelp} />
-								</p>
-								{zoneRows.map((row, idx) => (
-									<div
-										key={row.id}
-										style={{
-											display: "flex",
-											flexWrap: "wrap",
-											gap: 10,
-											alignItems: "flex-end",
-											marginBottom: 10,
-										}}
-									>
-										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-zr-${row.id}`}>
-												Radio máx. (km)
-												<AdminHelpTip text={DELIVERY_TOOLTIPS.zoneRingRadius} />
-											</label>
-											<input
-												id={`adm-del-zr-${row.id}`}
-												type="number"
-												min={0}
-												step="any"
-												className="form-input"
-												disabled={lockOptions}
-												value={row.radiusKm}
-												onChange={(ev) => {
-													const v = ev.target.value;
-													setZoneRows((rows) =>
-														rows.map((r, i) => (i === idx ? { ...r, radiusKm: v } : r)),
-													);
-												}}
-											/>
-										</div>
-										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-zf-${row.id}`}>
-												Tarifa fija ($)
-												<AdminHelpTip text={DELIVERY_TOOLTIPS.zoneRingFee} />
-											</label>
-											<input
-												id={`adm-del-zf-${row.id}`}
-												type="number"
-												min={0}
-												step="any"
-												className="form-input"
-												disabled={lockOptions}
-												value={row.feeFlat}
-												onChange={(ev) => {
-													const v = ev.target.value;
-													setZoneRows((rows) =>
-														rows.map((r, i) => (i === idx ? { ...r, feeFlat: v } : r)),
-													);
-												}}
-											/>
-										</div>
-										<button
-											type="button"
-											className="admin-delivery-icon-btn admin-tooltip-btn-hover"
-											disabled={lockOptions}
-											aria-label="Quitar anillo de distancia (radio km y tarifa fija)"
-											onClick={() =>
-												setZoneRows((rows) =>
-													rows.length <= 1 ? rows : rows.filter((_, i) => i !== idx),
-												)
-											}
-										>
-											<Trash2 size={16} strokeWidth={1.75} aria-hidden />
-											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-												{DELIVERY_TOOLTIPS.removeDistanceRing}
-											</span>
-										</button>
-									</div>
-								))}
-								<button
-									type="button"
-									className="btn btn-secondary admin-tooltip-btn-hover"
-									style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-									disabled={lockOptions}
-									onClick={() =>
-										setZoneRows((rows) => [
-											...rows,
-											{ id: `z${Date.now()}`, radiusKm: "", feeFlat: "" },
-										])
-									}
-								>
-									<Plus size={16} strokeWidth={1.75} aria-hidden /> Añadir anillo
-									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-										{DELIVERY_TOOLTIPS.addDistanceRing}
-									</span>
-								</button>
-							</div>
-						</>
-					) : pricingStrategy === "named_areas" ? (
-						<>
-							<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
-								<p
-									className="admin-menu-options-section-label admin-menu-options-section-label--with-tip"
-									style={{ marginBottom: 8 }}
-								>
-									Zonas en el checkout
-									<AdminHelpTip text={DELIVERY_TOOLTIPS.zonesCheckoutSection} />
-								</p>
-								<div className="admin-delivery-strategy-pills">
-									<button
-										type="button"
-										disabled={lockOptions}
-										className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "manual_select" ? "is-active" : ""}`}
-										onClick={() => setNamedAreaResolution("manual_select")}
-									>
-										Lista para elegir
-										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-											{DELIVERY_TOOLTIPS.namedManual}
-										</span>
-									</button>
-									<button
-										type="button"
-										disabled={lockOptions}
-										className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "address_matched" ? "is-active" : ""}`}
-										onClick={() => setNamedAreaResolution("address_matched")}
-									>
-										Según la dirección (automático)
-										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-											{DELIVERY_TOOLTIPS.namedAddress}
-										</span>
-									</button>
-								</div>
-								<p className="admin-menu-options-card-desc" style={{ marginTop: 10, marginBottom: 0 }}>
-									{namedAreaResolution === "manual_select"
-										? "El cliente elige comuna/zona en un menú. Puedes usar sugerencias al escribir el nombre (mapa gratuito)."
-										: "El cliente escribe la dirección; el sistema intenta detectar la zona y el precio (datos de mapa abiertos)."}
-								</p>
-							</div>
-							<div className="admin-branch-delivery-zones" style={{ marginTop: 14 }}>
-								<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
-									<strong>Zonas y tarifas</strong> (hasta 40). Cada fila es el envío completo para esa
-									zona. Sugerencias de nombres vía{" "}
-									<a
-										href="https://www.openstreetmap.org/copyright"
-										target="_blank"
-										rel="noreferrer"
-										style={{ color: "inherit", textDecoration: "underline" }}
-									>
-										OpenStreetMap
-									</a>
-									.
-								</p>
-								{namedPlaceRows.map((row, idx) => (
-									<div
-										key={row.id}
-										style={{
-											display: "flex",
-											flexWrap: "wrap",
-											gap: 10,
-											alignItems: "flex-end",
-											marginBottom: 10,
-										}}
-									>
-										<div className="form-group" style={{ flex: "2 1 160px" }}>
-											<label htmlFor={`adm-del-place-${row.id}`}>
-												Nombre de la zona
-												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneName} />
-											</label>
-											<DeliveryPlaceSuggestInput
-												id={`adm-del-place-${row.id}`}
-												placeholder="Comuna, barrio o sector"
-												value={row.name}
-												region={
-													String(selectedBranch?.country ?? "CL").toUpperCase() === "VE"
-														? "ve"
-														: "cl"
-												}
-												biasLat={
-													draft.originLat.trim() !== "" &&
-													Number.isFinite(Number(draft.originLat))
-														? Number(draft.originLat)
-														: undefined
-												}
-												biasLng={
-													draft.originLng.trim() !== "" &&
-													Number.isFinite(Number(draft.originLng))
-														? Number(draft.originLng)
-														: undefined
-												}
-												disabled={lockOptions}
-												onChange={(v) => {
-													setNamedPlaceRows((rows) =>
-														rows.map((r, i) => (i === idx ? { ...r, name: v } : r)),
-													);
-												}}
-											/>
-										</div>
-										<div className="form-group" style={{ flex: "1 1 120px" }}>
-											<label htmlFor={`adm-del-place-fee-${row.id}`}>
-												Tarifa ($)
-												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneFee} />
-											</label>
-											<input
-												id={`adm-del-place-fee-${row.id}`}
-												type="number"
-												min={0}
-												step="any"
-												className="form-input"
-												disabled={lockOptions}
-												value={row.feeFlat}
-												onChange={(ev) => {
-													const v = ev.target.value;
-													setNamedPlaceRows((rows) =>
-														rows.map((r, i) => (i === idx ? { ...r, feeFlat: v } : r)),
-													);
-												}}
-											/>
-										</div>
-										<div className="form-group" style={{ flex: "1 1 140px" }}>
-											<label htmlFor={`adm-del-place-al-${row.id}`}>
-												Alias (opc.)
-												<AdminHelpTip text={DELIVERY_TOOLTIPS.namedZoneAliases} />
-											</label>
-											<input
-												id={`adm-del-place-al-${row.id}`}
-												type="text"
-												className="form-input"
-												placeholder="Separados por coma"
-												disabled={lockOptions}
-												value={row.aliasesStr ?? ""}
-												onChange={(ev) => {
-													const v = ev.target.value;
-													setNamedPlaceRows((rows) =>
-														rows.map((r, i) => (i === idx ? { ...r, aliasesStr: v } : r)),
-													);
-												}}
-											/>
-										</div>
-										<button
-											type="button"
-											className="admin-delivery-icon-btn admin-tooltip-btn-hover"
-											disabled={lockOptions}
-											aria-label="Quitar zona de la lista (nombre, tarifa y alias)"
-											onClick={() =>
-												setNamedPlaceRows((rows) =>
-													rows.length <= 1 ? rows : rows.filter((_, i) => i !== idx),
-												)
-											}
-										>
-											<Trash2 size={16} strokeWidth={1.75} aria-hidden />
-											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-												{DELIVERY_TOOLTIPS.removeNamedZoneRow}
-											</span>
-										</button>
-									</div>
-								))}
-								<button
-									type="button"
-									className="btn btn-secondary admin-tooltip-btn-hover"
-									style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
-									disabled={lockOptions}
-									onClick={() =>
-										setNamedPlaceRows((rows) => [
-											...rows,
-											{ id: `p${Date.now()}`, name: "", feeFlat: "", aliasesStr: "" },
-										])
-									}
-								>
-									<Plus size={16} strokeWidth={1.75} aria-hidden /> Añadir zona
-									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-										{DELIVERY_TOOLTIPS.addNamedZone}
-									</span>
-								</button>
-							</div>
-						</>
-					) : (
-						<div className="admin-delivery-strategy-block" style={{ marginTop: 14 }}>
-							<p className="admin-menu-options-card-desc admin-delivery-inline-tip" style={{ marginBottom: 12 }}>
-								<strong>Uber Direct:</strong> el <strong>Client ID y Secret</strong> de la app Uber están en
-								la base de datos por <strong>empresa</strong> (los configura soporte/GodCode en admin
-								SaaS). Aquí solo defines el <strong>Store ID</strong> de esta sucursal y si el cliente ve
-								el monto cotizado o solo un mensaje.
-							</p>
-							<div className="form-group" style={{ maxWidth: "36rem" }}>
-								<label htmlFor="adm-del-uber-store-id">
-									Store ID (Uber Direct) — esta sucursal
-									<AdminHelpTip text={DELIVERY_TOOLTIPS.uberStoreId} />
-								</label>
-								<input
-									id="adm-del-uber-store-id"
-									type="text"
-									className="form-input"
-									style={{ fontFamily: "ui-monospace, monospace" }}
-									placeholder="UUID o id del local en Uber"
-									disabled={lockOptions}
-									autoComplete="off"
-									value={draft.uberDirectStoreId}
-									onChange={(ev) =>
-										setDraft((d) => ({ ...d, uberDirectStoreId: ev.target.value }))
-									}
-								/>
-							</div>
-							<div
-								className="admin-delivery-pay-chip-row"
-								style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}
-							>
-								<button
-									type="button"
-									role="checkbox"
-									aria-checked={showExternalDeliveryFee}
-									disabled={lockOptions}
-									className={`admin-delivery-pay-chip admin-tooltip-btn-hover ${showExternalDeliveryFee ? "is-on" : ""}`}
-									onClick={() => setShowExternalDeliveryFee((v) => !v)}
-								>
-									Mostrar monto de envío cotizado (Uber)
-									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-										{DELIVERY_TOOLTIPS.uberShowFee}
-									</span>
-								</button>
-							</div>
-							<div className="form-group" style={{ maxWidth: "36rem", marginTop: 14 }}>
-								<label htmlFor="adm-del-uber-display-text">
-									Texto si no se muestra monto (o mensaje complementario)
-									<AdminHelpTip text={DELIVERY_TOOLTIPS.uberDisplayText} />
-								</label>
-								<input
-									id="adm-del-uber-display-text"
-									type="text"
-									className="form-input"
-									placeholder="Ej. Consultar con la tienda"
-									disabled={lockOptions}
-									value={draft.externalDeliveryDisplayText}
-									onChange={(ev) =>
-										setDraft((d) => ({
-											...d,
-											externalDeliveryDisplayText: ev.target.value,
-										}))
-									}
-								/>
-							</div>
-							<p
-								className="admin-menu-options-card-desc admin-delivery-inline-tip"
-								style={{ marginTop: 14, marginBottom: 0 }}
-							>
-								Si <strong>Mostrar monto</strong> está apagado, la API usa{" "}
-								<code style={{ fontSize: "0.85em" }}>showDeliveryFeeAmount: false</code>. Con monto
-								encendido, el cliente debe indicar ubicación para cotizar vía Uber.
-							</p>
-						</div>
-					)}
-
-						</div>
-					</details>
+					<AdminDeliveryZonesPanel
+						lockOptions={lockOptions}
+						pricingStrategy={pricingStrategy}
+						setPricingStrategy={setPricingStrategy}
+						allowTenantExternalDelivery={allowTenantExternalDelivery}
+						draft={draft}
+						setDraft={setDraft}
+						zoneRows={zoneRows}
+						setZoneRows={setZoneRows}
+						namedPlaceRows={namedPlaceRows}
+						setNamedPlaceRows={setNamedPlaceRows}
+						namedAreaResolution={namedAreaResolution}
+						setNamedAreaResolution={setNamedAreaResolution}
+						showExternalDeliveryFee={showExternalDeliveryFee}
+						setShowExternalDeliveryFee={setShowExternalDeliveryFee}
+						selectedBranch={selectedBranch}
+					/>
 
 					<details className="admin-delivery-fold">
 						<summary className="admin-delivery-fold__summary">

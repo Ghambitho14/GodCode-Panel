@@ -17,7 +17,10 @@ import { getExpectedByMethod } from '../utils/shiftCloseReconciliation';
 import { planSaleMovements, planRefundMovements, planSaleResyncMovements } from '../utils/orderPaymentMovements';
 import { countOpenOrderSessions, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
 
-export const useCashSystem = (showNotify, branchId, orders = []) => {
+export const useCashSystem = (showNotify, branchId, orders = [], options = {}) => {
+    const { enabled = true } = options;
+    const branchIdRef = useRef(branchId);
+    branchIdRef.current = branchId;
     const [activeShift, setActiveShift] = useState(null);
     const [loading, setLoading] = useState(true);
     const [movements, setMovements] = useState([]);
@@ -82,16 +85,22 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
      * Carga los movimientos de un turno específico
      */
     const loadMovements = useCallback(async (shiftId) => {
+        if (!enabled) return;
         setLoadingMovements(true);
+        const requestedBranchId = branchIdRef.current;
         try {
             const data = await cashService.getShiftMovements(shiftId);
+            if (branchIdRef.current !== requestedBranchId) return;
             setMovements(data || []);
         } catch {
+            if (branchIdRef.current !== requestedBranchId) return;
             setMovements([]);
         } finally {
-            setLoadingMovements(false);
+            if (branchIdRef.current === requestedBranchId) {
+                setLoadingMovements(false);
+            }
         }
-    }, []);
+    }, [enabled]);
 
     const debouncedLoadMovements = useCallback((shiftId) => {
         if (!shiftId) return;
@@ -117,6 +126,12 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
      * Carga el turno activo para la sucursal seleccionada
      */
     const loadActiveShift = useCallback(async () => {
+        if (!enabled) {
+            setActiveShift(null);
+            setMovements([]);
+            setLoading(false);
+            return;
+        }
         if (!branchId || branchId === 'all' || !isValidBranchId(branchId)) {
             // [ROBUSTEZ] No llamar API con slug (ej. "san-joaquin") → evita 400 y caja que no carga
             setActiveShift(null);
@@ -125,6 +140,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
             return;
         }
 
+        const requestedBranchId = branchId;
         setLoading(true);
         try {
             const { data: shift, error } = await supabase
@@ -135,6 +151,7 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
                 .maybeSingle();
 
             if (error) throw error;
+            if (branchIdRef.current !== requestedBranchId) return;
 
             // [FIX] Actualizar si cambia el ID o el balance esperado (para reflejar ingresos/egresos)
             setActiveShift(prev => {
@@ -150,21 +167,30 @@ export const useCashSystem = (showNotify, branchId, orders = []) => {
                 setMovements([]);
             }
         } catch {
+            if (branchIdRef.current !== requestedBranchId) return;
             if (showNotify) showNotify('Error al cargar datos de caja', 'error');
         } finally {
-            setLoading(false);
+            if (branchIdRef.current === requestedBranchId) {
+                setLoading(false);
+            }
         }
-    }, [showNotify, loadMovements, branchId]);
+    }, [showNotify, loadMovements, branchId, enabled]);
 
     useEffect(() => {
+        if (!enabled) {
+            setActiveShift(null);
+            setMovements([]);
+            setLoading(false);
+            return;
+        }
         loadActiveShift();
-    }, [loadActiveShift]);
+    }, [loadActiveShift, enabled]);
 
     /**
      * Listener Realtime para actualizar movimientos cuando se agreguen nuevos
      */
     useEffect(() => {
-        if (!activeShift) return;
+        if (!enabled || !activeShift) return;
 
         const shiftId = activeShift.id;
 

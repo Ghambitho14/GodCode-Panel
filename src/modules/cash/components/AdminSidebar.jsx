@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag, Wallet } from 'lucide-react';
 import { getSafeFaviconUrl } from '@/shared/utils/documentFavicon';
+import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
+import { resolveSidebarRestrictedHint } from '../admin/utils/tabAccessMessages';
 
 const SidebarIcon = ({ Icon, size }) => (
     <span className="nav-icon-slot">
@@ -9,13 +11,20 @@ const SidebarIcon = ({ Icon, size }) => (
     </span>
 );
 
-const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, userEmail, branchName, logoUrl, canAccessTab, onDeniedAccess, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
+const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, onStorefrontMissing, userEmail, branchName, logoUrl, canAccessTab, getTabDeniedMessage, onDeniedAccess, tabAccessContext, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
     // Estado para evitar SSR mismatch en logo y brand-info
         // SSR mismatch guard removed: logo and brand-info always rendered
-    const navigate = useNavigate();
     const { pathname } = useLocation();
     const pendingCount = kanbanColumns?.pending?.length || 0;
     const isTabAllowed = useCallback((tabId) => (typeof canAccessTab === 'function' ? canAccessTab(tabId) : true), [canAccessTab]);
+
+    const getDeniedTooltip = useCallback((tabId) => {
+        if (typeof getTabDeniedMessage === 'function') {
+            const message = getTabDeniedMessage(tabId);
+            if (message) return message;
+        }
+        return 'Necesitás un rol diferente para acceder.';
+    }, [getTabDeniedMessage]);
 
     // Estado mounted eliminado, usar isMobile directamente
     const renderMobile = isMobile;
@@ -29,12 +38,26 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         document.documentElement.style.colorScheme = 'light';
     }, [pathname]);
 
-    const storeHomePath = useMemo(() => {
-        const currentPath = String(pathname || '/');
-        const normalized = currentPath.replace(/\/+$/, '');
-        const withoutAdmin = normalized.replace(/\/admin(?:\/.*)?$/i, '');
-        return withoutAdmin || '/';
-    }, [pathname]);
+    const [logoutBusy, setLogoutBusy] = useState(false);
+
+    const handleOpenStorefront = useCallback(() => {
+        const url = String(storefrontMenuUrl || '').trim();
+        if (!url) {
+            onStorefrontMissing?.();
+            return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }, [storefrontMenuUrl, onStorefrontMissing]);
+
+    const handleLogout = useCallback(async () => {
+        if (logoutBusy || typeof onLogout !== 'function') return;
+        setLogoutBusy(true);
+        try {
+            await onLogout();
+        } finally {
+            setLogoutBusy(false);
+        }
+    }, [logoutBusy, onLogout]);
 
     const menuItems = useMemo(() => {
         const normalizedRole = String(userRole || '').toLowerCase() === 'staff'
@@ -128,6 +151,15 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         })
     ), [menuItems, isTabAllowed]);
 
+    const restrictedHintText = useMemo(() => {
+        if (!hasRestrictedItems || !tabAccessContext) return '';
+        const dynamicTabIds = (Array.isArray(dynamicModules) ? dynamicModules : [])
+            .filter((module) => module?.isActive && module.tabId)
+            .map((module) => module.tabId);
+        const tabIds = [...new Set([...ADMIN_PANEL_TAB_IDS, ...dynamicTabIds])];
+        return resolveSidebarRestrictedHint(tabIds, tabAccessContext);
+    }, [hasRestrictedItems, tabAccessContext, dynamicModules]);
+
     const [expandedGroups, setExpandedGroups] = useState(() => {
         const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
         return activeGroup ? { [activeGroup.id]: true } : {};
@@ -174,13 +206,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         key={child.id}
                                         onClick={() => {
                                             if (disabled) {
-                                                onDeniedAccess?.();
+                                                onDeniedAccess?.(child.id);
                                                 return;
                                             }
                                             setActiveTab(child.id);
                                         }}
                                         className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
-                                        title={disabled ? 'Necesitas un rol diferente para acceder.' : child.description || undefined}
+                                        title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                     >
                                         <SidebarIcon Icon={child.icon} size={20} />
@@ -195,13 +227,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                     key={item.id}
                                     onClick={() => {
                                         if (disabled) {
-                                            onDeniedAccess?.();
+                                            onDeniedAccess?.(item.id);
                                             return;
                                         }
                                         setActiveTab(item.id);
                                     }}
                                     className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                                    title={disabled ? 'Necesitas un rol diferente para acceder.' : item.description || undefined}
+                                    title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
                                     <SidebarIcon Icon={item.icon} size={20} />
@@ -239,13 +271,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                                     key={child.id}
                                                     onClick={() => {
                                                         if (disabled) {
-                                                            onDeniedAccess?.();
+                                                            onDeniedAccess?.(child.id);
                                                             return;
                                                         }
                                                         setActiveTab(child.id);
                                                     }}
                                                     className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
-                                                    title={disabled ? 'Necesitas un rol diferente para acceder.' : child.description || undefined}
+                                                    title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
                                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                                 >
                                                     <SidebarIcon Icon={child.icon} size={18} />
@@ -263,13 +295,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                     key={item.id}
                                     onClick={() => {
                                         if (disabled) {
-                                            onDeniedAccess?.();
+                                            onDeniedAccess?.(item.id);
                                             return;
                                         }
                                         setActiveTab(item.id);
                                     }} 
                                     className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                                    title={disabled ? 'Necesitas un rol diferente para acceder.' : item.description || undefined}
+                                    title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
                                     style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
                                     <SidebarIcon Icon={item.icon} size={20} />
@@ -280,29 +312,36 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                         }
                     })}
 
+            </nav>
+
+            <div className="sidebar-footer">
                 <button
                     type="button"
-                    onClick={() => {
-                        const url = storefrontMenuUrl || (storeHomePath && storeHomePath !== '/admin' ? storeHomePath : window.location.origin + '/');
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                    }}
-                    className="nav-item"
-                    style={!renderMobile ? { marginTop: 'auto', marginBottom: 10 } : {}}
+                    onClick={handleOpenStorefront}
+                    className="nav-item sidebar-footer__store"
+                    title={storefrontMenuUrl ? 'Abrir menú público en una pestaña nueva' : 'No hay URL de tienda configurada'}
+                    disabled={!storefrontMenuUrl}
                 >
                     <SidebarIcon Icon={Store} size={20} />
                     {renderMobile ? <span className="nav-label-mobile">Tienda</span> : <span className="nav-text">Ver Tienda</span>}
                 </button>
-                <button onClick={onLogout} className="nav-item logout">
+                <button
+                    type="button"
+                    onClick={() => { void handleLogout(); }}
+                    className="nav-item logout"
+                    disabled={logoutBusy}
+                    aria-busy={logoutBusy}
+                >
                     <SidebarIcon Icon={LogOut} size={20} />
                     {renderMobile ? <span className="nav-label-mobile">Salir</span> : <span className="nav-text">Cerrar Sesión</span>}
                 </button>
+            </div>
 
-                {hasRestrictedItems && !renderMobile && (
-                    <p className="admin-sidebar-hint">
-                        Las opciones en gris requieren un rol diferente.
-                    </p>
-                )}
-            </nav>
+            {hasRestrictedItems && !renderMobile && restrictedHintText && (
+                <p className="admin-sidebar-hint">
+                    {restrictedHintText}
+                </p>
+            )}
         </aside>
     );
 };

@@ -1,0 +1,84 @@
+diff --git a/es6/state/ReportChartProps.js b/es6/state/ReportChartProps.js
+index d22e487053ecfa71016eafa4937acc6f4ed7e4eb..72f127870f62c541621b7a62794dfadcc85086a6 100644
+--- a/es6/state/ReportChartProps.js
++++ b/es6/state/ReportChartProps.js
+@@ -1,10 +1,12 @@
+-import { useEffect } from 'react';
++import { memo, useEffect } from 'react';
+ import { updateOptions } from './rootPropsSlice';
+ import { useAppDispatch } from './hooks';
+-export function ReportChartProps(props) {
++import { propsAreEqual } from '../util/propsAreEqual';
++function ReportChartPropsImpl(props) {
+   var dispatch = useAppDispatch();
+   useEffect(() => {
+     dispatch(updateOptions(props));
+   }, [dispatch, props]);
+   return null;
+ }
++export var ReportChartProps = /*#__PURE__*/memo(ReportChartPropsImpl, propsAreEqual);
+diff --git a/es6/state/ReportPolarOptions.js b/es6/state/ReportPolarOptions.js
+index 8c5ce4aa9a4384de8a528b463a07c16867e795a2..925c923c6542d134c8837065132213cab03a679b 100644
+--- a/es6/state/ReportPolarOptions.js
++++ b/es6/state/ReportPolarOptions.js
+@@ -1,10 +1,12 @@
+-import { useEffect } from 'react';
++import { memo, useEffect } from 'react';
+ import { useAppDispatch } from './hooks';
+ import { updatePolarOptions } from './polarOptionsSlice';
+-export function ReportPolarOptions(props) {
++import { propsAreEqual } from '../util/propsAreEqual';
++function ReportPolarOptionsImpl(props) {
+   var dispatch = useAppDispatch();
+   useEffect(() => {
+     dispatch(updatePolarOptions(props));
+   }, [dispatch, props]);
+   return null;
+ }
++export var ReportPolarOptions = /*#__PURE__*/memo(ReportPolarOptionsImpl, propsAreEqual);
+diff --git a/lib/state/ReportChartProps.js b/lib/state/ReportChartProps.js
+index eb0f05f10476a3163352dcf6e8c69d95f882932e..22005bac6b49b5561e9d728a064881ac624f3181 100644
+--- a/lib/state/ReportChartProps.js
++++ b/lib/state/ReportChartProps.js
+@@ -3,14 +3,16 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+-exports.ReportChartProps = ReportChartProps;
++exports.ReportChartProps = void 0;
+ var _react = require("react");
+ var _rootPropsSlice = require("./rootPropsSlice");
+ var _hooks = require("./hooks");
+-function ReportChartProps(props) {
++var _propsAreEqual = require("../util/propsAreEqual");
++function ReportChartPropsImpl(props) {
+   var dispatch = (0, _hooks.useAppDispatch)();
+   (0, _react.useEffect)(() => {
+     dispatch((0, _rootPropsSlice.updateOptions)(props));
+   }, [dispatch, props]);
+   return null;
+ }
++var ReportChartProps = exports.ReportChartProps = /*#__PURE__*/(0, _react.memo)(ReportChartPropsImpl, _propsAreEqual.propsAreEqual);
+diff --git a/lib/state/ReportPolarOptions.js b/lib/state/ReportPolarOptions.js
+index 2595dab6e597796628f775bed8a2b2f6d8fecdfc..a5b2dbd49224d2cba284b9cf5aff7280a759e66a 100644
+--- a/lib/state/ReportPolarOptions.js
++++ b/lib/state/ReportPolarOptions.js
+@@ -3,14 +3,16 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+-exports.ReportPolarOptions = ReportPolarOptions;
++exports.ReportPolarOptions = void 0;
+ var _react = require("react");
+ var _hooks = require("./hooks");
+ var _polarOptionsSlice = require("./polarOptionsSlice");
+-function ReportPolarOptions(props) {
++var _propsAreEqual = require("../util/propsAreEqual");
++function ReportPolarOptionsImpl(props) {
+   var dispatch = (0, _hooks.useAppDispatch)();
+   (0, _react.useEffect)(() => {
+     dispatch((0, _polarOptionsSlice.updatePolarOptions)(props));
+   }, [dispatch, props]);
+   return null;
+ }
++var ReportPolarOptions = exports.ReportPolarOptions = /*#__PURE__*/(0, _react.memo)(ReportPolarOptionsImpl, _propsAreEqual.propsAreEqual);

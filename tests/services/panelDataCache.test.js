@@ -6,6 +6,7 @@ import {
 	invalidateCompanyClients,
 	getBranchInventory,
 	invalidateBranchInventory,
+	invalidateAllPanelData,
 	resetPanelDataCacheForTests,
 } from '@/modules/cash/services/panelDataCache';
 
@@ -101,5 +102,29 @@ describe('panelDataCache', () => {
 
 		expect(c).toEqual([{ id: 'item1', current_stock: 15 }]);
 		expect(nextFetcher).toHaveBeenCalledTimes(1);
+	});
+
+	it('invalidateAllPanelData limpia todos los datasets cacheados', async () => {
+		const ordersFetcher = vi.fn().mockResolvedValue([{ id: 'o1' }]);
+		const clientsFetcher = vi.fn().mockResolvedValue([{ id: 'c1' }]);
+		const invFetcher = vi.fn().mockResolvedValue([{ id: 'i1' }]);
+
+		await getBranchOrders('co1', 'b1', ordersFetcher);
+		await getCompanyClients('co1', clientsFetcher);
+		await getBranchInventory('b1', invFetcher);
+
+		invalidateAllPanelData();
+
+		const ordersFetcher2 = vi.fn().mockResolvedValue([{ id: 'o2' }]);
+		const clientsFetcher2 = vi.fn().mockResolvedValue([{ id: 'c2' }]);
+		const invFetcher2 = vi.fn().mockResolvedValue([{ id: 'i2' }]);
+
+		await getBranchOrders('co1', 'b1', ordersFetcher2);
+		await getCompanyClients('co1', clientsFetcher2);
+		await getBranchInventory('b1', invFetcher2);
+
+		expect(ordersFetcher2).toHaveBeenCalledTimes(1);
+		expect(clientsFetcher2).toHaveBeenCalledTimes(1);
+		expect(invFetcher2).toHaveBeenCalledTimes(1);
 	});
 });

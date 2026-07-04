@@ -194,57 +194,6 @@
 }
 
 /* Toasts */
-.admin-layout .admin-notification {
-	position: fixed;
-	left: 50%;
-	top: calc(16px + env(safe-area-inset-top));
-	transform: translateX(-50%);
-	z-index: var(--z-admin-toast, 14000);
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 14px 18px;
-	border-radius: 14px;
-	border: 1px solid var(--admin-border, #e2e8f0);
-	background: var(--admin-card-bg, #fff);
-	color: var(--admin-text, #0f172a);
-	box-shadow: var(--admin-shadow-md, 0 12px 40px rgba(15, 23, 42, 0.14));
-	max-width: min(520px, calc(100vw - 24px));
-	animation: adminToastIn 0.28s ease-out;
-}
-
-@keyframes adminToastIn {
-	from {
-		opacity: 0;
-		transform: translate(-50%, -8px);
-	}
-	to {
-		opacity: 1;
-		transform: translate(-50%, 0);
-	}
-}
-
-.admin-layout .admin-notification span {
-	font-weight: 600;
-	font-size: 0.95rem;
-}
-
-.admin-layout .admin-notification.success {
-	border-color: rgba(37, 211, 102, 0.35);
-	background: linear-gradient(to bottom, #fff, rgba(37, 211, 102, 0.06));
-}
-
-.admin-layout .admin-notification.error {
-	border-color: rgba(220, 38, 38, 0.35);
-	background: linear-gradient(to bottom, #fff, rgba(220, 38, 38, 0.06));
-}
-
-@media (max-width: 768px) {
-	.admin-layout .admin-notification {
-		top: calc(10px + env(safe-area-inset-top));
-	}
-}
-
 /* Comunicados (banner) */
 .admin-layout .admin-broadcasts-wrap.glass {
 	margin-bottom: 18px;

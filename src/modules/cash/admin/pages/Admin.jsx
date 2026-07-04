@@ -1,15 +1,9 @@
 import React, { useMemo } from 'react';
 import {
-  Loader2, Search, Filter, CheckCircle2, AlertCircle,
+  Loader2, Search, Filter,
   Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store, Image, ImageOff,
 } from 'lucide-react';
-import ProductModal from '../products/components/ProductModal';
-import CategoryModal from '../products/components/CategoryModal';
 import AdminSidebar from '../../components/AdminSidebar';
-import AdminKanban from '../../components/AdminKanban';
-import ManualOrderModal from '../../components/ManualOrderModal';
-import InventoryCard from '../../components/InventoryCard';
-import ClientDetailsPanel from '../../components/ClientDetailsPanel';
 import OrderDetailModal from '../../components/OrderDetailModal';
 import ScopeSelectionModal from '../../components/ScopeSelectionModal';
 import TenantTicketsPanel from '../../components/TenantTicketsPanel';
@@ -22,7 +16,6 @@ import AdminMenuChannelBanner from '../../components/AdminMenuChannelBanner';
 import AdminTopBar from '../../components/AdminTopBar';
 import AdminNotificationCenter from '../../components/AdminNotificationCenter';
 import AdminBranchSelector from '../../components/AdminBranchSelector';
-import AdminTablesGrid from '../../components/AdminTablesGrid';
 import AdminHeaderClock from '../../components/AdminHeaderClock';
 import OrderIntakePauseControl from '../../components/OrderIntakePauseControl';
 import OrderNotificationSoundControl from '../../components/OrderNotificationSoundControl';
@@ -30,18 +23,27 @@ import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { listBroadcasts, acknowledgeBroadcast as acknowledgeBroadcastService } from '../../services/broadcastsService';
 
-const AdminAnalytics = React.lazy(() => import('../../components/AdminAnalytics'));
+const AdminAnalyticsTab = React.lazy(() => import('../tabs/analytics'));
 const AdminClients = React.lazy(() => import('../../components/AdminClients'));
-const AdminInventory = React.lazy(() => import('../../components/AdminInventory'));
-const AdminHistoryTable = React.lazy(() => import('../../components/AdminHistoryTable'));
+const AdminInventory = React.lazy(() => import('../tabs/inventory'));
 const CashManager = React.lazy(() => import('../../components/caja/CashManager'));
 const AdminCoupons = React.lazy(() => import('../../components/AdminCoupons'));
 const AdminMenuOptions = React.lazy(() => import('../../components/AdminMenuOptions'));
 const AdminMenuBeverages = React.lazy(() => import('../../components/AdminMenuBeverages'));
 const AdminMenuExtras = React.lazy(() => import('../../components/AdminMenuExtras'));
-import { supabase, TABLES, logout } from '@/integrations/supabase';
-import { createMoneyFormatter } from '@/shared/utils/money';
+const AdminOrdersTab = React.lazy(() => import('../tabs/orders'));
+const AdminProductsTab = React.lazy(() => import('../tabs/products'));
+const AdminCategoriesTab = React.lazy(() => import('../tabs/categories'));
+const AdminLocalExpensesTab = React.lazy(() => import('../tabs/local-expenses'));
+const ManualOrderModal = React.lazy(() => import('../../components/ManualOrderModal'));
+const ProductModal = React.lazy(() => import('../products/components/ProductModal'));
+const CategoryModal = React.lazy(() => import('../products/components/CategoryModal'));
+const ClientDetailsPanel = React.lazy(() => import('../../components/ClientDetailsPanel'));
+import { supabase, TABLES } from '@/integrations/supabase';
 import { AdminProvider, useAdmin } from './AdminProvider';
+import { Toaster } from 'sileo';
+import 'sileo/styles.css';
+import '../../styles/AdminSileo.css';
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
   const {
@@ -74,7 +76,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     editingProduct, setEditingProduct,
     isCategoryModalOpen, setIsCategoryModalOpen,
     editingCategory, setEditingCategory,
-    notification,
     receiptModalOrder, setReceiptModalOrder,
     receiptPreview, setReceiptPreview,
     uploadingReceipt,
@@ -113,8 +114,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     productStats,
     userRole,
     userEmail,
+    signOut,
     dynamicModules,
     canAccessTab,
+    getTabAccessDeniedMessage,
+    panelAccess,
     productToDelete,
     setProductToDelete,
     confirmDeleteProduct,
@@ -131,6 +135,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
+  const sidebarTabAccessContext = React.useMemo(() => ({
+    userRole,
+    normalizedPanelAccess: panelAccess,
+    menuCapabilities,
+    dynamicModules,
+  }), [userRole, panelAccess, menuCapabilities, dynamicModules]);
   const [clientOrderDetail, setClientOrderDetail] = React.useState(null);
 
   React.useEffect(() => {
@@ -146,10 +156,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     return maxOrder + 1;
   }, [categories]);
 
-  const sortedCategories = React.useMemo(() => (
-    [...categories].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-  ), [categories]);
-
   const companyIdForClients = React.useMemo(() => {
     if (selectedBranch && selectedBranch.id !== 'all' && selectedBranch.company_id) {
       return selectedBranch.company_id;
@@ -157,15 +163,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     const fallback = (branches || []).find(b => b.id !== 'all' && b.company_id);
     return fallback?.company_id || null;
   }, [selectedBranch, branches]);
-
-  const { formatMoney: formatBranchMoney } = useMemo(
-    () => createMoneyFormatter(selectedBranch),
-    [selectedBranch],
-  );
-
-  const [dragCategoryId, setDragCategoryId] = React.useState(null);
-  const [dragOverCategoryId, setDragOverCategoryId] = React.useState(null);
-  const dragEnabled = !isMobile;
 
   const [broadcasts, setBroadcasts] = React.useState([]);
   const [broadcastsLoading, setBroadcastsLoading] = React.useState(false);
@@ -310,57 +307,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     }
   };
 
-  const handleDragStart = (categoryId) => {
-    setDragCategoryId(categoryId);
-  };
-
-  const handleDragOver = (event, categoryId) => {
-    event.preventDefault();
-    if (categoryId !== dragOverCategoryId) {
-      setDragOverCategoryId(categoryId);
-    }
-  };
-
-  const handleDragLeave = (categoryId) => {
-    if (dragOverCategoryId === categoryId) {
-      setDragOverCategoryId(null);
-    }
-  };
-
-  const handleDrop = async (event, categoryId) => {
-    event.preventDefault();
-    if (!dragCategoryId || dragCategoryId === categoryId) {
-      setDragCategoryId(null);
-      setDragOverCategoryId(null);
-      return;
-    }
-
-    const ids = sortedCategories.map(cat => cat.id);
-    const fromIndex = ids.indexOf(dragCategoryId);
-    const toIndex = ids.indexOf(categoryId);
-    if (fromIndex === -1 || toIndex === -1) {
-      setDragCategoryId(null);
-      setDragOverCategoryId(null);
-      return;
-    }
-
-    const nextIds = [...ids];
-    const [moved] = nextIds.splice(fromIndex, 1);
-    nextIds.splice(toIndex, 0, moved);
-
-    await reorderCategories(nextIds);
-    setDragCategoryId(null);
-    setDragOverCategoryId(null);
-  };
-
   return (
     <div className="admin-layout">
-      {notification && (
-        <div className={`admin-notification ${notification.type} animate-slide-up`}>
-          {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          <span>{notification.msg}</span>
-        </div>
-      )}
+      <Toaster
+        position="top-center"
+        options={{
+          fill: '#ffffff',
+          roundness: 14,
+        }}
+      />
 
       {productToDelete && (
         <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)}>
@@ -393,17 +348,17 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         kanbanColumns={kanbanColumns}
         userRole={userRole}
         canAccessTab={canAccessTab}
-        onDeniedAccess={() => showNotify('Necesitas un rol diferente para acceder a esta sección.', 'error')}
+        getTabDeniedMessage={getTabAccessDeniedMessage}
+        tabAccessContext={sidebarTabAccessContext}
+        onDeniedAccess={(tabId) => showNotify(getTabAccessDeniedMessage(tabId) || 'Necesitás un rol diferente para acceder a esta sección.', 'error')}
         userEmail={userEmail || initialEmail}
         branchName={selectedBranch?.name}
         logoUrl={logoUrl}
         dynamicModules={dynamicModules}
         storefrontMenuUrl={storefrontMenuUrl}
         tabLabelsById={tabLabels}
-        onLogout={async () => {
-          await logout();
-          navigate('/');
-        }}
+        onStorefrontMissing={() => showNotify('No encontramos la URL del menú público. Revisá el slug de la empresa en GodCode.', 'error')}
+        onLogout={signOut}
       />
 
       <main className="admin-content">
@@ -550,172 +505,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <AdminTabFallback />
         ) : (
         <>
-        {/* 1. PEDIDOS */}
         {activeTab === 'orders' && (
-          !isHistoryView ? (
-            !ordersPanelSettingsReady ? (
-            <AdminTabFallback />
-            ) : ordersViewMode === 'mesas' ? (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
-              <AdminTablesGrid
-                orders={orders}
-                moveOrder={moveOrder}
-                closeOrderSession={closeOrderSession}
-                markOrderSessionPaid={markOrderSessionPaid}
-                branch={selectedBranch}
-                clients={clients}
-                logoUrl={logoUrl}
-                companyName={companyName}
-                showNotify={showNotify}
-                products={products}
-                categories={categories}
-                localOrderChannels={localOrderChannels}
-                onOrderSaved={upsertOrder}
-              />
-            </AdminErrorBoundary>
-            ) : (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
-              <AdminKanban
-                columns={kanbanColumns}
-                isMobile={isMobile}
-                mobileTab={mobileTab}
-                setMobileTab={setMobileTab}
-                moveOrder={moveOrder}
-                setReceiptModalOrder={setReceiptModalOrder}
-                branch={selectedBranch}
-                clients={clients}
-                logoUrl={logoUrl}
-                companyName={companyName}
-                showNotify={showNotify}
-                products={products}
-                categories={categories}
-                localOrderChannels={localOrderChannels}
-                onOrderSaved={upsertOrder}
-              />
-            </AdminErrorBoundary>
-            )
-          ) : (
-            <AdminErrorBoundary tabLabel={tabLabels.orders || 'Pedidos'} onRetry={() => refreshOrders()}>
-              <React.Suspense fallback={<AdminTabFallback />}>
-                <AdminHistoryTable
-                  orders={historyOrders}
-                  historyLoading={historyLoading}
-                  historyPeriod={historyPeriod}
-                  onPeriodChange={setHistoryPeriod}
-                  setReceiptModalOrder={setReceiptModalOrder}
-                />
-              </React.Suspense>
-            </AdminErrorBoundary>
-          )
+          <React.Suspense fallback={<AdminTabFallback />}>
+            <AdminOrdersTab logoUrl={logoUrl} companyName={companyName} />
+          </React.Suspense>
         )}
 
-        {/* 2. INVENTARIO (productos) */}
         {activeTab === 'products' && (
-          <AdminErrorBoundary
-            tabLabel={tabLabels.products || 'Productos'}
-            onRetry={() => refreshCatalog()}
-          >
-          <div className="products-view animate-fade">
-            
-            {/* BARRA DE ESTADÍSTICAS */}
-            <div className="admin-stats-bar glass">
-              <div className="admin-stats-bar__item">
-                <div className="admin-stats-bar__icon"><Package size={18} /></div>
-                <div>
-                  <span className="admin-stats-bar__label">Total Productos</span>
-                  <strong className="admin-stats-bar__value">{productStats.total}</strong>
-                </div>
-              </div>
-              <div className="admin-stats-bar__divider" aria-hidden />
-              <div className="admin-stats-bar__item">
-                <div className="admin-stats-bar__icon admin-stats-bar__icon--success"><Eye size={18} /></div>
-                <div>
-                  <span className="admin-stats-bar__label">Activos</span>
-                  <strong className="admin-stats-bar__value admin-stats-bar__value--success">{productStats.active}</strong>
-                </div>
-              </div>
-              <div className="admin-stats-bar__divider" aria-hidden />
-              <div className="admin-stats-bar__item">
-                <div className="admin-stats-bar__icon admin-stats-bar__icon--danger"><EyeOff size={18} /></div>
-                <div>
-                  <span className="admin-stats-bar__label">Pausados</span>
-                  <strong className="admin-stats-bar__value admin-stats-bar__value--danger">{productStats.paused}</strong>
-                </div>
-              </div>
-              <button
-                type="button"
-                className={`admin-stats-bar__photos-toggle${showProductPhotos ? ' is-on' : ''}`}
-                onClick={() => setShowProductPhotos((v) => !v)}
-                aria-pressed={showProductPhotos}
-                title={showProductPhotos ? 'Ocultar fotos en la lista de productos' : 'Mostrar fotos en la lista de productos'}
-              >
-                {showProductPhotos ? <Image size={18} aria-hidden /> : <ImageOff size={18} aria-hidden />}
-                <span>{showProductPhotos ? 'Fotos visibles' : 'Fotos ocultas'}</span>
-              </button>
-            </div>
-
-            <div className="admin-toolbar glass">
-              <div className="admin-toolbar-row">
-                <div className="search-box">
-                  <Search size={18} />
-                  <input placeholder="Buscar producto..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                </div>
-                
-                <div className="filter-box">
-                  <Filter size={18} />
-                  <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                    <option value="all">Todas las categorías</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-
-                <div className="filter-box">
-                  <Eye size={18} />
-                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                    <option value="all">Todos los estados</option>
-                    <option value="active">Solo Activos</option>
-                    <option value="paused">Solo Pausados</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="admin-toolbar-actions">
-                 <div className="filter-box filter-box--compact">
-                    <ArrowUpDown size={18} />
-                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
-                      <option value="name-asc">Nombre (A-Z)</option>
-                      <option value="price-asc">Precio (Menor a Mayor)</option>
-                      <option value="price-desc">Precio (Mayor a Menor)</option>
-                    </select>
-                 </div>
-                 <button className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} title="Vista Grilla">
-                    <LayoutGrid size={18} />
-                 </button>
-                 <button className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vista Lista">
-                    <List size={18} />
-                 </button>
-              </div>
-            </div>
-            
-            <div
-              className={`inventory-grid${viewMode === 'list' ? ' list-mode' : ''}${showProductPhotos ? '' : ' inventory-grid--no-photos'}`}
-            >
-              {processedProducts.map(p => (
-                  <InventoryCard
-                    key={p.id}
-                    product={p}
-                    viewMode={viewMode}
-                    showPhotos={showProductPhotos}
-                    toggleProductActive={toggleProductActive}
-                    setEditingProduct={setEditingProduct}
-                    setIsModalOpen={setIsModalOpen}
-                    deleteProduct={deleteProduct}
-                  />
-                ))
-              }
-            </div>
-          </div>
-          </AdminErrorBoundary>
+          <React.Suspense fallback={<AdminTabFallback />}>
+            <AdminProductsTab />
+          </React.Suspense>
         )}
 
         {/* 2.5 NUEVO INVENTARIO (INSUMOS) */}
@@ -729,6 +528,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 companyId={companyIdForClients}
                 products={products}
                 categories={categories}
+                prefetchedBranchStock={inventoryBranchRows}
                 onRefreshCatalog={() => refreshCatalogAndInventory()}
               />
             </React.Suspense>
@@ -774,29 +574,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </AdminErrorBoundary>
         )}
 
-        {/* 3. REPORTES */}
-        {(activeTab === 'analytics' || activeTab === 'local_expenses') && (
+        {activeTab === 'analytics' && (
           <AdminErrorBoundary
-            tabLabel={
-              activeTab === 'local_expenses'
-                ? tabLabels.local_expenses || 'Gastos del local'
-                : tabLabels.analytics || 'Reportes'
-            }
+            tabLabel={tabLabels.analytics || 'Reportes'}
             onRetry={() => loadData(true)}
           >
             <React.Suspense fallback={<AdminTabFallback />}>
-              <AdminAnalytics
-                orders={orders}
-                products={products}
-                clients={clients}
-                branches={branches.filter(b => b.id !== 'all')}
-                showNotify={showNotify}
-                companyId={companyIdForClients}
-                selectedBranch={selectedBranch}
-                view={activeTab === 'local_expenses' ? 'expensesOnly' : 'full'}
-              />
+              <AdminAnalyticsTab />
             </React.Suspense>
           </AdminErrorBoundary>
+        )}
+
+        {activeTab === 'local_expenses' && (
+          <React.Suspense fallback={<AdminTabFallback />}>
+            <AdminLocalExpensesTab logoUrl={logoUrl} companyName={companyName} />
+          </React.Suspense>
         )}
 
         {/* 4. CLIENTES */}
@@ -863,151 +655,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           </AdminErrorBoundary>
         )}
 
-        {/* 5. CATEGORÍAS */}
         {activeTab === 'categories' && (
-          <AdminErrorBoundary tabLabel={tabLabels.categories || 'Categorías'} onRetry={() => refreshCatalog()}>
-          <div className="cat-container">
-            {(!selectedBranch || selectedBranch.id === 'all') ? (
-              <div className="cat-empty-state">
-                <div className="cat-empty-icon">
-                  <List size={48} />
-                </div>
-                <h3 className="cat-empty-title">Selecciona una sucursal</h3>
-                <p className="cat-empty-text">El orden y activación de categorías es por local.</p>
-              </div>
-            ) : (
-            <div className="cat-grid">
-              {sortedCategories.map(c => {
-                const categoryProducts = products.filter(p => p.category_id === c.id);
-                const activeProducts = categoryProducts.filter(p => p.is_active);
-                const totalRevenue = orders
-                  .filter(o => o.status === 'completed' || o.status === 'picked_up')
-                  .reduce((sum, order) => {
-                    const items = Array.isArray(order.items) ? order.items : [];
-                    return sum + items.reduce((itemSum, item) => {
-                      const product = products.find(p => p.id === (item.id ?? item.product_id));
-                      if (!product || product.category_id !== c.id) return itemSum;
-                      const qty = Math.max(0, Number(item.quantity) || 1);
-                      const price = Number(item.price) ?? 0;
-                      return itemSum + price * qty;
-                    }, 0);
-                  }, 0);
-                
-                return (
-                  <div
-                    key={c.id}
-                    className={`cat-card glass${dragCategoryId === c.id ? ' is-dragging' : ''}${dragOverCategoryId === c.id ? ' is-drop-target' : ''}`}
-                    draggable={dragEnabled}
-                    onDragStart={dragEnabled ? () => handleDragStart(c.id) : undefined}
-                    onDragEnd={dragEnabled ? () => { setDragCategoryId(null); setDragOverCategoryId(null); } : undefined}
-                    onDragOver={dragEnabled ? (event) => handleDragOver(event, c.id) : undefined}
-                    onDragLeave={dragEnabled ? () => handleDragLeave(c.id) : undefined}
-                    onDrop={dragEnabled ? (event) => handleDrop(event, c.id) : undefined}
-                  >
-                    <div className="cat-card-header">
-                      <div className="cat-icon-wrapper">
-                        <Tag size={24} />
-                      </div>
-                      <button
-                        type="button"
-                        className="cat-status-badge cat-status-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleCategoryActive(c.id, !c.is_active);
-                        }}
-                        title={c.is_active ? 'Desactivar categoría' : 'Activar categoría'}
-                      >
-                        <span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`}></span>
-                        <span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
-                      </button>
-                    </div>
-                    
-                    <div className="cat-card-body">
-                      <div className="cat-name-row">
-                        <h3 className="cat-name">{c.name}</h3>
-                        <span className="cat-order-badge">#{Number(c.order) || 0}</span>
-                      </div>
-                      
-                      <div className="cat-stats">
-                        <div className="cat-stat">
-                          <span className="cat-stat-label">Productos</span>
-                          <span className="cat-stat-value">{categoryProducts.length}</span>
-                        </div>
-                        <div className="cat-stat">
-                          <span className="cat-stat-label">Activos</span>
-                          <span className="cat-stat-value">{activeProducts.length}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="cat-revenue">
-                        <span className="cat-revenue-label">Ingresos totales</span>
-                        <span className="cat-revenue-value">{formatBranchMoney(totalRevenue)}</span>
-                      </div>
-                      
-                      <div className="cat-progress-wrapper">
-                        <div className="cat-progress-bar">
-                          <div 
-                            className="cat-progress-fill" 
-                            style={{ width: `${products.length > 0 ? (categoryProducts.length / products.length) * 100 : 0}%` }}
-                          ></div>
-                        </div>
-                        <span className="cat-progress-text">
-                          {products.length > 0 ? Math.round((categoryProducts.length / products.length) * 100) : 0}% del catálogo
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="cat-card-footer">
-                      <button 
-                        onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true) }} 
-                        className="cat-btn-edit"
-                      >
-                        <Edit size={16} />
-                        Editar
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setFilterCategory(c.id);
-                          setActiveTab('products');
-                        }}
-                        className="cat-btn-view"
-                      >
-                        <ShoppingBag size={16} />
-                        Ver productos
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => deleteCategory(c)}
-                        className="cat-btn-delete"
-                        title="Eliminar categoría"
-                      >
-                        <Trash2 size={16} />
-                        Borrar
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              
-              {categories.length === 0 && (
-                <div className="cat-empty-state">
-                  <div className="cat-empty-icon">
-                    <List size={48} />
-                  </div>
-                  <h3 className="cat-empty-title">No hay categorías</h3>
-                  <p className="cat-empty-text">Crea tu primera categoría para organizar tus productos</p>
-                  <button 
-                    onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true) }} 
-                    className="btn btn-primary"
-                  >
-                    <Plus size={18} /> Crear Categoría
-                  </button>
-                </div>
-              )}
-            </div>
-            )}
-          </div>
-          </AdminErrorBoundary>
+          <React.Suspense fallback={<AdminTabFallback />}>
+            <AdminCategoriesTab />
+          </React.Suspense>
         )}
         </>
         )}
@@ -1026,15 +677,19 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       </main>
 
       {/* PANEL CLIENTE LATERAL (MODULARIZADO) */}
-      <ClientDetailsPanel
-        selectedClient={selectedClient}
-        setSelectedClient={setSelectedClient}
-        clientHistoryLoading={clientHistoryLoading}
-        selectedClientOrders={selectedClientOrders}
-        setReceiptModalOrder={setReceiptModalOrder}
-        onOrderClick={(order) => setClientOrderDetail(order)}
-        orderDetailOpen={Boolean(clientOrderDetail)}
-      />
+      {selectedClient && (
+        <React.Suspense fallback={null}>
+          <ClientDetailsPanel
+            selectedClient={selectedClient}
+            setSelectedClient={setSelectedClient}
+            clientHistoryLoading={clientHistoryLoading}
+            selectedClientOrders={selectedClientOrders}
+            setReceiptModalOrder={setReceiptModalOrder}
+            onOrderClick={(order) => setClientOrderDetail(order)}
+            orderDetailOpen={Boolean(clientOrderDetail)}
+          />
+        </React.Suspense>
+      )}
 
       {clientOrderDetail ? (
         <OrderDetailModal
@@ -1122,30 +777,36 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
       )}
 
 
-      <ManualOrderModal
-        isOpen={isOpenMesaModal}
-        onClose={() => setIsOpenMesaModal(false)}
-        products={products}
-        categories={categories}
-        clients={clients}
-        onOrderSaved={upsertOrder}
-        showNotify={showNotify}
-        branch={selectedBranch}
-        logoUrl={logoUrl}
-        companyName={companyName}
-        openMesaMode
-        localOrderChannels={localOrderChannels}
-      />
+      {isOpenMesaModal && (
+        <React.Suspense fallback={null}>
+          <ManualOrderModal
+            isOpen={isOpenMesaModal}
+            onClose={() => setIsOpenMesaModal(false)}
+            products={products}
+            categories={categories}
+            clients={clients}
+            onOrderSaved={upsertOrder}
+            showNotify={showNotify}
+            branch={selectedBranch}
+            logoUrl={logoUrl}
+            companyName={companyName}
+            openMesaMode
+            localOrderChannels={localOrderChannels}
+          />
+        </React.Suspense>
+      )}
 
       {isModalOpen && (
-        <ProductModal
-          key={`product-modal-${editingProduct?.id ?? 'new'}`}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleSaveProduct}
-          product={editingProduct}
-          categories={categories}
-          saving={refreshing}
-        />
+        <React.Suspense fallback={null}>
+          <ProductModal
+            key={`product-modal-${editingProduct?.id ?? 'new'}`}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSaveProduct}
+            product={editingProduct}
+            categories={categories}
+            saving={refreshing}
+          />
+        </React.Suspense>
       )}
 
       {/* MODAL DE SELECCIÓN DE ALCANCE */}
@@ -1157,13 +818,17 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         actionType={scopeModal.item?.is_active ? 'deactivate' : 'activate'}
       />
 
-      <CategoryModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        onSave={handleSaveCategory}
-        category={editingCategory}
-        defaultOrder={editingCategory ? editingCategory.order : nextCategoryOrder}
-      />
+      {isCategoryModalOpen && (
+        <React.Suspense fallback={null}>
+          <CategoryModal
+            isOpen={isCategoryModalOpen}
+            onClose={() => setIsCategoryModalOpen(false)}
+            onSave={handleSaveCategory}
+            category={editingCategory}
+            defaultOrder={editingCategory ? editingCategory.order : nextCategoryOrder}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

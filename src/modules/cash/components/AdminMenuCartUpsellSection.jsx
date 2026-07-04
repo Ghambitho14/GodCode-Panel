@@ -182,6 +182,7 @@ export default function AdminMenuCartUpsellSection({
 	useEffect(() => {
 		if (!branchId) return;
 		const ch = `cart-upsell-inv-${branchId}`;
+		const debounceRef = { current: null };
 		const channel = subscribeMonitored(
 			supabase
 				.channel(ch)
@@ -194,12 +195,17 @@ export default function AdminMenuCartUpsellSection({
 						filter: `branch_id=eq.${branchId}`,
 					},
 					() => {
-						void refreshInventoryOptions();
+						if (debounceRef.current) clearTimeout(debounceRef.current);
+						debounceRef.current = setTimeout(() => {
+							debounceRef.current = null;
+							void refreshInventoryOptions();
+						}, 400);
 					},
 				),
 			{ name: "inventory_branch", context: { branchId } },
 		);
 		return () => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
 			try {
 				closeMonitoredChannel(supabase, channel);
 			} catch {

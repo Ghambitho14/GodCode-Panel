@@ -115,9 +115,10 @@ const CashManager = ({
     const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
     const movementCount = movements.length;
 
+    const [shiftHistoryAnchorDate] = useState(() => new Date());
     const shiftHistoryRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod),
-        [filterPeriod],
+        () => resolveReportPeriodRange(filterPeriod, shiftHistoryAnchorDate),
+        [filterPeriod, shiftHistoryAnchorDate],
     );
 
     const filteredShifts = useMemo(() => {

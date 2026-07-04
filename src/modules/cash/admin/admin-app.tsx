@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { supabase, TABLES, bootstrapSession, logout } from "@/integrations/supabase";
@@ -10,11 +10,35 @@ import {
 	resolvePanelCapabilities,
 } from "@/lib/tenant/menu-settings";
 import "../styles/AdminContextualHelp.css";
+import "../styles/AdminLayout.css";
+import "../styles/index.css";
+import "../styles/AdminShared.css";
+import "../styles/AdminSidebar.css";
+import "../styles/AdminAnalytics.css";
+import "../styles/AdminClients.css";
+import "../styles/AdminClientsTable.css";
+import "../styles/AdminCategories.css";
+import "../styles/AdminCoupons.css";
+import "../styles/AdminInventory.css";
+import "../styles/AdminKanban.css";
+import "../styles/AdminTables.css";
+import "../styles/AdminSettings.css";
+import "../styles/ManualOrderModal.css";
+import "../styles/Modals.css";
+import "../styles/OrderCard.css";
+import "../styles/ProductModal.css";
+import "../styles/CategoryModal.css";
+import "../styles/InventoryCard.css";
+import "../styles/AdminMenuCarousel.css";
+import "../styles/AdminMenuOptions.css";
+import "../styles/TenantTicketsPanel.css";
+import "../styles/CashSystem.css";
 import { AdminPage } from "./pages/Admin";
 import { AdminProvider } from "./pages/AdminProvider";
 import { LocationProvider } from "../context/LocationContext";
-import { applyDocumentFavicon } from "@/shared/utils/documentFavicon";
+import { resolveStorefrontMenuUrl } from "@/shared/utils/storefront-menu-url";
 import { resetDocumentMeta, setDocumentMeta } from "@/shared/utils/documentMeta";
+import { applyDocumentFavicon } from "@/shared/utils/documentFavicon";
 
 interface CompanyProfile {
 	country?: string | null;
@@ -22,6 +46,9 @@ interface CompanyProfile {
 	integration_settings?: unknown;
 	planFeatures?: unknown;
 }
+
+/** Referencia estable para props opcionales de objeto (evita re-ejecutar el gate en cada render). */
+const EMPTY_TAB_LABELS: Record<string, string> = {};
 
 interface AdminAppProps {
 	/** Opcional: forzar empresa (solo si necesitás override explícito; por defecto se toma de la sesión). */
@@ -71,10 +98,18 @@ export function AdminApp({
 	dynamicModules = [],
 	primaryColor,
 	storefrontMenuUrl = null,
-	resolvedTabLabels: resolvedTabLabelsProp = {},
+	resolvedTabLabels: resolvedTabLabelsProp,
 	adminShortcutsEnabled: adminShortcutsEnabledProp,
 	companyProfile: companyProfileProp = null,
 }: AdminAppProps) {
+	const adminAppRenderCountRef = useRef(0);
+	adminAppRenderCountRef.current += 1;
+	console.log(
+		'[AdminApp] render #%s companyId=%s companyName=%s',
+		adminAppRenderCountRef.current,
+		companyIdProp,
+		companyNameProp,
+	);
 	const navigate = useNavigate();
 	const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(() =>
 		companyIdProp?.trim() ? companyIdProp.trim() : null,
@@ -89,19 +124,27 @@ export function AdminApp({
 		panelAccessProp,
 	);
 	const [resolvedTabLabels, setResolvedTabLabels] = useState<Record<string, string>>(
-		resolvedTabLabelsProp,
+		() => resolvedTabLabelsProp ?? EMPTY_TAB_LABELS,
 	);
 	const [resolvedAdminShortcutsEnabled, setResolvedAdminShortcutsEnabled] = useState(
 		adminShortcutsEnabledProp ?? true,
 	);
 	const [resolvedUserRole, setResolvedUserRole] = useState<string | null>(initialUserRole);
 	const [resolvedAssignedBranchId, setResolvedAssignedBranchId] = useState<string | null>(null);
+	const [resolvedPublicSlug, setResolvedPublicSlug] = useState<string | null>(null);
 	const [gateLoading, setGateLoading] = useState(() => !companyIdProp?.trim());
+	const gateResolvedKeyRef = useRef<string | null>(null);
+	const tabLabelsFromProp = resolvedTabLabelsProp ?? EMPTY_TAB_LABELS;
 
 	const applyCompanyRow = (co: Record<string, unknown> | null | undefined) => {
 		if (!co) return;
 		const theme = (co.theme_config as DatabaseCompanyTheme) ?? null;
 		setResolvedThemeConfig(theme);
+		setResolvedPublicSlug(
+			typeof co.public_slug === "string" && co.public_slug.trim()
+				? co.public_slug.trim()
+				: null,
+		);
 		setResolvedCompanyProfile({
 			country: typeof co.country === "string" ? co.country : null,
 			currency: typeof co.currency === "string" ? co.currency : null,
@@ -111,7 +154,7 @@ export function AdminApp({
 		if (panelAccessProp == null) {
 			setResolvedPanelAccess(Array.isArray(theme?.panelAccess) ? theme.panelAccess : null);
 		}
-		if (!Object.keys(resolvedTabLabelsProp).length) {
+		if (!Object.keys(tabLabelsFromProp).length) {
 			setResolvedTabLabels(buildResolvedTabLabels(theme?.tabLabels));
 		}
 		if (adminShortcutsEnabledProp == null) {
@@ -121,6 +164,8 @@ export function AdminApp({
 
 	useEffect(() => {
 		let cancelled = false;
+		const gateKey = companyIdProp?.trim() || "__session__";
+		if (gateResolvedKeyRef.current === gateKey) return;
 
 		if (companyIdProp?.trim()) {
 			const cid = companyIdProp.trim();
@@ -133,12 +178,13 @@ export function AdminApp({
 			});
 			void supabase
 				.from(TABLES.companies)
-				.select("theme_config, country, currency, integration_settings, plan_id, plans(features)")
+				.select("theme_config, country, currency, integration_settings, plan_id, plans(features), public_slug")
 				.eq("id", cid)
 				.maybeSingle()
 				.then(({ data: co }) => {
 					if (cancelled) return;
 					applyCompanyRow(co as Record<string, unknown> | null);
+					gateResolvedKeyRef.current = gateKey;
 				});
 			return () => {
 				cancelled = true;
@@ -181,7 +227,7 @@ export function AdminApp({
 
 			const { data: co } = await supabase
 				.from(TABLES.companies)
-				.select("name, theme_config, country, currency, integration_settings, plan_id, plans(features)")
+				.select("name, theme_config, country, currency, integration_settings, plan_id, plans(features), public_slug")
 				.eq("id", cid)
 				.maybeSingle();
 
@@ -194,12 +240,13 @@ export function AdminApp({
 			setResolvedUserRole((row.role as string | null) ?? null);
 			setResolvedAssignedBranchId(row.branch_id ? String(row.branch_id) : null);
 			setGateLoading(false);
+			gateResolvedKeyRef.current = gateKey;
 		})();
 
 		return () => {
 			cancelled = true;
 		};
-	}, [companyIdProp, navigate, panelAccessProp, resolvedTabLabelsProp, adminShortcutsEnabledProp]);
+	}, [companyIdProp, navigate]);
 
 	const menuCapabilities = useMemo(() => {
 		const profile = companyProfileProp ?? resolvedCompanyProfile;
@@ -215,11 +262,19 @@ export function AdminApp({
 	const effectiveLogoUrl = logoUrlProp ?? themeLogoUrl;
 	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
 	const effectivePanelAccess = panelAccessProp ?? resolvedPanelAccess;
-	const effectiveTabLabels = Object.keys(resolvedTabLabelsProp).length
-		? resolvedTabLabelsProp
+	const effectiveTabLabels = Object.keys(tabLabelsFromProp).length
+		? tabLabelsFromProp
 		: resolvedTabLabels;
 	const effectiveAdminShortcuts =
 		adminShortcutsEnabledProp ?? resolvedAdminShortcutsEnabled;
+	const effectiveStorefrontMenuUrl = useMemo(
+		() => resolveStorefrontMenuUrl({
+			explicitUrl: storefrontMenuUrl,
+			publicSlug: resolvedPublicSlug,
+			integrationSettings: effectiveCompanyProfile?.integration_settings,
+		}),
+		[storefrontMenuUrl, resolvedPublicSlug, effectiveCompanyProfile?.integration_settings],
+	);
 
 	useEffect(() => {
 		if (gateLoading || !resolvedCompanyId) return;
@@ -274,7 +329,7 @@ export function AdminApp({
 							logoUrl={effectiveLogoUrl}
 							userEmail={resolvedUserEmail ?? userEmailProp}
 							primaryColor={primaryColor}
-							storefrontMenuUrl={storefrontMenuUrl}
+							storefrontMenuUrl={effectiveStorefrontMenuUrl}
 						/>
 					</AdminProvider>
 				</LocationProvider>

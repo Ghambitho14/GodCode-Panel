@@ -1,36 +1,34 @@
+import { lazy, Suspense } from "react";
 import "./styles/tailwind.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./modules/cash/app-shell";
-import { AdminApp } from "./modules/cash/admin/admin-app";
 import { LoginShell } from "./modules/auth/login-shell";
+import { Loader2 } from "lucide-react";
 
 import "./modules/cash/styles/fulfillment-colors.css";
-import "./modules/cash/styles/AdminLayout.css";
-import "./modules/cash/styles/index.css";
-import "./modules/cash/styles/AdminShared.css";
-import "./modules/cash/styles/AdminSidebar.css";
-import "./modules/cash/styles/AdminAnalytics.css";
-import "./modules/cash/styles/AdminClients.css";
-import "./modules/cash/styles/AdminClientsTable.css";
-import "./modules/cash/styles/AdminCategories.css";
-import "./modules/cash/styles/AdminCoupons.css";
-import "./modules/cash/styles/AdminInventory.css";
-import "./modules/cash/styles/AdminKanban.css";
-import "./modules/cash/styles/AdminTables.css";
-import "./modules/cash/styles/AdminSettings.css";
-import "./modules/cash/styles/ManualOrderModal.css";
-import "./modules/cash/styles/Modals.css";
-import "./modules/cash/styles/OrderCard.css";
-import "./modules/cash/styles/ProductModal.css";
-import "./modules/cash/styles/CategoryModal.css";
-import "./modules/cash/styles/InventoryCard.css";
-import "./modules/cash/styles/AdminContextualHelp.css";
-import "./modules/cash/styles/AdminMenuCarousel.css";
-import "./modules/cash/styles/AdminMenuOptions.css";
-import "./modules/cash/styles/TenantTicketsPanel.css";
-import "./modules/cash/styles/CashSystem.css";
 import "./modules/cash/styles/Login.css";
 import "./modules/cash/styles/App.css";
+
+const AdminApp = lazy(() =>
+	import("./modules/cash/admin/admin-app").then((m) => ({ default: m.AdminApp })),
+);
+
+function AdminRouteFallback() {
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				minHeight: "40vh",
+				gap: 10,
+			}}
+		>
+			<Loader2 className="animate-spin" size={22} aria-hidden />
+			<span>Cargando panel...</span>
+		</div>
+	);
+}
 
 /**
  * Tabs "extras" del admin que el panel viejo cargaba desde `saas_admin_modules`
@@ -62,10 +60,12 @@ export function App() {
           <Route
             path="/admin"
             element={
-              <AdminApp
-                companyName="GodCode Caja"
-                dynamicModules={DEFAULT_DYNAMIC_MODULES}
-              />
+              <Suspense fallback={<AdminRouteFallback />}>
+                <AdminApp
+                  companyName="GodCode Caja"
+                  dynamicModules={DEFAULT_DYNAMIC_MODULES}
+                />
+              </Suspense>
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
