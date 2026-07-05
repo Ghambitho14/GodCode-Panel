@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink
+    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink, LineChart
 } from 'lucide-react';
+import { PieChart, Pie, Cell } from 'recharts';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
 import { expenseBucketKey, expenseBucketKeysForRange, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
@@ -15,8 +16,6 @@ import {
     isOrderLinkedExpense,
     EXPENSE_KIND_OPERATING,
 } from '../utils/cashMovementKinds';
-import AdminIconSlot from './AdminIconSlot';
-import AdminMenuSelect from './AdminMenuSelect';
 import ReportPeriodSelect from './ReportPeriodSelect';
 import {
     addLocalDays,
@@ -33,8 +32,9 @@ import {
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
-import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel, ORDERS_ANALYTICS_METRICS_SELECT, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
-import { fetchTopProducts, fetchAnalyticsSummary } from '../services/analyticsService';
+import { isMenuOrder, getOrderPaymentBreakdown, getPaymentLabel, ORDERS_EXPORT_SELECT } from '@/shared/utils/orderUtils';
+import { fetchTopProducts } from '../services/analyticsService';
+import { useAnalyticsData } from '../admin/tabs/analytics/useAnalyticsData';
 import {
     countOrdersInRange,
     confirmLargeExport,
@@ -46,9 +46,14 @@ import SpreadsheetPreviewModal from './SpreadsheetPreviewModal';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { useAdmin } from '../admin/pages/AdminProvider';
 import LocalExpenseModal from './expenses/LocalExpenseModal';
-import RPTSalesLightweightChart from './charts/RPTSalesLightweightChart';
-import RPTRosenBarChart from './charts/RPTRosenBarChart';
-import RPTRosenDonutChart from './charts/RPTRosenDonutChart';
+import ReportSalesChart from './charts/ReportSalesChart';
+import ReportPaymentDonut from './charts/ReportPaymentDonut';
+import ReportSparkline from './charts/ReportSparkline';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CHART_KIND_OPTIONS = [
     { value: 'area', label: 'Área', Icon: AreaChart },
@@ -56,9 +61,33 @@ const CHART_KIND_OPTIONS = [
     { value: 'bar-gradient', label: 'Barras degradado', Icon: BarChart3 },
 ];
 
+const PAYMENT_META = [
+    { key: 'cash', label: 'Efectivo', Icon: DollarSign, color: '#16a34a', bg: 'bg-[#16a34a]/10' },
+    { key: 'card', label: 'Tarjeta', Icon: CreditCard, color: '#2563eb', bg: 'bg-[#2563eb]/10' },
+    { key: 'online', label: 'Transferencia', Icon: Smartphone, color: '#7c3aed', bg: 'bg-[#7c3aed]/10' },
+];
+
+const KPI_META = [
+    { key: 'total', label: 'Ventas', Icon: DollarSign, color: '#2563eb' },
+    { key: 'count', label: 'Pedidos', Icon: ShoppingBag, color: '#2563eb' },
+    { key: 'ticket', label: 'Ticket prom.', Icon: TrendingUp, color: '#7c3aed' },
+    { key: 'deliveryTotal', label: 'Delivery', Icon: Truck, color: '#2563eb' },
+    { key: 'clients', label: 'Nuevos clientes', Icon: Users, color: '#16a34a' },
+    { key: 'expenses', label: 'Gastos', Icon: Wallet, color: '#dc2626' },
+];
+
+const FLAT_SPARKLINE = [0, 0, 0];
+
+/** Mínimo de pedidos en el período anterior para considerar significativa la comparación de trends. */
+const MIN_SIGNIFICANT_PREV_ORDERS = 5;
+
 function calcTrendPercent(current, prev) {
-    if (prev === 0) return current > 0 ? 100 : 0;
-    return Math.round(((current - prev) / prev) * 100);
+    const c = Number(current);
+    const p = Number(prev);
+    if (!Number.isFinite(c) || !Number.isFinite(p)) return null;
+    if (p === 0) return c > 0 ? 100 : 0;
+    const pct = Math.round(((c - p) / p) * 100);
+    return Number.isFinite(pct) ? pct : null;
 }
 
 function formatSalesChartLabel(isoDate, dayCount) {
@@ -92,7 +121,6 @@ function isExpensePeriodTab(value) {
     return EXPENSE_PERIOD_TAB_VALUES.has(value);
 }
 
-/** Rango UTC half-open [start, end) para un mes calendario `yyyy-mm`. */
 function getMonthRangeUtc(yyyyMm) {
     const [yearStr, monthStr] = String(yyyyMm).split('-');
     const year = Number(yearStr);
@@ -125,7 +153,6 @@ function currentMonthYyyyMm(date = new Date()) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** Rango local [start, end) para un año calendario completo. */
 function getCalendarYearRangeLocal(year) {
     if (!Number.isFinite(year)) return null;
     return {
@@ -152,17 +179,48 @@ function resolveExpenseReferenceYear(analyticsDate, reportRange) {
     return new Date().getFullYear();
 }
 
-
-const TrendBadge = ({ value }) => {
-    if (value === 0) return <span className="rpt-trend neutral">0%</span>;
+const TrendBadge = ({ value, isSignificant = true }) => {
+    if (value == null || !Number.isFinite(value)) {
+        return <Badge variant="outline" className="text-[10px] font-bold text-[#6b7280]">—</Badge>;
+    }
+    if (value === 0) return <Badge variant="outline" className="gap-0.5 text-[10px] font-bold">0%</Badge>;
+    if (!isSignificant) {
+        return (
+            <Badge
+                variant="outline"
+                className="gap-0.5 text-[10px] font-bold text-[#6b7280]"
+                title="Período anterior con pocos datos. Comparar con precaución."
+            >
+                {Math.abs(value)}%
+            </Badge>
+        );
+    }
     const pos = value > 0;
     return (
-        <span className={`rpt-trend ${pos ? 'positive' : 'negative'}`}>
-            {pos ? <ArrowUpRight size={13} aria-hidden /> : <ArrowDownRight size={13} aria-hidden />}
+        <Badge variant={pos ? 'success' : 'danger'} className="gap-0.5 text-[10px] font-bold">
+            {pos ? <ArrowUpRight size={12} aria-hidden /> : <ArrowDownRight size={12} aria-hidden />}
             {Math.abs(value)}%
-        </span>
+        </Badge>
     );
 };
+
+function formatKpiValue(metaKey, value, fmt) {
+    if (metaKey === 'count') {
+        return Math.round(Number(value) || 0).toLocaleString('es-CL');
+    }
+    return fmt(value);
+}
+
+function resolveKpiTrendKey(metaKey) {
+    if (metaKey === 'deliveryTotal') return 'delivery';
+    return metaKey;
+}
+
+function resolveKpiSparkKey(metaKey) {
+    if (metaKey === 'deliveryTotal') return 'delivery';
+    if (metaKey === 'clients') return 'clients';
+    return metaKey;
+}
 
 function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
     const acc = new Map();
@@ -188,7 +246,6 @@ function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
     };
 }
 
-/** Rango local [start, end) para gráficos/tablas de gastos según período del informe. */
 function resolveFromReportRange(reportRange) {
     let start = reportRange.start;
     let end = reportRange.end;
@@ -227,9 +284,7 @@ function resolveTopProductsRange(reportRange) {
     if (reportRange?.start) {
         return {
             startIso: reportRange.start.toISOString(),
-            endIso: reportRange.end
-                ? reportRange.end.toISOString()
-                : new Date().toISOString(),
+            endIso: reportRange.end ? reportRange.end.toISOString() : new Date().toISOString(),
         };
     }
     const keys = reportRange?.chartDateKeys;
@@ -248,8 +303,41 @@ function resolveTopProductsRange(reportRange) {
     return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-/** `orders` desde el panel sigue limitado a 100 filas (kanban). Los KPIs usan fetch propio vía `analyticsOrders`. */
+const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend, trendSignificant = true }) => {
+    return (
+        <Card className="flex flex-col p-5 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]">
+            <div className="flex items-start justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">{meta.label}</p>
+                {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} /> : null}
+            </div>
+            <div className="mt-1">
+                {loading ? <Skeleton className="h-8 w-28" /> : (
+                    <p className="text-[28px] font-bold leading-tight tracking-tight text-[#14161a]">{formatKpiValue(meta.key, value, fmt)}</p>
+                )}
+            </div>
+            {subtitle && <p className="mt-1 text-xs font-medium text-[#6b7280]">{subtitle}</p>}
+            <div className="mt-auto flex h-12 items-end pt-4">
+                <ReportSparkline
+                    values={sparklineValues}
+                    trend={trend}
+                    showTrend={showTrend}
+                    height={28}
+                    showDots
+                    color="#2563eb"
+                />
+            </div>
+        </Card>
+    );
+});
+
 const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, selectedBranch, view = 'full' }) => {
+    const { cashSystem, moveOrder, companyProfile } = useAdmin();
+
+    const safeBranches = useMemo(
+        () => (branches || []).filter((b) => b && typeof b === 'object'),
+        [branches],
+    );
+
     const { formatMoney: fmt, currency } = useMemo(
         () => createMoneyFormatter(selectedBranch, companyProfile),
         [selectedBranch, companyProfile],
@@ -257,14 +345,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const multiCurrencyWarning = useMemo(() => {
         if (selectedBranch?.id !== 'all') return null;
-        const realBranches = (branches || []).filter((b) => b.id && b.id !== 'all');
+        const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
         if (realBranches.length < 2) return null;
-        const currencies = new Set(
-            realBranches.map((b) => resolveEffectiveCurrency(b, companyProfile)),
-        );
+        const currencies = new Set(realBranches.map((b) => resolveEffectiveCurrency(b, companyProfile)));
         if (currencies.size <= 1) return null;
         return `Las sucursales usan monedas distintas (${[...currencies].join(', ')}). Los totales no convierten entre monedas.`;
-    }, [selectedBranch?.id, branches, companyProfile]);
+    }, [selectedBranch?.id, safeBranches, companyProfile]);
 
     const exportIdLabel = useMemo(() => {
         const country = selectedBranch?.id === 'all'
@@ -272,10 +358,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             : resolveEffectiveCountry(selectedBranch, companyProfile);
         return getFormStrategy(country).idName;
     }, [selectedBranch, companyProfile]);
+
     const [filterPeriod, setFilterPeriod] = useState(() => (view === 'expensesOnly' ? 'month' : '7'));
     const [chartTab, setChartTab] = useState('all');
-    const [chartKind, setChartKind] = useState('bar-gradient');
-    /** Pestaña principal del bloque informe: ventas (gráfico + barra lateral) o gastos del local. */
+    const [chartKind, setChartKind] = useState('area');
     const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0 });
     const [loadingExpenses, setLoadingExpenses] = useState(false);
     const [manualExpenseRows, setManualExpenseRows] = useState([]);
@@ -287,24 +373,17 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
     const [exportLoading, setExportLoading] = useState(false);
-    /** Pedidos del rango para KPIs/gráficos (fallback client-side). */
-    const [analyticsOrders, setAnalyticsOrders] = useState([]);
-    const [analyticsSummary, setAnalyticsSummary] = useState(null);
-    /** @type {'rpc' | 'fallback' | 'none'} */
-    const [analyticsSource, setAnalyticsSource] = useState('none');
-    const [loadingAnalyticsOrders, setLoadingAnalyticsOrders] = useState(false);
     const [topProductsFromRpc, setTopProductsFromRpc] = useState([]);
     const [loadingTopProducts, setLoadingTopProducts] = useState(false);
     const [expenseRefreshNonce, setExpenseRefreshNonce] = useState(0);
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
     const [expensePreviewState, setExpensePreviewState] = useState(null);
-    /** @type {'all' | 'operating' | 'cash_withdrawal' | 'order_refund'} */
     const [expenseKindFilter, setExpenseKindFilter] = useState('all');
-    const { cashSystem, moveOrder, companyProfile } = useAdmin();
 
+    const [reportAnchorDate] = useState(() => new Date());
     const reportRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod),
-        [filterPeriod],
+        () => resolveReportPeriodRange(filterPeriod, reportAnchorDate),
+        [filterPeriod, reportAnchorDate],
     );
 
     const expenseChartRange = useMemo(
@@ -325,105 +404,19 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         return expenseBucketKeysForRange(expenseChartRange.start, expenseChartRange.end, expenseAgg);
     }, [expenseChartRange, expenseAgg]);
 
-    useEffect(() => {
-        if (!companyId || view === 'expensesOnly') {
-            if (view === 'expensesOnly') {
-                setAnalyticsSummary(null);
-                setAnalyticsSource('none');
-                setAnalyticsOrders([]);
-                setLoadingAnalyticsOrders(false);
-            }
-            return;
-        }
-        let cancelled = false;
-        setLoadingAnalyticsOrders(true);
-        (async () => {
-            try {
-                const startIso = reportRange.start?.toISOString() ?? null;
-                const endIso = reportRange.end?.toISOString() ?? null;
-                const prevStartIso =
-                    reportRange.hasComparison && reportRange.prevStart
-                        ? reportRange.prevStart.toISOString()
-                        : null;
-                const prevEndIso =
-                    reportRange.hasComparison && reportRange.prevEnd
-                        ? reportRange.prevEnd.toISOString()
-                        : null;
-                const channel =
-                    chartTab === 'online' ? 'online' : chartTab === 'store' ? 'store' : 'all';
-
-                const { summary, error, notGranted } = await fetchAnalyticsSummary({
-                    companyId,
-                    branchId: selectedBranch?.id,
-                    startIso,
-                    endIso,
-                    prevStartIso,
-                    prevEndIso,
-                    channel,
-                    showNotify,
-                });
-
-                if (cancelled) return;
-
-                if (summary && !error && !notGranted) {
-                    setAnalyticsSummary(summary);
-                    setAnalyticsSource('rpc');
-                    setAnalyticsOrders([]);
-                    return;
-                }
-
-                const fallbackStartIso =
-                    prevStartIso ?? reportRange.fetchStartIso ?? startIso ?? null;
-                const fallbackEndIso = endIso ?? reportRange.fetchEndIso ?? null;
-
-                let q = supabase
-                    .from(TABLES.orders)
-                    .select(ORDERS_ANALYTICS_METRICS_SELECT)
-                    .eq('company_id', companyId);
-                if (fallbackStartIso) {
-                    q = q.gte('created_at', fallbackStartIso);
-                }
-                if (fallbackEndIso) {
-                    q = q.lt('created_at', fallbackEndIso);
-                }
-                if (selectedBranch?.id && selectedBranch.id !== 'all') {
-                    q = q.eq('branch_id', selectedBranch.id);
-                }
-                const data = await fetchAllPaginated(
-                    q.order('created_at', { ascending: false }),
-                );
-                if (cancelled) return;
-                setAnalyticsSummary(null);
-                setAnalyticsSource('fallback');
-                setAnalyticsOrders(data);
-            } catch (e) {
-                console.error('Error fetching analytics orders:', e);
-                if (!cancelled) {
-                    setAnalyticsSummary(null);
-                    setAnalyticsSource('none');
-                    setAnalyticsOrders([]);
-                }
-            } finally {
-                if (!cancelled) setLoadingAnalyticsOrders(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [
+    const {
+        analyticsSummary,
+        analyticsSource,
+        analyticsOrders,
+        loadingAnalyticsOrders,
+    } = useAnalyticsData({
         companyId,
-        selectedBranch?.id,
-        reportRange.start?.getTime(),
-        reportRange.end?.getTime(),
-        reportRange.prevStart?.getTime(),
-        reportRange.prevEnd?.getTime(),
-        reportRange.hasComparison,
-        reportRange.fetchStartIso,
-        reportRange.fetchEndIso,
+        selectedBranch,
+        reportRange,
         chartTab,
         view,
         showNotify,
-    ]);
+    });
 
     useEffect(() => {
         if (!companyId) {
@@ -451,9 +444,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 if (!cancelled) setLoadingTopProducts(false);
             }
         })();
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, [
         companyId,
         selectedBranch?.id,
@@ -463,28 +454,22 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         showNotify,
     ]);
 
-    useEffect(() => {
-        if (!companyId) {
-            setAnalyticsOrders(Array.isArray(orders) ? orders : []);
-            setLoadingAnalyticsOrders(false);
-        }
-    }, [companyId, orders]);
-
     const ordersForAnalytics = useMemo(() => {
+        if (!companyId) return Array.isArray(orders) ? orders : [];
         if (analyticsSource !== 'fallback') return [];
         if (loadingAnalyticsOrders && analyticsOrders.length === 0 && Array.isArray(orders) && orders.length > 0) {
             return orders;
         }
         return analyticsOrders;
-    }, [analyticsSource, loadingAnalyticsOrders, analyticsOrders, orders]);
+    }, [companyId, analyticsSource, loadingAnalyticsOrders, analyticsOrders, orders]);
 
     const branchNameById = useMemo(() => {
         const map = {};
-        (branches || []).forEach((b) => {
+        safeBranches.forEach((b) => {
             if (b?.id != null) map[String(b.id)] = b.name || b.label || String(b.id);
         });
         return map;
-    }, [branches]);
+    }, [safeBranches]);
 
     const operatingExpenseRows = useMemo(
         () => (manualExpenseRows || []).filter((r) => isOperatingLocalExpense(r)),
@@ -509,6 +494,21 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const refundChartData = useMemo(
         () => buildExpenseChartData(refundExpenseRows, expenseAgg, expenseBucketKeys),
         [refundExpenseRows, expenseAgg, expenseBucketKeys],
+    );
+
+    const operatingChartPoints = useMemo(
+        () => operatingChartData.expenseBarPoints.map((p) => ({ ...p, sales: p.value, expenses: 0 })),
+        [operatingChartData.expenseBarPoints],
+    );
+
+    const withdrawalChartPoints = useMemo(
+        () => withdrawalChartData.expenseBarPoints.map((p) => ({ ...p, sales: p.value, expenses: 0 })),
+        [withdrawalChartData.expenseBarPoints],
+    );
+
+    const refundChartPoints = useMemo(
+        () => refundChartData.expenseBarPoints.map((p) => ({ ...p, sales: p.value, expenses: 0 })),
+        [refundChartData.expenseBarPoints],
     );
 
     const manualExpenseBreakdown = useMemo(() => {
@@ -540,25 +540,16 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [refundExpenseRows]);
 
     const filteredManualExpenseRows = useMemo(() => {
-        if (expenseKindFilter === 'order_refund') {
-            return refundExpenseRows || [];
-        }
+        if (expenseKindFilter === 'order_refund') return refundExpenseRows || [];
         const rows = manualExpenseRows || [];
-        if (expenseKindFilter === 'cash_withdrawal') {
-            return rows.filter((r) => isCashWithdrawal(r));
-        }
-        if (expenseKindFilter === 'operating') {
-            return rows.filter((r) => isOperatingLocalExpense(r));
-        }
+        if (expenseKindFilter === 'cash_withdrawal') return rows.filter((r) => isCashWithdrawal(r));
+        if (expenseKindFilter === 'operating') return rows.filter((r) => isOperatingLocalExpense(r));
         return [...rows, ...(refundExpenseRows || [])];
     }, [manualExpenseRows, refundExpenseRows, expenseKindFilter]);
 
-    const showOperatingExpenseBlock =
-        expenseKindFilter === 'all' || expenseKindFilter === 'operating';
-    const showWithdrawalExpenseBlock =
-        expenseKindFilter === 'all' || expenseKindFilter === 'cash_withdrawal';
-    const showRefundExpenseBlock =
-        expenseKindFilter === 'all' || expenseKindFilter === 'order_refund';
+    const showOperatingExpenseBlock = expenseKindFilter === 'all' || expenseKindFilter === 'operating';
+    const showWithdrawalExpenseBlock = expenseKindFilter === 'all' || expenseKindFilter === 'cash_withdrawal';
+    const showRefundExpenseBlock = expenseKindFilter === 'all' || expenseKindFilter === 'order_refund';
 
     const expenseKindFilterOptions = useMemo(
         () => [
@@ -824,9 +815,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         }
     };
 
-    /**
-     * Gastos manuales del local (`expense` sin `order_id`). Rango según período del informe.
-     */
     useEffect(() => {
         let cancelled = false;
 
@@ -912,27 +900,37 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         };
 
         fetchExpenses();
-        return () => {
-            cancelled = true;
-        };
-    }, [reportRange, companyId, selectedBranch?.id, analyticsDate, expenseRefreshNonce, expenseAgg]);
+        return () => { cancelled = true; };
+	}, [
+		reportRange.start?.getTime(),
+		reportRange.end?.getTime(),
+		reportRange.prevStart?.getTime(),
+		reportRange.prevEnd?.getTime(),
+		reportRange.hasComparison,
+		reportRange.chartDateKeys?.join(','),
+		reportRange.fetchStartIso,
+		reportRange.fetchEndIso,
+		companyId,
+		selectedBranch?.id,
+		analyticsDate,
+		expenseRefreshNonce,
+		expenseAgg,
+	]);
 
-    // --- CORE DATA ---
-    const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats } = useMemo(() => {
+    const reportChartData = useMemo(() => {
         const emptyResult = {
             salesChartPoints: [],
             kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
-            trends: { total: 0, count: 0, delivery: 0, expenses: 0, net: 0 },
+            trends: { total: 0, count: 0, ticket: 0, delivery: 0, expenses: 0, net: 0 },
             paymentBreakdown: { cash: 0, card: 0, online: 0 },
             branchStats: [],
         };
 
         const buildExpensesByDate = (chartDateKeys) => {
             const expensesByDate = {};
-            chartDateKeys.forEach((k) => {
-                expensesByDate[k] = 0;
-            });
+            chartDateKeys.forEach((k) => { expensesByDate[k] = 0; });
             for (const row of manualExpenseRows || []) {
+                if (!row) continue;
                 const iso = row.created_at;
                 if (!iso) continue;
                 const localDate = new Date(iso).toLocaleDateString('en-CA');
@@ -943,7 +941,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return expensesByDate;
         };
 
-        if (analyticsSource === 'rpc' && analyticsSummary) {
+        if (analyticsSource === 'rpc' && analyticsSummary?.current && analyticsSummary?.prev) {
             const range = reportRange;
             const cur = analyticsSummary.current;
             const prev = analyticsSummary.prev;
@@ -954,19 +952,16 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             const ticket = count > 0 ? totalSales / count : 0;
             const prevSales = prev.totalSales;
             const prevCount = prev.orderCount;
+            const prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
             const totalNet = totalSales - (expensesData.total || 0);
             const prevNet = prevSales - (expensesData.prevTotal || 0);
-            const realBranches = (branches || []).filter((b) => b.id && b.id !== 'all');
+            const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
             const branchNameLookup = {};
-            realBranches.forEach((b) => {
-                branchNameLookup[b.id] = b.name || 'Sucursal sin nombre';
-            });
-            const sortedBranches = cur.byBranch
+            realBranches.forEach((b) => { branchNameLookup[b.id] = b.name || 'Sucursal sin nombre'; });
+            const sortedBranches = (Array.isArray(cur.byBranch) ? cur.byBranch : [])
                 .map((b) => ({
                     id: b.branchId,
-                    name:
-                        branchNameLookup[b.branchId] ||
-                        (b.branchId === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada'),
+                    name: branchNameLookup[b.branchId] || (b.branchId === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada'),
                     total: b.total,
                     count: b.count,
                 }))
@@ -991,15 +986,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 trends: {
                     total: calcTrendPercent(totalSales, prevSales),
                     count: calcTrendPercent(count, prevCount),
+                    ticket: calcTrendPercent(ticket, prevTicket),
                     delivery: calcTrendPercent(cur.deliveryTotal, prev.deliveryTotal),
                     expenses: !expensesData.prevTotal
-                        ? expensesData.total > 0
-                            ? 100
-                            : 0
-                        : Math.round(
-                              ((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100,
-                          ),
+                        ? expensesData.total > 0 ? 100 : 0
+                        : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
                     net: calcTrendPercent(totalNet, prevNet),
+                },
+                trendSignificance: {
+                    total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
                 },
                 paymentBreakdown: { ...cur.paymentBreakdown },
                 branchStats: sortedBranches,
@@ -1010,10 +1010,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return emptyResult;
         }
         const range = reportRange;
-        const prevRange = {
-            start: range.prevStart,
-            end: range.prevEnd,
-        };
+        const prevRange = { start: range.prevStart, end: range.prevEnd };
 
         const filterByTab = (o) => {
             if (chartTab === 'all') return true;
@@ -1022,34 +1019,28 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return true;
         };
 
-        const valid = ordersForAnalytics.filter(o => o.status !== 'cancelled');
-        
-        // [FIX] Crear Set de IDs válidos para filtrar órdenes huérfanas ("Sin asignar")
-        const validBranchIds = new Set((branches || []).map(b => b.id));
+        const valid = ordersForAnalytics.filter((o) => o && o.status !== 'cancelled');
+        const validBranchIds = new Set(safeBranches.map((b) => b.id));
         
         const current = valid.filter(o => {
+            if (!o) return false;
             const d = new Date(o.created_at);
-            const matchesTime = isInReportRange(d, range) && filterByTab(o);
-            return matchesTime;
+            return isInReportRange(d, range) && filterByTab(o);
         });
 
         const prev = valid.filter(o => {
+            if (!o) return false;
             const d = new Date(o.created_at);
-            const matchesTime = range.hasComparison && isInReportRange(d, prevRange) && filterByTab(o);
-            return matchesTime && o.branch_id && validBranchIds.has(o.branch_id);
+            return range.hasComparison && isInReportRange(d, prevRange) && filterByTab(o) && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
-        // --- CHART DATA (serie diaria local YYYY-MM-DD) ---
         const salesByDate = {};
         const chartDateKeys = [...range.chartDateKeys];
-
-        chartDateKeys.forEach((key) => {
-            salesByDate[key] = 0;
-        });
+        chartDateKeys.forEach((key) => { salesByDate[key] = 0; });
 
         current.forEach(o => {
-            // [FIX] Convertir created_at (UTC) a fecha local del navegador para agrupar correctamente
-            const localDate = new Date(o.created_at).toLocaleDateString('en-CA'); // YYYY-MM-DD local
+            if (!o) return;
+            const localDate = new Date(o.created_at).toLocaleDateString('en-CA');
             if (salesByDate[localDate] !== undefined) {
                 salesByDate[localDate] += Number(o.total);
             }
@@ -1057,69 +1048,52 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
         const expensesByDate = buildExpensesByDate(chartDateKeys);
 
-        // --- KPIS ---
         const totalSales = current.reduce((a, o) => a + Number(o.total), 0);
         const count = current.length;
         const ticket = count > 0 ? totalSales / count : 0;
 
         const prevSales = prev.reduce((a, o) => a + Number(o.total), 0);
         const prevCount = prev.length;
+        const prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
 
         const totalNet = totalSales - (expensesData.total || 0);
         const prevNet = prevSales - (expensesData.prevTotal || 0);
 
-        // --- DELIVERY: solo suma `delivery_fee` (no el total del pedido). Valor = cobro envíos del período.
         const deliveryOrdersCurrent = current.filter((o) => {
             const fee = Number(o?.delivery_fee);
             return Number.isFinite(fee) && fee > 0;
         });
         const deliveryCount = deliveryOrdersCurrent.length;
-        const totalDeliveryFees = deliveryOrdersCurrent.reduce(
-            (a, o) => a + Number(o.delivery_fee),
-            0
-        );
+        const totalDeliveryFees = deliveryOrdersCurrent.reduce((a, o) => a + Number(o.delivery_fee), 0);
         const prevTotalDeliveryFees = prev
             .filter((o) => {
                 const fee = Number(o?.delivery_fee);
                 return Number.isFinite(fee) && fee > 0;
             })
             .reduce((a, o) => a + Number(o.delivery_fee), 0);
-        const trendDelivery =
-            prevTotalDeliveryFees === 0
-                ? totalDeliveryFees > 0
-                    ? 100
-                    : 0
-                : Math.round(
-                      ((totalDeliveryFees - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100
-                  );
+        const trendDelivery = prevTotalDeliveryFees === 0
+            ? totalDeliveryFees > 0 ? 100 : 0
+            : Math.round(((totalDeliveryFees - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100);
 
-        // --- PAYMENT BREAKDOWN (incl. mixtos y payment_method_specific del menú) ---
         const pb = { cash: 0, card: 0, online: 0 };
         current.forEach((o) => {
+            if (!o) return;
             const breakdown = getOrderPaymentBreakdown(o);
             pb.cash += breakdown.cash;
             pb.card += breakdown.card;
             pb.online += breakdown.online;
         });
 
-        // --- BRANCH BREAKDOWN ---
         const bStats = {};
-        const realBranches = (branches || []).filter(b => b.id && b.id !== 'all');
-        realBranches.forEach(b => {
-            bStats[b.id] = { id: b.id, name: b.name || 'Sucursal sin nombre', total: 0, count: 0 };
-        });
+        const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
+        realBranches.forEach(b => { bStats[b.id] = { id: b.id, name: b.name || 'Sucursal sin nombre', total: 0, count: 0 }; });
         
         current.forEach(o => {
+            if (!o) return;
             const bid = o.branch_id || '_sin_asignar_';
             if (!bStats[bid]) {
-                // [ROBUSTEZ] Manejo seguro de sucursales eliminadas o antiguas
                 const branchName = realBranches.find(b => b.id === bid)?.name || (bid === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada');
-                bStats[bid] = {
-                    id: bid,
-                    name: branchName,
-                    total: 0,
-                    count: 0
-                };
+                bStats[bid] = { id: bid, name: branchName, total: 0, count: 0 };
             }
             bStats[bid].total += Number(o.total);
             bStats[bid].count += 1;
@@ -1147,37 +1121,124 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             trends: {
                 total: prevSales === 0 ? (totalSales > 0 ? 100 : 0) : Math.round(((totalSales - prevSales) / prevSales) * 100),
                 count: prevCount === 0 ? (count > 0 ? 100 : 0) : Math.round(((count - prevCount) / prevCount) * 100),
+                ticket: prevTicket === 0 ? (ticket > 0 ? 100 : 0) : Math.round(((ticket - prevTicket) / prevTicket) * 100),
                 delivery: trendDelivery,
                 expenses: !expensesData.prevTotal ? (expensesData.total > 0 ? 100 : 0) : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
                 net: !prevNet ? (totalNet !== 0 ? 100 : 0) : Math.round(((totalNet - prevNet) / prevNet) * 100)
             },
+            trendSignificance: {
+                total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+            },
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
-    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange, chartTab, branches, expensesData, manualExpenseRows]);
+    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange, chartTab, safeBranches, expensesData, manualExpenseRows]);
 
-    // --- NEW CLIENTS ---
+    const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats, trendSignificance } = reportChartData;
+
+    const paymentDonutData = useMemo(
+        () => PAYMENT_META.map((m) => ({ label: m.label, value: paymentBreakdown[m.key] || 0 })),
+        [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.online],
+    );
+
     const newClientsInfo = useMemo(() => {
         if (!clients) return { count: 0, trend: 0, total: 0 };
         const range = reportRange;
         const prevRange = { start: range.prevStart, end: range.prevEnd };
-        
-        const currentNew = clients.filter((c) => isInReportRange(new Date(c.created_at || new Date()), range)).length;
+        const currentNew = clients.filter((c) => c && isInReportRange(new Date(c.created_at || new Date()), range)).length;
         const prevNew = range.hasComparison
-            ? clients.filter((c) => isInReportRange(new Date(c.created_at || new Date()), prevRange)).length
+            ? clients.filter((c) => c && isInReportRange(new Date(c.created_at || new Date()), prevRange)).length
             : 0;
 
         return {
             count: currentNew,
-            trend: prevNew === 0 ? (currentNew > 0 ? 100 : 0) : Math.round(((currentNew - prevNew) / prevNew) * 100),
+            trend: !range.hasComparison
+                ? null
+                : prevNew === 0
+                    ? (currentNew > 0 ? 100 : 0)
+                    : Math.round(((currentNew - prevNew) / prevNew) * 100),
             total: clients.length,
         };
     }, [clients, reportRange]);
 
-    // --- TOP 5 PRODUCTS (RPC server-side) ---
     const topProducts = topProductsFromRpc;
 
-    // --- PEAK HOUR ---
+    const clientsDonutData = useMemo(
+        () => [
+            { name: 'Nuevos', value: newClientsInfo.count, color: '#16a34a' },
+            { name: 'Registrados', value: Math.max(0, newClientsInfo.total - newClientsInfo.count), color: '#ededf0' },
+        ],
+        [newClientsInfo.count, newClientsInfo.total],
+    );
+
+    const kpiSparklines = useMemo(() => {
+        const keys = reportRange.chartDateKeys || [];
+        if (!keys.length) {
+            return {
+                total: FLAT_SPARKLINE,
+                count: FLAT_SPARKLINE,
+                ticket: FLAT_SPARKLINE,
+                delivery: FLAT_SPARKLINE,
+                clients: FLAT_SPARKLINE,
+                expenses: FLAT_SPARKLINE,
+                net: FLAT_SPARKLINE,
+            };
+        }
+
+        const bucket = () => Object.fromEntries(keys.map((k) => [k, 0]));
+        const ordersByDay = bucket();
+        const deliveryByDay = bucket();
+        const clientsByDay = bucket();
+
+        const inRange = (d) => isInReportRange(d, reportRange);
+        const tabMatch = (o) => {
+            if (chartTab === 'all') return true;
+            if (chartTab === 'online') return isMenuOrder(o);
+            if (chartTab === 'store') return !isMenuOrder(o);
+            return true;
+        };
+
+        for (const o of ordersForAnalytics || []) {
+            if (!o) continue;
+            if (o.status === 'cancelled') continue;
+            const d = new Date(o.created_at);
+            if (!inRange(d) || !tabMatch(o)) continue;
+            const key = d.toLocaleDateString('en-CA');
+            if (ordersByDay[key] === undefined) continue;
+            ordersByDay[key] += 1;
+            const fee = Number(o.delivery_fee);
+            if (Number.isFinite(fee) && fee > 0) deliveryByDay[key] += fee;
+        }
+
+        for (const c of clients || []) {
+            if (!c) continue;
+            const d = new Date(c.created_at || Date.now());
+            if (!inRange(d)) continue;
+            const key = d.toLocaleDateString('en-CA');
+            if (clientsByDay[key] !== undefined) clientsByDay[key] += 1;
+        }
+
+        const toSeries = (obj) => keys.map((k) => obj[k] || 0);
+        const salesSeries = salesChartPoints.map((p) => Number(p.sales) || 0);
+        const expensesSeries = salesChartPoints.map((p) => Number(p.expenses) || 0);
+        const ordersSeries = toSeries(ordersByDay);
+
+        return {
+            total: salesSeries,
+            count: ordersSeries,
+            ticket: keys.map((_, i) => (ordersSeries[i] > 0 ? salesSeries[i] / ordersSeries[i] : 0)),
+            delivery: toSeries(deliveryByDay),
+            clients: toSeries(clientsByDay),
+            expenses: expensesSeries,
+            net: salesSeries.map((v, i) => v - expensesSeries[i]),
+        };
+    }, [reportRange, salesChartPoints, ordersForAnalytics, clients, chartTab]);
+
     const peakHour = useMemo(() => {
         if (analyticsSource === 'rpc' && analyticsSummary) {
             const hourCounts = analyticsSummary.current.byHour || {};
@@ -1188,21 +1249,49 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         }
 
         if (!ordersForAnalytics || ordersForAnalytics.length === 0) return null;
-        
         const hourCounts = {};
-        ordersForAnalytics.filter(o => o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
+        ordersForAnalytics
+            .filter((o) => o && o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
             .forEach(o => {
+                if (!o) return;
                 const h = new Date(o.created_at).getHours();
                 hourCounts[h] = (hourCounts[h] || 0) + 1;
             });
 
         const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a);
         if (sorted.length === 0) return null;
-        
         const h = parseInt(sorted[0][0]);
         return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
     }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
 
+    const peakHourDistribution = useMemo(() => {
+        const buckets = [
+            { label: 'Madrugada', hours: [0, 1, 2, 3, 4, 5], count: 0 },
+            { label: 'Mañana', hours: [6, 7, 8, 9, 10, 11], count: 0 },
+            { label: 'Tarde', hours: [12, 13, 14, 15, 16, 17], count: 0 },
+            { label: 'Noche', hours: [18, 19, 20, 21, 22, 23], count: 0 },
+        ];
+        const hourCounts = {};
+        if (analyticsSource === 'rpc' && analyticsSummary) {
+            const currentByHour = analyticsSummary.current.byHour || {};
+            Object.entries(currentByHour).forEach(([h, count]) => {
+                hourCounts[Number(h)] = Number(count) || 0;
+            });
+        } else if (ordersForAnalytics?.length) {
+            ordersForAnalytics
+                .filter((o) => o && o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
+                .forEach((o) => {
+                    if (!o) return;
+                    const h = new Date(o.created_at).getHours();
+                    hourCounts[h] = (hourCounts[h] || 0) + 1;
+                });
+        }
+        buckets.forEach((b) => {
+            b.count = b.hours.reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+        });
+        const max = Math.max(...buckets.map((b) => b.count), 1);
+        return buckets.map((b) => ({ ...b, pct: Math.round((b.count / max) * 100) }));
+    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
 
     const activeChartKind =
         chartKind === 'bar-gradient'
@@ -1212,556 +1301,461 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
               : 'area';
 
     const reportPeriodHeader = (
-        <header className="rpt-header rpt-header--actions-only">
-            <div className="rpt-header-actions">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h1 className="text-2xl font-black tracking-tight text-[#1a1a1a]">Reportes</h1>
+                <p className="text-sm font-medium text-[#6b7280]">
+                    Resumen de ventas, pedidos y métricas clave
+                </p>
+            </div>
+            <div className="flex items-center gap-3">
                 <ReportPeriodSelect
-                    className="rpt-period-menu-select"
                     value={filterPeriod}
                     onChange={setFilterPeriod}
                     aria-label="Rango de fechas del informe"
-                    icon={<Calendar size={18} strokeWidth={1.65} className="text-accent" />}
+                    icon={<Calendar size={18} strokeWidth={1.65} className="text-[#2563eb]" />}
                 />
             </div>
         </header>
     );
 
     const gastosLocalSection = (
-        <div className={`rpt-chart-card rpt-expenses-card${view === 'expensesOnly' ? ' rpt-chart-card--expenses-solo' : ''}${expenseKindFilter !== 'all' ? ' rpt-chart-card--expenses-filtered' : ''}`}>
-            <div className="rpt-chart-header rpt-expenses-card-header">
-                <div className="rpt-expenses-title-block">
-                    <h3>Gastos del local</h3>
-                    <p className="rpt-expenses-subtitle">
+        <Card className="overflow-hidden">
+            <CardHeader className="flex flex-col gap-4 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="max-w-xl">
+                    <CardTitle className="text-lg">Gastos del local</CardTitle>
+                    <CardDescription>
                         Mercadería, arriendo, sueldo y gastos operativos. Los retiros de efectivo hechos en Caja también
                         aparecen aquí para control del CEO.
-                    </p>
+                    </CardDescription>
                 </div>
-                <div className="rpt-expenses-toolbar">
-                    <button type="button" className="rpt-btn-register-expense" onClick={tryOpenRegisterExpenseModal}>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="default" onClick={tryOpenRegisterExpenseModal} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
                         <Plus size={17} strokeWidth={2.25} aria-hidden />
                         Registrar movimiento
-                    </button>
-                    <button
-                        type="button"
-                        className="rpt-tab rpt-tab--export-expenses"
+                    </Button>
+                    <Button
+                        variant="outline"
                         onClick={handleExportManualExpensesExcel}
                         disabled={exportExpensesLoading || !(manualExpenseRows.length || refundExpenseRows.length)}
                     >
                         {exportExpensesLoading ? (
-                            <Loader2 size={14} className="rpt-expenses-spin" aria-hidden />
+                            <Loader2 size={14} className="animate-spin" aria-hidden />
                         ) : (
                             <Download size={14} aria-hidden />
                         )}
                         <span>Excel (vista)</span>
-                    </button>
+                    </Button>
                 </div>
-            </div>
-            <div className="rpt-expenses-controls">
-                <div className="rpt-expenses-controls-row rpt-expenses-controls-row--period">
-                    <div className="rpt-expenses-toolbar-cluster rpt-expenses-toolbar-cluster--compact" aria-label="Período y agrupación de gastos">
-                        <div className="rpt-expenses-period-bar">
-                            <span className="rpt-expenses-period-label">Período</span>
-                            <div className="rpt-expenses-period-tabs" role="group" aria-label="Período del informe">
-                                {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`rpt-tab${filterPeriod === value ? ' active' : ''}`}
-                                        onClick={() => setFilterPeriod(value)}
-                                        aria-pressed={filterPeriod === value}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                            <AdminMenuSelect
-                                className={`rpt-expenses-period-more admin-branch-select${
-                                    !isExpensePeriodTab(filterPeriod) || isCustomDayPeriod(filterPeriod)
-                                        ? ' rpt-expenses-period-more--active'
-                                        : ''
-                                }`}
-                                value={
-                                    isCustomDayPeriod(filterPeriod)
-                                        ? CUSTOM_DAY_MENU_VALUE
-                                        : isExpensePeriodTab(filterPeriod)
-                                          ? 'yesterday'
-                                          : filterPeriod
-                                }
-                                displayLabel={
-                                    isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)
-                                        ? 'Más'
-                                        : formatReportPeriodLabel(filterPeriod, getReportPeriodOptions())
-                                }
-                                isOptionActive={(optValue) => {
-                                    if (isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)) {
-                                        return false;
-                                    }
-                                    if (optValue === CUSTOM_DAY_MENU_VALUE) {
-                                        return isCustomDayPeriod(filterPeriod);
-                                    }
-                                    return String(optValue) === String(filterPeriod);
-                                }}
-                                options={EXPENSE_PERIOD_MORE_OPTIONS}
-                                onChange={handleExpenseMorePeriodChange}
-                                menuMinWidth={180}
-                                aria-label="Más períodos"
-                            />
-                            {isCustomDayPeriod(filterPeriod) ? (
-                                <input
-                                    type="date"
-                                    className="rpt-period-day-input rpt-expenses-day-input"
-                                    value={expenseCustomDay}
-                                    onChange={handleExpenseCustomDayChange}
-                                    aria-label="Día específico"
-                                />
-                            ) : null}
-                            {expenseAgg === 'month' ? (
-                                <span className="rpt-expenses-year-label">Año {expenseReferenceYear}</span>
-                            ) : null}
-                        </div>
-                        <div className="rpt-expenses-toolbar-divider" aria-hidden />
-                        <div className="rpt-expenses-agg" role="group" aria-label="Agrupar gastos por">
-                            <span className="rpt-expenses-agg-label">Agrupar</span>
-                            <div className="rpt-expenses-agg-tabs">
-                                {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`rpt-tab ${expenseAgg === value ? 'active' : ''}`}
-                                        onClick={() => setExpenseAgg(value)}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="rpt-expenses-controls-row rpt-expenses-controls-row--kinds">
-                    <span className="rpt-expenses-kind-label">Tipo</span>
-                    <div className="rpt-expenses-kind-filter" role="group" aria-label="Filtrar por tipo de egreso">
-                        {expenseKindFilterOptions.map(({ value, label, count }) => (
-                            <button
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Período</span>
+                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                        {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
+                            <Button variant="default"
                                 key={value}
                                 type="button"
-                                className={`rpt-tab${expenseKindFilter === value ? ' active' : ''}`}
-                                onClick={() => setExpenseKindFilter(value)}
-                                aria-pressed={expenseKindFilter === value}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                    filterPeriod === value
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
+                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
+                                }`}
+                                onClick={() => setFilterPeriod(value)}
                             >
-                                <span>{label}</span>
-                                {count > 0 ? (
-                                    <span className="rpt-expenses-kind-count" aria-hidden>
-                                        {count}
-                                    </span>
-                                ) : null}
-                            </button>
+                                {label}
+                            </Button>
+                        ))}
+                    </div>
+                    <ReportPeriodSelect
+                        className="max-w-[160px]"
+                        value={
+                            isCustomDayPeriod(filterPeriod)
+                                ? CUSTOM_DAY_MENU_VALUE
+                                : isExpensePeriodTab(filterPeriod)
+                                  ? 'yesterday'
+                                  : filterPeriod
+                        }
+                        displayLabel={
+                            isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)
+                                ? 'Más'
+                                : formatReportPeriodLabel(filterPeriod, getReportPeriodOptions())
+                        }
+                        options={EXPENSE_PERIOD_MORE_OPTIONS}
+                        onChange={handleExpenseMorePeriodChange}
+                    />
+                    {isCustomDayPeriod(filterPeriod) ? (
+                        <input
+                            type="date"
+                            className="h-10 rounded-xl border border-[#e5e5ea] bg-white px-3 text-sm font-semibold"
+                            value={expenseCustomDay}
+                            onChange={handleExpenseCustomDayChange}
+                            aria-label="Día específico"
+                        />
+                    ) : null}
+                    {expenseAgg === 'month' ? (
+                        <span className="text-xs font-bold text-[#1a1a1a]">Año {expenseReferenceYear}</span>
+                    ) : null}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Agrupar</span>
+                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                        {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
+                            <Button variant="default"
+                                key={value}
+                                type="button"
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                    expenseAgg === value
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
+                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
+                                }`}
+                                onClick={() => setExpenseAgg(value)}
+                            >
+                                {label}
+                            </Button>
                         ))}
                     </div>
                 </div>
-            </div>
-            {(manualExpenseRows.length > 0 || refundExpenseRows.length > 0) && expenseKindFilter === 'all' ? (
-                <p className="rpt-expenses-breakdown">
-                    Total período: <strong>{fmt(expensesData.total)}</strong>
-                    {' · '}
-                    Operativos: <strong>{fmt(manualExpenseBreakdown.operating)}</strong> (
-                    {manualExpenseBreakdown.operatingCount})
-                    {' · '}
-                    Retiros caja: <strong>{fmt(manualExpenseBreakdown.withdrawals)}</strong> (
-                    {manualExpenseBreakdown.withdrawalCount})
-                    {' · '}
-                    Devoluciones: <strong>{fmt(refundBreakdown.total)}</strong> ({refundBreakdown.count})
-                </p>
-            ) : null}
-            <div className="rpt-expenses-blocks">
-                {showOperatingExpenseBlock ? (
-                <section className="rpt-expenses-block">
-                    <div className="rpt-expenses-block-head">
-                        <h4 className="rpt-expenses-section-title">Gastos operativos</h4>
-                        <span className="rpt-expenses-block-meta">
-                            {manualExpenseBreakdown.operatingCount} mov. ·{' '}
-                            {fmt(manualExpenseBreakdown.operating)}
-                        </span>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Tipo</span>
+                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                        {expenseKindFilterOptions.map(({ value, label, count }) => (
+                            <Button variant="default"
+                                key={value}
+                                type="button"
+                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                    expenseKindFilter === value
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
+                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
+                                }`}
+                                onClick={() => setExpenseKindFilter(value)}
+                            >
+                                <span>{label}</span>
+                                {count > 0 ? (
+                                    <span className="rounded-full bg-[#f5f5f7] px-1.5 py-0.5 text-[10px] font-bold text-[#6b7280]">
+                                        {count}
+                                    </span>
+                                ) : null}
+                            </Button>
+                        ))}
                     </div>
-                    <div className="rpt-expenses-split">
-                        <div className="rpt-chart-wrapper rpt-chart-wrapper--rosen rpt-expenses-chart-wrap">
-                            {operatingChartData.expenseBarPoints.length ? (
-                                <RPTRosenBarChart
-                                    points={operatingChartData.expenseBarPoints}
-                                    height={220}
-                                    ariaLabel="Gastos operativos por período"
-                                    currency={currency}
-                                />
-                            ) : (
-                                <div className="rpt-empty rpt-expenses-empty-chart">
-                                    {loadingExpenses
-                                        ? 'Cargando…'
-                                        : 'Sin gastos operativos en este período.'}
-                                </div>
-                            )}
-                        </div>
-                        <div className="rpt-expense-panel rpt-expense-panel--totals">
-                            <table className="rpt-expense-table">
-                                <thead>
-                                    <tr>
-                                        <th>Período</th>
-                                        <th className="rpt-expense-table__num">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {operatingChartData.expenseBucketsOrdered.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={2} className="rpt-expense-table__empty">
-                                                Sin datos agregados.
-                                            </td>
-                                        </tr>
+                </div>
+
+                {(manualExpenseRows.length > 0 || refundExpenseRows.length > 0) && expenseKindFilter === 'all' ? (
+                    <p className="text-xs font-medium text-[#6b7280]">
+                        Total período: <strong className="text-[#1a1a1a]">{fmt(expensesData.total)}</strong>
+                        {' · '}
+                        Operativos: <strong className="text-[#1a1a1a]">{fmt(manualExpenseBreakdown.operating)}</strong> (
+                        {manualExpenseBreakdown.operatingCount})
+                        {' · '}
+                        Retiros caja: <strong className="text-[#1a1a1a]">{fmt(manualExpenseBreakdown.withdrawals)}</strong> (
+                        {manualExpenseBreakdown.withdrawalCount})
+                        {' · '}
+                        Devoluciones: <strong className="text-[#1a1a1a]">{fmt(refundBreakdown.total)}</strong> ({refundBreakdown.count})
+                    </p>
+                ) : null}
+
+                <div className="space-y-6">
+                    {showOperatingExpenseBlock ? (
+                        <section className="space-y-3">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h4 className="text-sm font-bold text-[#1a1a1a]">Gastos operativos</h4>
+                                <span className="text-xs font-semibold text-[#6b7280]">
+                                    {manualExpenseBreakdown.operatingCount} mov. · {fmt(manualExpenseBreakdown.operating)}
+                                </span>
+                            </div>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
+                                    {operatingChartPoints.length ? (
+                                        <ReportSalesChart
+                                            points={operatingChartPoints}
+                                            kind="bar-solid"
+                                            currency={currency}
+                                            height={200}
+                                            showHeader
+                                        />
                                     ) : (
-                                        <>
+                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
+                                            {loadingExpenses ? 'Cargando…' : 'Sin gastos operativos en este período.'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-[#f5f5f7]">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
+                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             {operatingChartData.expenseBucketsOrdered.map((row) => (
                                                 <tr
                                                     key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
+                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
                                                 >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
+                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
+                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
                                                 </tr>
                                             ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
-                                                <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(operatingChartData.periodTotal)}
-                                                </td>
+                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
+                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
+                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(operatingChartData.periodTotal)}</td>
                                             </tr>
-                                        </>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-                ) : null}
-
-                {showWithdrawalExpenseBlock ? (
-                <section className="rpt-expenses-block rpt-expenses-block--withdrawals">
-                    <div className="rpt-expenses-block-head">
-                        <h4 className="rpt-expenses-section-title">Retiros de caja</h4>
-                        <span className="rpt-expenses-block-meta">
-                            {manualExpenseBreakdown.withdrawalCount} mov. ·{' '}
-                            {fmt(manualExpenseBreakdown.withdrawals)}
-                        </span>
-                    </div>
-                    <div className="rpt-expenses-split">
-                        <div className="rpt-chart-wrapper rpt-chart-wrapper--rosen rpt-expenses-chart-wrap">
-                            {withdrawalChartData.expenseBarPoints.length ? (
-                                <RPTRosenBarChart
-                                    points={withdrawalChartData.expenseBarPoints}
-                                    height={220}
-                                    ariaLabel="Retiros de caja por período"
-                                    currency={currency}
-                                />
-                            ) : (
-                                <div className="rpt-empty rpt-expenses-empty-chart">
-                                    {loadingExpenses
-                                        ? 'Cargando…'
-                                        : 'Sin retiros de caja en este período.'}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            )}
-                        </div>
-                        <div className="rpt-expense-panel rpt-expense-panel--totals">
-                            <table className="rpt-expense-table">
-                                <thead>
-                                    <tr>
-                                        <th>Período</th>
-                                        <th className="rpt-expense-table__num">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {withdrawalChartData.expenseBucketsOrdered.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={2} className="rpt-expense-table__empty">
-                                                Sin datos agregados.
-                                            </td>
-                                        </tr>
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {showWithdrawalExpenseBlock ? (
+                        <section className="space-y-3">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h4 className="text-sm font-bold text-[#1a1a1a]">Retiros de caja</h4>
+                                <span className="text-xs font-semibold text-[#6b7280]">
+                                    {manualExpenseBreakdown.withdrawalCount} mov. · {fmt(manualExpenseBreakdown.withdrawals)}
+                                </span>
+                            </div>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
+                                    {withdrawalChartPoints.length ? (
+                                        <ReportSalesChart
+                                            points={withdrawalChartPoints}
+                                            kind="bar-solid"
+                                            currency={currency}
+                                            height={200}
+                                            showHeader
+                                        />
                                     ) : (
-                                        <>
+                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
+                                            {loadingExpenses ? 'Cargando…' : 'Sin retiros de caja en este período.'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-[#f5f5f7]">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
+                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             {withdrawalChartData.expenseBucketsOrdered.map((row) => (
                                                 <tr
                                                     key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
+                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
                                                 >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
+                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
+                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
                                                 </tr>
                                             ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
-                                                <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(withdrawalChartData.periodTotal)}
-                                                </td>
+                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
+                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
+                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(withdrawalChartData.periodTotal)}</td>
                                             </tr>
-                                        </>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-                ) : null}
-
-                {showRefundExpenseBlock ? (
-                <section className="rpt-expenses-block rpt-expenses-block--refunds">
-                    <div className="rpt-expenses-block-head">
-                        <h4 className="rpt-expenses-section-title">Devoluciones</h4>
-                        <span className="rpt-expenses-block-meta">
-                            {refundBreakdown.count} mov. · {fmt(refundBreakdown.total)}
-                        </span>
-                    </div>
-                    <div className="rpt-expenses-split">
-                        <div className="rpt-chart-wrapper rpt-chart-wrapper--rosen rpt-expenses-chart-wrap">
-                            {refundChartData.expenseBarPoints.length ? (
-                                <RPTRosenBarChart
-                                    points={refundChartData.expenseBarPoints}
-                                    height={220}
-                                    ariaLabel="Devoluciones por período"
-                                    currency={currency}
-                                />
-                            ) : (
-                                <div className="rpt-empty rpt-expenses-empty-chart">
-                                    {loadingExpenses
-                                        ? 'Cargando…'
-                                        : 'Sin devoluciones en este período.'}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            )}
-                        </div>
-                        <div className="rpt-expense-panel rpt-expense-panel--totals">
-                            <table className="rpt-expense-table">
-                                <thead>
-                                    <tr>
-                                        <th>Período</th>
-                                        <th className="rpt-expense-table__num">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {refundChartData.expenseBucketsOrdered.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={2} className="rpt-expense-table__empty">
-                                                Sin datos agregados.
-                                            </td>
-                                        </tr>
+                            </div>
+                        </section>
+                    ) : null}
+
+                    {showRefundExpenseBlock ? (
+                        <section className="space-y-3">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h4 className="text-sm font-bold text-[#1a1a1a]">Devoluciones</h4>
+                                <span className="text-xs font-semibold text-[#6b7280]">
+                                    {refundBreakdown.count} mov. · {fmt(refundBreakdown.total)}
+                                </span>
+                            </div>
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
+                                    {refundChartPoints.length ? (
+                                        <ReportSalesChart
+                                            points={refundChartPoints}
+                                            kind="bar-solid"
+                                            currency={currency}
+                                            height={200}
+                                            showHeader
+                                        />
                                     ) : (
-                                        <>
+                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
+                                            {loadingExpenses ? 'Cargando…' : 'Sin devoluciones en este período.'}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
+                                    <table className="w-full text-sm">
+                                        <thead className="sticky top-0 bg-[#f5f5f7]">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
+                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             {refundChartData.expenseBucketsOrdered.map((row) => (
                                                 <tr
                                                     key={row.key}
-                                                    className={
-                                                        expenseAgg === 'month' &&
-                                                        row.key === currentMonthBucketKey
-                                                            ? 'rpt-expense-table__current-month'
-                                                            : undefined
-                                                    }
+                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
                                                 >
-                                                    <td>{row.label}</td>
-                                                    <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                        {fmt(row.total)}
-                                                    </td>
+                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
+                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
                                                 </tr>
                                             ))}
-                                            <tr className="rpt-expense-table__total-row">
-                                                <td>Total</td>
-                                                <td className="rpt-expense-table__num rpt-expense-table__amount">
-                                                    {fmt(refundChartData.periodTotal)}
-                                                </td>
+                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
+                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
+                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(refundChartData.periodTotal)}</td>
                                             </tr>
-                                        </>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    ) : null}
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                        <h4 className="text-sm font-bold text-[#1a1a1a]">Movimientos recientes</h4>
+                        <span className="text-xs font-semibold text-[#6b7280]">Últimos 80</span>
                     </div>
-                </section>
-                ) : null}
-            </div>
-            <div className="rpt-expenses-recent-head">
-                <h4 className="rpt-expenses-section-title">Movimientos recientes</h4>
-                <span className="rpt-expenses-recent-meta">Últimos 80</span>
-            </div>
-            <div className="rpt-expense-panel rpt-expense-panel--movements">
-                <table className="rpt-expense-table rpt-expense-table--movements">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Sucursal</th>
-                            <th>Método</th>
-                            <th>Detalle</th>
-                            <th className="rpt-expense-table__num">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {!filteredManualExpenseRows || filteredManualExpenseRows.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="rpt-expense-table__empty">
-                                    {loadingExpenses
-                                        ? 'Cargando…'
-                                        : manualExpenseRows.length || refundExpenseRows.length
-                                          ? 'Sin movimientos para este filtro.'
-                                          : 'Sin movimientos.'}
-                                </td>
-                            </tr>
-                        ) : (
-                            [...filteredManualExpenseRows]
-                                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                                .slice(0, 80)
-                                .map((row) => {
-                                    const sh = row[TABLES.cash_shifts] || row.cash_shifts;
-                                    const bid = sh?.branch_id;
-                                    const branchName = bid != null ? (branchNameById[String(bid)] || String(bid)) : '—';
-                                    const d = new Date(row.created_at);
-                                    const pm = row.payment_method;
-                                    const metodo =
-                                        pm === 'cash'
-                                            ? 'Efectivo'
-                                            : pm === 'card'
-                                              ? 'Tarjeta'
-                                              : pm === 'online'
-                                                ? 'Transf.'
-                                                : String(pm || '—');
-                                    const kindLabel = labelForManualExpenseKind(row);
-                                    const isRefund = isOrderLinkedExpense(row);
-                                    return (
-                                        <tr key={row.id}>
-                                            <td className="rpt-expense-table__nowrap">
-                                                {d.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
-                                            </td>
-                                            <td>
-                                                <span
-                                                    className={`rpt-expense-kind-badge${isCashWithdrawal(row) ? ' rpt-expense-kind-badge--withdrawal' : ''}${isRefund ? ' rpt-expense-kind-badge--refund' : ''}`}
-                                                >
-                                                    {kindLabel}
-                                                </span>
-                                            </td>
-                                            <td>{branchName}</td>
-                                            <td>{metodo}</td>
-                                            <td className="rpt-expense-table__ellipsis">{row.description || '—'}</td>
-                                            <td className="rpt-expense-table__num rpt-expense-table__amount">{fmt(row.amount)}</td>
-                                        </tr>
-                                    );
-                                })
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-[#f5f5f7]">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Fecha</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Tipo</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Sucursal</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Método</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Detalle</th>
+                                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {!filteredManualExpenseRows || filteredManualExpenseRows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-4 py-6 text-center text-sm text-[#6b7280]">
+                                            {loadingExpenses
+                                                ? 'Cargando…'
+                                                : manualExpenseRows.length || refundExpenseRows.length
+                                                  ? 'Sin movimientos para este filtro.'
+                                                  : 'Sin movimientos.'}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    [...filteredManualExpenseRows]
+                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                        .slice(0, 80)
+                                        .map((row) => {
+                                            const sh = row[TABLES.cash_shifts] || row.cash_shifts;
+                                            const bid = sh?.branch_id;
+                                            const branchName = bid != null ? (branchNameById[String(bid)] || String(bid)) : '—';
+                                            const d = new Date(row.created_at);
+                                            const pm = row.payment_method;
+                                            const metodo =
+                                                pm === 'cash'
+                                                    ? 'Efectivo'
+                                                    : pm === 'card'
+                                                      ? 'Tarjeta'
+                                                      : pm === 'online'
+                                                        ? 'Transf.'
+                                                        : String(pm || '—');
+                                            const kindLabel = labelForManualExpenseKind(row);
+                                            const isRefund = isOrderLinkedExpense(row);
+                                            return (
+                                                <tr key={row.id} className="border-t border-[#e5e5ea]">
+                                                    <td className="px-4 py-2 whitespace-nowrap text-[#1a1a1a]">
+                                                        {d.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                                                    </td>
+                                                    <td className="px-4 py-2">
+                                                        <Badge
+                                                            variant={isCashWithdrawal(row) ? 'danger' : isRefund ? 'outline' : 'secondary'}
+                                                            className="text-[10px]"
+                                                        >
+                                                            {kindLabel}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-4 py-2 text-[#1a1a1a]">{branchName}</td>
+                                                    <td className="px-4 py-2 text-[#1a1a1a]">{metodo}</td>
+                                                    <td className="max-w-[200px] truncate px-4 py-2 text-[#1a1a1a]">{row.description || '—'}</td>
+                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.amount)}</td>
+                                                </tr>
+                                            );
+                                        })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 
     const monthlyExportBlock = (
-        <div
-            style={{
-                marginTop: '2rem',
-                padding: '1.5rem',
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: 12,
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-        >
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600, color: 'var(--admin-text, #0f172a)' }}>
-                Descargar Reporte Mensual
-            </h3>
-            <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: 'var(--admin-text-muted, #6b7280)' }}>
-                {MONTHLY_EXPORT_DISCLAIMER}
-            </p>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted, #6b7280)', fontWeight: 500 }}>Seleccionar mes</label>
-                    <input
-                        type="month"
-                        value={analyticsDate}
-                        onChange={(e) => setAnalyticsDate(e.target.value)}
-                        style={{
-                            padding: '8px 12px',
-                            background: 'rgba(0, 0, 0, 0.2)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: 6,
-                            color: 'var(--admin-text, #0f172a)',
-                            fontFamily: 'inherit',
-                            fontSize: '0.9rem',
-                            minWidth: 180,
-                        }}
-                    />
-                </div>
-                <button
-                    type="button"
-                    onClick={handleExportMonthlyExcel}
-                    disabled={exportLoading}
-                    style={{
-                        padding: '10px 16px',
-                        background: 'var(--accent-primary, #3b82f6)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 6,
-                        cursor: exportLoading ? 'not-allowed' : 'pointer',
-                        opacity: exportLoading ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: '0.9rem',
-                        fontWeight: 500,
-                        transition: 'opacity 0.2s',
-                    }}
-                >
-                    {exportLoading ? (
-                        <>
-                            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                            Generando...
-                        </>
-                    ) : (
-                        <>
-                            <Download size={16} />
-                            Descargar Excel
-                        </>
-                    )}
-                </button>
-                <div className="rpt-monthly-expenses-export-group" role="group" aria-label="Exportar gastos del mes">
-                    {[
-                        { action: 'modal', label: 'Ver (modal)', Icon: Eye },
-                        { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink },
-                        { action: 'download', label: 'Descargar', Icon: Download },
-                    ].map(({ action, label, Icon }) => (
-                        <button
-                            key={action}
-                            type="button"
-                            onClick={() => runMonthlyManualExpensesExport(action)}
-                            disabled={exportExpensesLoading || !companyId}
-                            className="rpt-monthly-expenses-export-btn"
-                        >
-                            {exportExpensesLoading ? (
-                                <Loader2 size={16} className="rpt-expenses-spin" aria-hidden />
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">Descargar Reporte Mensual</CardTitle>
+                <CardDescription>{MONTHLY_EXPORT_DISCLAIMER}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid items-end gap-3 sm:grid-cols-[auto_1fr]">
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Seleccionar mes</label>
+                        <input
+                            type="month"
+                            className="h-10 rounded-xl border border-[#e5e5ea] bg-white px-3 text-sm font-semibold text-[#1a1a1a]"
+                            value={analyticsDate}
+                            onChange={(e) => setAnalyticsDate(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <Button variant="default" onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
+                            {exportLoading ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                                    Generando...
+                                </>
                             ) : (
-                                <Icon size={16} aria-hidden />
+                                <>
+                                    <Download size={16} aria-hidden />
+                                    Descargar Excel
+                                </>
                             )}
-                            <span>{exportExpensesLoading ? 'Generando...' : label}</span>
-                        </button>
-                    ))}
+                        </Button>
+                        {[
+                            { action: 'modal', label: 'Ver (modal)', Icon: Eye },
+                            { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink },
+                            { action: 'download', label: 'Descargar', Icon: Download },
+                        ].map(({ action, label, Icon }) => (
+                            <Button
+                                key={action}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => runMonthlyManualExpensesExport(action)}
+                                disabled={exportExpensesLoading || !companyId}
+                                className="gap-2"
+                            >
+                                {exportExpensesLoading ? (
+                                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                                ) : (
+                                    <Icon size={16} aria-hidden />
+                                )}
+                                <span>{exportExpensesLoading ? 'Generando...' : label}</span>
+                            </Button>
+                        ))}
+                    </div>
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 
     if (view === 'expensesOnly') {
         return (
-            <div className="rpt-container rpt-container--compact-toolbar animate-fade">
+            <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-6 animate-fade">
                 {gastosLocalSection}
                 {monthlyExportBlock}
                 <LocalExpenseModal
@@ -1771,7 +1765,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     branchName={selectedBranch?.name || selectedBranch?.label}
                     activeShift={cashSystem?.activeShift}
                     onConfirmOperating={handleConfirmRegisterLocalExpense}
-                    registerRefund={cashSystem.registerRefund}
+                    registerRefund={cashSystem?.registerRefund}
                     moveOrder={moveOrder}
                     showNotify={showNotify}
                     companyId={companyId}
@@ -1789,269 +1783,294 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }
 
     return (
-        <div className="rpt-container rpt-container--compact-toolbar animate-fade">
+        <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-6 animate-fade">
             {reportPeriodHeader}
+
             {multiCurrencyWarning ? (
-                <p className="rpt-kpi-meta rpt-multi-currency-warning" style={{ margin: '0 0 1rem 0' }}>
+                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[#6b7280]">
                     {multiCurrencyWarning}
                 </p>
             ) : null}
             {analyticsSource === 'fallback' && (
-                <p className="rpt-kpi-meta" style={{ margin: '0 0 1rem 0' }}>
+                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[#6b7280]">
                     Mostrando hasta 2000 pedidos; las métricas pueden estar truncadas.
                 </p>
             )}
 
-            {/* KPI ROW */}
-            <div className="rpt-kpi-row">
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon sales"><DollarSign size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Ventas totales</span>
-                        <span className="rpt-kpi-value">{fmt(kpis.total)}</span>
-                        {loadingAnalyticsOrders && <span className="rpt-kpi-meta">Cargando pedidos…</span>}
-                    </div>
-                    <TrendBadge value={trends.total} />
-                </div>
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon orders"><ShoppingBag size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Pedidos</span>
-                        <span className="rpt-kpi-value">{kpis.count}</span>
-                    </div>
-                    <TrendBadge value={trends.count} />
-                </div>
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon ticket"><TrendingUp size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Ticket promedio</span>
-                        <span className="rpt-kpi-value">{fmt(Math.round(kpis.ticket))}</span>
-                    </div>
-                </div>
-                <div
-                    className="rpt-kpi"
-                    title="Suma solo de delivery_fee (tarifa de envío) en el período. No incluye el monto de productos del pedido."
-                >
-                    <div className="rpt-kpi-icon delivery"><Truck size={20} aria-hidden /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Total delivery</span>
-                        <span className="rpt-kpi-value">{fmt(Math.round(kpis.deliveryTotal ?? 0))}</span>
-                        <span className="rpt-kpi-meta">
-                            {(kpis.deliveryCount ?? 0).toLocaleString('es-CL')}{' '}
-                            pedido{(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} con envío · solo tarifas
-                        </span>
-                    </div>
-                    <TrendBadge value={trends.delivery} />
-                </div>
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon clients"><Users size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Nuevos clientes</span>
-                        <span className="rpt-kpi-value">{newClientsInfo.count}</span>
-                    </div>
-                    <TrendBadge value={newClientsInfo.trend} />
-                </div>
-                {/* KPI EGRESOS */}
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon expenses"><Wallet size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Gastos del local</span>
-                        <span className="rpt-kpi-value">{fmt(expensesData.total)}</span>
-                        {loadingExpenses && <span className="rpt-kpi-meta">Cargando...</span>}
-                    </div>
-                    <TrendBadge value={trends.expenses} />
-                </div>
-                {/* KPI BALANCE NETO */}
-                <div className="rpt-kpi">
-                    <div className="rpt-kpi-icon balance"><Banknote size={20} /></div>
-                    <div className="rpt-kpi-body">
-                        <span className="rpt-kpi-label">Balance neto</span>
-                        <span className="rpt-kpi-value">{fmt(kpis.net)}</span>
-                    </div>
-                    <TrendBadge value={trends.net} />
-                </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+                {KPI_META.map((meta) => {
+                    const value = meta.key === 'clients' ? newClientsInfo.count : meta.key === 'expenses' ? expensesData.total : kpis[meta.key];
+                    const trendKey = meta.key === 'clients' ? null : resolveKpiTrendKey(meta.key);
+                    const trend = meta.key === 'clients' ? newClientsInfo.trend : trends[trendKey];
+                    const spark = kpiSparklines[resolveKpiSparkKey(meta.key)] ?? FLAT_SPARKLINE;
+                    const loading = meta.key === 'clients' ? false : loadingAnalyticsOrders && kpis.count === 0;
+                    const subtitle = meta.key === 'deliveryTotal'
+                        ? `${(kpis.deliveryCount ?? 0).toLocaleString('es-CL')} pedido${(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} · solo tarifas`
+                        : undefined;
+                    const trendSignificant = meta.key === 'clients'
+                        ? true
+                        : trendSignificance?.[resolveKpiTrendKey(meta.key)] ?? true;
+                    return (
+                        <KpiCard
+                            key={meta.key}
+                            meta={meta}
+                            value={value}
+                            trend={trend}
+                            sparklineValues={spark}
+                            loading={loading}
+                            fmt={fmt}
+                            subtitle={subtitle}
+                            showTrend={reportRange.hasComparison}
+                            trendSignificant={trendSignificant}
+                        />
+                    );
+                })}
             </div>
 
-            {/* Bloque principal Reportes: ventas (gráfico + lateral). Gastos del local: menú Ventas → Gastos del local */}
-            <div className="rpt-main-grid">
-                <div className="rpt-chart-card">
-                    <div className="rpt-chart-header">
-                        <h3>Ventas por día</h3>
-                        <div className="rpt-chart-toolbar">
-                            <div className="rpt-chart-kind" role="group" aria-label="Tipo de gráfico">
-                                {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`rpt-chart-kind-btn ${activeChartKind === value ? 'active' : ''}`}
-                                        onClick={() => setChartKind(value)}
-                                        title={label}
-                                        aria-pressed={activeChartKind === value}
-                                        aria-label={label}
-                                    >
-                                        <Icon size={16} strokeWidth={1.75} aria-hidden />
-                                        <span className="rpt-chart-kind-label">{label}</span>
-                                    </button>
-                                ))}
+            <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
+                <div className="flex flex-col gap-5">
+                    <Card className="flex h-fit flex-col">
+                        <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
+                            <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="rpt-chart-kind">
+                                    {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
+                                        <Button variant="default"
+                                            key={value}
+                                            type="button"
+                                            className={`rpt-chart-kind-btn ${activeChartKind === value ? 'active' : ''}`}
+                                            onClick={() => setChartKind(value)}
+                                            title={label}
+                                            aria-pressed={activeChartKind === value}
+                                        >
+                                            <Icon size={14} strokeWidth={1.75} aria-hidden />
+                                            <span className="rpt-chart-kind-label">{label}</span>
+                                        </Button>
+                                    ))}
+                                </div>
+                                <Tabs value={chartTab} onValueChange={setChartTab}>
+                                    <TabsList className="h-9">
+                                        <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
+                                        <TabsTrigger value="store" className="text-xs">Tienda</TabsTrigger>
+                                        <TabsTrigger value="online" className="text-xs">Online</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
                             </div>
-                            <div className="rpt-chart-tabs">
-                                {[['all', 'Todos'], ['store', 'Tienda'], ['online', 'Online']].map(([key, label]) => (
-                                    <button key={key} className={`rpt-tab ${chartTab === key ? 'active' : ''}`} onClick={() => setChartTab(key)}>
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="rpt-chart-wrapper rpt-chart-wrapper--lwc">
-                        {salesChartPoints.length ? (
-                            <RPTSalesLightweightChart
-                                points={salesChartPoints}
-                                variant={activeChartKind}
-                                height={reportRange.dayCount > 90 ? 260 : 280}
-                                showExpenses
-                            />
-                        ) : (
-                            <div className="rpt-empty" style={{ padding: '3rem', textAlign: 'center' }}>
-                                Sin datos de ventas
-                            </div>
-                        )}
-                    </div>
-                </div>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-2">
+                            {salesChartPoints.length ? (
+                                <ReportSalesChart
+                                    points={salesChartPoints}
+                                    kind={activeChartKind}
+                                    filter={chartTab}
+                                    currency={currency}
+                                    height={260}
+                                />
+                            ) : (
+                                <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center text-[#6b7280]">
+                                    <LineChart size={44} strokeWidth={1.5} className="text-[#2563eb]/55" aria-hidden />
+                                    <p className="text-base font-bold text-[#1a1a1a]">Sin datos de ventas</p>
+                                    <span className="max-w-[28ch] text-sm">No hay ventas en este período. Probá otro rango o canal.</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
-                {/* SIDEBAR */}
-                <div className="rpt-sidebar">
-                    {/* Payment Breakdown */}
-                    <div className="rpt-side-card">
-                        <h4><AdminIconSlot Icon={CreditCard} slotSize="xs" tone="accent" /> Métodos de pago</h4>
-                        <div style={{ marginBottom: '1.25rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'center' }}>
-                            <RPTRosenDonutChart
-                                data={[
-                                    { label: 'Efectivo', value: paymentBreakdown.cash, color: '#22c55e' },
-                                    { label: 'Tarjeta', value: paymentBreakdown.card, color: '#3b82f6' },
-                                    { label: 'Transferencia', value: paymentBreakdown.online, color: '#a855f7' },
-                                ]}
-                                height={150}
-                                currency={currency}
-                            />
-                        </div>
-                        <div className="rpt-payment-list">
-                            {[
-                                { label: 'Efectivo', value: paymentBreakdown.cash, Icon: DollarSign, color: '#22c55e' },
-                                { label: 'Tarjeta', value: paymentBreakdown.card, Icon: CreditCard, color: '#3b82f6' },
-                                { label: 'Transferencia', value: paymentBreakdown.online, Icon: Smartphone, color: '#a855f7' },
-                            ].map(pm => {
-                                const pct = kpis.total > 0 ? Math.round((pm.value / kpis.total) * 100) : 0;
-                                return (
-                                    <div key={pm.label} className="rpt-payment-row">
-                                        <div className="rpt-payment-info">
-                                            <AdminIconSlot
-                                                Icon={pm.Icon}
-                                                slotSize="xxs"
-                                                size={12}
-                                                style={{
-                                                    color: pm.color,
-                                                    background: `color-mix(in srgb, ${pm.color} 14%, var(--admin-card-bg, #fff))`,
-                                                    borderColor: `color-mix(in srgb, ${pm.color} 32%, var(--admin-border, #e8ecf1))`,
-                                                }}
-                                            />
-                                            <span>{pm.label}</span>
-                                        </div>
-                                        <div className="rpt-payment-bar-wrap">
-                                            <div className="rpt-payment-bar" style={{ width: `${pct}%`, background: pm.color }} />
-                                        </div>
-                                        <div className="rpt-payment-values">
-                                            <strong>{fmt(pm.value)}</strong>
-                                            <span>{pct}%</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Peak Hour */}
                     {peakHour && (
-                        <div className="rpt-side-card rpt-peak">
-                            <h4><AdminIconSlot Icon={Clock} slotSize="xs" tone="accent" /> Hora pico</h4>
-                            <div className="rpt-peak-value">{peakHour.hour}</div>
-                            <div className="rpt-peak-sub">{peakHour.count} pedidos en este horario</div>
-                        </div>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                    <Clock size={18} className="text-[#2563eb]" />
+                                    Hora pico
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <p className="text-2xl font-bold text-[#14161a]">{peakHour.hour}</p>
+                                    <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
+                                </div>
+                                <div className="space-y-2">
+                                    {peakHourDistribution.map((b) => (
+                                        <div key={b.label} className="flex items-center gap-3">
+                                            <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
+                                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                <div
+                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
+                                                    style={{ width: `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75 }}
+                                                />
+                                            </div>
+                                            <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{b.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
                     )}
 
-                    {/* Quick Stats */}
-                    <div className="rpt-side-card">
-                        <h4><AdminIconSlot Icon={Users} slotSize="xs" tone="accent" /> Clientes</h4>
-                        <div className="rpt-quick-stats">
-                            <div className="rpt-quick-stat">
-                                <span className="rpt-quick-label">Total registrados</span>
-                                <span className="rpt-quick-value">{newClientsInfo.total}</span>
-                            </div>
-                            <div className="rpt-quick-stat">
-                                <span className="rpt-quick-label">Nuevos ({reportRange.hasComparison ? reportRange.displayLabel : 'total'})</span>
-                                <span className="rpt-quick-value">{newClientsInfo.count}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Branch Breakdown */}
-                    {branchStats.length > 0 && (
-                        <div className="rpt-side-card">
-                            <h4><AdminIconSlot Icon={MapPin} slotSize="xs" tone="accent" /> Ventas por Sucursal</h4>
-                            <div className="rpt-payment-list">
-                                {branchStats.map(b => {
-                                    const pct = kpis.total > 0 ? Math.round((b.total / kpis.total) * 100) : 0;
-                                    return (
-                                        <div key={b.id} className="rpt-payment-row">
-                                            <div className="rpt-payment-info" style={{flex: 1}}>
-                                                <span style={{fontSize: '0.85rem'}}>{b.name}</span>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                <Package size={20} className="text-[#2563eb]" />
+                                Top productos vendidos
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingTopProducts ? (
+                                <div className="py-8 text-center text-sm text-[#6b7280]">Cargando top productos…</div>
+                            ) : topProducts.length === 0 ? (
+                                <div className="py-8 text-center text-sm text-[#6b7280]">No hay datos de productos en este período.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {topProducts.map((p, i) => {
+                                        const maxQty = topProducts[0]?.qty || 1;
+                                        const pct = Math.round((p.qty / maxQty) * 100);
+                                        const opacity = Math.max(0.25, pct / 100);
+                                        return (
+                                            <div key={p.name} className="flex items-center gap-4">
+                                                <span className="w-7 text-sm font-black text-[#2563eb]">#{i + 1}</span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
+                                                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                        <div
+                                                            className="h-full rounded-full transition-all"
+                                                            style={{ width: `${pct}%`, background: '#2563eb', opacity }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                    <p className="text-sm font-bold text-[#1a1a1a]">{fmt(p.revenue)}</p>
+                                                    <p className="text-xs font-medium text-[#6b7280]">{p.qty} uds</p>
+                                                </div>
                                             </div>
-                                            <div className="rpt-payment-values" style={{textAlign: 'right'}}>
-                                                <strong>{fmt(b.total)}</strong>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--admin-text-muted, #5a6169)', marginLeft: 6 }}>{pct}%</span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="flex flex-col gap-5">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                                <CreditCard size={18} className="text-[#2563eb]" />
+                                Métodos de pago
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <ReportPaymentDonut
+                                data={paymentDonutData}
+                                currency={currency}
+                            />
+                            <div className="space-y-2.5">
+                                {PAYMENT_META.map((pm) => {
+                                    const value = paymentBreakdown[pm.key] || 0;
+                                    const pct = kpis.total > 0 ? Math.round((value / kpis.total) * 100) : 0;
+                                    const Icon = pm.Icon;
+                                    return (
+                                        <div key={pm.key} className="space-y-1.5">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${pm.bg}`}>
+                                                        <Icon size={14} style={{ color: pm.color }} />
+                                                    </div>
+                                                    <span className="font-semibold text-[#1a1a1a]">{pm.label}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-[#1a1a1a]">{fmt(value)}</p>
+                                                    <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
+                                                </div>
+                                            </div>
+                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pm.color }} />
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
-                        </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                <Users size={18} className="text-[#2563eb]" />
+                                Clientes
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative h-40 w-40 shrink-0 overflow-visible">
+                                    <PieChart width={152} height={152}>
+                                        <Pie
+                                            data={clientsDonutData}
+                                            cx={76}
+                                            cy={76}
+                                            innerRadius={52}
+                                            outerRadius={70}
+                                            dataKey="value"
+                                            stroke="none"
+                                            isAnimationActive={false}
+                                        >
+                                            {clientsDonutData.map((entry) => (
+                                                <Cell key={entry.name} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                        <span className="text-lg font-bold text-[#14161a]">
+                                            {newClientsInfo.total > 0 ? Math.round((newClientsInfo.count / newClientsInfo.total) * 100) : 0}%
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-center text-sm">
+                                    <p className="font-bold text-[#14161a]">{newClientsInfo.total} total registrados</p>
+                                    <p className="font-medium text-[#6b7280]">
+                                        <strong className="text-[#14161a]">{newClientsInfo.count}</strong> nuevos en {reportRange.displayLabel}
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {branchStats.length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                    <MapPin size={18} className="text-[#2563eb]" />
+                                    Ventas por Sucursal
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {branchStats.map((b) => {
+                                    const pct = kpis.total > 0 ? Math.round((b.total / kpis.total) * 100) : 0;
+                                    return (
+                                        <div key={b.id} className="space-y-1.5">
+                                            <div className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="truncate font-medium text-[#14161a]">{b.name}</span>
+                                                <div className="shrink-0 text-right">
+                                                    <p className="font-bold text-[#14161a]">{fmt(b.total)}</p>
+                                                    <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
+                                                </div>
+                                            </div>
+                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                <div
+                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
+                                                    style={{ width: `${pct}%`, opacity: 0.25 + (pct / 100) * 0.75 }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </CardContent>
+                        </Card>
                     )}
                 </div>
             </div>
 
-            {/* TOP PRODUCTS */}
-            <div className="rpt-products-card">
-                <h3><AdminIconSlot Icon={Package} slotSize="sm" tone="accent" /> Top productos vendidos</h3>
-                {loadingTopProducts ? (
-                    <div className="rpt-empty">Cargando top productos…</div>
-                ) : topProducts.length === 0 ? (
-                    <div className="rpt-empty">No hay datos de productos en este período.</div>
-                ) : (
-                    <div className="rpt-products-list">
-                        {topProducts.map((p, i) => {
-                            const maxQty = topProducts[0]?.qty || 1;
-                            const pct = Math.round((p.qty / maxQty) * 100);
-                            return (
-                                <div key={p.name} className="rpt-product-row">
-                                    <span className="rpt-product-rank">#{i + 1}</span>
-                                    <div className="rpt-product-info">
-                                        <span className="rpt-product-name">{p.name}</span>
-                                        <div className="rpt-product-bar-wrap">
-                                            <div className="rpt-product-bar" style={{ width: `${pct}%` }} />
-                                        </div>
-                                    </div>
-                                    <div className="rpt-product-stats">
-                                        <span className="rpt-product-qty">{p.qty} uds</span>
-                                        <span className="rpt-product-rev">{fmt(p.revenue)}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
             {monthlyExportBlock}
+
             <LocalExpenseModal
                 isOpen={isAddExpenseModalOpen}
                 onClose={() => setIsAddExpenseModalOpen(false)}
@@ -2059,7 +2078,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 branchName={selectedBranch?.name || selectedBranch?.label}
                 activeShift={cashSystem?.activeShift}
                 onConfirmOperating={handleConfirmRegisterLocalExpense}
-                registerRefund={cashSystem.registerRefund}
+                registerRefund={cashSystem?.registerRefund}
                 moveOrder={moveOrder}
                 showNotify={showNotify}
                 companyId={companyId}

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { searchPlaces } from "../services/placesService";
+import { Button } from "@/components/ui/button";
 
 const DEBOUNCE_MS = 380;
 
@@ -162,7 +163,7 @@ export default function DeliveryPlaceSuggestInput({
 				<ul className="admin-delivery-place-suggest-list" role="listbox">
 					{items.map((it, i) => (
 						<li key={`${it.label}-${i}`} role="option" aria-selected={highlight === i}>
-							<button
+							<Button variant="default"
 								type="button"
 								className={
 									highlight === i
@@ -173,7 +174,7 @@ export default function DeliveryPlaceSuggestInput({
 								onClick={() => pick(it.label)}
 							>
 								{it.label}
-							</button>
+							</Button>
 						</li>
 					))}
 				</ul>

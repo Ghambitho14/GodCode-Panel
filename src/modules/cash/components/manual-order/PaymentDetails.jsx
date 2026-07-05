@@ -9,6 +9,7 @@ import {
 import AdminIconSlot from '../AdminIconSlot';
 import { cn } from '@/lib/utils';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
+import { Button } from "@/components/ui/button";
 
 const BILL_SHORTCUTS = [1000, 2000, 5000, 10000, 20000];
 
@@ -174,7 +175,7 @@ const PaymentDetails = ({
                     {isReceipt ? 'Seleccionar método de pago' : 'Método de pago'}
                 </div>
                 <div className="grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
-                    <button
+                    <Button variant="default"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tienda')}
                         onClick={() => handlePaymentTypeSelect('tienda')}
@@ -182,8 +183,8 @@ const PaymentDetails = ({
                     >
                         <Store size={20} />
                         {isReceipt ? 'Efectivo' : 'EFECTIVO'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="default"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tarjeta')}
                         onClick={() => handlePaymentTypeSelect('tarjeta')}
@@ -191,8 +192,8 @@ const PaymentDetails = ({
                     >
                         <CreditCard size={20} />
                         {isReceipt ? 'Tarjeta' : 'TARJETA'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="default"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'online')}
                         onClick={() => handlePaymentTypeSelect('online')}
@@ -200,9 +201,9 @@ const PaymentDetails = ({
                     >
                         <ReceiptIcon size={20} />
                         {isReceipt ? 'Transf.' : 'TRANSF.'}
-                    </button>
+                    </Button>
                 </div>
-                <button
+                <Button variant="default"
                     type="button"
                     className={cn(
                         'mt-2.5 inline-flex items-center gap-2 rounded-[4px] border border-dashed px-3 py-2 text-[11px] font-semibold transition-colors',
@@ -214,7 +215,7 @@ const PaymentDetails = ({
                 >
                     <Split size={16} aria-hidden />
                     {isReceipt ? 'Pago mixto' : 'Pago mixto (efectivo + tarjeta)'}
-                </button>
+                </Button>
             </div>
 
             {isMixed ? (
@@ -291,14 +292,14 @@ const PaymentDetails = ({
                     />
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         {BILL_SHORTCUTS.map((bill) => (
-                            <button
+                            <Button variant="outline"
                                 key={bill}
                                 type="button"
                                 className="rounded-full border border-gc-border bg-gc-card px-2.5 py-1 text-[10px] font-bold text-gc-text transition-colors hover:border-gc-accent hover:text-gc-accent"
                                 onClick={() => handleBillShortcut(bill)}
                             >
                                 {formatMoney(bill)}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                     {cashDue > 0 && manualOrder.cash_tendered !== '' ? (
@@ -418,7 +419,7 @@ const PaymentDetails = ({
                     {receiptPreview && (
                         <div className="relative mt-2.5 overflow-hidden rounded-[4px] border border-gc-border">
                             <img src={receiptPreview} alt="Preview comprobante" className="block max-h-[150px] w-full object-cover" />
-                            <button
+                            <Button variant="destructive"
                                 type="button"
                                 className="absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 text-[10px] font-bold text-white"
                                 onClick={(e) => {
@@ -427,7 +428,7 @@ const PaymentDetails = ({
                                 }}
                             >
                                 QUITAR
-                            </button>
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -454,16 +455,16 @@ const PaymentDetails = ({
             {!hideCheckoutActions ? (
             <div className="manual-order-checkout-actions mt-auto flex w-full min-w-0 items-stretch gap-2 border-t border-gc-border pt-3">
                 {goPrevStep ? (
-                    <button
+                    <Button variant="default"
                         type="button"
                         className={backBtnClass}
                         onClick={goPrevStep}
                     >
                         ATRÁS
-                    </button>
+                    </Button>
                 ) : null}
                 {onCancelOrder ? (
-                    <button
+                    <Button variant="default"
                         type="button"
                         className={cn(
                             backBtnClass,
@@ -473,9 +474,9 @@ const PaymentDetails = ({
                         disabled={loading}
                     >
                         Cancelar pedido
-                    </button>
+                    </Button>
                 ) : null}
-                <button
+                <Button variant="default"
                     type="button"
                     className={confirmBtnClass}
                     onClick={submitOrder}
@@ -492,7 +493,7 @@ const PaymentDetails = ({
                             {confirmLabel}
                         </>
                     )}
-                </button>
+                </Button>
             </div>
             ) : null}
         </div>

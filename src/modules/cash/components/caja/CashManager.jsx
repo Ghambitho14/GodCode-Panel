@@ -26,6 +26,7 @@ import {
     resolveReportPeriodRange,
 } from '../../utils/reportPeriodRange';
 import { getOrderForMovement } from '../../utils/getOrderForMovement';
+import { Button } from "@/components/ui/button";
 
 const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = getCashShiftHistoryPeriodOptions();
 
@@ -115,9 +116,10 @@ const CashManager = ({
     const salesCount = useMemo(() => movements.filter(m => m.type === 'sale').length, [movements]);
     const movementCount = movements.length;
 
+    const [shiftHistoryAnchorDate] = useState(() => new Date());
     const shiftHistoryRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod),
-        [filterPeriod],
+        () => resolveReportPeriodRange(filterPeriod, shiftHistoryAnchorDate),
+        [filterPeriod, shiftHistoryAnchorDate],
     );
 
     const filteredShifts = useMemo(() => {
@@ -188,19 +190,19 @@ const CashManager = ({
                 <div className="cash-header-actions">
                     {activeShift ? (
                         <>
-                            <button
+                            <Button variant="default"
                                 type="button"
-                                className="btn btn-income"
+                                className="btn-income"
                                 onClick={() => {
                                     setMovementModalVariant('income');
                                     setIsMovementModalOpen(true);
                                 }}
                             >
                                 <ArrowUpCircle size={16} /> Ingreso
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="default"
                                 type="button"
-                                className="btn btn-expense btn-cash-withdrawal"
+                                className="btn-expense btn-cash-withdrawal"
                                 onClick={() => {
                                     setMovementModalVariant('cash_withdrawal');
                                     setIsMovementModalOpen(true);
@@ -208,15 +210,15 @@ const CashManager = ({
                                 title="Retiro de efectivo del turno (compras menores, vuelto). Gastos grandes: Ventas → Gastos del local."
                             >
                                 <ArrowDownCircle size={16} /> Sacar efectivo
-                            </button>
-                            <button type="button" className="btn btn-danger" onClick={() => setIsShiftModalOpen(true)}>
+                            </Button>
+                            <Button variant="destructive" type="button" className="" onClick={() => setIsShiftModalOpen(true)}>
                                 <Lock size={16} /> Cerrar caja
-                            </button>
+                            </Button>
                         </>
                     ) : (
-                        <button type="button" className="btn btn-primary btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
+                        <Button variant="default" type="button" className="btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
                             <Unlock size={18} /> Abrir caja
-                        </button>
+                        </Button>
                     )}
                 </div>
             </header>
@@ -343,9 +345,9 @@ const CashManager = ({
                         <div className="cash-recent">
                             <div className="cash-recent-header">
                                 <h4><AdminIconSlot Icon={Clock} slotSize="sm" tone="accent" /> Últimos movimientos</h4>
-                                <button className="btn-text" onClick={() => setViewingShift(activeShift)}>
+                                <Button variant="default" className="btn-text" onClick={() => setViewingShift(activeShift)}>
                                     Ver todos <ChevronRight size={14} />
-                                </button>
+                                </Button>
                             </div>
                             <div className="cash-recent-list">
                                 {recentMovements.map(m => {
@@ -425,9 +427,9 @@ const CashManager = ({
                     </div>
                     <h3>Caja cerrada</h3>
                     <p>Abre un turno para comenzar a registrar ventas e ingresos.</p>
-                    <button className="btn btn-primary" onClick={() => setIsShiftModalOpen(true)}>
+                    <Button variant="default" className="" onClick={() => setIsShiftModalOpen(true)}>
                         <Unlock size={18} /> Abrir caja
-                    </button>
+                    </Button>
                 </section>
             )}
 

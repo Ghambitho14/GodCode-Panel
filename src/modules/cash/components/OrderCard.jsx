@@ -29,6 +29,7 @@ import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import ManualOrderModal from './ManualOrderModal';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
+import { Button } from "@/components/ui/button";
 
 function buildItemsSummary(items, { missingItems = false } = {}) {
     const list = Array.isArray(items) ? items : [];
@@ -302,27 +303,27 @@ const OrderCard = ({
 
     const headerTools = (
         <>
-            <button
+            <Button variant="default"
                 type="button"
                 onClick={handleCopyShare}
-                className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                className="admin-icon-btn--sm order-card-tool-btn"
                 title="Copiar resumen del pedido"
             >
                 <Copy size={14} aria-hidden />
-            </button>
+            </Button>
             {isDelivery ? (
-                <button
+                <Button variant="default"
                     type="button"
                     onClick={handleDeliveryWhatsApp}
-                    className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                    className="admin-icon-btn--sm order-card-tool-btn"
                     title="WhatsApp envío"
                     aria-label="Enviar datos de delivery por WhatsApp"
                 >
                     <Send size={14} aria-hidden />
-                </button>
+                </Button>
             ) : null}
             <div className="order-ticket-menu" ref={ticketMenuRef}>
-                <button
+                <Button variant="default"
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
@@ -335,7 +336,7 @@ const OrderCard = ({
                     aria-label="Menú imprimir tickets"
                 >
                     <Printer size={14} aria-hidden />
-                </button>
+                </Button>
                 {ticketMenuOpen ? (
                     <OrderCardAnchoredMenu
                         anchorRef={ticketMenuRef}
@@ -344,27 +345,27 @@ const OrderCard = ({
                         menuWidth={200}
                         menuHeight={120}
                     >
-                        <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchenAgain}>
+                        <Button variant="default" type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchenAgain}>
                             <ChefHat size={16} aria-hidden />
                             Ticket cocina
-                        </button>
-                        <button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printTicketCaja}>
+                        </Button>
+                        <Button variant="default" type="button" className="order-ticket-menu-item" role="menuitem" onClick={printTicketCaja}>
                             <Banknote size={16} aria-hidden />
                             Ticket caja
-                        </button>
+                        </Button>
                     </OrderCardAnchoredMenu>
                 ) : null}
             </div>
             {gridTile ? (
-                <button
+                <Button variant="default"
                     type="button"
                     onClick={openDetailModal}
-                    className="admin-icon-btn admin-icon-btn--sm order-card-tool-btn"
+                    className="admin-icon-btn--sm order-card-tool-btn"
                     title="Ver detalle del pedido"
                     aria-label="Ver detalle del pedido"
                 >
                     <Eye size={14} aria-hidden />
-                </button>
+                </Button>
             ) : null}
         </>
     );
@@ -434,7 +435,7 @@ const OrderCard = ({
                             </div>
                             <div className="card-kanban-meta-row">
                                 {fulfillmentPill}
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className="order-detail-trigger"
                                     onClick={openDetailModal}
@@ -442,7 +443,7 @@ const OrderCard = ({
                                 >
                                     <Eye size={12} aria-hidden />
                                     Ver detalle
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -460,7 +461,7 @@ const OrderCard = ({
                                 {deliverySubtitle}
                             </p>
                         ) : null}
-                        <button
+                        <Button variant="default"
                             type="button"
                             className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
                             onClick={handleExpandItems}
@@ -473,7 +474,7 @@ const OrderCard = ({
                                 <ChevronDown size={14} aria-hidden />
                             )}
                             {hasLoadedItems ? `Ver más (${itemsSummary.count})` : 'Ver más'}
-                        </button>
+                        </Button>
                     </div>
                 ) : (
                     <>
@@ -514,7 +515,7 @@ const OrderCard = ({
                             ) : (
                                 <p className="card-items-empty">Sin productos</p>
                             )}
-                            <button
+                            <Button variant="default"
                                 type="button"
                                 className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
                                 onClick={(e) => {
@@ -525,7 +526,7 @@ const OrderCard = ({
                             >
                                 <ChevronUp size={14} aria-hidden />
                                 Ver menos
-                            </button>
+                            </Button>
                         </div>
 
                         {order.payment_type === 'online' ? (
@@ -535,19 +536,19 @@ const OrderCard = ({
                                         <a href={order.payment_ref} target="_blank" rel="noreferrer" className="receipt-link">
                                             <ImageIcon size={14} aria-hidden /> Ver Comprobante
                                         </a>
-                                        <button type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
+                                        <Button variant="default" type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
                                             Cambiar
-                                        </button>
+                                        </Button>
                                     </div>
                                 ) : (
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         onClick={() => setReceiptModalOrder(order)}
                                         className="receipt-link receipt-link--optional"
                                         title="Opcional: subir imagen del comprobante"
                                     >
                                         <Upload size={14} aria-hidden /> Comprobante (opcional)
-                                    </button>
+                                    </Button>
                                 )}
                             </div>
                         ) : null}
@@ -577,39 +578,39 @@ const OrderCard = ({
                 <div className="card-actions">
                     {order.status === 'pending' ? (
                         <>
-                            <button type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
+                            <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
                                 <XCircle size={16} />
-                            </button>
-                            <button type="button" onClick={handleMoveToKitchen} className="btn-action primary">
+                            </Button>
+                            <Button variant="default" type="button" onClick={handleMoveToKitchen} className="btn-action primary">
                                 A Cocina
-                            </button>
+                            </Button>
                         </>
                     ) : null}
                     {order.status === 'active' ? (
                         <>
-                            <button type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
+                            <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
                                 <XCircle size={16} />
-                            </button>
-                            <button type="button" onClick={() => moveOrder(order.id, 'completed')} className="btn-action success">
+                            </Button>
+                            <Button variant="default" type="button" onClick={() => moveOrder(order.id, 'completed')} className="btn-action success">
                                 Pedido Listo
-                            </button>
+                            </Button>
                         </>
                     ) : null}
                     {order.status === 'completed' ? (
                         <>
-                            <button type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
+                            <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
                                 <XCircle size={16} />
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="default"
                                 type="button"
                                 onClick={handleDeliverClick}
                                 className="btn-action btn-action--deliver"
                             >
                                 {paymentDeferred ? 'Cobrar y entregar' : 'Entregado al Cliente'}
-                            </button>
+                            </Button>
                         </>
                     ) : null}
-                    <button
+                    <Button variant="default"
                         type="button"
                         onClick={handleOpenEdit}
                         className="btn-icon-action"
@@ -618,7 +619,7 @@ const OrderCard = ({
                         disabled={editPreparing}
                     >
                         {editPreparing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Edit2 size={16} />}
-                    </button>
+                    </Button>
                 </div>
             </div>
 

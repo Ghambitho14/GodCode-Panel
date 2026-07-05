@@ -160,9 +160,29 @@
 	flex-direction: column;
 	gap: 4px;
 	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
 	padding-right: 2px;
+}
+
+.admin-layout .sidebar-footer {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex-shrink: 0;
+	margin-top: auto;
+	padding-top: 12px;
+	border-top: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .sidebar-footer .nav-item {
+	width: 100%;
+}
+
+.admin-layout .sidebar-footer__store:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
 }
 
 .admin-layout .nav-item {
@@ -304,7 +324,7 @@
 
 /* Tienda / salir */
 .admin-layout .nav-item.logout {
-	margin-top: 12px;
+	margin-top: 0;
 	color: var(--admin-danger, #ef4444);
 }
 
@@ -362,7 +382,8 @@
 	.admin-layout .nav-text,
 	.admin-layout .nav-chevron,
 	.admin-layout .nav-group-wrapper,
-	.admin-layout .nav-sub-menu {
+	.admin-layout .nav-sub-menu,
+	.admin-layout .admin-sidebar-hint {
 		display: none !important;
 	}
 
@@ -371,11 +392,30 @@
 		justify-content: flex-start;
 		align-items: stretch;
 		gap: 2px;
-		width: 100%;
+		flex: 1;
+		min-width: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
 		-ms-overflow-style: none;
 		padding-right: 0;
+	}
+
+	.admin-layout .sidebar-footer {
+		flex-direction: row;
+		align-items: stretch;
+		gap: 2px;
+		flex-shrink: 0;
+		margin-top: 0;
+		padding-top: 0;
+		padding-left: 4px;
+		border-top: none;
+		border-left: 1px solid var(--admin-border, #e8ecf1);
+	}
+
+	.admin-layout .sidebar-footer > .nav-item {
+		width: 72px;
+		min-width: 72px;
+		max-width: 72px;
 	}
 
 	.admin-layout .sidebar-menu::-webkit-scrollbar {
@@ -440,11 +480,5 @@
 		padding: 1px 5px;
 		font-size: 0.58rem;
 		margin-left: 0;
-	}
-
-	.admin-layout .logout {
-		margin-left: auto;
-		flex-shrink: 0;
-		margin-top: 0;
 	}
 }

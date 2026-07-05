@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@/components/ui/button";
 
 export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId, onAcknowledge }) {
 	return (
@@ -34,7 +35,7 @@ export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId,
 										<span className="admin-broadcast-status admin-broadcast-status--pending">Pendiente</span>
 									)}
 									{!isRead ? (
-										<button
+										<Button variant="secondary"
 											type="button"
 											className="admin-btn secondary"
 											onClick={() => onAcknowledge(item.id)}
@@ -42,7 +43,7 @@ export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId,
 											style={{ fontSize: 12, padding: "6px 10px", minHeight: "auto" }}
 										>
 											{ackingId === item.id ? "Guardando..." : "Marcar leído"}
-										</button>
+										</Button>
 									) : null}
 								</div>
 							</div>

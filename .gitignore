@@ -21,6 +21,11 @@ supabase-backup/
 .env.*
 env.example
 
+# Configuración local de OpenCode (puede contener secrets/agentes/MCPs personales)
+.opencode/
+opencode.json
+opencode.json*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

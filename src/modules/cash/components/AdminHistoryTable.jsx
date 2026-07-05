@@ -19,6 +19,7 @@ import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import ReportPeriodSelect from "./ReportPeriodSelect";
 import { ymdLocal } from "../utils/reportPeriodRange";
 import DeliveryMotoIcon from "./DeliveryMotoIcon";
+import { Button } from "@/components/ui/button";
 
 function formatDayHeading(ymd) {
 	const d = new Date(`${ymd}T12:00:00`);
@@ -259,10 +260,10 @@ const AdminHistoryTable = ({
 														<span className={`status-badge ${st.className}`}>{st.label}</span>
 													</td>
 													<td data-label="Acciones" className="admin-history-actions">
-														<button type="button" className="btn-icon-text btn-white">
+														<Button variant="default" type="button" className="">
 															{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
 															{isExpanded ? "Cerrar" : "Detalles"}
-														</button>
+														</Button>
 													</td>
 												</tr>
 
@@ -334,21 +335,21 @@ const AdminHistoryTable = ({
 																						href={o.payment_ref}
 																						target="_blank"
 																						rel="noreferrer"
-																						className="btn btn-primary admin-history-receipt-link"
+																						className="admin-history-receipt-link"
 																					>
 																						<Eye size={16} /> Ver Recibo Guardado
 																					</a>
 																					{setReceiptModalOrder ? (
-																						<button
+																						<Button variant="default"
 																							type="button"
 																							onClick={(e) => {
 																								e.stopPropagation();
 																								setReceiptModalOrder(o);
 																							}}
-																							className="btn btn-secondary admin-history-receipt-btn-secondary"
+																							className="admin-history-receipt-btn-secondary"
 																						>
 																							Cambiar Recibo
-																						</button>
+																						</Button>
 																					) : null}
 																				</div>
 																			) : (
@@ -357,16 +358,16 @@ const AdminHistoryTable = ({
 																						No hay comprobante subido
 																					</span>
 																					{setReceiptModalOrder ? (
-																						<button
+																						<Button variant="default"
 																							type="button"
 																							onClick={(e) => {
 																								e.stopPropagation();
 																								setReceiptModalOrder(o);
 																							}}
-																							className="btn btn-white admin-history-upload-btn"
+																							className="admin-history-upload-btn"
 																						>
 																							<Upload size={14} /> Subir Comprobante
-																						</button>
+																						</Button>
 																					) : null}
 																				</div>
 																			)}

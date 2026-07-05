@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useDeferredValue, useEffect } from 'r
 import { Search, ImageOff, Image, PackageX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
+import { Button } from "@/components/ui/button";
 
 /**
  * Agrupa los productos en base a su categoría y los ordena según corresponda.
@@ -355,7 +356,7 @@ const ManualOrderCatalog = ({
                         />
                     </div>
 
-                    <button
+                    <Button variant="default"
                         type="button"
                         onClick={() => setShowProductImages((v) => !v)}
                         className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
@@ -367,7 +368,7 @@ const ManualOrderCatalog = ({
                     >
                         {showProductImages ? <Image size={15} /> : <ImageOff size={15} />}
                         Imágenes
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -378,7 +379,7 @@ const ManualOrderCatalog = ({
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
-                                <button
+                                <Button variant="default"
                                     key={`mobile-${it.key}`}
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
@@ -397,7 +398,7 @@ const ManualOrderCatalog = ({
                                     )}>
                                         {it.count}
                                     </span>
-                                </button>
+                                </Button>
                             );
                         })}
                     </div>
@@ -413,7 +414,7 @@ const ManualOrderCatalog = ({
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
-                                <button
+                                <Button variant="default"
                                     key={it.key}
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
@@ -429,7 +430,7 @@ const ManualOrderCatalog = ({
                                     <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive ? 'bg-white/20 text-white' : 'bg-gc-muted text-gc-text-muted'}`}>
                                         {it.count}
                                     </span>
-                                </button>
+                                </Button>
                             );
                         })}
                     </aside>

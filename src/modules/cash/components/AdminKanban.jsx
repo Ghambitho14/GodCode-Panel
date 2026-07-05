@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Columns3, Maximize2 } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import OrderCard from './OrderCard';
+import { Button } from "@/components/ui/button";
 
 const KANBAN_VIEW_STORAGE_KEY = 'tenant-admin-kanban-view';
 
@@ -77,7 +78,7 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                 <div className="kanban-view-toolbar" role="group" aria-label="Vista del tablero de pedidos">
                     <span className="kanban-view-toolbar-label">Vista</span>
                     <div className="kanban-view-toggle">
-                        <button
+                        <Button variant="default"
                             type="button"
                             className={kanbanViewMode === 'split' ? 'active' : ''}
                             onClick={() => setKanbanViewMode('split')}
@@ -86,8 +87,8 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                         >
                             <Columns3 size={16} strokeWidth={2.25} aria-hidden />
                             Tres columnas
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="default"
                             type="button"
                             className={kanbanViewMode === 'single' ? 'active' : ''}
                             onClick={() => setKanbanViewMode('single')}
@@ -96,7 +97,7 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                         >
                             <AdminIconSlot Icon={Maximize2} slotSize="sm" />
                             Una columna
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -104,14 +105,14 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
             {/* Pestañas: móvil siempre; escritorio solo en vista una columna */}
             <div className={`mobile-tabs ${showDesktopSingle ? 'kanban-tabs-desktop' : ''}`}>
                 {columnConfig.map(col => (
-                    <button
+                    <Button variant="default"
                         key={col.id}
                         type="button"
                         onClick={() => setMobileTab(col.id)}
                         className={mobileTab === col.id ? 'active' : ''}
                     >
                         {col.shortTitle} ({columns[col.id]?.length || 0})
-                    </button>
+                    </Button>
                 ))}
             </div>
 

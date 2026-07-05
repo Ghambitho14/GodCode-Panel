@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MapPin, ChevronDown, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * Selector de sucursal para la cabecera: mismo lenguaje visual que el sidebar (Lucide + tarjeta),
@@ -94,7 +95,7 @@ export default function AdminBranchSelector({
 	const wrapClass = ["branch-selector-wrapper", "admin-branch-select", className].filter(Boolean).join(" ");
 	return (
 		<div className={wrapClass}>
-			<button
+			<Button variant="default"
 				ref={triggerRef}
 				type="button"
 				id={triggerId}
@@ -117,7 +118,7 @@ export default function AdminBranchSelector({
 					className={`admin-branch-select__chevron${open ? " is-open" : ""}`}
 					aria-hidden
 				/>
-			</button>
+			</Button>
 			{portalParent
 				? createPortal(
 						<ul
@@ -135,7 +136,7 @@ export default function AdminBranchSelector({
 								const isActive = String(opt.id) === String(selectedId);
 								return (
 									<li key={opt.id} role="presentation">
-										<button
+										<Button variant="default"
 											type="button"
 											role="option"
 											aria-selected={isActive}
@@ -144,7 +145,7 @@ export default function AdminBranchSelector({
 										>
 											<span className="admin-branch-select__item-label">{opt.name}</span>
 											{isActive ? <Check size={16} strokeWidth={2.25} className="admin-branch-select__check" aria-hidden /> : null}
-										</button>
+										</Button>
 									</li>
 								);
 							})}

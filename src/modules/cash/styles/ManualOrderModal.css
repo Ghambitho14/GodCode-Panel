@@ -1628,12 +1628,12 @@
 
 .manual-order-steps-nav__btn--next:not(:disabled),
 .manual-order-steps-nav__btn--next-step1:not(:disabled) {
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary, #c31d2d) 35%, transparent);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary, #2563eb) 35%, transparent);
 }
 
 .manual-order-steps-nav__btn--next:not(:disabled):hover,
 .manual-order-steps-nav__btn--next-step1:not(:disabled):hover {
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-primary, #c31d2d) 45%, transparent);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--accent-primary, #2563eb) 45%, transparent);
 }
 
 /* Paso 1 y 2: sidebar en tema claro plano */

@@ -25,6 +25,7 @@ vi.mock('@/integrations/supabase', () => {
 
 import { LocationProvider } from '@/modules/cash/context/LocationContext';
 import { useLocation } from '@/modules/cash/context/useLocation';
+import { Button } from "@/components/ui/button";
 
 function Consumer() {
 	const { selectedBranch, allBranches, loadingBranches, selectBranch, refetchBranches } = useLocation();
@@ -34,8 +35,8 @@ function Consumer() {
 			<span data-testid="currency">{selectedBranch?.currency ?? 'none'}</span>
 			<span data-testid="count">{allBranches.length}</span>
 			<span data-testid="loading">{String(loadingBranches)}</span>
-			<button type="button" onClick={() => selectBranch(BRANCHES[1])}>pick-norte</button>
-			<button type="button" onClick={() => void refetchBranches()}>refetch</button>
+			<Button variant="default" type="button" onClick={() => selectBranch(BRANCHES[1])}>pick-norte</Button>
+			<Button variant="default" type="button" onClick={() => void refetchBranches()}>refetch</Button>
 		</div>
 	);
 }

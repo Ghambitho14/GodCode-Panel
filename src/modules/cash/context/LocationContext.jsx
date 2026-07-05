@@ -52,10 +52,6 @@ export const LocationProvider = ({ children, companyId }) => {
     const fetchBranchesRef = useRef(/** @type {null | (() => Promise<void>)} */ (null));
 
     useEffect(() => {
-        setSelectedBranch(getInitialBranch(storageKey));
-    }, [storageKey]);
-
-    useEffect(() => {
         let alive = true;
 
         const fetchBranches = async () => {
@@ -116,35 +112,45 @@ export const LocationProvider = ({ children, companyId }) => {
                     .channel(`branches-realtime-${companyId}`)
                     .on(
                         'postgres_changes',
-                        { event: '*', schema: 'public', table: TABLES.branches },
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: TABLES.branches,
+                            filter: `company_id=eq.${companyId}`,
+                        },
                         (payload) => {
-                        const rowCompanyId = payload.new?.company_id ?? payload.old?.company_id ?? null;
-                        if (rowCompanyId && companyId && String(rowCompanyId) !== String(companyId)) {
-                            return;
-                        }
-                        if (payload.eventType === 'UPDATE' && payload.new?.id) {
-                            const incoming = mapBranchListItem(payload.new);
-                            setAllBranches((prev) =>
-                                prev.map((b) => (b.id === payload.new.id ? { ...b, ...incoming } : b))
-                            );
-                            setSelectedBranch((prev) => {
-                                if (!prev?.id || prev.id !== payload.new.id) return prev;
-                                const merged = pickBranchListFields({ ...prev, ...incoming });
-                                const changed = BRANCHES_LIST_FIELD_KEYS.some(
-                                    (key) => prev[key] !== merged[key]
-                                );
-                                if (changed) {
+                            if (payload.eventType === 'UPDATE' && payload.new?.id) {
+                                const incoming = mapBranchListItem(payload.new);
+                                setAllBranches((prev) => {
+                                    const idx = prev.findIndex((b) => b.id === payload.new.id);
+                                    if (idx === -1) return prev;
+                                    const current = prev[idx];
+                                    const merged = { ...current, ...incoming };
+                                    const changed = BRANCHES_LIST_FIELD_KEYS.some(
+                                        (key) => current[key] !== merged[key],
+                                    );
+                                    if (!changed) return prev;
+                                    const next = [...prev];
+                                    next[idx] = merged;
+                                    return next;
+                                });
+                                setSelectedBranch((prev) => {
+                                    if (!prev?.id || prev.id !== payload.new.id) return prev;
+                                    const merged = pickBranchListFields({ ...prev, ...incoming });
+                                    const changed = BRANCHES_LIST_FIELD_KEYS.some(
+                                        (key) => prev[key] !== merged[key],
+                                    );
+                                    if (!changed) return prev;
                                     try {
                                         window.localStorage.setItem(storageKey, JSON.stringify(merged));
                                     } catch {}
-                                }
-                                return merged;
-                            });
-                            return;
+                                    return merged;
+                                });
+                                return;
+                            }
+                            scheduleFetchBranches();
                         }
-                        scheduleFetchBranches();
-                    }
-                ),
+                    ),
                 { name: 'branches', context: { companyId } },
             )
             : null;

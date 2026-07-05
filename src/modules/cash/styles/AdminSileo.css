@@ -1,0 +1,38 @@
+/* Sileo en el panel admin: más contraste sobre fondo #fffffb */
+
+.admin-layout {
+	--sileo-state-success: #0a7a62;
+	--sileo-state-error: #a81828;
+	--sileo-state-warning: #b45309;
+	--sileo-state-info: #005fcc;
+}
+
+.admin-layout [data-sileo-viewport] {
+	z-index: var(--z-admin-toast, 14000);
+}
+
+.admin-layout [data-sileo-toast] {
+	filter: drop-shadow(0 12px 32px rgba(15, 23, 42, 0.16));
+}
+
+.admin-layout [data-sileo-title] {
+	font-weight: 600;
+	color: #0f172a;
+	letter-spacing: -0.01em;
+}
+
+.admin-layout :is([data-sileo-badge], [data-sileo-title])[data-state] {
+	--sileo-tone-bg: color-mix(in oklch, var(--_c) 34%, #ffffff);
+}
+
+.admin-layout [data-sileo-title][data-state] {
+	--sileo-tone: #0f172a;
+}
+
+.admin-layout [data-sileo-badge][data-state] {
+	--sileo-tone: var(--_c);
+}
+
+.admin-layout [data-sileo-description] {
+	color: #334155;
+}

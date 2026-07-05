@@ -47,6 +47,7 @@ import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import DeliveryMotoIcon from './DeliveryMotoIcon';
 import TableRestaurantIcon from './TableRestaurantIcon';
 import PickupBagIcon from './PickupBagIcon';
+import { Button } from "@/components/ui/button";
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -337,14 +338,14 @@ const OrderDetailModal = ({
                                     ) : null}
                                 </div>
                             </div>
-                            <button
+                            <Button variant="default"
                                 type="button"
                                 className="table-session-receipt__icon-btn"
                                 onClick={onClose}
                                 aria-label="Cerrar detalle"
                             >
                                 <X size={18} strokeWidth={1.75} />
-                            </button>
+                            </Button>
                         </header>
 
                         <div className="table-session-receipt__scroll">
@@ -423,14 +424,14 @@ const OrderDetailModal = ({
                                     {fulfillmentLabel}
                                 </div>
                                 {canMarkPaid ? (
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className="table-session-receipt__cta order-detail-mark-paid-btn"
                                         onClick={() => onMarkPaid(liveOrder)}
                                     >
                                         <Banknote size={16} aria-hidden />
                                         Marcar pagado
-                                    </button>
+                                    </Button>
                                 ) : null}
                                 {isDelivery && deliveryFee > 0 ? (
                                     <div className="table-session-receipt__total-row">
@@ -578,7 +579,7 @@ const OrderDetailModal = ({
 
                         <footer className="table-session-receipt__foot order-detail-receipt__foot">
                             <div className="order-detail-receipt-actions">
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
@@ -587,8 +588,8 @@ const OrderDetailModal = ({
                                 >
                                     <ChefHat size={16} aria-hidden />
                                     Ticket cocina
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="default"
                                     type="button"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
@@ -597,15 +598,15 @@ const OrderDetailModal = ({
                                 >
                                     <Banknote size={16} aria-hidden />
                                     Ticket caja
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="default"
                                     type="button"
                                     className="order-detail-receipt-action"
                                     onClick={() => void handleCopyShare()}
                                 >
                                     <Copy size={16} aria-hidden />
                                     Copiar
-                                </button>
+                                </Button>
                                 {whatsAppHref ? (
                                     <a
                                         href={whatsAppHref}
@@ -618,17 +619,17 @@ const OrderDetailModal = ({
                                     </a>
                                 ) : null}
                                 {isDelivery ? (
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className="order-detail-receipt-action"
                                         onClick={() => void handleDeliveryWhatsApp()}
                                     >
                                         <Send size={16} aria-hidden />
                                         Envío
-                                    </button>
+                                    </Button>
                                 ) : null}
                                 {liveOrder.payment_type === 'online' && setReceiptModalOrder ? (
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className="order-detail-receipt-action"
                                         onClick={() => {
@@ -638,12 +639,12 @@ const OrderDetailModal = ({
                                     >
                                         <ImageIcon size={16} aria-hidden />
                                         Comprobante
-                                    </button>
+                                    </Button>
                                 ) : null}
                             </div>
-                            <button type="button" className="table-session-receipt__cta" onClick={onClose}>
+                            <Button variant="default" type="button" className="table-session-receipt__cta" onClick={onClose}>
                                 Cerrar
-                            </button>
+                            </Button>
                         </footer>
                     </div>
                 </div>

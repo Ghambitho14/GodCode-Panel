@@ -3,6 +3,7 @@ import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../constants/productImagePlaceholder';
+import { Button } from "@/components/ui/button";
 
 /**
  * Tarjeta de producto del **menú / carta** (catálogo vendible).
@@ -45,14 +46,14 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
     };
 
     const statusToggleBtn = (
-        <button
+        <Button variant="default"
             className={`inv-status-toggle ${product.is_active ? 'on' : 'off'}${showPhotos && viewMode === 'grid' ? '' : ' inv-status-toggle--inline'}`}
             onClick={handleToggleClick}
             title={product.is_active ? 'Pausar venta' : 'Activar venta'}
             type="button"
         >
             {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
-        </button>
+        </Button>
     );
 
     return (
@@ -114,14 +115,14 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                 <div className="inv-actions">
                     {/* En modo lista, el toggle está aquí abajo */}
                     {viewMode === 'list' && (
-                         <button 
+                         <Button variant="default" 
                             className={`btn-icon-sm ${product.is_active ? 'text-success' : 'text-muted'}`} 
                             onClick={handleToggleClick}
                             title={product.is_active ? "Pausar" : "Activar"}
                             style={{ marginRight: 8 }}
                         >
                             {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
-                        </button>
+                        </Button>
                     )}
 
                     {viewMode === 'grid' && (
@@ -132,17 +133,17 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                     
                     <div className="action-buttons">
                         {/* Botón visual de editar (ayuda UX) */}
-                        <button className="btn-icon-sm" title="Editar">
+                        <Button variant="default" className="" title="Editar">
                             <Edit3 size={14} />
-                        </button>
+                        </Button>
                         
-                        <button 
+                        <Button variant="default" 
                             onClick={handleDeleteClick} 
                             className="btn-trash-sm"
                             title="Eliminar producto"
                         >
                             <Trash size={14} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

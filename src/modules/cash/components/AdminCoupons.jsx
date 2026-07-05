@@ -4,6 +4,7 @@ import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
+import { Button } from "@/components/ui/button";
 
 const emptyDraft = () => ({
 	id: "",
@@ -239,14 +240,14 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 						<Tag size={22} strokeWidth={1.6} aria-hidden />
 						<h2>Cupones</h2>
 					</div>
-					<button
+					<Button variant="secondary"
 						type="button"
 						className="admin-btn secondary admin-coupons__refresh-btn"
 						disabled={loading || saving}
 						onClick={() => void load()}
 					>
 						<Loader2 size={14} className={loading ? "animate-spin" : ""} aria-hidden /> Actualizar
-					</button>
+					</Button>
 				</div>
 				<p className="admin-toolbar-hint admin-coupons__toolbar-hint">
 					Los pedidos validan el código en servidor; el cliente del cupón debe existir antes del pedido si el
@@ -258,9 +259,9 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 				<div className="admin-coupons__form-card-head">
 					<span className="admin-coupons__form-card-title">{editing ? "Editar cupón" : "Nuevo cupón"}</span>
 					{editing ? (
-						<button type="button" className="btn-icon-toggle" onClick={resetForm}>
+						<Button variant="default" type="button" className="" onClick={resetForm}>
 							Cancelar edición
-						</button>
+						</Button>
 					) : null}
 				</div>
 				<p className="admin-coupons__form-subtitle">{subtitle}</p>
@@ -439,7 +440,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 				</div>
 
 				<div className="admin-coupons__form-footer">
-					<button
+					<Button variant="default"
 						type="button"
 						className="admin-btn primary admin-coupons__submit-btn"
 						disabled={saving || loading}
@@ -447,7 +448,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 					>
 						{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
 						{saving ? "Guardando…" : editing ? "Actualizar cupón" : "Crear cupón"}
-					</button>
+					</Button>
 				</div>
 			</div>
 
@@ -508,24 +509,24 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 												→ {vd.until}
 											</td>
 											<td className="admin-coupons__actions-cell">
-												<button
+												<Button variant="default"
 													type="button"
 													title="Editar"
-													className="btn-icon-toggle"
+													className=""
 													disabled={saving}
 													onClick={() => startEdit(row)}
 												>
 													<Pencil size={14} aria-hidden />
-												</button>
-												<button
+												</Button>
+												<Button variant="default"
 													type="button"
 													title={row.is_active ? "Desactivar" : "Activar"}
-													className="btn-icon-toggle"
+													className=""
 													disabled={saving}
 													onClick={() => void toggleActive(row)}
 												>
 													{row.is_active ? <Ban size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
-												</button>
+												</Button>
 											</td>
 										</tr>
 									);

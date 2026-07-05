@@ -25,6 +25,7 @@ import PaymentDetails from './manual-order/PaymentDetails';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 
 import TableSessionReceipt from './TableSessionReceipt';
+import { Button } from "@/components/ui/button";
 
 
 
@@ -352,7 +353,7 @@ export default function CloseTableModal({
 
 							footer={
 
-								<button
+								<Button variant="default"
 
 									type="button"
 
@@ -366,7 +367,7 @@ export default function CloseTableModal({
 
 									{loading ? (isPayIntent ? 'Registrando…' : 'Cerrando…') : confirmLabel}
 
-								</button>
+								</Button>
 
 							}
 

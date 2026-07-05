@@ -2,6 +2,7 @@ import React from 'react';
 import { Minus } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../../constants/productImagePlaceholder';
+import { Button } from "@/components/ui/button";
 
 /**
  * Tarjeta de producto para el catálogo del pedido manual.
@@ -53,35 +54,35 @@ const ProductCard = ({
     );
 
     const actionBlock = quantity === 0 ? (
-        <button
+        <Button variant="outline"
             type="button"
             onClick={handleAddClick}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-0 bg-gc-accent text-[22px] leading-none text-white transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
             aria-label={`Agregar ${product.name}`}
         >
             +
-        </button>
+        </Button>
     ) : (
         <div className="flex flex-shrink-0 items-center gap-1">
-            <button
+            <Button variant="outline"
                 type="button"
                 onClick={handleMinusClick}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-gc-border text-gc-text transition-colors hover:border-gc-accent/30 hover:bg-gc-muted active:scale-95"
                 aria-label="Reducir cantidad"
             >
                 <Minus size={14} strokeWidth={2.5} />
-            </button>
+            </Button>
             <span className="min-w-[1.25rem] text-center text-sm font-medium text-gc-text tabular-nums">
                 {quantity}
             </span>
-            <button
+            <Button variant="default"
                 type="button"
                 onClick={handleAddClick}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gc-accent text-lg leading-none text-white transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
                 aria-label="Aumentar cantidad"
             >
                 +
-            </button>
+            </Button>
         </div>
     );
 

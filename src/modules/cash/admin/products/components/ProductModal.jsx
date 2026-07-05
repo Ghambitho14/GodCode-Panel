@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
+import { Button } from "@/components/ui/button";
 
 const INITIAL_STATE = {
   name: '',
@@ -139,9 +140,9 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                 : 'Agrega un producto al catálogo. El stock se gestiona en Inventario.'}
             </p>
           </div>
-          <button onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
+          <Button variant="default" onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
             <X size={24} />
-          </button>
+          </Button>
         </header>
 
         <form onSubmit={handleSubmit} autoComplete="off">
@@ -167,9 +168,9 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                   <div className="image-preview-container">
                     <img src={previewUrl} alt="Preview" className="image-preview" width={400} height={300} />
                     <div className="image-overlay">
-                      <button type="button" className="btn-icon-overlay" onClick={clearImage} title="Eliminar imagen">
+                      <Button variant="default" type="button" className="" onClick={clearImage} title="Eliminar imagen">
                         <Trash2 size={18} />
-                      </button>
+                      </Button>
                       <span className="overlay-text">Click para cambiar</span>
                     </div>
                   </div>
@@ -261,7 +262,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                     <span className="switch-title">Destacar como especial</span>
                     <span className="switch-desc">Aparecerá con una estrella en el menú</span>
                   </div>
-                  <button
+                  <Button variant="default"
                     type="button"
                     className={`menu-carousel-switch menu-carousel-switch--sm menu-carousel-switch--accent${formData.is_special ? ' is-on' : ''}`}
                     role="switch"
@@ -273,7 +274,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                     }}
                   >
                     <span className="menu-carousel-switch-knob" aria-hidden />
-                  </button>
+                  </Button>
                 </div>
 
                 <div
@@ -283,7 +284,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                     <span className="switch-title">Activar oferta</span>
                     <span className="switch-desc">Mostrará un precio rebajado</span>
                   </div>
-                  <button
+                  <Button variant="default"
                     type="button"
                     className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
                     role="switch"
@@ -295,7 +296,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                     }}
                   >
                     <span className="menu-carousel-switch-knob" aria-hidden />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -322,13 +323,13 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
           </div>
 
           <footer className="modal-footer">
-            <button type="button" onClick={handleSafeClose} className="btn btn-secondary" disabled={saving}>
+            <Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={saving}>
               Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            </Button>
+            <Button variant="default" type="submit" className="" disabled={saving}>
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               <span>{saving ? 'Guardando...' : 'Guardar producto'}</span>
-            </button>
+            </Button>
           </footer>
         </form>
       </div>

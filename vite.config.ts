@@ -57,6 +57,23 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: [
+      "@radix-ui/react-slot",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-select",
+      "@radix-ui/react-separator",
+      "class-variance-authority",
+      "clsx",
+      "tailwind-merge",
+      "use-sync-external-store",
+      "use-sync-external-store/with-selector.js",
+      "use-sync-external-store/shim/with-selector.js",
+      "react-redux",
+      "@reduxjs/toolkit",
+    ],
+    exclude: [],
+  },
   server: {
     host: true,
     port: 5173,

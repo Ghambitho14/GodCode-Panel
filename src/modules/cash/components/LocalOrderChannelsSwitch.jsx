@@ -1,5 +1,6 @@
 import React from 'react';
 import { Store, ShoppingBag, Truck } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const CHANNELS = [
 	{ id: 'mesa', label: 'Mesa', Icon: Store },
@@ -18,7 +19,7 @@ export default function LocalOrderChannelsSwitch({ value, onChange, className = 
 			{CHANNELS.map(({ id, label, Icon }) => {
 				const active = Boolean(value?.[id]);
 				return (
-					<button
+					<Button variant="default"
 						key={id}
 						type="button"
 						className={`local-order-channels-switch__btn${active ? ' local-order-channels-switch__btn--active' : ''}`}
@@ -27,7 +28,7 @@ export default function LocalOrderChannelsSwitch({ value, onChange, className = 
 					>
 						<Icon size={15} strokeWidth={1.75} aria-hidden />
 						<span>{label}</span>
-					</button>
+					</Button>
 				);
 			})}
 		</div>

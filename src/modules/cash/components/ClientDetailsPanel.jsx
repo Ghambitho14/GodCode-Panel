@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock, Eye } from 'lucide-react';
 import { getOrderPaymentDisplayLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
+import { Button } from "@/components/ui/button";
 
 const ClientDetailsPanel = ({
     selectedClient,
@@ -62,7 +63,7 @@ const ClientDetailsPanel = ({
                     >
                         <ImageIcon size={14} /> <span>Ver</span>
                     </a>
-                    <button 
+                    <Button variant="default" 
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
@@ -71,7 +72,7 @@ const ClientDetailsPanel = ({
                         className="btn-text-sm"
                     >
                         Cambiar
-                    </button>
+                    </Button>
                 </div>
             );
         }
@@ -79,7 +80,7 @@ const ClientDetailsPanel = ({
         // Solo mostrar botón de subir si es pago online (Transf., Zelle, Pago Móvil, etc.)
         if (isOnlineOrder(order)) {
             return (
-                <button 
+                <Button variant="default" 
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
@@ -88,7 +89,7 @@ const ClientDetailsPanel = ({
                     className="btn-upload-sm"
                 >
                     <Upload size={12} /> <span>Subir</span>
-                </button>
+                </Button>
             );
         }
         
@@ -142,13 +143,13 @@ const ClientDetailsPanel = ({
                             </div>
                         </div>
                     </div>
-                    <button 
+                    <Button variant="default" 
                         onClick={() => setSelectedClient(null)} 
                         className="btn-close-sidepanel"
                         aria-label="Cerrar panel"
                     >
                         <X size={24} />
-                    </button>
+                    </Button>
                 </div>
 
                 {/* BODY */}

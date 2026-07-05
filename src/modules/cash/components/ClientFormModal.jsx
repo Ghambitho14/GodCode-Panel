@@ -3,6 +3,7 @@ import { X, Loader2 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { normalizeManualPhone } from '@/modules/cash/services/clientService';
+import { Button } from "@/components/ui/button";
 
 const MAX_NAME_LENGTH = 200;
 
@@ -95,7 +96,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 			<div className="modal-content glass admin-modal" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
 				<div className="modal-header">
 					<h3>Nuevo Cliente</h3>
-					<button onClick={onClose} className="btn-close"><X size={24} /></button>
+					<Button variant="default" onClick={onClose} className="btn-close"><X size={24} /></Button>
 				</div>
 
 				<form id="client-form" onSubmit={handleSubmit} className="modal-body">
@@ -139,15 +140,15 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 					</div>
 				</form>
 				<div className="modal-footer">
-					<button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
-					<button
+					<Button variant="secondary" type="button" onClick={onClose} className="">Cancelar</Button>
+					<Button variant="default"
 						type="submit"
 						form="client-form"
-						className="btn btn-primary"
+						className=""
 						disabled={loading || sanitizeText(formData.name).length < 2 || !strategy.validatePhone(formData.phone || '')}
 					>
 						{loading ? <Loader2 className="animate-spin" size={18} /> : 'Guardar Cliente'}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

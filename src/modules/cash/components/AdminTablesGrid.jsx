@@ -27,6 +27,7 @@ import CloseTableModal from './CloseTableModal';
 import TableTile from './TableTile';
 
 import TableSessionReceipt from './TableSessionReceipt';
+import { Button } from "@/components/ui/button";
 
 
 
@@ -106,7 +107,7 @@ function TableSessionModal({
 
 		order.status === 'pending' ? (
 
-			<button
+			<Button variant="default"
 
 				type="button"
 
@@ -120,11 +121,11 @@ function TableSessionModal({
 
 				Enviar a cocina
 
-			</button>
+			</Button>
 
 		) : order.status === 'active' ? (
 
-			<button
+			<Button variant="default"
 
 				type="button"
 
@@ -138,11 +139,11 @@ function TableSessionModal({
 
 				Marcar listo
 
-			</button>
+			</Button>
 
 		) : order.status === 'completed' ? (
 
-			<button
+			<Button variant="default"
 
 				type="button"
 
@@ -154,7 +155,7 @@ function TableSessionModal({
 
 				{closeLabel}
 
-			</button>
+			</Button>
 
 		) : null;
 
@@ -208,7 +209,7 @@ function TableSessionModal({
 
 									{primaryAction}
 
-									<button
+									<Button variant="default"
 
 										type="button"
 
@@ -226,7 +227,7 @@ function TableSessionModal({
 
 										Ver detalle
 
-									</button>
+									</Button>
 
 								</>
 

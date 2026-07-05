@@ -25,11 +25,11 @@ import { isTypingContext } from "@/modules/cash/admin/utils/keyboardAdmin";
 import { getInputUnitOptions, getUnitLabel, normalizeUnit, recipeUnitSelectLabel, toNativeQty } from "@/lib/recipe-units";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
 import {
-	INVENTORY_BRANCH_PANEL_SELECT,
-	INVENTORY_ITEMS_PANEL_SELECT,
 	INVENTORY_MOVEMENTS_PANEL_SELECT,
 	PRODUCT_INVENTORY_RECIPE_SELECT,
 } from "@/modules/cash/services/inventorySelects";
+import useInventoryBranchLoad from "@/modules/cash/admin/tabs/inventory/useInventoryBranchLoad";
+import { Button } from "@/components/ui/button";
 
 const SUB_TABS = [
 	{ id: "summary", label: "Resumen", icon: LayoutDashboard },
@@ -49,60 +49,12 @@ function formatMovementType(t) {
 	return m[t] || t;
 }
 
-/** Etiquetas sugeridas desde catálogo carrito (bebidas / extras) de la sucursal. */
-function categoryHintsFromCartCatalogs(cartBeveragesCatalog, cartGlobalExtrasCatalog) {
-	const bev = Array.isArray(cartBeveragesCatalog) ? cartBeveragesCatalog : [];
-	const ext = Array.isArray(cartGlobalExtrasCatalog) ? cartGlobalExtrasCatalog : [];
-	const seen = new Set();
-	const out = [];
-	const add = (raw) => {
-		const t = String(raw ?? "").trim();
-		if (!t) return;
-		const k = t.toLowerCase();
-		if (seen.has(k)) return;
-		seen.add(k);
-		out.push(t);
-	};
-	if (bev.length) add("Bebidas");
-	if (ext.length) add("Extras");
-	for (const x of bev) add(x?.category);
-	for (const x of ext) add(x?.category);
-	return out;
-}
-
-const INV_ITEM_UUID =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const ITEM_TYPE_LABELS = {
 	kitchen: "General",
 	beverage: "Bebida",
 	sellable_extra: "Extra",
 	other: "Otro",
 };
-
-/**
- * IDs de insumos referenciados por el carrito (bebidas/extras) e ítems del menú aún sin vínculo.
- */
-function extractCartInventoryLinkInfo(cartBeveragesCatalog, cartGlobalExtrasCatalog) {
-	const linkedIds = new Set();
-	const unlinked = [];
-	const ingest = (arr, variant) => {
-		for (const x of Array.isArray(arr) ? arr : []) {
-			if (!x || typeof x !== "object") continue;
-			const raw = x.inventoryItemId ?? x.inventory_item_id;
-			const sid = typeof raw === "string" ? raw.trim() : "";
-			if (sid && INV_ITEM_UUID.test(sid)) {
-				linkedIds.add(sid);
-			} else if (variant === "extras" && String(x.name ?? "").trim()) {
-				// Bebidas del carrito no exigen insumo; los extras pueden inventarse o vincularse.
-				unlinked.push({ variant, item: x });
-			}
-		}
-	};
-	ingest(cartBeveragesCatalog, "beverages");
-	ingest(cartGlobalExtrasCatalog, "extras");
-	return { linkedIds, unlinked };
-}
 
 const RECIPE_PAGE_SIZE = 60;
 
@@ -114,11 +66,25 @@ const AdminInventory = ({
 	products = [],
 	categories = [],
 	onRefreshCatalog,
+	prefetchedBranchStock = null,
 }) => {
-	const [items, setItems] = useState([]);
-	/** Todos los insumos de la empresa (p. ej. selector de recetas con vista «Todas las sucursales»). */
-	const [companyInventoryItems, setCompanyInventoryItems] = useState([]);
-	const [loading, setLoading] = useState(true);
+	const {
+		items,
+		setItems,
+		companyInventoryItems,
+		loading,
+		cartCatalogCategoryHints,
+		unlinkedCartItems,
+		loadItems,
+		loadCompanyInventoryItems,
+	} = useInventoryBranchLoad({
+		showNotify,
+		branchId,
+		companyId,
+		branches,
+		prefetchedBranchStock,
+	});
+
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [itemTypeFilter, setItemTypeFilter] = useState("all");
@@ -145,17 +111,8 @@ const AdminInventory = ({
 	const [inventoryEnforceOnSale, setInventoryEnforceOnSale] = useState(true);
 	const [inventoryEnforceSaving, setInventoryEnforceSaving] = useState(false);
 	const [insumoLineFilter, setInsumoLineFilter] = useState("");
-	/** Sugerencias de categoría (se actualiza dentro de loadItems con el carrito de la sucursal). */
-	const [cartCatalogCategoryHints, setCartCatalogCategoryHints] = useState([]);
-	/** Bebidas/extras del carrito sin insumo vinculado (esta sucursal). */
-	const [unlinkedCartItems, setUnlinkedCartItems] = useState([]);
 	const [newItemPreset, setNewItemPreset] = useState(null);
 	const pendingCatalogLinkRef = useRef(null);
-
-	const allViewBranchIdsKey = useMemo(
-		() => branches.filter((b) => b.id !== "all").map((b) => String(b.id)).sort().join(","),
-		[branches],
-	);
 
 	useEffect(() => {
 		const onKey = (e) => {
@@ -170,139 +127,6 @@ const AdminInventory = ({
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [isModalOpen, recipeEditingProduct, recipePickProductOpen]);
-
-	const loadCompanyInventoryItems = useCallback(async () => {
-		if (!companyId) {
-			setCompanyInventoryItems([]);
-			return;
-		}
-		const data = await fetchAllPaginated(
-			supabase
-				.from(TABLES.inventory_items)
-				.select(INVENTORY_ITEMS_PANEL_SELECT)
-				.eq("company_id", companyId)
-				.order("name"),
-			{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
-		);
-		setCompanyInventoryItems(data);
-	}, [companyId]);
-
-	const loadItems = useCallback(async () => {
-		if (!branchId) return;
-		if (!companyId) {
-			setItems([]);
-			setLoading(false);
-			setCartCatalogCategoryHints([]);
-			setUnlinkedCartItems([]);
-			return;
-		}
-		setLoading(true);
-		let linkedInventoryIds = new Set();
-		try {
-			const allItems = await fetchAllPaginated(
-				supabase
-					.from(TABLES.inventory_items)
-					.select(INVENTORY_ITEMS_PANEL_SELECT)
-					.eq("company_id", companyId)
-					.order("name"),
-				{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
-			);
-			setCompanyInventoryItems(allItems);
-
-			let query = supabase.from(TABLES.inventory_branch).select(INVENTORY_BRANCH_PANEL_SELECT);
-			if (branchId !== "all") {
-				query = query.eq("branch_id", branchId);
-			} else {
-				const validBranchIds = allViewBranchIdsKey ? allViewBranchIdsKey.split(",") : [];
-				if (validBranchIds.length > 0) query = query.in("branch_id", validBranchIds);
-			}
-			const branchStock = await fetchAllPaginated(query, { pageSize: PANEL_PAGINATION_PAGE_SIZE });
-
-			if (branchId !== "all") {
-				try {
-					const deliveryData = await branchSettingsService.getCartUpsellSettings(branchId);
-					if (deliveryData) {
-						const { linkedIds, unlinked } = extractCartInventoryLinkInfo(
-							deliveryData.cartBeveragesCatalog,
-							deliveryData.cartGlobalExtrasCatalog,
-						);
-						linkedInventoryIds = linkedIds;
-						setUnlinkedCartItems(unlinked);
-						setCartCatalogCategoryHints(
-							categoryHintsFromCartCatalogs(
-								deliveryData.cartBeveragesCatalog,
-								deliveryData.cartGlobalExtrasCatalog,
-							),
-						);
-					} else {
-						setUnlinkedCartItems([]);
-						setCartCatalogCategoryHints([]);
-					}
-				} catch {
-					setUnlinkedCartItems([]);
-					setCartCatalogCategoryHints([]);
-				}
-			} else {
-				setUnlinkedCartItems([]);
-				setCartCatalogCategoryHints([]);
-			}
-
-			const stocksByItemId = new Map();
-			for (const s of branchStock || []) {
-				const list = stocksByItemId.get(s.inventory_item_id);
-				if (list) list.push(s);
-				else stocksByItemId.set(s.inventory_item_id, [s]);
-			}
-
-			let mergedItems = (allItems || []).map((item) => {
-				const itemStocks = stocksByItemId.get(item.id) || [];
-				const stockEntry = branchId !== "all" ? itemStocks.find((s) => s.branch_id === branchId) : null;
-				const totalStock =
-					branchId === "all"
-						? itemStocks.reduce((sum, s) => sum + (parseFloat(s.current_stock) || 0), 0)
-						: parseFloat(stockEntry?.current_stock) || 0;
-				const totalMinStock =
-					branchId === "all"
-						? itemStocks.reduce((sum, s) => sum + (parseFloat(s.min_stock) || 0), 0)
-						: parseFloat(stockEntry?.min_stock) || parseFloat(item.min_stock) || 0;
-
-				const linkedFromCart = branchId !== "all" && linkedInventoryIds.has(item.id);
-
-				const itemType =
-					typeof item.item_type === "string" && item.item_type.trim()
-						? item.item_type.trim()
-						: "kitchen";
-
-				return {
-					...item,
-					item_type: itemType,
-					stock: totalStock,
-					min_stock: totalMinStock,
-					branch_relation_id: stockEntry?.id,
-					existsInBranch: !!stockEntry || branchId === "all",
-					branch_ids: itemStocks.map((s) => s.branch_id),
-					linkedFromCart,
-				};
-			});
-
-			if (branchId !== "all") {
-				mergedItems = mergedItems.filter(
-					(item) => item.existsInBranch || linkedInventoryIds.has(item.id),
-				);
-			}
-
-			setItems(mergedItems);
-		} catch (error) {
-			console.error("Error loading inventory:", error);
-			if (error.code === "42P01") {
-				showNotify("Tabla inventory_items no existe. Ejecuta el script SQL.", "error");
-			} else {
-				showNotify("Error al cargar inventario", "error");
-			}
-		} finally {
-			setLoading(false);
-		}
-	}, [showNotify, branchId, companyId, allViewBranchIdsKey]);
 
 	const patchCatalogInventoryLink = useCallback(
 		async (link, inventoryItemId) => {
@@ -872,7 +696,7 @@ const AdminInventory = ({
 		<div className="inventory-view animate-fade">
 			<nav className="inventory-subtabs" aria-label="Secciones de inventario">
 				{SUB_TABS.map(({ id, label, icon: Icon }) => (
-					<button
+					<Button variant="default"
 						key={id}
 						type="button"
 						className={`inventory-subtab ${subTab === id ? "inventory-subtab--active" : ""}`}
@@ -881,7 +705,7 @@ const AdminInventory = ({
 					>
 						<Icon size={17} aria-hidden />
 						{label}
-					</button>
+					</Button>
 				))}
 			</nav>
 
@@ -944,12 +768,12 @@ const AdminInventory = ({
 							catálogo. Si usas carrito de bebidas o extras, también puedes vincular esos ítems a un artículo.
 						</p>
 						<div className="summary-card__actions-row">
-							<button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubTab("supplies")}>
+							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("supplies")}>
 								<List size={16} /> Ver artículos
-							</button>
-							<button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubTab("recipes")}>
+							</Button>
+							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("recipes")}>
 								<ChefHat size={16} /> Consumo por venta
-							</button>
+							</Button>
 						</div>
 					</div>
 				</div>
@@ -959,12 +783,12 @@ const AdminInventory = ({
 				<>
 					<div className="inventory-header inventory-header--toolbar-only">
 						<div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-							<button className="btn btn-secondary btn-icon-text" type="button" onClick={handleExport}>
+							<Button variant="secondary" className="" type="button" onClick={handleExport}>
 								<Download size={18} /> Exportar
-							</button>
-							<button className="btn btn-primary btn-icon-text" type="button" onClick={handleCreate}>
+							</Button>
+							<Button variant="default" className="" type="button" onClick={handleCreate}>
 								<Plus size={18} /> Nuevo artículo
-							</button>
+							</Button>
 						</div>
 					</div>
 
@@ -1011,13 +835,13 @@ const AdminInventory = ({
 												{unlinkedBeverages.map((row) => (
 													<li key={`${row.variant}-${row.item.id}`}>
 														<span className="inventory-cart-unlinked-list__name">{row.item.name}</span>
-														<button
+														<Button variant="secondary"
 															type="button"
-															className="btn btn-secondary btn-sm"
+															className=""
 															onClick={() => openRegisterFromCart(row)}
 														>
 															Registrar en inventario
-														</button>
+														</Button>
 													</li>
 												))}
 											</ul>
@@ -1040,13 +864,13 @@ const AdminInventory = ({
 												{unlinkedExtras.map((row) => (
 													<li key={`${row.variant}-${row.item.id}`}>
 														<span className="inventory-cart-unlinked-list__name">{row.item.name}</span>
-														<button
+														<Button variant="secondary"
 															type="button"
-															className="btn btn-secondary btn-sm"
+															className=""
 															onClick={() => openRegisterFromCart(row)}
 														>
 															Registrar en inventario
-														</button>
+														</Button>
 													</li>
 												))}
 											</ul>
@@ -1066,14 +890,14 @@ const AdminInventory = ({
 								{ id: "low", label: "Bajo" },
 								{ id: "out", label: "Agotado" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${statusFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setStatusFilter(c.id)}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<div className="inventory-toolbar__chips inventory-toolbar__chips--wrap">
@@ -1085,14 +909,14 @@ const AdminInventory = ({
 								{ id: "sellable_extra", label: "Extra" },
 								{ id: "other", label: "Otro" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${itemTypeFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setItemTypeFilter(c.id)}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<div className="search-inventory">
@@ -1113,9 +937,9 @@ const AdminInventory = ({
 						<div className="inventory-empty">
 							<p>No hay artículos o no coinciden con los filtros.</p>
 							{items.length === 0 && (
-								<button className="btn btn-primary" type="button" onClick={handleCreate}>
+								<Button variant="default" className="" type="button" onClick={handleCreate}>
 									Crear primer artículo
-								</button>
+								</Button>
 							)}
 						</div>
 					) : (
@@ -1125,15 +949,15 @@ const AdminInventory = ({
 									<tr>
 										<th className="inventory-th-expand" aria-hidden />
 										<th>
-											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
+											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
 												Artículo {sortKey === "name" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</button>
+											</Button>
 										</th>
 										<th>Tipo</th>
 										<th>
-											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
+											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
 												Stock {sortKey === "stock" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</button>
+											</Button>
 										</th>
 										<th>Unidad</th>
 										<th>Estado</th>
@@ -1155,7 +979,7 @@ const AdminInventory = ({
 												<tr className={expanded ? "inventory-row--open" : ""}>
 													<td className="inventory-td-expand">
 														{branchId !== "all" ? (
-															<button
+															<Button variant="default"
 																type="button"
 																className="inventory-expand-btn"
 																aria-expanded={expanded}
@@ -1170,7 +994,7 @@ const AdminInventory = ({
 																title="Últimos movimientos"
 															>
 																{expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-															</button>
+															</Button>
 														) : null}
 													</td>
 													<td className="inventory-td-name">
@@ -1197,22 +1021,22 @@ const AdminInventory = ({
 													<td>{statusBadge}</td>
 													<td className="inventory-td-actions">
 														<div className="inventory-row-actions">
-															<button
-																className="btn-icon-sm"
+															<Button variant="default"
+																className=""
 																type="button"
 																onClick={() => handleEdit(item)}
 																title="Editar"
 															>
 																<Edit size={16} />
-															</button>
-															<button
+															</Button>
+															<Button variant="default"
 																className="btn-trash-sm"
 																type="button"
 																onClick={() => handleDelete(item.id)}
 																title="Eliminar"
 															>
 																<Trash2 size={16} />
-															</button>
+															</Button>
 														</div>
 													</td>
 												</tr>
@@ -1319,9 +1143,9 @@ const AdminInventory = ({
 					</p>
 
 					<div className="inventory-header inventory-toolbar--recipes">
-						<button type="button" className="btn btn-primary btn-icon-text" onClick={openAddRecipePicker}>
+						<Button variant="default" type="button" className="" onClick={openAddRecipePicker}>
 							<Plus size={18} /> Agregar receta
-						</button>
+						</Button>
 						<div className="search-inventory">
 							<Search size={18} className="inventory-search-icon" aria-hidden />
 							<input
@@ -1344,7 +1168,7 @@ const AdminInventory = ({
 								{ id: "without", label: "Sin receta" },
 								{ id: "with", label: "Con receta" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${recipeFilter === c.id ? "inventory-chip--active" : ""}`}
@@ -1354,7 +1178,7 @@ const AdminInventory = ({
 									}}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<p className="inventory-muted inventory-recipes__stats">
@@ -1379,7 +1203,7 @@ const AdminInventory = ({
 												(product.insumoNames.length > 2 ? ` +${product.insumoNames.length - 2}` : "")
 											: null;
 									return (
-										<button
+										<Button variant="default"
 											key={product.id}
 											type="button"
 											className="inventory-recipe-card"
@@ -1408,19 +1232,19 @@ const AdminInventory = ({
 											<span className="inventory-recipe-card__meta">
 												{summary || (product.hasRecipe ? "Clic para editar" : "Clic para configurar")}
 											</span>
-										</button>
+										</Button>
 									);
 								})}
 							</div>
 							{recipeProductList.length > recipeListLimit ? (
 								<div className="inventory-recipes__more">
-									<button
+									<Button variant="secondary"
 										type="button"
-										className="btn btn-secondary btn-sm"
+										className=""
 										onClick={() => setRecipeListLimit((n) => n + RECIPE_PAGE_SIZE)}
 									>
 										Mostrar más ({recipeProductList.length - recipeListLimit} restantes)
-									</button>
+									</Button>
 								</div>
 							) : null}
 						</>
@@ -1447,14 +1271,14 @@ const AdminInventory = ({
 									Busca un producto del catálogo. Por defecto se listan los que aún no tienen consumo configurado.
 								</p>
 							</div>
-							<button
+							<Button variant="default"
 								type="button"
 								className="btn-close"
 								aria-label="Cerrar"
 								onClick={() => setRecipePickProductOpen(false)}
 							>
 								<X size={22} />
-							</button>
+							</Button>
 						</header>
 						<div className="inventory-recipe-picker__toolbar">
 							<div className="search-inventory inventory-recipe-picker__search">
@@ -1486,7 +1310,7 @@ const AdminInventory = ({
 								<ul className="inventory-recipe-picker__items">
 									{recipePickProductList.map((p) => (
 										<li key={p.id}>
-											<button type="button" className="inventory-recipe-picker__item" onClick={() => pickProductForRecipe(p)}>
+											<Button variant="default" type="button" className="inventory-recipe-picker__item" onClick={() => pickProductForRecipe(p)}>
 												<span className="inventory-recipe-picker__item-name">{p.name}</span>
 												{p.categoryName ? (
 													<span className="inventory-recipe-picker__item-cat">{p.categoryName}</span>
@@ -1494,7 +1318,7 @@ const AdminInventory = ({
 												{p.hasRecipe ? (
 													<span className="inventory-recipe-picker__item-badge">Ya tiene receta</span>
 												) : null}
-											</button>
+											</Button>
 										</li>
 									))}
 								</ul>
@@ -1521,7 +1345,7 @@ const AdminInventory = ({
 								<h3 id="recipe-edit-title">Consumo por venta</h3>
 								<p className="inventory-modal-subtitle">{recipeEditingProduct.name}</p>
 							</div>
-							<button
+							<Button variant="default"
 								type="button"
 								className="btn-close"
 								aria-label="Cerrar"
@@ -1529,7 +1353,7 @@ const AdminInventory = ({
 								onClick={() => setRecipeEditingProduct(null)}
 							>
 								<X size={22} />
-							</button>
+							</Button>
 						</header>
 						<form
 							onSubmit={(e) => {
@@ -1549,9 +1373,9 @@ const AdminInventory = ({
 											aria-label="Filtrar artículos"
 										/>
 									</div>
-									<button type="button" className="btn btn-secondary btn-sm" onClick={addRecipeLine}>
+									<Button variant="secondary" type="button" className="" onClick={addRecipeLine}>
 										<Plus size={16} /> Agregar artículo
-									</button>
+									</Button>
 								</div>
 								{recipeLines.length === 0 ? (
 									<p className="inventory-recipe-empty-hint">
@@ -1623,14 +1447,14 @@ const AdminInventory = ({
 															))}
 														</select>
 													</div>
-													<button
+													<Button variant="default"
 														type="button"
 														className="inventory-recipe-line__remove"
 														aria-label="Quitar línea"
 														onClick={() => removeRecipeLine(idx)}
 													>
 														<Trash2 size={18} />
-													</button>
+													</Button>
 													{line.inventory_item_id ? (
 														<p className="inventory-recipe-line__unit-hint form-hint">
 															Se guarda en {getUnitLabel(nativeUnit, { short: true })} (unidad del insumo).
@@ -1643,18 +1467,18 @@ const AdminInventory = ({
 								)}
 							</div>
 							<footer className="modal-footer">
-								<button
+								<Button variant="secondary"
 									type="button"
-									className="btn btn-secondary"
+									className=""
 									disabled={recipeSaving}
 									onClick={() => setRecipeEditingProduct(null)}
 								>
 									Cancelar
-								</button>
-								<button type="submit" className="btn btn-primary" disabled={recipeSaving}>
+								</Button>
+								<Button variant="default" type="submit" className="" disabled={recipeSaving}>
 									<Save size={18} />
 									{recipeSaving ? "Guardando…" : "Guardar receta"}
-								</button>
+								</Button>
 							</footer>
 						</form>
 					</div>

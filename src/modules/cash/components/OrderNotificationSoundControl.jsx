@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from "@/components/ui/button";
 import { Volume2, Volume1, VolumeX, Check } from 'lucide-react';
 import {
     getOrderSoundMode,
@@ -49,7 +50,7 @@ export default function OrderNotificationSoundControl() {
 
     return (
         <div className="order-sound-control" ref={rootRef}>
-            <button
+            <Button variant="default"
                 type="button"
                 className={`btn-icon-refresh admin-icon-btn header-action-order-sound order-sound-control__trigger${mode !== 'all' ? ' order-sound-control__trigger--muted' : ''}`}
                 onClick={() => setOpen((v) => !v)}
@@ -59,7 +60,7 @@ export default function OrderNotificationSoundControl() {
                 aria-haspopup="dialog"
             >
                 <Icon size={24} strokeWidth={1.65} aria-hidden />
-            </button>
+            </Button>
 
             {open ? (
                 <div
@@ -80,7 +81,7 @@ export default function OrderNotificationSoundControl() {
                             const active = mode === opt.value;
                             return (
                                 <li key={opt.value}>
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         role="option"
                                         aria-selected={active}
@@ -94,7 +95,7 @@ export default function OrderNotificationSoundControl() {
                                         {active ? (
                                             <Check size={18} strokeWidth={2.25} className="order-sound-control__check" aria-hidden />
                                         ) : null}
-                                    </button>
+                                    </Button>
                                 </li>
                             );
                         })}

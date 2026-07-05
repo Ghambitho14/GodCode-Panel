@@ -10,6 +10,7 @@ import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
+import { Button } from "@/components/ui/button";
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
     const { formatMoney } = useBranchMoney();
@@ -412,13 +413,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         />
                     </div>
                     
-                    <button className="btn-icon-text btn-white" onClick={handleExportCSV}>
+                    <Button variant="default" className="" onClick={handleExportCSV}>
                         <Download size={18} /> Exportar CSV
-                    </button>
+                    </Button>
                     
-                    <button className="btn btn-primary btn-icon-text" onClick={() => setIsFormOpen(true)}>
+                    <Button variant="default" className="" onClick={() => setIsFormOpen(true)}>
                         <Plus size={18} /> Nuevo cliente
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -427,30 +428,30 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 <div className="filter-btn-trigger">
                     <Filter size={18} /> Filtro
                 </div>
-                <button 
+                <Button variant="default" 
                     className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('all'); setCurrentPage(1); }}
                 >
                     Todo
-                </button>
-                <button 
+                </Button>
+                <Button variant="default" 
                     className={`filter-chip ${activeFilter === 'elite' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('elite'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Élite
-                </button>
-                <button 
+                </Button>
+                <Button variant="default" 
                     className={`filter-chip ${activeFilter === 'top' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('top'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Top
-                </button>
-                <button 
+                </Button>
+                <Button variant="default" 
                     className={`filter-chip ${activeFilter === 'frequent' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('frequent'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Frecuente
-                </button>
+                </Button>
                 <div className="clients-total-count">
                     Total: {filteredClients.length}
                 </div>
@@ -492,9 +493,9 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                 className="clients-row-kebab-wrap"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <button
+                                                <Button variant="default"
                                                     type="button"
-                                                    className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
+                                                    className="admin-icon-btn--sm clients-kebab-trigger"
                                                     data-clients-kebab-id={client.id}
                                                     aria-expanded={menuOpenClientId === client.id}
                                                     aria-haspopup="menu"
@@ -512,13 +513,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                     }}
                                                 >
                                                     <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
-                                                </button>
+                                                </Button>
                                             </div>
                                         </div>
                                         {client.phone ? (
                                             <div className="client-card-header__contact-row">
                                                 <span className="client-phone-text">{client.phone}</span>
-                                                <button
+                                                <Button variant="default"
                                                     type="button"
                                                     className="clients-whatsapp-btn"
                                                     onClick={(e) => openWhatsApp(e, client.phone)}
@@ -526,7 +527,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                     aria-label="Abrir conversación en WhatsApp con este cliente"
                                                 >
                                                     <WhatsAppGlyph className="clients-whatsapp-btn__glyph" />
-                                                </button>
+                                                </Button>
                                             </div>
                                         ) : null}
                                         {client.email ? <span className="client-email">{client.email}</span> : null}
@@ -585,12 +586,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         Página {currentPage} de {totalPages}
                     </span>
                     <div className="pagination-buttons">
-                        <button className="btn-icon-sm" onClick={() => setCurrentPageWithMenuClose((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                        <Button variant="default" className="" onClick={() => setCurrentPageWithMenuClose((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
                             <ChevronLeft size={18} />
-                        </button>
-                        <button className="btn-icon-sm" onClick={() => setCurrentPageWithMenuClose((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                        </Button>
+                        <Button variant="default" className="" onClick={() => setCurrentPageWithMenuClose((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
                             <ChevronRight size={18} />
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -605,7 +606,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         aria-label="Acciones del cliente"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button
+                        <Button variant="default"
                             type="button"
                             role="menuitem"
                             className="clients-kebab-menu__item"
@@ -616,10 +617,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         >
                             <UserCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
                             Ver ficha
-                        </button>
+                        </Button>
                         {kebabOpenClient.phone ? (
                             <>
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     role="menuitem"
                                     className="clients-kebab-menu__item"
@@ -630,8 +631,8 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 >
                                     <MessageCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
                                     Abrir WhatsApp
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="default"
                                     type="button"
                                     role="menuitem"
                                     className="clients-kebab-menu__item"
@@ -639,10 +640,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 >
                                     <Copy size={16} aria-hidden className="clients-kebab-menu__icon" />
                                     Copiar teléfono
-                                </button>
+                                </Button>
                             </>
                         ) : null}
-                        <button
+                        <Button variant="destructive"
                             type="button"
                             role="menuitem"
                             className="clients-kebab-menu__item clients-kebab-menu__item--danger"
@@ -655,7 +656,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 <Trash2 size={16} aria-hidden className="clients-kebab-menu__icon" />
                             )}
                             Eliminar cliente
-                        </button>
+                        </Button>
                     </div>,
                     kebabPortalTarget,
                 )

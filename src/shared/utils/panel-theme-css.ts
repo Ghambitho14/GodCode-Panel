@@ -36,39 +36,28 @@ const toRgba = (hex: string, alpha: number, fallback: string) => {
 
 const sanitizeCssValue = (value: string) => value.replace(/<|>|"|'|`/g, "").trim();
 
-/**
- * Valida una URL para inyectar dentro de `url(...)`. Solo admite rutas relativas
- * (`/...`) o `https://`, y rechaza caracteres que permitirían romper el `url()`
- * (paréntesis, `;`, comillas, espacios), evitando CSS injection vía `theme_config`.
- */
-const sanitizeCssUrl = (value: string | null | undefined, fallback: string): string => {
-	const trimmed = String(value ?? "").trim();
-	if (!trimmed) return fallback;
-	if (/[()'"`;\s<>\\]/.test(trimmed)) return fallback;
-	const isRelative = trimmed.startsWith("/") && !trimmed.startsWith("//");
-	const isHttps = /^https:\/\//i.test(trimmed);
-	if (!isRelative && !isHttps) return fallback;
-	return trimmed;
-};
-
 type CompanyRow = {
 	theme_config?: DatabaseCompanyTheme | null;
 };
 
-export function buildTenantThemeCss(company: CompanyRow | null): string {
-	const primaryColor = company?.theme_config?.primaryColor ?? "#111827";
-	const secondaryColor = company?.theme_config?.secondaryColor ?? primaryColor;
-	const priceColor = company?.theme_config?.priceColor ?? "#ff4757";
-	const discountColor = company?.theme_config?.discountColor ?? "#25d366";
-	const hoverColor = company?.theme_config?.hoverColor ?? "#ff2e40";
-	const accentShadow = toRgba(primaryColor, 0.3, "rgba(255, 71, 87, 0.3)");
-	const accentShadowStrong = toRgba(primaryColor, 0.5, "rgba(255, 71, 87, 0.5)");
-	const cardBorder = toRgba(primaryColor, 0.18, "rgba(255, 255, 255, 0.1)");
-	const backgroundColor = company?.theme_config?.backgroundColor ?? "#0a0a0a";
-	const backgroundImageUrl = sanitizeCssUrl(
-		company?.theme_config?.backgroundImageUrl,
-		"/tenant/menu-pattern.webp",
-	);
-	const backgroundImage = `url(${backgroundImageUrl}), url(/tenant/menu-pattern.webp)`;
-	return `.tenant-theme-vars,.manual-order-portal-scope{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:${sanitizeCssValue(backgroundImage)};}`;
+const FIXED_PALETTE = {
+	primary: "#2563eb",
+	secondary: "#3b82f6",
+	price: "#ef4444",
+	discount: "#22c55e",
+	hover: "#1d4ed8",
+	background: "#f8fafc",
+};
+
+export function buildTenantThemeCss(_company: CompanyRow | null): string {
+	const primaryColor = FIXED_PALETTE.primary;
+	const secondaryColor = FIXED_PALETTE.secondary;
+	const priceColor = FIXED_PALETTE.price;
+	const discountColor = FIXED_PALETTE.discount;
+	const hoverColor = FIXED_PALETTE.hover;
+	const accentShadow = toRgba(primaryColor, 0.3, "rgba(37, 99, 235, 0.3)");
+	const accentShadowStrong = toRgba(primaryColor, 0.5, "rgba(37, 99, 235, 0.5)");
+	const cardBorder = toRgba(primaryColor, 0.18, "rgba(37, 99, 235, 0.18)");
+	const backgroundColor = FIXED_PALETTE.background;
+	return `.tenant-theme-vars,.manual-order-portal-scope{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:none;}`;
 }
