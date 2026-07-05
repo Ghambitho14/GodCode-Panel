@@ -5,8 +5,11 @@ import { mergeOrderInMemory } from '@/shared/utils/orderUtils';
 import { playOrderNotificationSound, primeOrderNotificationAudio } from '../utils/playOrderNotificationSound';
 import { shouldPlayOrderSound } from '../../utils/orderNotificationPrefs';
 import { invalidateBranchOrders, invalidateBranchInventory } from '../../services/panelDataCache';
+import { printOrderTicket } from '../printing/printOrderTicket';
+import { fetchOrderWithItems } from '../../services/analyticsService';
+import { monitor } from '@/shared/monitor';
 
-const ORDERS_RECONNECT_FETCH_MIN_MS = 15_000;
+const ORDERS_RECONNECT_FETCH_MIN_MS = 5_000;
 
 /** Tabs que no necesitan actualizaciones en tiempo real de pedidos. */
 const TABS_WITHOUT_ORDERS_REALTIME = new Set(['analytics', 'local_expenses']);
@@ -32,14 +35,19 @@ export function useAdminOrdersRealtime({
 	setOrders,
 	fetchOrdersRef,
 	activeTab,
+	logoUrl = null,
+	companyName = null,
+	selectedBranch = null,
 }) {
 	const inventoryRefreshTimerRef = useRef(null);
 	const handleRealtimeEventRef = useRef(/** @type {(payload: unknown) => void} */ (() => {}));
 	const ordersRealtimeDisconnectedRef = useRef(false);
 	const ordersReconnectFetchTimerRef = useRef(null);
 	const lastOrdersReconnectFetchAtRef = useRef(/** @type {number | null} */ (null));
+	const lastRealtimeEventAtRef = useRef(0);
 
 	const handleRealtimeEvent = useCallback((payload) => {
+		lastRealtimeEventAtRef.current = Date.now();
 		const sid = selectedBranchId;
 		if (!sid) return;
 		if (!showOnlineOrdersQueue) return;
@@ -47,6 +55,13 @@ export function useAdminOrdersRealtime({
 		invalidateBranchOrders(companyId, sid);
 
 		const isSingleBranch = sid !== 'all';
+
+		monitor.info('realtime', 'orders_event', {
+			eventType: payload.eventType,
+			orderId: payload.new?.id ?? payload.old?.id,
+			branchId: payload.new?.branch_id ?? payload.old?.branch_id,
+			status: payload.new?.status,
+		});
 
 		if (payload.eventType === 'INSERT') {
 			const raw = payload.new;
@@ -70,6 +85,25 @@ export function useAdminOrdersRealtime({
 				if (shouldPlayOrderSound(newOrder)) {
 					playOrderNotificationSound();
 				}
+
+				void (async () => {
+					try {
+						const fullOrder = await fetchOrderWithItems({ orderId: newOrder.id, companyId });
+						const orderToPrint = fullOrder && fullOrder.items ? fullOrder : newOrder;
+						printOrderTicket(
+							orderToPrint,
+							selectedBranch?.name ?? 'NOMBRE DEL LOCAL',
+							logoUrl ?? null,
+							{
+								variant: 'cashier',
+								branchAddress: selectedBranch?.address ?? null,
+								companyName: companyName ?? null,
+							},
+						);
+					} catch (err) {
+						console.warn('[Realtime] auto-print caja falló:', err);
+					}
+				})();
 			} else {
 				const branchName =
 					(Array.isArray(branches) ? branches.find((b) => String(b.id) === bid)?.name : null) ||
@@ -89,12 +123,38 @@ export function useAdminOrdersRealtime({
 		if (payload.eventType === 'UPDATE') {
 			const raw = payload.new;
 			const bid = orderRealtimeBranchId(raw);
-			if (isSingleBranch && bid != null && bid !== String(sid)) return;
+			if (isSingleBranch && bid != null && bid !== String(sid)) {
+				monitor.info('realtime', 'orders_update_ignored_branch', {
+					orderId: raw?.id,
+					branchId: bid,
+					selectedBranchId: sid,
+				});
+				return;
+			}
 			if (!raw?.id) return;
-			setOrders((prev) => prev.map((o) => {
-				if (o.id !== raw.id) return o;
-				return mergeOrderInMemory(o, raw);
-			}));
+			setOrders((prev) => {
+				const existingIdx = prev.findIndex((o) => o.id === raw.id);
+				if (existingIdx >= 0) {
+					return prev.map((o, i) =>
+						i === existingIdx ? mergeOrderInMemory(o, raw) : o,
+					);
+				}
+				// UPDATE de pedido desconocido: posible coalescimiento INSERT+UPDATE en Realtime.
+				monitor.warn('realtime', 'orders_update_as_insert', { orderId: raw.id, branchId: bid });
+				const newOrder = mergeOrderInMemory(null, raw);
+				return [newOrder, ...prev];
+			});
+
+			// Si el pedido no existía, notificar y sonar como un INSERT.
+			if (isSingleBranch) {
+				const newOrder = mergeOrderInMemory(null, raw);
+				if (newOrder?.id) {
+					showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
+					if (shouldPlayOrderSound(newOrder)) {
+						playOrderNotificationSound();
+					}
+				}
+			}
 			return;
 		}
 
@@ -113,6 +173,9 @@ export function useAdminOrdersRealtime({
 		companyId,
 		showOnlineOrdersQueue,
 		setOrders,
+		logoUrl,
+		companyName,
+		selectedBranch,
 	]);
 
 	useEffect(() => {
@@ -139,6 +202,7 @@ export function useAdminOrdersRealtime({
 		if (activeTab && TABS_WITHOUT_ORDERS_REALTIME.has(activeTab)) return;
 
 		const handleOrdersRealtimeStatus = (status) => {
+			monitor.info('realtime', 'orders_channel_status', { status, branchId: selectedBranchId });
 			if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
 				ordersRealtimeDisconnectedRef.current = true;
 				return;
@@ -175,7 +239,20 @@ export function useAdminOrdersRealtime({
 			handleOrdersRealtimeStatus,
 		);
 
+		const ORDERS_POLLING_INTERVAL_MS = 30_000;
+		const ORDERS_POLLING_SILENCE_MS = 30_000;
+		const pollingInterval = setInterval(() => {
+			if (!selectedBranchId) return;
+			if (!showOnlineOrdersQueue) return;
+			if (activeTab && TABS_WITHOUT_ORDERS_REALTIME.has(activeTab)) return;
+			const elapsed = Date.now() - lastRealtimeEventAtRef.current;
+			if (elapsed < ORDERS_POLLING_SILENCE_MS) return;
+			monitor.info('realtime', 'orders_polling_refetch', { branchId: selectedBranchId });
+			void fetchOrdersRef.current({ force: false });
+		}, ORDERS_POLLING_INTERVAL_MS);
+
 		return () => {
+			clearInterval(pollingInterval);
 			if (ordersReconnectFetchTimerRef.current) {
 				clearTimeout(ordersReconnectFetchTimerRef.current);
 				ordersReconnectFetchTimerRef.current = null;

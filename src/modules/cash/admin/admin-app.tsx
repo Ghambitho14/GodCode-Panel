@@ -321,6 +321,8 @@ export function AdminApp({
 						adminShortcutsEnabled={effectiveAdminShortcuts}
 						companyProfile={effectiveCompanyProfile}
 						menuCapabilities={menuCapabilities}
+						companyName={resolvedCompanyName}
+						logoUrl={effectiveLogoUrl}
 					>
 						<AdminPage
 							companyName={resolvedCompanyName}

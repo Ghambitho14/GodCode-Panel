@@ -33,7 +33,7 @@ interface SessionPayload {
   user?: { id?: string | null; email?: string | null } | null;
 }
 
-type AuthEvent = "signed_in" | "signed_out";
+type AuthEvent = "signed_in" | "signed_out" | "token_refreshed";
 
 type SessionStatus = "unknown" | "active" | "none";
 
@@ -182,6 +182,7 @@ function refreshAccessToken(): Promise<string | null> {
       }
       const payload = (await res.json()) as SessionPayload;
       applyPayload(payload);
+      emit("token_refreshed");
       return current?.accessToken ?? null;
     } catch {
       monitor.warn("auth", "refresh_network_error");

@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { getAccessToken } from "./auth-session";
+import { getAccessToken, onAuthEvent } from "./auth-session";
 
 const CONFIG_WARN =
   "[GodCode] Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. Copiá .env.example a .env y pegá URL + anon key del proyecto (Supabase → Settings → API).";
@@ -69,4 +69,16 @@ const { url, anonKey } = resolveConfig();
  */
 export const supabase: SupabaseClient = createClient(url, anonKey, {
   accessToken: () => getAccessToken(),
+});
+
+function syncRealtimeAuth(): void {
+  void getAccessToken().then((token) => {
+    if (token) supabase.realtime.setAuth(token);
+  });
+}
+
+onAuthEvent((event) => {
+  if (event === "signed_in" || event === "token_refreshed") {
+    syncRealtimeAuth();
+  }
 });
