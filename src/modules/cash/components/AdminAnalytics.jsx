@@ -5,7 +5,7 @@ import {
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
     BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink, LineChart
 } from 'lucide-react';
-import { PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, Sector, Tooltip as RechartsTooltip } from 'recharts';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
 import { expenseBucketKey, expenseBucketKeysForRange, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
@@ -96,6 +96,71 @@ function formatSalesChartLabel(isoDate, dayCount) {
         return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
     }
     return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'numeric' });
+}
+
+function formatHourLabel(hour) {
+    return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function buildHourlySalesPoints(orders, range) {
+    const buckets = Array.from({ length: 24 }, (_, i) => ({
+        key: `h${i}`,
+        label: formatHourLabel(i),
+        sales: 0,
+        expenses: 0,
+    }));
+    orders.forEach((o) => {
+        if (!o) return;
+        const d = new Date(o.created_at);
+        if (!isInReportRange(d, range)) return;
+        const h = d.getHours();
+        buckets[h].sales += Number(o.total) || 0;
+    });
+    return buckets;
+}
+
+function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary) {
+    const chartDateKeys = [...range.chartDateKeys];
+    if (analyticsSource === 'rpc' && analyticsSummary?.current) {
+        return chartDateKeys.map((k) => ({
+            key: k,
+            label: formatSalesChartLabel(k, range.dayCount),
+            sales: Number(analyticsSummary.current.byDay[k]) || 0,
+            expenses: 0,
+        }));
+    }
+    const salesByDate = {};
+    chartDateKeys.forEach((key) => { salesByDate[key] = 0; });
+    orders.forEach((o) => {
+        if (!o) return;
+        const localDate = new Date(o.created_at).toLocaleDateString('en-CA');
+        if (salesByDate[localDate] !== undefined) {
+            salesByDate[localDate] += Number(o.total) || 0;
+        }
+    });
+    return chartDateKeys.map((k) => ({
+        key: k,
+        label: formatSalesChartLabel(k, range.dayCount),
+        sales: salesByDate[k] || 0,
+        expenses: 0,
+    }));
+}
+
+function ActiveClientSector(props) {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    const base = typeof outerRadius === 'number' ? outerRadius : Number(String(outerRadius).replace('%', '')) * 0.01 * Math.min(cx, cy) * 2;
+    return (
+        <Sector
+            cx={cx}
+            cy={cy}
+            innerRadius={innerRadius}
+            outerRadius={base + 4}
+            startAngle={startAngle}
+            endAngle={endAngle}
+            fill={fill}
+            stroke="none"
+        />
+    );
 }
 
 const EXPENSE_AGG_OPTIONS = [
@@ -207,6 +272,13 @@ const TrendBadge = ({ value, isSignificant = true }) => {
 function formatKpiValue(metaKey, value, fmt) {
     if (metaKey === 'count') {
         return Math.round(Number(value) || 0).toLocaleString('es-CL');
+    }
+    return fmt(value);
+}
+
+function formatSparklineValue(metaKey, value, fmt) {
+    if (metaKey === 'count' || metaKey === 'clients' || metaKey === 'deliveryCount') {
+        return `${Math.round(Number(value) || 0).toLocaleString('es-CL')} pedidos`;
     }
     return fmt(value);
 }
@@ -324,6 +396,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subti
                     height={28}
                     showDots
                     color="#2563eb"
+                    valueFormatter={(v) => formatSparklineValue(meta.key, v, fmt)}
                 />
             </div>
         </Card>
@@ -379,6 +452,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
     const [expensePreviewState, setExpensePreviewState] = useState(null);
     const [expenseKindFilter, setExpenseKindFilter] = useState('all');
+    const [activeClientIndex, setActiveClientIndex] = useState(null);
 
     const [reportAnchorDate] = useState(() => new Date());
     const reportRange = useMemo(
@@ -456,7 +530,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const ordersForAnalytics = useMemo(() => {
         if (!companyId) return Array.isArray(orders) ? orders : [];
-        if (analyticsSource !== 'fallback') return [];
+        if (analyticsSource === 'none') return [];
         if (loadingAnalyticsOrders && analyticsOrders.length === 0 && Array.isArray(orders) && orders.length > 0) {
             return orders;
         }
@@ -730,90 +804,110 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         [cashSystem],
     );
 
-    const handleExportMonthlyExcel = async () => {
-        if (exportLoading) return;
+    const buildMonthlyOrdersExportData = useCallback(async () => {
         const range = getMonthRangeUtc(analyticsDate);
         if (!range) {
             if (showNotify) showNotify('Mes inválido', 'error');
-            return;
+            return null;
         }
 
+        const orderCount = await countOrdersInRange({
+            companyId,
+            branchId: selectedBranch?.id,
+            startIso: range.startIso,
+            endIso: range.endIso,
+        });
+        if (orderCount === 0) {
+            if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
+            return null;
+        }
+        if (!confirmLargeExport(orderCount)) {
+            return null;
+        }
+
+        let query = supabase
+            .from(TABLES.orders)
+            .select(ORDERS_EXPORT_SELECT)
+            .gte('created_at', range.startIso)
+            .lt('created_at', range.endIso)
+            .order('created_at', { ascending: true });
+
+        if (companyId) {
+            query = query.eq('company_id', companyId);
+        }
+
+        if (selectedBranch && selectedBranch.id && selectedBranch.id !== 'all') {
+            query = query.eq('branch_id', selectedBranch.id);
+        }
+
+        const fullMonthOrders = await fetchAllPaginated(query);
+
+        if (!fullMonthOrders || fullMonthOrders.length === 0) {
+            if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
+            return null;
+        }
+
+        const branchById = Object.fromEntries(
+            (branches || [])
+                .filter((b) => b?.id && b.id !== 'all')
+                .map((b) => [String(b.id), b]),
+        );
+
+        const rows = fullMonthOrders.map(order => {
+            const d = new Date(order.created_at);
+            let items = Array.isArray(order.items) ? order.items : [];
+            if (typeof order.items === 'string') {
+                try { items = JSON.parse(order.items); } catch {}
+            }
+            const itemsText = items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
+            const orderBranch = branchById[String(order.branch_id)] ?? null;
+            const orderCurrency = resolveEffectiveCurrency(orderBranch, companyProfile);
+            return {
+                Fecha: d.toLocaleDateString('es-CL'),
+                Hora: d.toLocaleTimeString('es-CL'),
+                Cliente: order.client_name,
+                [exportIdLabel]: order.client_rut,
+                Teléfono: order.client_phone,
+                Items: itemsText,
+                Total: order.total,
+                Moneda: orderCurrency,
+                'Método Pago': getPaymentLabel(order) || '',
+                'Ref. Pago': order.payment_ref || ''
+            };
+        });
+
+        const [year, month] = String(analyticsDate).split('-');
+        return {
+            rows,
+            filename: `Reporte_${year || '0000'}_${month || '00'}.xls`,
+            title: `Reporte mensual — ${analyticsDate}`,
+        };
+    }, [analyticsDate, companyId, selectedBranch?.id, branches, companyProfile, exportIdLabel, showNotify]);
+
+    const runMonthlyOrdersExport = useCallback(async (action) => {
+        if (exportLoading || !companyId) return;
         setExportLoading(true);
         try {
-            const orderCount = await countOrdersInRange({
-                companyId,
-                branchId: selectedBranch?.id,
-                startIso: range.startIso,
-                endIso: range.endIso,
-            });
-            if (orderCount === 0) {
-                if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
-                return;
-            }
-            if (!confirmLargeExport(orderCount)) {
-                return;
-            }
-
-            let query = supabase
-                .from(TABLES.orders)
-                .select(ORDERS_EXPORT_SELECT)
-                .gte('created_at', range.startIso)
-                .lt('created_at', range.endIso)
-                .order('created_at', { ascending: true });
-
-            if (companyId) {
-                query = query.eq('company_id', companyId);
-            }
-
-            if (selectedBranch && selectedBranch.id && selectedBranch.id !== 'all') {
-                query = query.eq('branch_id', selectedBranch.id);
-            }
-
-            const fullMonthOrders = await fetchAllPaginated(query);
-
-            if (!fullMonthOrders || fullMonthOrders.length === 0) {
-                if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
-                return;
-            }
-
-            const branchById = Object.fromEntries(
-                (branches || [])
-                    .filter((b) => b?.id && b.id !== 'all')
-                    .map((b) => [String(b.id), b]),
-            );
-
-            const dataToExport = fullMonthOrders.map(order => {
-                const d = new Date(order.created_at);
-                let items = Array.isArray(order.items) ? order.items : [];
-                if (typeof order.items === 'string') {
-                    try { items = JSON.parse(order.items); } catch {}
+            const result = await buildMonthlyOrdersExportData();
+            if (!result) return;
+            const { rows, filename, title } = result;
+            if (action === 'modal') {
+                setExpensePreviewState({ rows, filename, title });
+            } else if (action === 'tab') {
+                const opened = openSpreadsheetInNewTab(rows);
+                if (!opened && showNotify) {
+                    showNotify('Permite ventanas emergentes para ver en pestaña', 'info');
                 }
-                const itemsText = items.map(i => `${i.quantity}x ${i.name}`).join(' | ');
-                const orderBranch = branchById[String(order.branch_id)] ?? null;
-                const orderCurrency = resolveEffectiveCurrency(orderBranch, companyProfile);
-                return {
-                    Fecha: d.toLocaleDateString('es-CL'),
-                    Hora: d.toLocaleTimeString('es-CL'),
-                    Cliente: order.client_name,
-                    [exportIdLabel]: order.client_rut,
-                    Teléfono: order.client_phone,
-                    Items: itemsText,
-                    Total: order.total,
-                    Moneda: orderCurrency,
-                    'Método Pago': getPaymentLabel(order) || '',
-                    'Ref. Pago': order.payment_ref || ''
-                };
-            });
-
-            const [year, month] = String(analyticsDate).split('-');
-            downloadExcel(dataToExport, `Reporte_${year || '0000'}_${month || '00'}.xls`);
-            if (showNotify) showNotify('Reporte Excel generado', 'success');
+            } else if (action === 'download') {
+                downloadExcel(rows, filename);
+                if (showNotify) showNotify('Reporte Excel generado', 'success');
+            }
         } catch (err) {
             if (showNotify) showNotify('Error al generar reporte: ' + (err instanceof Error ? err.message : String(err)), 'error');
         } finally {
             setExportLoading(false);
         }
-    };
+    }, [exportLoading, companyId, buildMonthlyOrdersExportData, showNotify]);
 
     useEffect(() => {
         let cancelled = false;
@@ -941,74 +1035,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return expensesByDate;
         };
 
-        if (analyticsSource === 'rpc' && analyticsSummary?.current && analyticsSummary?.prev) {
-            const range = reportRange;
-            const cur = analyticsSummary.current;
-            const prev = analyticsSummary.prev;
-            const chartDateKeys = [...range.chartDateKeys];
-            const expensesByDate = buildExpensesByDate(chartDateKeys);
-            const totalSales = cur.totalSales;
-            const count = cur.orderCount;
-            const ticket = count > 0 ? totalSales / count : 0;
-            const prevSales = prev.totalSales;
-            const prevCount = prev.orderCount;
-            const prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
-            const totalNet = totalSales - (expensesData.total || 0);
-            const prevNet = prevSales - (expensesData.prevTotal || 0);
-            const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
-            const branchNameLookup = {};
-            realBranches.forEach((b) => { branchNameLookup[b.id] = b.name || 'Sucursal sin nombre'; });
-            const sortedBranches = (Array.isArray(cur.byBranch) ? cur.byBranch : [])
-                .map((b) => ({
-                    id: b.branchId,
-                    name: branchNameLookup[b.branchId] || (b.branchId === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada'),
-                    total: b.total,
-                    count: b.count,
-                }))
-                .filter((b) => b.total > 0 || b.count > 0)
-                .sort((a, b) => b.total - a.total);
-
-            return {
-                salesChartPoints: chartDateKeys.map((k) => ({
-                    key: k,
-                    label: formatSalesChartLabel(k, range.dayCount),
-                    sales: Number(cur.byDay[k]) || 0,
-                    expenses: Number(expensesByDate[k]) || 0,
-                })),
-                kpis: {
-                    total: totalSales,
-                    count,
-                    ticket,
-                    deliveryTotal: cur.deliveryTotal,
-                    deliveryCount: cur.deliveryCount,
-                    net: totalNet,
-                },
-                trends: {
-                    total: calcTrendPercent(totalSales, prevSales),
-                    count: calcTrendPercent(count, prevCount),
-                    ticket: calcTrendPercent(ticket, prevTicket),
-                    delivery: calcTrendPercent(cur.deliveryTotal, prev.deliveryTotal),
-                    expenses: !expensesData.prevTotal
-                        ? expensesData.total > 0 ? 100 : 0
-                        : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
-                    net: calcTrendPercent(totalNet, prevNet),
-                },
-                trendSignificance: {
-                    total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                    count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                    ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                    delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                    expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                    net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                },
-                paymentBreakdown: { ...cur.paymentBreakdown },
-                branchStats: sortedBranches,
-            };
-        }
-
-        if (!ordersForAnalytics || ordersForAnalytics.length === 0) {
-            return emptyResult;
-        }
         const range = reportRange;
         const prevRange = { start: range.prevStart, end: range.prevEnd };
 
@@ -1019,52 +1045,118 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             return true;
         };
 
-        const valid = ordersForAnalytics.filter((o) => o && o.status !== 'cancelled');
+        const valid = (ordersForAnalytics || []).filter((o) => o && o.status !== 'cancelled');
         const validBranchIds = new Set(safeBranches.map((b) => b.id));
-        
-        const current = valid.filter(o => {
+
+        const current = valid.filter((o) => {
             if (!o) return false;
             const d = new Date(o.created_at);
             return isInReportRange(d, range) && filterByTab(o);
         });
 
-        const prev = valid.filter(o => {
+        const prev = valid.filter((o) => {
             if (!o) return false;
             const d = new Date(o.created_at);
             return range.hasComparison && isInReportRange(d, prevRange) && filterByTab(o) && o.branch_id && validBranchIds.has(o.branch_id);
         });
 
-        const salesByDate = {};
-        const chartDateKeys = [...range.chartDateKeys];
-        chartDateKeys.forEach((key) => { salesByDate[key] = 0; });
+        if (current.length === 0 && !(analyticsSource === 'rpc' && analyticsSummary?.current)) {
+            return emptyResult;
+        }
 
-        current.forEach(o => {
-            if (!o) return;
-            const localDate = new Date(o.created_at).toLocaleDateString('en-CA');
-            if (salesByDate[localDate] !== undefined) {
-                salesByDate[localDate] += Number(o.total);
-            }
-        });
+        // Para filtros de un solo día mostramos el transcurso por hora.
+        const salesChartPoints = range.dayCount === 1
+            ? buildHourlySalesPoints(current, range)
+            : buildDailySalesPoints(current, range, analyticsSource, analyticsSummary);
 
-        const expensesByDate = buildExpensesByDate(chartDateKeys);
+        // Los gastos solo tienen desglose diario; para la vista horaria quedan en 0.
+        if (range.dayCount !== 1) {
+            const expensesByDate = buildExpensesByDate([...range.chartDateKeys]);
+            salesChartPoints.forEach((p) => { p.expenses = expensesByDate[p.key] || 0; });
+        }
 
-        const totalSales = current.reduce((a, o) => a + Number(o.total), 0);
-        const count = current.length;
-        const ticket = count > 0 ? totalSales / count : 0;
+        let totalSales;
+        let count;
+        let ticket;
+        let prevSales;
+        let prevCount;
+        let prevTicket;
+        let deliveryTotal;
+        let deliveryCount;
+        let paymentBreakdown;
+        let branchStats;
 
-        const prevSales = prev.reduce((a, o) => a + Number(o.total), 0);
-        const prevCount = prev.length;
-        const prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
+        if (analyticsSource === 'rpc' && analyticsSummary?.current && analyticsSummary?.prev) {
+            const cur = analyticsSummary.current;
+            const prevSummary = analyticsSummary.prev;
+            totalSales = cur.totalSales;
+            count = cur.orderCount;
+            ticket = count > 0 ? totalSales / count : 0;
+            prevSales = prevSummary.totalSales;
+            prevCount = prevSummary.orderCount;
+            prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
+            deliveryTotal = cur.deliveryTotal;
+            deliveryCount = cur.deliveryCount;
+            paymentBreakdown = { ...cur.paymentBreakdown };
+            const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
+            const branchNameLookup = {};
+            realBranches.forEach((b) => { branchNameLookup[b.id] = b.name || 'Sucursal sin nombre'; });
+            branchStats = (Array.isArray(cur.byBranch) ? cur.byBranch : [])
+                .map((b) => ({
+                    id: b.branchId,
+                    name: branchNameLookup[b.branchId] || (b.branchId === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada'),
+                    total: b.total,
+                    count: b.count,
+                }))
+                .filter((b) => b.total > 0 || b.count > 0)
+                .sort((a, b) => b.total - a.total);
+        } else {
+            totalSales = current.reduce((a, o) => a + Number(o.total), 0);
+            count = current.length;
+            ticket = count > 0 ? totalSales / count : 0;
+            prevSales = prev.reduce((a, o) => a + Number(o.total), 0);
+            prevCount = prev.length;
+            prevTicket = prevCount > 0 ? prevSales / prevCount : 0;
+
+            const deliveryOrdersCurrent = current.filter((o) => {
+                const fee = Number(o?.delivery_fee);
+                return Number.isFinite(fee) && fee > 0;
+            });
+            deliveryCount = deliveryOrdersCurrent.length;
+            deliveryTotal = deliveryOrdersCurrent.reduce((a, o) => a + Number(o.delivery_fee), 0);
+
+            paymentBreakdown = { cash: 0, card: 0, online: 0 };
+            current.forEach((o) => {
+                if (!o) return;
+                const breakdown = getOrderPaymentBreakdown(o);
+                paymentBreakdown.cash += breakdown.cash;
+                paymentBreakdown.card += breakdown.card;
+                paymentBreakdown.online += breakdown.online;
+            });
+
+            const bStats = {};
+            const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
+            realBranches.forEach((b) => { bStats[b.id] = { id: b.id, name: b.name || 'Sucursal sin nombre', total: 0, count: 0 }; });
+
+            current.forEach((o) => {
+                if (!o) return;
+                const bid = o.branch_id || '_sin_asignar_';
+                if (!bStats[bid]) {
+                    const branchName = realBranches.find((b) => b.id === bid)?.name || (bid === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada');
+                    bStats[bid] = { id: bid, name: branchName, total: 0, count: 0 };
+                }
+                bStats[bid].total += Number(o.total);
+                bStats[bid].count += 1;
+            });
+
+            branchStats = Object.values(bStats)
+                .filter((b) => b.total > 0 || b.count > 0)
+                .sort((a, b) => b.total - a.total);
+        }
 
         const totalNet = totalSales - (expensesData.total || 0);
         const prevNet = prevSales - (expensesData.prevTotal || 0);
 
-        const deliveryOrdersCurrent = current.filter((o) => {
-            const fee = Number(o?.delivery_fee);
-            return Number.isFinite(fee) && fee > 0;
-        });
-        const deliveryCount = deliveryOrdersCurrent.length;
-        const totalDeliveryFees = deliveryOrdersCurrent.reduce((a, o) => a + Number(o.delivery_fee), 0);
         const prevTotalDeliveryFees = prev
             .filter((o) => {
                 const fee = Number(o?.delivery_fee);
@@ -1072,70 +1164,43 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             })
             .reduce((a, o) => a + Number(o.delivery_fee), 0);
         const trendDelivery = prevTotalDeliveryFees === 0
-            ? totalDeliveryFees > 0 ? 100 : 0
-            : Math.round(((totalDeliveryFees - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100);
+            ? deliveryTotal > 0 ? 100 : 0
+            : Math.round(((deliveryTotal - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100);
 
-        const pb = { cash: 0, card: 0, online: 0 };
-        current.forEach((o) => {
-            if (!o) return;
-            const breakdown = getOrderPaymentBreakdown(o);
-            pb.cash += breakdown.cash;
-            pb.card += breakdown.card;
-            pb.online += breakdown.online;
-        });
-
-        const bStats = {};
-        const realBranches = safeBranches.filter((b) => b.id && b.id !== 'all');
-        realBranches.forEach(b => { bStats[b.id] = { id: b.id, name: b.name || 'Sucursal sin nombre', total: 0, count: 0 }; });
-        
-        current.forEach(o => {
-            if (!o) return;
-            const bid = o.branch_id || '_sin_asignar_';
-            if (!bStats[bid]) {
-                const branchName = realBranches.find(b => b.id === bid)?.name || (bid === '_sin_asignar_' ? 'Sin asignar' : 'Sucursal eliminada');
-                bStats[bid] = { id: bid, name: branchName, total: 0, count: 0 };
-            }
-            bStats[bid].total += Number(o.total);
-            bStats[bid].count += 1;
-        });
-
-        const sortedBranches = Object.values(bStats)
-            .filter(b => b.total > 0 || b.count > 0)
-            .sort((a, b) => b.total - a.total);
+        const prevCountForSignificance = analyticsSource === 'rpc' && analyticsSummary?.prev
+            ? analyticsSummary.prev.orderCount
+            : prevCount;
 
         return {
-            salesChartPoints: chartDateKeys.map((k) => ({
-                key: k,
-                label: formatSalesChartLabel(k, range.dayCount),
-                sales: Number(salesByDate[k]) || 0,
-                expenses: Number(expensesByDate[k]) || 0,
-            })),
+            salesChartPoints,
             kpis: {
                 total: totalSales,
                 count,
                 ticket,
-                deliveryTotal: totalDeliveryFees,
+                deliveryTotal,
                 deliveryCount,
-                net: totalNet
+                net: totalNet,
             },
             trends: {
-                total: prevSales === 0 ? (totalSales > 0 ? 100 : 0) : Math.round(((totalSales - prevSales) / prevSales) * 100),
-                count: prevCount === 0 ? (count > 0 ? 100 : 0) : Math.round(((count - prevCount) / prevCount) * 100),
-                ticket: prevTicket === 0 ? (ticket > 0 ? 100 : 0) : Math.round(((ticket - prevTicket) / prevTicket) * 100),
+                total: calcTrendPercent(totalSales, prevSales),
+                count: calcTrendPercent(count, prevCount),
+                ticket: calcTrendPercent(ticket, prevTicket),
                 delivery: trendDelivery,
-                expenses: !expensesData.prevTotal ? (expensesData.total > 0 ? 100 : 0) : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
-                net: !prevNet ? (totalNet !== 0 ? 100 : 0) : Math.round(((totalNet - prevNet) / prevNet) * 100)
+                expenses: !expensesData.prevTotal
+                    ? expensesData.total > 0 ? 100 : 0
+                    : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
+                net: calcTrendPercent(totalNet, prevNet),
             },
             trendSignificance: {
-                total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
-                net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                total: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
+                count: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
+                ticket: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
+                delivery: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
+                expenses: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
+                net: prevCountForSignificance >= MIN_SIGNIFICANT_PREV_ORDERS,
             },
-            paymentBreakdown: pb,
-            branchStats: sortedBranches
+            paymentBreakdown,
+            branchStats,
         };
     }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange, chartTab, safeBranches, expensesData, manualExpenseRows]);
 
@@ -1177,7 +1242,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     );
 
     const kpiSparklines = useMemo(() => {
-        const keys = reportRange.chartDateKeys || [];
+        const isHourly = reportRange.dayCount === 1;
+        const keys = isHourly
+            ? Array.from({ length: 24 }, (_, i) => i)
+            : reportRange.chartDateKeys || [];
         if (!keys.length) {
             return {
                 total: FLAT_SPARKLINE,
@@ -1191,9 +1259,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         }
 
         const bucket = () => Object.fromEntries(keys.map((k) => [k, 0]));
-        const ordersByDay = bucket();
-        const deliveryByDay = bucket();
-        const clientsByDay = bucket();
+        const ordersByKey = bucket();
+        const deliveryByKey = bucket();
+        const clientsByKey = bucket();
 
         const inRange = (d) => isInReportRange(d, reportRange);
         const tabMatch = (o) => {
@@ -1208,32 +1276,32 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             if (o.status === 'cancelled') continue;
             const d = new Date(o.created_at);
             if (!inRange(d) || !tabMatch(o)) continue;
-            const key = d.toLocaleDateString('en-CA');
-            if (ordersByDay[key] === undefined) continue;
-            ordersByDay[key] += 1;
+            const key = isHourly ? d.getHours() : d.toLocaleDateString('en-CA');
+            if (ordersByKey[key] === undefined) continue;
+            ordersByKey[key] += 1;
             const fee = Number(o.delivery_fee);
-            if (Number.isFinite(fee) && fee > 0) deliveryByDay[key] += fee;
+            if (Number.isFinite(fee) && fee > 0) deliveryByKey[key] += fee;
         }
 
         for (const c of clients || []) {
             if (!c) continue;
             const d = new Date(c.created_at || Date.now());
             if (!inRange(d)) continue;
-            const key = d.toLocaleDateString('en-CA');
-            if (clientsByDay[key] !== undefined) clientsByDay[key] += 1;
+            const key = isHourly ? d.getHours() : d.toLocaleDateString('en-CA');
+            if (clientsByKey[key] !== undefined) clientsByKey[key] += 1;
         }
 
         const toSeries = (obj) => keys.map((k) => obj[k] || 0);
         const salesSeries = salesChartPoints.map((p) => Number(p.sales) || 0);
         const expensesSeries = salesChartPoints.map((p) => Number(p.expenses) || 0);
-        const ordersSeries = toSeries(ordersByDay);
+        const ordersSeries = toSeries(ordersByKey);
 
         return {
             total: salesSeries,
             count: ordersSeries,
             ticket: keys.map((_, i) => (ordersSeries[i] > 0 ? salesSeries[i] / ordersSeries[i] : 0)),
-            delivery: toSeries(deliveryByDay),
-            clients: toSeries(clientsByDay),
+            delivery: toSeries(deliveryByKey),
+            clients: toSeries(clientsByKey),
             expenses: expensesSeries,
             net: salesSeries.map((v, i) => v - expensesSeries[i]),
         };
@@ -1351,16 +1419,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <CardContent className="space-y-4">
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Período</span>
-                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                    <div className="rpt-segmented">
                         {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
                             <Button variant="default"
                                 key={value}
                                 type="button"
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                    filterPeriod === value
-                                        ? 'bg-white text-[#2563eb] shadow-sm'
-                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
-                                }`}
+                                className={`rpt-segmented-btn ${filterPeriod === value ? 'active' : ''}`}
                                 onClick={() => setFilterPeriod(value)}
                             >
                                 {label}
@@ -1400,16 +1464,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Agrupar</span>
-                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                    <div className="rpt-segmented">
                         {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
                             <Button variant="default"
                                 key={value}
                                 type="button"
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                    expenseAgg === value
-                                        ? 'bg-white text-[#2563eb] shadow-sm'
-                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
-                                }`}
+                                className={`rpt-segmented-btn ${expenseAgg === value ? 'active' : ''}`}
                                 onClick={() => setExpenseAgg(value)}
                             >
                                 {label}
@@ -1420,16 +1480,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Tipo</span>
-                    <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                    <div className="rpt-segmented">
                         {expenseKindFilterOptions.map(({ value, label, count }) => (
                             <Button variant="default"
                                 key={value}
                                 type="button"
-                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                    expenseKindFilter === value
-                                        ? 'bg-white text-[#2563eb] shadow-sm'
-                                        : 'text-[#6b7280] hover:text-[#1a1a1a]'
-                                }`}
+                                className={`rpt-segmented-btn ${expenseKindFilter === value ? 'active' : ''}`}
                                 onClick={() => setExpenseKindFilter(value)}
                             >
                                 <span>{label}</span>
@@ -1713,38 +1769,24 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button variant="default" onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
-                            {exportLoading ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" aria-hidden />
-                                    Generando...
-                                </>
-                            ) : (
-                                <>
-                                    <Download size={16} aria-hidden />
-                                    Descargar Excel
-                                </>
-                            )}
-                        </Button>
                         {[
-                            { action: 'modal', label: 'Ver (modal)', Icon: Eye },
-                            { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink },
-                            { action: 'download', label: 'Descargar', Icon: Download },
-                        ].map(({ action, label, Icon }) => (
+                            { action: 'download', label: 'Descargar Excel', Icon: Download, variant: 'default' },
+                            { action: 'modal', label: 'Ver (modal)', Icon: Eye, variant: 'outline' },
+                            { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink, variant: 'outline' },
+                        ].map(({ action, label, Icon, variant }) => (
                             <Button
                                 key={action}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => runMonthlyManualExpensesExport(action)}
-                                disabled={exportExpensesLoading || !companyId}
+                                variant={variant}
+                                onClick={() => runMonthlyOrdersExport(action === 'download-raw' ? 'download' : action)}
+                                disabled={exportLoading || !companyId}
                                 className="gap-2"
                             >
-                                {exportExpensesLoading ? (
+                                {exportLoading ? (
                                     <Loader2 size={16} className="animate-spin" aria-hidden />
                                 ) : (
                                     <Icon size={16} aria-hidden />
                                 )}
-                                <span>{exportExpensesLoading ? 'Generando...' : label}</span>
+                                <span>{exportLoading ? 'Generando...' : label}</span>
                             </Button>
                         ))}
                     </div>
@@ -1890,13 +1932,13 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
                                 </div>
                                 <div className="space-y-2">
-                                    {peakHourDistribution.map((b) => (
-                                        <div key={b.label} className="flex items-center gap-3">
+                                    {peakHourDistribution.map((b, idx) => (
+                                        <div key={`${b.label}-${b.pct}`} className="flex items-center gap-3">
                                             <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
                                             <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
                                                 <div
-                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
-                                                    style={{ width: `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75 }}
+                                                    className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
+                                                    style={{ '--rpt-bar-width': `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75, animationDelay: `${idx * 60}ms` }}
                                                 />
                                             </div>
                                             <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{b.count}</span>
@@ -1926,14 +1968,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         const pct = Math.round((p.qty / maxQty) * 100);
                                         const opacity = Math.max(0.25, pct / 100);
                                         return (
-                                            <div key={p.name} className="flex items-center gap-4">
+                                            <div key={`${p.name}-${pct}`} className="flex items-center gap-4">
                                                 <span className="w-7 text-sm font-black text-[#2563eb]">#{i + 1}</span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
                                                     <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
                                                         <div
-                                                            className="h-full rounded-full transition-all"
-                                                            style={{ width: `${pct}%`, background: '#2563eb', opacity }}
+                                                            className="h-full rounded-full rpt-animate-bar"
+                                                            style={{ '--rpt-bar-width': `${pct}%`, background: '#2563eb', opacity, animationDelay: `${i * 80}ms` }}
                                                         />
                                                     </div>
                                                 </div>
@@ -1964,12 +2006,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 currency={currency}
                             />
                             <div className="space-y-2.5">
-                                {PAYMENT_META.map((pm) => {
+                                {PAYMENT_META.map((pm, idx) => {
                                     const value = paymentBreakdown[pm.key] || 0;
                                     const pct = kpis.total > 0 ? Math.round((value / kpis.total) * 100) : 0;
                                     const Icon = pm.Icon;
                                     return (
-                                        <div key={pm.key} className="space-y-1.5">
+                                        <div key={`${pm.key}-${pct}`} className="space-y-1.5">
                                             <div className="flex items-center justify-between text-sm">
                                                 <div className="flex items-center gap-2">
                                                     <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${pm.bg}`}>
@@ -1983,7 +2025,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                 </div>
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
-                                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pm.color }} />
+                                                <div
+                                                    className="h-full rounded-full rpt-animate-bar"
+                                                    style={{ '--rpt-bar-width': `${pct}%`, background: pm.color, animationDelay: `${idx * 80}ms` }}
+                                                />
                                             </div>
                                         </div>
                                     );
@@ -2003,18 +2048,38 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             <div className="flex flex-col items-center gap-4">
                                 <div className="relative h-40 w-40 shrink-0 overflow-visible">
                                     <PieChart width={152} height={152}>
+                                        <RechartsTooltip
+                                            content={({ active, payload }) => {
+                                                if (!active || !payload?.length) return null;
+                                                const row = payload[0]?.payload;
+                                                if (!row) return null;
+                                                const pct = newClientsInfo.total > 0 ? Math.round((row.value / newClientsInfo.total) * 100) : 0;
+                                                return (
+                                                    <div className="rounded-lg bg-[#1a1a1a] px-3 py-2 text-xs shadow-lg">
+                                                        <p className="mb-1 font-semibold text-white">{row.name}</p>
+                                                        <p className="font-bold text-white">{row.value} clientes ({pct}%)</p>
+                                                    </div>
+                                                );
+                                            }}
+                                        />
                                         <Pie
                                             data={clientsDonutData}
                                             cx={76}
                                             cy={76}
                                             innerRadius={52}
-                                            outerRadius={70}
+                                            outerRadius={68}
                                             dataKey="value"
                                             stroke="none"
-                                            isAnimationActive={false}
+                                            paddingAngle={0}
+                                            animationDuration={500}
+                                            animationEasing="ease-out"
+                                            activeIndex={activeClientIndex}
+                                            activeShape={ActiveClientSector}
+                                            onMouseEnter={(_, index) => setActiveClientIndex(index)}
+                                            onMouseLeave={() => setActiveClientIndex(null)}
                                         >
                                             {clientsDonutData.map((entry) => (
-                                                <Cell key={entry.name} fill={entry.color} />
+                                                <Cell key={entry.name} fill={entry.color} stroke="none" />
                                             ))}
                                         </Pie>
                                     </PieChart>
@@ -2043,10 +2108,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {branchStats.map((b) => {
+                                {branchStats.map((b, idx) => {
                                     const pct = kpis.total > 0 ? Math.round((b.total / kpis.total) * 100) : 0;
                                     return (
-                                        <div key={b.id} className="space-y-1.5">
+                                        <div key={`${b.id}-${pct}`} className="space-y-1.5">
                                             <div className="flex items-center justify-between gap-3 text-sm">
                                                 <span className="truncate font-medium text-[#14161a]">{b.name}</span>
                                                 <div className="shrink-0 text-right">
@@ -2056,8 +2121,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
                                                 <div
-                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
-                                                    style={{ width: `${pct}%`, opacity: 0.25 + (pct / 100) * 0.75 }}
+                                                    className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
+                                                    style={{ '--rpt-bar-width': `${pct}%`, opacity: 0.25 + (pct / 100) * 0.75, animationDelay: `${idx * 80}ms` }}
                                                 />
                                             </div>
                                         </div>

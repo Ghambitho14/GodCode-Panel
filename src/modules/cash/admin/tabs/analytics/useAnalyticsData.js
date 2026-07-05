@@ -67,6 +67,10 @@ export function useAnalyticsData({
 		let cancelled = false;
 		setLoadingAnalyticsOrders(true);
 		(async () => {
+			let rpcSummary = null;
+			let rpcError = null;
+			let rpcNotGranted = false;
+
 			try {
 				const startIso = reportRange.start?.toISOString() ?? null;
 				const endIso = reportRange.end?.toISOString() ?? null;
@@ -93,17 +97,21 @@ export function useAnalyticsData({
 				});
 
 				if (cancelled) return;
+				rpcSummary = summary;
+				rpcError = error;
+				rpcNotGranted = notGranted;
+			} catch (e) {
+				if (!cancelled) rpcError = e;
+			}
 
-				if (summary && !error && !notGranted) {
-					setAnalyticsSummary(summary);
-					setAnalyticsSource('rpc');
-					setAnalyticsOrders([]);
-					return;
-				}
-
+			try {
 				const fallbackStartIso =
-					prevStartIso ?? reportRange.fetchStartIso ?? startIso ?? null;
-				const fallbackEndIso = endIso ?? reportRange.fetchEndIso ?? null;
+					reportRange.prevStart?.toISOString()
+					?? reportRange.fetchStartIso
+					?? reportRange.start?.toISOString()
+					?? null;
+				const fallbackEndIso =
+					reportRange.end?.toISOString() ?? reportRange.fetchEndIso ?? null;
 
 				let q = supabase
 					.from(TABLES.orders)
@@ -122,15 +130,26 @@ export function useAnalyticsData({
 					q.order('created_at', { ascending: false }),
 				);
 				if (cancelled) return;
-				setAnalyticsSummary(null);
-				setAnalyticsSource('fallback');
+
 				setAnalyticsOrders(data);
+				if (rpcSummary && !rpcError && !rpcNotGranted) {
+					setAnalyticsSummary(rpcSummary);
+					setAnalyticsSource('rpc');
+				} else {
+					setAnalyticsSummary(null);
+					setAnalyticsSource('fallback');
+				}
 			} catch (e) {
 				console.error('Error fetching analytics orders:', e);
 				if (!cancelled) {
-					setAnalyticsSummary(null);
-					setAnalyticsSource('none');
 					setAnalyticsOrders([]);
+					if (rpcSummary && !rpcError && !rpcNotGranted) {
+						setAnalyticsSummary(rpcSummary);
+						setAnalyticsSource('rpc');
+					} else {
+						setAnalyticsSummary(null);
+						setAnalyticsSource('none');
+					}
 				}
 			} finally {
 				if (!cancelled) {

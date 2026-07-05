@@ -74,13 +74,14 @@ describe('report charts smoke test', () => {
 		expect(stroke).toBe('#dc2626');
 	});
 
-	it('renders ReportSparkline flat line with insufficient data', () => {
+	it('renders ReportSparkline single value as dot', () => {
 		const { container } = render(
 			<div style={{ width: 200, height: 40 }}>
 				<ReportSparkline values={[5]} trend={0} showTrend height={40} />
 			</div>,
 		);
-		expect(container.querySelector('.recharts-surface')).not.toBeNull();
+		expect(container.querySelector('.recharts-surface')).toBeNull();
+		expect(container.querySelector('[style*="border-radius: 9999px"]') || container.querySelector('[style*="border-radius"]')).not.toBeNull();
 	});
 
 	it('renders ReportTopProductsChart', () => {

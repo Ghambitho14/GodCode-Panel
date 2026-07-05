@@ -24,16 +24,19 @@ export default function ReportTopProductsChart({ products = [], currency = 'CLP'
 
   return (
     <div style={{ width: '100%', minHeight: height }} className="space-y-3 rounded-xl border border-[#e5e5ea] bg-white p-3">
-      {data.map((item) => {
+      {data.map((item, idx) => {
         const pct = Math.max(5, Math.round(item.pct * 100));
         return (
-          <div key={item.name} className="space-y-1.5">
+          <div key={`${item.name}-${pct}`} className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="max-w-[16rem] truncate font-semibold text-[#1a1a1a]">{item.name}</span>
               <span className="text-xs font-bold text-[#6b7280]">{item.qty} · {formatMoney(item.revenue, { currency })}</span>
             </div>
-            <div className="h-3 rounded-full bg-[#f5f5f7]">
-              <div className="h-3 rounded-full" style={{ width: `${pct}%`, background: item.fill }} />
+            <div className="h-3 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+              <div
+                className="h-full rounded-full rpt-animate-bar"
+                style={{ '--rpt-bar-width': `${pct}%`, background: item.fill, animationDelay: `${idx * 80}ms` }}
+              />
             </div>
           </div>
         );

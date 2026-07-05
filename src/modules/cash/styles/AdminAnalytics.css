@@ -1384,6 +1384,7 @@
     }
 }
 
+.admin-layout .rpt-segmented,
 .admin-layout .rpt-chart-kind {
     display: inline-flex;
     align-items: center;
@@ -1393,6 +1394,7 @@
     background: var(--admin-icon-bg, #f0f2f6);
 }
 
+.admin-layout .rpt-segmented-btn,
 .admin-layout .rpt-chart-kind-btn {
     display: inline-flex;
     align-items: center;
@@ -1408,25 +1410,30 @@
     transition: background 0.18s ease, color 0.18s ease;
 }
 
+.admin-layout .rpt-segmented-btn:hover:not(.active),
 .admin-layout .rpt-chart-kind-btn:hover:not(.active) {
     color: var(--admin-text, #1a1d21);
     background: color-mix(in srgb, var(--admin-card-bg, #fff) 70%, transparent);
 }
 
+.admin-layout .rpt-segmented-btn.active,
 .admin-layout .rpt-chart-kind-btn.active {
     background: color-mix(in srgb, var(--accent-primary, #2563eb) 11%, var(--admin-card-bg, #fff));
     color: var(--accent-primary, #2563eb);
     font-weight: 700;
 }
 
+.admin-layout .rpt-segmented-label,
 .admin-layout .rpt-chart-kind-label {
     white-space: nowrap;
 }
 
 @media (max-width: 520px) {
+    .admin-layout .rpt-segmented-label,
     .admin-layout .rpt-chart-kind-label {
         display: none;
     }
+    .admin-layout .rpt-segmented-btn,
     .admin-layout .rpt-chart-kind-btn {
         padding: 8px 10px;
     }
@@ -2331,4 +2338,26 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Barras de Hora pico / Top productos */
+.admin-layout .rpt-animate-bar {
+    width: 0;
+    animation: rpt-bar-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes rpt-bar-grow {
+    from { width: 0; }
+    to { width: var(--rpt-bar-width, 0%); }
+}
+
+/* Evitar outline de focus-visible en charts de Recharts */
+.admin-layout .recharts-wrapper:focus,
+.admin-layout .recharts-wrapper:focus-visible,
+.admin-layout .recharts-surface:focus,
+.admin-layout .recharts-surface:focus-visible,
+.admin-layout .recharts-surface *:focus,
+.admin-layout .recharts-surface *:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
 }

@@ -47,3 +47,8 @@
     overflow: hidden;
   }
 }
+
+/* Recharts tooltips deben quedar por encima de overlays/centros absolutos */
+.recharts-tooltip-wrapper {
+  z-index: 100 !important;
+}

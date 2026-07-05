@@ -960,11 +960,14 @@
     text-align: left;
     cursor: pointer;
     border: 1px solid var(--admin-border);
-    transition: border-color 0.15s ease;
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text);
+    transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .admin-layout .inventory-recipe-card:hover {
     border-color: var(--admin-accent);
+    background: var(--admin-icon-bg, #f8fafc);
 }
 
 .admin-layout .inventory-recipe-card strong {

@@ -94,7 +94,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				role="tablist"
 				aria-label="Secciones de opciones de menú"
 			>
-				<Button variant="default"
+				<Button variant="ghost"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-delivery"
@@ -106,7 +106,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 					<Truck size={18} strokeWidth={1.65} aria-hidden />
 					<span>Envío y delivery</span>
 				</Button>
-				<Button variant="default"
+				<Button variant="ghost"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-carousel"
@@ -118,7 +118,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 					<Images size={18} strokeWidth={1.65} aria-hidden />
 					<span>Carrusel</span>
 				</Button>
-				<Button variant="default"
+				<Button variant="ghost"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-orders-view"
@@ -201,9 +201,9 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 								{ordersPanelDirty ? ' Pulsa Guardar para aplicar en esta sucursal.' : null}
 							</p>
 							<div className="admin-menu-options-orders-view__actions">
-								<Button variant="default"
-									type="button"
-									className="admin-menu-options-orders-view__save"
+							<Button variant="default"
+								type="button"
+								className="admin-menu-options-orders-view__save"
 									onClick={() => void handleSaveOrdersPanel()}
 									disabled={!ordersPanelDirty || ordersViewModeSaving}
 								>

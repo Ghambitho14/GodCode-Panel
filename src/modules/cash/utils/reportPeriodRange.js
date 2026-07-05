@@ -137,15 +137,15 @@ export function resolveReportPeriodRange(periodValue, now = new Date()) {
 		const chartStart = addLocalDays(startOfLocalDay(now), -364);
 		const chartEnd = addLocalDays(startOfLocalDay(now), 1);
 		return {
-			start: null,
-			end: null,
+			start: chartStart,
+			end: chartEnd,
 			prevStart: null,
 			prevEnd: null,
 			chartDateKeys: chartKeysBetween(chartStart, chartEnd),
 			dayCount: 365,
 			displayLabel: 'Todo',
-			fetchStartIso: null,
-			fetchEndIso: null,
+			fetchStartIso: chartStart.toISOString(),
+			fetchEndIso: chartEnd.toISOString(),
 			hasComparison: false,
 		};
 	}

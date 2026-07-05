@@ -94,7 +94,8 @@ function ReportSalesChart({
 		[points],
 	);
 	const ventasPorDia = useMemo(() => mapChartData(points), [pointsKey]);
-	const chartKind = kind === 'area' ? 'area' : 'bar';
+	const singlePoint = ventasPorDia.length === 1 ? ventasPorDia[0] : null;
+	const chartKind = singlePoint ? 'bar' : kind === 'area' ? 'area' : 'bar';
 	const barFill = kind === 'bar-gradient' ? `url(#${gradientId}-bar)` : BRAND;
 
 	const renderTooltip = useCallback((props) => <SalesTooltipBody {...props} />, []);
@@ -179,6 +180,7 @@ function ReportSalesChart({
 							dataKey="ventas"
 							fill={barFill}
 							radius={BAR_RADIUS}
+							maxBarSize={singlePoint ? 64 : undefined}
 							isAnimationActive={false}
 						/>
 					</BarChart>
