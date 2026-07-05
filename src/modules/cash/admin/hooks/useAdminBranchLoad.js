@@ -22,14 +22,6 @@ export function useAdminBranchLoadEffects({
 }) {
 	const loadPanelDataRef = useRef(loadPanelData);
 	const selectedBranchIdRef = useRef(selectedBranchId);
-	const effectRenderCountRef = useRef(0);
-	effectRenderCountRef.current += 1;
-	console.log(
-		'[useAdminBranchLoadEffects] render #%s selectedBranchId=%s activeTab=%s',
-		effectRenderCountRef.current,
-		selectedBranchId,
-		activeTab,
-	);
 
 	useEffect(() => {
 		loadPanelDataRef.current = loadPanelData;
@@ -49,8 +41,8 @@ export function useAdminBranchLoadEffects({
 			inventorySummary: false,
 		};
 		setSelectedClient(null);
-		setSelectedClientOrders([]);
-		setHistoryOrders([]);
+		setSelectedClientOrders((prev) => (prev.length === 0 ? prev : []));
+		setHistoryOrders((prev) => (prev.length === 0 ? prev : []));
 	}, [
 		selectedBranchId,
 		loadGenerationRef,

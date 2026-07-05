@@ -2,8 +2,8 @@ import React, { useId, useMemo, useState } from 'react';
 import { area, curveMonotoneX, line, scaleLinear, scalePoint, max } from 'd3';
 import { formatMoney } from '@/shared/utils/money';
 
-const RPT_ACCENT = '#e8483e';
-const RPT_ACCENT_LIGHT = '#ff5879';
+const RPT_ACCENT = '#2563eb';
+const RPT_ACCENT_LIGHT = '#60a5fa';
 
 /**
  * Gráfica de área — ventas por día con gradiente coral y tooltip al hover.

@@ -1,7 +1,7 @@
 import React, { useId, useMemo } from 'react';
 import { area, curveMonotoneX, line, scaleLinear, max } from 'd3';
 
-const RPT_ACCENT = '#e8483e';
+const RPT_ACCENT = '#2563eb';
 
 /**
  * Micro-sparkline para tarjetas KPI del panel de reportes.

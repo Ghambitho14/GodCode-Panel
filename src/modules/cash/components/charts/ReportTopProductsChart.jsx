@@ -3,11 +3,11 @@ import { formatMoney } from '@/shared/utils/money';
 
 function intensityColor(pct) {
   // más oscuro/saturado = mayor venta, más claro = menor
-  if (pct >= 0.9) return '#c31d2d';
-  if (pct >= 0.7) return '#d63031';
-  if (pct >= 0.5) return '#e8483e';
-  if (pct >= 0.3) return '#f36f65';
-  return '#ff9e97';
+  if (pct >= 0.9) return '#1d4ed8';
+  if (pct >= 0.7) return '#2563eb';
+  if (pct >= 0.5) return '#3b82f6';
+  if (pct >= 0.3) return '#60a5fa';
+  return '#93c5fd';
 }
 
 export default function ReportTopProductsChart({ products = [], currency = 'CLP', height = 260 }) {

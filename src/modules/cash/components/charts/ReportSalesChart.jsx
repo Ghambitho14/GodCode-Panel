@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { formatMoney, formatMoneyCompact } from '@/shared/utils/money';
 
-const BRAND = '#e8483e';
+const BRAND = '#2563eb';
 const CHART_MARGIN = { top: 8, right: 12, left: 0, bottom: 0 };
 const AXIS_TICK = { fontSize: 11, fill: '#9ca3af' };
 const AXIS_LINE = { stroke: '#ededf0' };
@@ -85,14 +85,6 @@ function ReportSalesChart({
 	height = 400,
 	showHeader = false,
 }) {
-	const renderCountRef = useRef(0);
-	renderCountRef.current += 1;
-	console.log(
-		'[ReportSalesChart] render #%s kind=%s points.length=%s',
-		renderCountRef.current,
-		kind,
-		points?.length,
-	);
 	const containerRef = useRef(null);
 	const chartWidth = useChartWidth(containerRef);
 	const gradientIdRef = useRef(safeSvgId('ventas'));

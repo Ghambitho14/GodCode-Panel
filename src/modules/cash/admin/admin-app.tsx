@@ -43,6 +43,7 @@ import { applyDocumentFavicon } from "@/shared/utils/documentFavicon";
 interface CompanyProfile {
 	country?: string | null;
 	currency?: string | null;
+	custom_domain?: string | null;
 	integration_settings?: unknown;
 	planFeatures?: unknown;
 }
@@ -103,14 +104,6 @@ export function AdminApp({
 	adminShortcutsEnabled: adminShortcutsEnabledProp,
 	companyProfile: companyProfileProp = null,
 }: AdminAppProps) {
-	const adminAppRenderCountRef = useRef(0);
-	adminAppRenderCountRef.current += 1;
-	console.log(
-		'[AdminApp] render #%s companyId=%s companyName=%s',
-		adminAppRenderCountRef.current,
-		companyIdProp,
-		companyNameProp,
-	);
 	const navigate = useNavigate();
 	const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(() =>
 		companyIdProp?.trim() ? companyIdProp.trim() : null,
@@ -149,6 +142,9 @@ export function AdminApp({
 		setResolvedCompanyProfile({
 			country: typeof co.country === "string" ? co.country : null,
 			currency: typeof co.currency === "string" ? co.currency : null,
+			custom_domain: typeof co.custom_domain === "string" && co.custom_domain.trim()
+				? co.custom_domain.trim()
+				: null,
 			integration_settings: co.integration_settings ?? null,
 			planFeatures: extractPlanFeatures(co.plans),
 		});
@@ -179,7 +175,7 @@ export function AdminApp({
 			});
 			void supabase
 				.from(TABLES.companies)
-				.select("theme_config, country, currency, integration_settings, plan_id, plans(features), public_slug")
+				.select("theme_config, country, currency, custom_domain, integration_settings, plan_id, plans(features), public_slug")
 				.eq("id", cid)
 				.maybeSingle()
 				.then(({ data: co }) => {
@@ -228,7 +224,7 @@ export function AdminApp({
 
 			const { data: co } = await supabase
 				.from(TABLES.companies)
-				.select("name, theme_config, country, currency, integration_settings, plan_id, plans(features), public_slug")
+				.select("name, theme_config, country, currency, custom_domain, integration_settings, plan_id, plans(features), public_slug")
 				.eq("id", cid)
 				.maybeSingle();
 
@@ -272,9 +268,10 @@ export function AdminApp({
 		() => resolveStorefrontMenuUrl({
 			explicitUrl: storefrontMenuUrl,
 			publicSlug: resolvedPublicSlug,
+			customDomain: effectiveCompanyProfile?.custom_domain,
 			integrationSettings: effectiveCompanyProfile?.integration_settings,
 		}),
-		[storefrontMenuUrl, resolvedPublicSlug, effectiveCompanyProfile?.integration_settings],
+		[storefrontMenuUrl, resolvedPublicSlug, effectiveCompanyProfile?.custom_domain, effectiveCompanyProfile?.integration_settings],
 	);
 
 	useEffect(() => {

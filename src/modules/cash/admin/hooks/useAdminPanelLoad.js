@@ -71,7 +71,7 @@ export function useAdminPanelLoad({
 	const [inventoryBranchRows, setInventoryBranchRows] = useState(/** @type {any[]} */ ([]));
 
 	const lastDataRefreshAtRef = useRef(/** @type {number | null} */ (null));
-	const loadGenerationRef = createLoadGenerationRef();
+	const loadGenerationRef = useRef(createLoadGenerationRef()).current;
 	const orderMoveInFlightRef = useRef(/** @type {Set<string>} */ (new Set()));
 	const fetchOrdersRef = useRef(/** @type {(opts?: { force?: boolean }) => Promise<void>} */ (async () => {}));
 	const loadDataRef = useRef(/** @type {(isRefresh?: boolean, scope?: string) => Promise<void>} */ (async () => {}));

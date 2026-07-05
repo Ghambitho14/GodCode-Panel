@@ -1,7 +1,21 @@
+const TENANT_PROTOCOL = (
+	import.meta.env.VITE_PUBLIC_TENANT_PROTOCOL
+	|| import.meta.env.VITE_TENANT_PROTOCOL
+	|| import.meta.env.NEXT_PUBLIC_TENANT_PROTOCOL
+	|| "https"
+).replace(/:$/, "");
+
+const TENANT_BASE_DOMAIN = (
+	import.meta.env.VITE_PUBLIC_TENANT_BASE_DOMAIN
+	|| import.meta.env.VITE_TENANT_BASE_DOMAIN
+	|| import.meta.env.NEXT_PUBLIC_TENANT_BASE_DOMAIN
+	|| "www.godcode.me"
+).replace(/\/+$/, "");
+
 const STOREFRONT_ORIGIN = (
 	import.meta.env.VITE_PUBLIC_STOREFRONT_ORIGIN
 	|| import.meta.env.VITE_STOREFRONT_ORIGIN
-	|| "https://www.godcode.me"
+	|| `${TENANT_PROTOCOL}://${TENANT_BASE_DOMAIN}`
 ).replace(/\/+$/, "");
 
 function readUrlCandidate(value: unknown): string | null {
@@ -39,25 +53,49 @@ function extractFromIntegration(raw: unknown): string | null {
 	return null;
 }
 
+function extractCustomDomain(raw: unknown): string | null {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+	const root = raw as Record<string, unknown>;
+	for (const key of ["customDomain", "custom_domain", "domain", "publicDomain", "public_domain"]) {
+		const value = root[key];
+		if (typeof value !== "string") continue;
+		const trimmed = value.trim();
+		if (!trimmed) continue;
+		try {
+			const parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+			return parsed.href.replace(/\/+$/, "");
+		} catch {
+			/* no es un dominio válido */
+		}
+	}
+	return null;
+}
+
 function buildUrlFromSlug(slug: string): string {
-	const encoded = encodeURIComponent(slug);
+	const normalized = slug.trim().toLowerCase().replace(/\s+/g, "-");
+	const encoded = encodeURIComponent(normalized);
 	if (STOREFRONT_ORIGIN.includes("{slug}")) {
 		return STOREFRONT_ORIGIN.replace("{slug}", encoded);
 	}
-	try {
-		const origin = new URL(STOREFRONT_ORIGIN);
-		if (origin.hostname === "godcode.me" || origin.hostname === "www.godcode.me") {
-			return `https://${slug}.godcode.me`;
-		}
-	} catch {
-		/* fallback abajo */
-	}
 	return `${STOREFRONT_ORIGIN}/${encoded}`;
+}
+
+function readCustomDomain(value: unknown): string | null {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	try {
+		const parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+		return parsed.href.replace(/\/+$/, "");
+	} catch {
+		return null;
+	}
 }
 
 export function resolveStorefrontMenuUrl(options: {
 	explicitUrl?: string | null;
 	publicSlug?: string | null;
+	customDomain?: string | null;
 	integrationSettings?: unknown;
 } = {}): string | null {
 	const explicit = readUrlCandidate(options.explicitUrl);
@@ -65,6 +103,9 @@ export function resolveStorefrontMenuUrl(options: {
 
 	const fromIntegration = extractFromIntegration(options.integrationSettings);
 	if (fromIntegration) return fromIntegration;
+
+	const customDomain = readCustomDomain(options.customDomain) || extractCustomDomain(options.integrationSettings);
+	if (customDomain) return customDomain;
 
 	const slug = String(
 		options.publicSlug

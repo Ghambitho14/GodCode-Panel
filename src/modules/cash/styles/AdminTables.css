@@ -17,7 +17,7 @@
 }
 
 .admin-layout .table-tile--retiro {
-	border-color: color-mix(in srgb, #ff5879 55%, transparent);
+	border-color: color-mix(in srgb, #2563eb 55%, transparent);
 }
 
 .admin-layout .table-tile--moto {
@@ -204,8 +204,8 @@
 }
 
 .admin-layout .table-tile--retiro .table-tile__kind-icon {
-	color: #ff5879;
-	background: color-mix(in srgb, #ff5879 22%, #ccc6b8);
+	color: #2563eb;
+	background: color-mix(in srgb, #2563eb 22%, #ccc6b8);
 }
 
 .admin-layout .table-tile--mesa .table-tile__kind-icon {
@@ -234,9 +234,9 @@
 
 .admin-layout .table-tile--retiro .table-tile__seq,
 .admin-layout .table-tile--retiro .table-tile__tool-btn {
-	color: #ff5879;
-	background: color-mix(in srgb, #ff5879 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #ff5879 28%, transparent);
+	color: #2563eb;
+	background: color-mix(in srgb, #2563eb 18%, #f6f6f6);
+	border-color: color-mix(in srgb, #2563eb 28%, transparent);
 }
 
 .admin-layout .table-tile--mesa .table-tile__seq,

@@ -8,6 +8,9 @@ import { invalidateBranchOrders, invalidateBranchInventory } from '../../service
 
 const ORDERS_RECONNECT_FETCH_MIN_MS = 15_000;
 
+/** Tabs que no necesitan actualizaciones en tiempo real de pedidos. */
+const TABS_WITHOUT_ORDERS_REALTIME = new Set(['analytics', 'local_expenses']);
+
 /** @param {unknown} row */
 function orderRealtimeBranchId(row) {
 	if (!row || typeof row !== 'object') return null;
@@ -28,6 +31,7 @@ export function useAdminOrdersRealtime({
 	refreshInventoryBranch,
 	setOrders,
 	fetchOrdersRef,
+	activeTab,
 }) {
 	const inventoryRefreshTimerRef = useRef(null);
 	const handleRealtimeEventRef = useRef(/** @type {(payload: unknown) => void} */ (() => {}));
@@ -132,6 +136,7 @@ export function useAdminOrdersRealtime({
 	useEffect(() => {
 		if (!selectedBranchId) return;
 		if (!showOnlineOrdersQueue) return;
+		if (activeTab && TABS_WITHOUT_ORDERS_REALTIME.has(activeTab)) return;
 
 		const handleOrdersRealtimeStatus = (status) => {
 			if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -181,7 +186,7 @@ export function useAdminOrdersRealtime({
 			}
 			closeMonitoredChannel(supabase, channel);
 		};
-	}, [selectedBranchId, showOnlineOrdersQueue, fetchOrdersRef]);
+	}, [selectedBranchId, showOnlineOrdersQueue, fetchOrdersRef, activeTab, companyId]);
 
 	return { handleRealtimeEvent };
 }

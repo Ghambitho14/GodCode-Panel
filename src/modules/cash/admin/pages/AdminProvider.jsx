@@ -166,44 +166,6 @@ export const AdminProvider = ({
 	/** Compat: el botón "actualizar" y reintentos siguen llamando refreshBranches(). */
 	const refreshBranches = refetchBranches;
 
-	const adminProviderRenderCountRef = useRef(0);
-	const adminProviderPrevInputsRef = useRef(null);
-	adminProviderRenderCountRef.current += 1;
-	const adminProviderInputs = {
-		activeTab,
-		selectedBranchId: selectedBranch?.id,
-		selectedBranchRef: selectedBranch,
-		locationSelectedBranchId: locationSelectedBranch?.id,
-		ordersLength: orders.length,
-		ordersRef: orders,
-		isAllBranchView,
-	};
-	if (adminProviderPrevInputsRef.current) {
-		const prev = adminProviderPrevInputsRef.current;
-		const changed = Object.keys(adminProviderInputs).filter(
-			(k) => adminProviderInputs[k] !== prev[k],
-		);
-		if (changed.length > 0) {
-			console.log(
-				'[AdminProvider] render #%s changed: %s',
-				adminProviderRenderCountRef.current,
-				changed.join(', '),
-			);
-		}
-	}
-	adminProviderPrevInputsRef.current = adminProviderInputs;
-	console.log(
-		'[AdminProvider] render #%s activeTab=%s selectedBranch.id=%s isAllBranchView=%s orders.length=%s',
-		adminProviderRenderCountRef.current,
-		activeTab,
-		selectedBranch?.id,
-		isAllBranchView,
-		orders.length,
-	);
-	if (adminProviderRenderCountRef.current % 100 === 0) {
-		console.trace('[AdminProvider] render trace at #' + adminProviderRenderCountRef.current);
-	}
-
 	const normalizedPanelAccess = useMemo(
 		() => normalizePanelAccess(panelAccess),
 		[panelAccess]
@@ -571,6 +533,7 @@ export const AdminProvider = ({
 		refreshInventoryBranch,
 		setOrders,
 		fetchOrdersRef,
+		activeTab,
 	});
 
 	useAdminBranchLoadEffects({

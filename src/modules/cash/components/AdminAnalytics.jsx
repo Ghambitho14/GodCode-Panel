@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
@@ -68,15 +68,18 @@ const PAYMENT_META = [
 ];
 
 const KPI_META = [
-    { key: 'total', label: 'Ventas', Icon: DollarSign, color: '#e8483e' },
+    { key: 'total', label: 'Ventas', Icon: DollarSign, color: '#2563eb' },
     { key: 'count', label: 'Pedidos', Icon: ShoppingBag, color: '#2563eb' },
     { key: 'ticket', label: 'Ticket prom.', Icon: TrendingUp, color: '#7c3aed' },
-    { key: 'deliveryTotal', label: 'Delivery', Icon: Truck, color: '#ea7b4b' },
+    { key: 'deliveryTotal', label: 'Delivery', Icon: Truck, color: '#2563eb' },
     { key: 'clients', label: 'Nuevos clientes', Icon: Users, color: '#16a34a' },
     { key: 'expenses', label: 'Gastos', Icon: Wallet, color: '#dc2626' },
 ];
 
 const FLAT_SPARKLINE = [0, 0, 0];
+
+/** Mínimo de pedidos en el período anterior para considerar significativa la comparación de trends. */
+const MIN_SIGNIFICANT_PREV_ORDERS = 5;
 
 function calcTrendPercent(current, prev) {
     const c = Number(current);
@@ -176,11 +179,22 @@ function resolveExpenseReferenceYear(analyticsDate, reportRange) {
     return new Date().getFullYear();
 }
 
-const TrendBadge = ({ value }) => {
+const TrendBadge = ({ value, isSignificant = true }) => {
     if (value == null || !Number.isFinite(value)) {
         return <Badge variant="outline" className="text-[10px] font-bold text-[#6b7280]">—</Badge>;
     }
     if (value === 0) return <Badge variant="outline" className="gap-0.5 text-[10px] font-bold">0%</Badge>;
+    if (!isSignificant) {
+        return (
+            <Badge
+                variant="outline"
+                className="gap-0.5 text-[10px] font-bold text-[#6b7280]"
+                title="Período anterior con pocos datos. Comparar con precaución."
+            >
+                {Math.abs(value)}%
+            </Badge>
+        );
+    }
     const pos = value > 0;
     return (
         <Badge variant={pos ? 'success' : 'danger'} className="gap-0.5 text-[10px] font-bold">
@@ -289,32 +303,27 @@ function resolveTopProductsRange(reportRange) {
     return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend }) => {
-    const Icon = meta.Icon;
+const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend, trendSignificant = true }) => {
     return (
-        <Card className="flex flex-col p-6 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]">
-            <div className="mb-4 flex items-start justify-between gap-3">
-                <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: `${meta.color}1A`, color: meta.color }}
-                >
-                    <Icon size={20} />
-                </div>
-                {showTrend ? <TrendBadge value={trend} /> : null}
+        <Card className="flex flex-col p-5 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]">
+            <div className="flex items-start justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">{meta.label}</p>
+                {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} /> : null}
             </div>
-            <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.03em] text-[#9ca3af]">{meta.label}</p>
+            <div className="mt-1">
                 {loading ? <Skeleton className="h-8 w-28" /> : (
-                    <p className="text-[26px] font-bold leading-tight tracking-tight text-[#14161a]">{formatKpiValue(meta.key, value, fmt)}</p>
+                    <p className="text-[28px] font-bold leading-tight tracking-tight text-[#14161a]">{formatKpiValue(meta.key, value, fmt)}</p>
                 )}
             </div>
             {subtitle && <p className="mt-1 text-xs font-medium text-[#6b7280]">{subtitle}</p>}
-            <div className="mt-4 h-8">
+            <div className="mt-auto flex h-12 items-end pt-4">
                 <ReportSparkline
                     values={sparklineValues}
                     trend={trend}
                     showTrend={showTrend}
-                    height={32}
+                    height={28}
+                    showDots
+                    color="#2563eb"
                 />
             </div>
         </Card>
@@ -375,16 +384,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const reportRange = useMemo(
         () => resolveReportPeriodRange(filterPeriod, reportAnchorDate),
         [filterPeriod, reportAnchorDate],
-    );
-    const adminAnalyticsRenderCountRef = useRef(0);
-    adminAnalyticsRenderCountRef.current += 1;
-    console.log(
-        '[AdminAnalytics] render #%s, view=%s, filterPeriod=%s, reportRange.start=%s, rangeObj=%s',
-        adminAnalyticsRenderCountRef.current,
-        view,
-        filterPeriod,
-        reportRange.start?.getTime(),
-        reportRange,
     );
 
     const expenseChartRange = useMemo(
@@ -994,6 +993,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
                     net: calcTrendPercent(totalNet, prevNet),
                 },
+                trendSignificance: {
+                    total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                    net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                },
                 paymentBreakdown: { ...cur.paymentBreakdown },
                 branchStats: sortedBranches,
             };
@@ -1119,12 +1126,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 expenses: !expensesData.prevTotal ? (expensesData.total > 0 ? 100 : 0) : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
                 net: !prevNet ? (totalNet !== 0 ? 100 : 0) : Math.round(((totalNet - prevNet) / prevNet) * 100)
             },
+            trendSignificance: {
+                total: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                count: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                ticket: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                delivery: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                expenses: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+                net: prevCount >= MIN_SIGNIFICANT_PREV_ORDERS,
+            },
             paymentBreakdown: pb,
             branchStats: sortedBranches
         };
     }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange, chartTab, safeBranches, expensesData, manualExpenseRows]);
 
-    const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats } = reportChartData;
+    const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats, trendSignificance } = reportChartData;
 
     const paymentDonutData = useMemo(
         () => PAYMENT_META.map((m) => ({ label: m.label, value: paymentBreakdown[m.key] || 0 })),
@@ -1155,7 +1170,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const clientsDonutData = useMemo(
         () => [
-            { name: 'Nuevos', value: newClientsInfo.count, color: '#e8483e' },
+            { name: 'Nuevos', value: newClientsInfo.count, color: '#16a34a' },
             { name: 'Registrados', value: Math.max(0, newClientsInfo.total - newClientsInfo.count), color: '#ededf0' },
         ],
         [newClientsInfo.count, newClientsInfo.total],
@@ -1298,7 +1313,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     value={filterPeriod}
                     onChange={setFilterPeriod}
                     aria-label="Rango de fechas del informe"
-                    icon={<Calendar size={18} strokeWidth={1.65} className="text-[#e8483e]" />}
+                    icon={<Calendar size={18} strokeWidth={1.65} className="text-[#2563eb]" />}
                 />
             </div>
         </header>
@@ -1343,7 +1358,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 type="button"
                                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                                     filterPeriod === value
-                                        ? 'bg-white text-[#e8483e] shadow-sm'
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
                                         : 'text-[#6b7280] hover:text-[#1a1a1a]'
                                 }`}
                                 onClick={() => setFilterPeriod(value)}
@@ -1392,7 +1407,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 type="button"
                                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                                     expenseAgg === value
-                                        ? 'bg-white text-[#e8483e] shadow-sm'
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
                                         : 'text-[#6b7280] hover:text-[#1a1a1a]'
                                 }`}
                                 onClick={() => setExpenseAgg(value)}
@@ -1412,7 +1427,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 type="button"
                                 className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                                     expenseKindFilter === value
-                                        ? 'bg-white text-[#e8483e] shadow-sm'
+                                        ? 'bg-white text-[#2563eb] shadow-sm'
                                         : 'text-[#6b7280] hover:text-[#1a1a1a]'
                                 }`}
                                 onClick={() => setExpenseKindFilter(value)}
@@ -1687,7 +1702,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <CardDescription>{MONTHLY_EXPORT_DISCLAIMER}</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-wrap items-end gap-3">
+                <div className="grid items-end gap-3 sm:grid-cols-[auto_1fr]">
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Seleccionar mes</label>
                         <input
@@ -1697,20 +1712,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             onChange={(e) => setAnalyticsDate(e.target.value)}
                         />
                     </div>
-                    <Button onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
-                        {exportLoading ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" aria-hidden />
-                                Generando...
-                            </>
-                        ) : (
-                            <>
-                                <Download size={16} aria-hidden />
-                                Descargar Excel
-                            </>
-                        )}
-                    </Button>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <Button onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
+                            {exportLoading ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                                    Generando...
+                                </>
+                            ) : (
+                                <>
+                                    <Download size={16} aria-hidden />
+                                    Descargar Excel
+                                </>
+                            )}
+                        </Button>
                         {[
                             { action: 'modal', label: 'Ver (modal)', Icon: Eye },
                             { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink },
@@ -1792,6 +1807,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     const subtitle = meta.key === 'deliveryTotal'
                         ? `${(kpis.deliveryCount ?? 0).toLocaleString('es-CL')} pedido${(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} · solo tarifas`
                         : undefined;
+                    const trendSignificant = meta.key === 'clients'
+                        ? true
+                        : trendSignificance?.[resolveKpiTrendKey(meta.key)] ?? true;
                     return (
                         <KpiCard
                             key={meta.key}
@@ -1803,77 +1821,153 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             fmt={fmt}
                             subtitle={subtitle}
                             showTrend={reportRange.hasComparison}
+                            trendSignificant={trendSignificant}
                         />
                     );
                 })}
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-                <Card className="flex flex-col">
-                    <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
-                        <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="inline-flex gap-1 rounded-xl bg-[#f5f5f7] p-1">
-                                {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                            activeChartKind === value
-                                                ? 'bg-white text-[#e8483e] shadow-sm'
-                                                : 'text-[#6b7280] hover:text-[#1a1a1a]'
-                                        }`}
-                                        onClick={() => setChartKind(value)}
-                                        title={label}
-                                        aria-pressed={activeChartKind === value}
-                                    >
-                                        <Icon size={14} strokeWidth={1.75} aria-hidden />
-                                        <span className="hidden sm:inline">{label}</span>
-                                    </button>
-                                ))}
+            <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
+                <div className="flex flex-col gap-5">
+                    <Card className="flex h-fit flex-col">
+                        <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
+                            <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="inline-flex gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                                    {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                                activeChartKind === value
+                                                    ? 'bg-white text-[#2563eb] shadow-sm'
+                                                    : 'text-[#6b7280] hover:text-[#1a1a1a]'
+                                            }`}
+                                            onClick={() => setChartKind(value)}
+                                            title={label}
+                                            aria-pressed={activeChartKind === value}
+                                        >
+                                            <Icon size={14} strokeWidth={1.75} aria-hidden />
+                                            <span className="hidden sm:inline">{label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <Tabs value={chartTab} onValueChange={setChartTab}>
+                                    <TabsList className="h-9">
+                                        <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
+                                        <TabsTrigger value="store" className="text-xs">Tienda</TabsTrigger>
+                                        <TabsTrigger value="online" className="text-xs">Online</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
                             </div>
-                            <Tabs value={chartTab} onValueChange={setChartTab}>
-                                <TabsList className="h-9">
-                                    <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
-                                    <TabsTrigger value="store" className="text-xs">Tienda</TabsTrigger>
-                                    <TabsTrigger value="online" className="text-xs">Online</TabsTrigger>
-                                </TabsList>
-                            </Tabs>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-2">
-                        {salesChartPoints.length ? (
-                            <ReportSalesChart
-                                points={salesChartPoints}
-                                kind={activeChartKind}
-                                filter={chartTab}
-                                currency={currency}
-                                height={400}
-                            />
-                        ) : (
-                            <div className="flex h-[320px] flex-col items-center justify-center gap-3 text-center text-[#6b7280]">
-                                <LineChart size={44} strokeWidth={1.5} className="text-[#e8483e]/55" aria-hidden />
-                                <p className="text-base font-bold text-[#1a1a1a]">Sin datos de ventas</p>
-                                <span className="max-w-[28ch] text-sm">No hay ventas en este período. Probá otro rango o canal.</span>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-2">
+                            {salesChartPoints.length ? (
+                                <ReportSalesChart
+                                    points={salesChartPoints}
+                                    kind={activeChartKind}
+                                    filter={chartTab}
+                                    currency={currency}
+                                    height={260}
+                                />
+                            ) : (
+                                <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center text-[#6b7280]">
+                                    <LineChart size={44} strokeWidth={1.5} className="text-[#2563eb]/55" aria-hidden />
+                                    <p className="text-base font-bold text-[#1a1a1a]">Sin datos de ventas</p>
+                                    <span className="max-w-[28ch] text-sm">No hay ventas en este período. Probá otro rango o canal.</span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {peakHour && (
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                    <Clock size={18} className="text-[#2563eb]" />
+                                    Hora pico
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <p className="text-2xl font-bold text-[#14161a]">{peakHour.hour}</p>
+                                    <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
+                                </div>
+                                <div className="space-y-2">
+                                    {peakHourDistribution.map((b) => (
+                                        <div key={b.label} className="flex items-center gap-3">
+                                            <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
+                                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                <div
+                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
+                                                    style={{ width: `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75 }}
+                                                />
+                                            </div>
+                                            <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{b.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                <Package size={20} className="text-[#2563eb]" />
+                                Top productos vendidos
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingTopProducts ? (
+                                <div className="py-8 text-center text-sm text-[#6b7280]">Cargando top productos…</div>
+                            ) : topProducts.length === 0 ? (
+                                <div className="py-8 text-center text-sm text-[#6b7280]">No hay datos de productos en este período.</div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {topProducts.map((p, i) => {
+                                        const maxQty = topProducts[0]?.qty || 1;
+                                        const pct = Math.round((p.qty / maxQty) * 100);
+                                        const opacity = Math.max(0.25, pct / 100);
+                                        return (
+                                            <div key={p.name} className="flex items-center gap-4">
+                                                <span className="w-7 text-sm font-black text-[#2563eb]">#{i + 1}</span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
+                                                    <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                        <div
+                                                            className="h-full rounded-full transition-all"
+                                                            style={{ width: `${pct}%`, background: '#2563eb', opacity }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                    <p className="text-sm font-bold text-[#1a1a1a]">{fmt(p.revenue)}</p>
+                                                    <p className="text-xs font-medium text-[#6b7280]">{p.qty} uds</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <div className="flex flex-col gap-5">
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-base">
-                                <CreditCard size={18} className="text-[#e8483e]" />
+                                <CreditCard size={18} className="text-[#2563eb]" />
                                 Métodos de pago
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-3">
                             <ReportPaymentDonut
                                 data={paymentDonutData}
                                 currency={currency}
                             />
-                            <div className="space-y-3">
+                            <div className="space-y-2.5">
                                 {PAYMENT_META.map((pm) => {
                                     const value = paymentBreakdown[pm.key] || 0;
                                     const pct = kpis.total > 0 ? Math.round((value / kpis.total) * 100) : 0;
@@ -1902,54 +1996,23 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </CardContent>
                     </Card>
 
-                    {peakHour && (
-                        <Card>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                    <Clock size={18} className="text-[#e8483e]" />
-                                    Hora pico
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div>
-                                    <p className="text-2xl font-bold text-[#14161a]">{peakHour.hour}</p>
-                                    <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
-                                </div>
-                                <div className="space-y-2">
-                                    {peakHourDistribution.map((b) => (
-                                        <div key={b.label} className="flex items-center gap-3">
-                                            <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
-                                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
-                                                <div
-                                                    className="h-full rounded-full bg-[#e8483e] transition-all"
-                                                    style={{ width: `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75 }}
-                                                />
-                                            </div>
-                                            <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{b.count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                <Users size={18} className="text-[#e8483e]" />
+                                <Users size={18} className="text-[#2563eb]" />
                                 Clientes
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className="relative h-20 w-20 shrink-0">
-                                    <PieChart width={80} height={80}>
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative h-40 w-40 shrink-0 overflow-visible">
+                                    <PieChart width={152} height={152}>
                                         <Pie
                                             data={clientsDonutData}
-                                            cx={40}
-                                            cy={40}
-                                            innerRadius={26}
-                                            outerRadius={38}
+                                            cx={76}
+                                            cy={76}
+                                            innerRadius={52}
+                                            outerRadius={70}
                                             dataKey="value"
                                             stroke="none"
                                             isAnimationActive={false}
@@ -1960,24 +2023,15 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         </Pie>
                                     </PieChart>
                                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                        <span className="text-xs font-bold text-[#14161a]">
+                                        <span className="text-lg font-bold text-[#14161a]">
                                             {newClientsInfo.total > 0 ? Math.round((newClientsInfo.count / newClientsInfo.total) * 100) : 0}%
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="font-medium text-[#6b7280]">Total registrados</span>
-                                        <span className="font-bold text-[#14161a]">{newClientsInfo.total}</span>
-                                    </div>
-                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
-                                        <div
-                                            className="h-full rounded-full bg-[#e8483e] transition-all"
-                                            style={{ width: `${newClientsInfo.total > 0 ? (newClientsInfo.count / newClientsInfo.total) * 100 : 0}%` }}
-                                        />
-                                    </div>
-                                    <p className="text-xs font-medium text-[#6b7280]">
-                                        <strong className="text-[#14161a]">{newClientsInfo.count}</strong> nuevos ({reportRange.hasComparison ? reportRange.displayLabel : 'período'})
+                                <div className="text-center text-sm">
+                                    <p className="font-bold text-[#14161a]">{newClientsInfo.total} total registrados</p>
+                                    <p className="font-medium text-[#6b7280]">
+                                        <strong className="text-[#14161a]">{newClientsInfo.count}</strong> nuevos en {reportRange.displayLabel}
                                     </p>
                                 </div>
                             </div>
@@ -1988,7 +2042,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                    <MapPin size={18} className="text-[#e8483e]" />
+                                    <MapPin size={18} className="text-[#2563eb]" />
                                     Ventas por Sucursal
                                 </CardTitle>
                             </CardHeader>
@@ -2006,7 +2060,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
                                                 <div
-                                                    className="h-full rounded-full bg-[#e8483e] transition-all"
+                                                    className="h-full rounded-full bg-[#2563eb] transition-all"
                                                     style={{ width: `${pct}%`, opacity: 0.25 + (pct / 100) * 0.75 }}
                                                 />
                                             </div>
@@ -2018,48 +2072,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     )}
                 </div>
             </div>
-
-            <Card>
-                <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                        <Package size={20} className="text-[#e8483e]" />
-                        Top productos vendidos
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {loadingTopProducts ? (
-                        <div className="py-8 text-center text-sm text-[#6b7280]">Cargando top productos…</div>
-                    ) : topProducts.length === 0 ? (
-                        <div className="py-8 text-center text-sm text-[#6b7280]">No hay datos de productos en este período.</div>
-                    ) : (
-                        <div className="space-y-4">
-                            {topProducts.map((p, i) => {
-                                const maxQty = topProducts[0]?.qty || 1;
-                                const pct = Math.round((p.qty / maxQty) * 100);
-                                const opacity = Math.max(0.25, pct / 100);
-                                return (
-                                    <div key={p.name} className="flex items-center gap-4">
-                                        <span className="w-7 text-sm font-black text-[#e8483e]">#{i + 1}</span>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
-                                            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
-                                                <div
-                                                    className="h-full rounded-full transition-all"
-                                                    style={{ width: `${pct}%`, background: '#e8483e', opacity }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="shrink-0 text-right">
-                                            <p className="text-sm font-bold text-[#14161a]">{fmt(p.revenue)}</p>
-                                            <p className="text-xs font-medium text-[#6b7280]">{p.qty} uds</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
 
             {monthlyExportBlock}
 

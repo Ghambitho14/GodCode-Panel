@@ -3,9 +3,9 @@
    ========================================= */
 
 .admin-layout .rpt-container {
-    --rpt-accent: #e8483e;
+    --rpt-accent: #2563eb;
     --rpt-accent-soft: rgba(232, 72, 62, 0.12);
-    --rpt-accent-mid: #ff5879;
+    --rpt-accent-mid: #3b82f6;
     padding: clamp(1rem, 5vw, 2.5rem);
     max-width: 1440px;
     margin: 0 auto;
@@ -172,11 +172,11 @@
 }
 
 .admin-layout .rpt-kpi-icon.sales { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
-.admin-layout .rpt-kpi-icon.orders { background: rgba(232, 72, 62, 0.08); color: #c31d2d; }
+.admin-layout .rpt-kpi-icon.orders { background: rgba(232, 72, 62, 0.08); color: #1d4ed8; }
 .admin-layout .rpt-kpi-icon.ticket { background: rgba(232, 72, 62, 0.08); color: var(--rpt-accent-mid); }
-.admin-layout .rpt-kpi-icon.clients { background: rgba(232, 72, 62, 0.08); color: #c31d2d; }
+.admin-layout .rpt-kpi-icon.clients { background: rgba(232, 72, 62, 0.08); color: #1d4ed8; }
 .admin-layout .rpt-kpi-icon.delivery { background: var(--rpt-accent-soft); color: var(--rpt-accent); }
-.admin-layout .rpt-kpi-icon.expenses { background: rgba(195, 29, 45, 0.1); color: #c31d2d; }
+.admin-layout .rpt-kpi-icon.expenses { background: rgba(195, 29, 45, 0.1); color: #1d4ed8; }
 .admin-layout .rpt-kpi-icon.balance { background: rgba(232, 72, 62, 0.1); color: var(--rpt-accent); }
 
 .admin-layout .rpt-kpi-body {
@@ -1416,7 +1416,7 @@
 
 .admin-layout .rpt-chart-kind-btn.active {
     background: var(--admin-card-bg, #fff);
-    color: var(--rpt-accent, #e8483e);
+    color: var(--rpt-accent, #2563eb);
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
@@ -1462,7 +1462,7 @@
 
 .admin-layout .rpt-tab.active {
     background: var(--rpt-accent-soft, rgba(232, 72, 62, 0.12));
-    color: var(--rpt-accent, #e8483e);
+    color: var(--rpt-accent, #2563eb);
 }
 
 .admin-layout .rpt-tab:hover:not(.active) {
@@ -1642,7 +1642,7 @@
 .admin-layout .rpt-product-rank {
     font-size: 0.82rem;
     font-weight: 800;
-    color: var(--rpt-accent, #e8483e);
+    color: var(--rpt-accent, #2563eb);
     min-width: 28px;
 }
 
@@ -1712,7 +1712,7 @@
 }
 
 .admin-layout .rpt-empty-state svg {
-    color: var(--rpt-accent, #e8483e);
+    color: var(--rpt-accent, #2563eb);
     opacity: 0.55;
 }
 
@@ -1851,7 +1851,7 @@
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: var(--rpt-accent, #e8483e);
+    background: var(--rpt-accent, #2563eb);
     flex-shrink: 0;
 }
 
@@ -1927,7 +1927,7 @@
 }
 
 .admin-layout .rpt-export-card__btn--primary {
-    background: var(--rpt-accent, #e8483e);
+    background: var(--rpt-accent, #2563eb);
     color: #fff;
 }
 

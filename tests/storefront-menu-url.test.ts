@@ -17,9 +17,39 @@ describe("resolveStorefrontMenuUrl", () => {
 		})).toBe("https://tienda.ejemplo.cl/");
 	});
 
-	it("arma subdominio godcode desde public_slug", () => {
+	it("arma URL con path desde public_slug", () => {
 		expect(resolveStorefrontMenuUrl({
 			publicSlug: "mi-local",
-		})).toBe("https://mi-local.godcode.me");
+		})).toBe("https://www.godcode.me/mi-local");
+	});
+
+	it("normaliza slugs con espacios a kebab-case", () => {
+		expect(resolveStorefrontMenuUrl({
+			publicSlug: "la parada",
+		})).toBe("https://www.godcode.me/la-parada");
+	});
+
+	it("usa dominio personalizado desde prop customDomain", () => {
+		expect(resolveStorefrontMenuUrl({
+			publicSlug: "mi-local",
+			customDomain: "cichisushi.shop",
+		})).toBe("https://cichisushi.shop");
+	});
+
+	it("usa dominio personalizado desde integration_settings", () => {
+		expect(resolveStorefrontMenuUrl({
+			publicSlug: "mi-local",
+			integrationSettings: {
+				customDomain: "mitienda.com",
+			},
+		})).toBe("https://mitienda.com");
+	});
+
+	it("soporta custom_domain con protocolo", () => {
+		expect(resolveStorefrontMenuUrl({
+			integrationSettings: {
+				custom_domain: "https://menu.mitienda.cl",
+			},
+		})).toBe("https://menu.mitienda.cl");
 	});
 });

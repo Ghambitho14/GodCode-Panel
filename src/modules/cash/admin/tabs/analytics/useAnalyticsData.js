@@ -33,11 +33,10 @@ export function useAnalyticsData({
 	/** @type {['rpc' | 'fallback' | 'none', React.Dispatch<React.SetStateAction<'rpc' | 'fallback' | 'none'>>]} */
 	const [analyticsSource, setAnalyticsSource] = useState('none');
 	const [loadingAnalyticsOrders, setLoadingAnalyticsOrders] = useState(false);
-	const lastFetchKeyRef = useRef(null);
-	const renderCountRef = useRef(0);
+	const lastFetchedKeyRef = useRef(null);
+	const inFlightKeyRef = useRef(null);
 
 	useEffect(() => {
-		renderCountRef.current += 1;
 		const fetchKey = [
 			companyId,
 			selectedBranch?.id,
@@ -51,21 +50,20 @@ export function useAnalyticsData({
 			chartTab,
 			view,
 		].join('|');
-		console.log('[useAnalyticsData] effect run #%s, key=%s, prev=%s', renderCountRef.current, fetchKey, lastFetchKeyRef.current);
 		if (!companyId || view === 'expensesOnly') {
 			if (view === 'expensesOnly') {
 				setAnalyticsSummary(null);
 				setAnalyticsSource('none');
 				setAnalyticsOrders([]);
 				setLoadingAnalyticsOrders(false);
+				lastFetchedKeyRef.current = null;
 			}
 			return;
 		}
-		if (lastFetchKeyRef.current === fetchKey) {
-			console.log('[useAnalyticsData] skipping duplicate fetch for key=%s', fetchKey);
+		if (lastFetchedKeyRef.current === fetchKey) {
 			return;
 		}
-		lastFetchKeyRef.current = fetchKey;
+		inFlightKeyRef.current = fetchKey;
 		let cancelled = false;
 		setLoadingAnalyticsOrders(true);
 		(async () => {
@@ -135,7 +133,12 @@ export function useAnalyticsData({
 					setAnalyticsOrders([]);
 				}
 			} finally {
-				if (!cancelled) setLoadingAnalyticsOrders(false);
+				if (!cancelled) {
+					setLoadingAnalyticsOrders(false);
+					if (inFlightKeyRef.current === fetchKey) {
+						lastFetchedKeyRef.current = fetchKey;
+					}
+				}
 			}
 		})();
 		return () => {
