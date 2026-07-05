@@ -94,6 +94,8 @@ export const useAdmin = () => {
  * @param {boolean} [root0.adminShortcutsEnabled]
  * @param {{ country?: string | null; currency?: string | null; integration_settings?: unknown; planFeatures?: unknown } | null} [root0.companyProfile]
  * @param {import('@/lib/tenant/menu-settings').TenantPanelOrderCapabilities | null} [root0.menuCapabilities]
+ * @param {string} [root0.companyName]
+ * @param {string | null} [root0.logoUrl]
  */
 export const AdminProvider = ({
 	children,
@@ -106,6 +108,8 @@ export const AdminProvider = ({
 	adminShortcutsEnabled = true,
 	companyProfile = null,
 	menuCapabilities: menuCapabilitiesProp = null,
+	companyName = null,
+	logoUrl = null,
 }) => {
 	const navigateFn = useNavigate();
 	const { pathname } = useLocation();
@@ -534,6 +538,9 @@ export const AdminProvider = ({
 		setOrders,
 		fetchOrdersRef,
 		activeTab,
+		logoUrl,
+		companyName,
+		selectedBranch,
 	});
 
 	useAdminBranchLoadEffects({

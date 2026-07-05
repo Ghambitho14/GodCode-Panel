@@ -470,10 +470,7 @@ export function useAdminPanelLoad({
 		const onVisibilityChange = () => {
 			if (document.visibilityState !== 'visible') return;
 			if (isModalOpenRef?.current || editingProductRef?.current) return;
-			const lastAt = lastDataRefreshAtRef.current;
-			const stale = !lastAt || Date.now() - lastAt >= DATA_STALE_MS;
-			if (!stale) return;
-			void refreshStaleData({ force: false }).catch(() => {
+			void refreshOrders().catch(() => {
 				showNotify('Error de conexión', 'error');
 			});
 		};
@@ -481,7 +478,7 @@ export function useAdminPanelLoad({
 		return () => {
 			document.removeEventListener('visibilitychange', onVisibilityChange);
 		};
-	}, [refreshStaleData, showNotify, isModalOpenRef, editingProductRef]);
+	}, [refreshOrders, showNotify, isModalOpenRef, editingProductRef]);
 
 	return useMemo(() => ({
 		lastDataRefreshAt,

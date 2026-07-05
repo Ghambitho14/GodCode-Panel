@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Loader2, Search, Filter,
   Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store, Image, ImageOff,
@@ -308,17 +309,27 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     }
   };
 
-  return (
-    <div className="admin-layout">
-      <Toaster
-        position="top-center"
-        options={{
-          fill: '#ffffff',
-          roundness: 14,
-        }}
-      />
+  const [toastPortal, setToastPortal] = useState(null);
+  useEffect(() => {
+    setToastPortal(document.body);
+  }, []);
 
-      {productToDelete && (
+  return (
+    <>
+      {toastPortal &&
+        createPortal(
+          <Toaster
+            position="top-center"
+            options={{
+              fill: '#ffffff',
+              roundness: 14,
+            }}
+          />,
+          toastPortal,
+        )}
+
+      <div className="admin-layout">
+        {productToDelete && (
         <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)}>
           <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
             <p>¿Eliminar producto?</p>
@@ -832,11 +843,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         </React.Suspense>
       )}
     </div>
+  </>
   );
 };
 
 const Admin = () => (
-  <AdminProvider>
+  <AdminProvider companyName={companyName} logoUrl={logoUrl}>
     <AdminPage />
   </AdminProvider>
 );
