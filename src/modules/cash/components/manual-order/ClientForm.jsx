@@ -23,6 +23,7 @@ import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import PickupBagIcon from '../PickupBagIcon';
 import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
 
 const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
 const sectionTitleClass =
@@ -282,7 +283,7 @@ const ClientForm = ({
         >
             {clientSuggestions.map((client) => (
                 <li key={client.id} role="option">
-                    <button
+                    <Button variant="outline"
                         type="button"
                         className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-gc-muted focus-visible:bg-gc-muted focus-visible:outline-none"
                         onMouseDown={(e) => e.preventDefault()}
@@ -294,7 +295,7 @@ const ClientForm = ({
                         <span className="text-[10px] text-gc-text-muted">
                             {[client.rut, client.phone].filter(Boolean).join(' · ')}
                         </span>
-                    </button>
+                    </Button>
                 </li>
             ))}
         </ul>
@@ -439,7 +440,7 @@ const ClientForm = ({
                             onChange={(e) => updateDeliveryAddress(e.target.value)}
                         />,
                     )}
-                    <button
+                    <Button variant="default"
                         type="button"
                         className={inlineActionClass}
                         onClick={handleDetectZone}
@@ -456,7 +457,7 @@ const ClientForm = ({
                                 Detectar zona
                             </>
                         )}
-                    </button>
+                    </Button>
                 </>
             ) : null}
 
@@ -533,7 +534,7 @@ const ClientForm = ({
             ) : null}
 
             {distanceAutoMode ? (
-                <button
+                <Button variant="default"
                     type="button"
                     className={inlineActionClass}
                     onClick={handleCalculateDistance}
@@ -550,7 +551,7 @@ const ClientForm = ({
                             Calcular distancia
                         </>
                     )}
-                </button>
+                </Button>
             ) : null}
 
             {showDistancePricing && !distanceAutoMode && (
@@ -614,7 +615,7 @@ const ClientForm = ({
                                   : 'grid-cols-1 min-[400px]:grid-cols-3',
                         )}>
                             {channels.mesa ? (
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className={cn(
                                         toggleBaseClass,
@@ -624,10 +625,10 @@ const ClientForm = ({
                                 >
                                     <TableRestaurantIcon size={18} />
                                     Mesa
-                                </button>
+                                </Button>
                             ) : null}
                             {channels.retiro ? (
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className={cn(
                                         toggleBaseClass,
@@ -637,10 +638,10 @@ const ClientForm = ({
                                 >
                                     <PickupBagIcon size={18} />
                                     Retiro
-                                </button>
+                                </Button>
                             ) : null}
                             {channels.delivery ? (
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className={cn(
                                         toggleBaseClass,
@@ -650,7 +651,7 @@ const ClientForm = ({
                                 >
                                     <DeliveryMotoIcon size={18} />
                                     Delivery
-                                </button>
+                                </Button>
                             ) : null}
                         </div>
                     ) : (
@@ -683,22 +684,22 @@ const ClientForm = ({
 
                     {isMesa ? (
                         <div className="mb-3 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
-                            <button
+                            <Button variant="default"
                                 type="button"
                                 className={cn(toggleBaseClass, isMesero && toggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('mesero')}
                             >
                                 <User size={16} />
                                 Mesero
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="default"
                                 type="button"
                                 className={cn(toggleBaseClass, !isMesero && toggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('cliente')}
                             >
                                 <User size={16} />
                                 Cliente
-                            </button>
+                            </Button>
                         </div>
                     ) : null}
 
@@ -813,22 +814,22 @@ const ClientForm = ({
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
-                        <button
+                        <Button variant="default"
                             type="button"
                             className={cn(toggleBaseClass, isPickup && toggleActiveClass)}
                             onClick={() => handleOrderTypeChange('pickup')}
                         >
                             <Store size={16} />
                             Local / Retiro
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="default"
                             type="button"
                             className={cn(toggleBaseClass, isDelivery && toggleActiveClass)}
                             onClick={() => handleOrderTypeChange('delivery')}
                         >
                             <Truck size={16} />
                             Delivery
-                        </button>
+                        </Button>
                     </div>
 
                     {deliveryFields}

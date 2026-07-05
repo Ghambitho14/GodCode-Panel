@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * Desplegable custom con el mismo aspecto que AdminBranchSelector (cabecera),
@@ -85,7 +86,7 @@ export default function AdminMenuSelect({
 
 	return (
 		<div className={wrapClass}>
-			<button
+			<Button variant="default"
 				ref={triggerRef}
 				type="button"
 				id={triggerId}
@@ -110,7 +111,7 @@ export default function AdminMenuSelect({
 					className={`admin-branch-select__chevron${open ? " is-open" : ""}`}
 					aria-hidden
 				/>
-			</button>
+			</Button>
 			{portalParent
 				? createPortal(
 						<ul
@@ -130,7 +131,7 @@ export default function AdminMenuSelect({
 									: String(opt.value) === String(value);
 								return (
 									<li key={String(opt.value)} role="presentation">
-										<button
+										<Button variant="default"
 											type="button"
 											role="option"
 											aria-selected={isActive}
@@ -141,7 +142,7 @@ export default function AdminMenuSelect({
 											{isActive ? (
 												<Check size={16} strokeWidth={2.25} className="admin-branch-select__check" aria-hidden />
 											) : null}
-										</button>
+										</Button>
 									</li>
 								);
 							})}

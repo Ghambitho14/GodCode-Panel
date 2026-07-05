@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { scaleBand, scaleLinear, max } from 'd3';
 import { formatMoney, formatMoneyCompact } from '@/shared/utils/money';
+import { Button } from "@/components/ui/button";
 
 function fmtAxis(n) {
     return formatMoneyCompact(n);
@@ -114,7 +115,7 @@ export default function RPTRosenBarChart({ points = [], height = 220, ariaLabel 
                     {data.map((d) => {
                         const barWidth = chart.xScale.bandwidth();
                         return (
-                            <button
+                            <Button variant="default"
                                 key={d.key}
                                 type="button"
                                 className="rpt-rosen-chart__hit"

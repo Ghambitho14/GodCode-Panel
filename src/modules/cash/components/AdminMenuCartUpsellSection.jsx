@@ -17,6 +17,7 @@ import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
 import { PRODUCT_IMAGE_PLACEHOLDER } from "../constants/productImagePlaceholder";
+import { Button } from "@/components/ui/button";
 
 function branchFlag(map, branchId, defaultOn = true) {
 	if (!branchId || !map || typeof map !== "object") return defaultOn;
@@ -581,9 +582,9 @@ export default function AdminMenuCartUpsellSection({
 				</div>
 				<div className="admin-cart-upsell-toolbar__actions">
 					{!isBev ? (
-						<button
+						<Button variant="secondary"
 							type="button"
-							className="btn btn-secondary admin-cart-upsell-toolbar__cta-secondary"
+							className="admin-cart-upsell-toolbar__cta-secondary"
 							disabled={lockUi || !sectionOn || items.length >= CART_UPSELL_MAX_ITEMS}
 							onClick={() => {
 								setPickInvSearch("");
@@ -592,17 +593,17 @@ export default function AdminMenuCartUpsellSection({
 						>
 							<Package size={18} strokeWidth={1.65} aria-hidden />
 							Desde inventario
-						</button>
+						</Button>
 					) : null}
-					<button
+					<Button variant="default"
 						type="button"
-						className="btn btn-primary admin-cart-upsell-toolbar__cta"
+						className="admin-cart-upsell-toolbar__cta"
 						disabled={lockUi || !sectionOn || items.length >= CART_UPSELL_MAX_ITEMS}
 						onClick={openCreate}
 					>
 						<Plus size={18} strokeWidth={1.65} aria-hidden />
 						{newLabel}
-					</button>
+					</Button>
 				</div>
 			</div>
 
@@ -628,7 +629,7 @@ export default function AdminMenuCartUpsellSection({
 							<span className="admin-cart-upsell-catalog-toggle__label">Mostrar en carrito</span>
 							<AdminHelpTip text={helpToggle} className="admin-menu-options-section-label--with-tip" />
 						</div>
-						<button
+						<Button variant="default"
 							type="button"
 							className={`menu-carousel-switch admin-cart-upsell-catalog-switch ${sectionOn ? "is-on" : ""}`}
 							disabled={lockUi}
@@ -637,7 +638,7 @@ export default function AdminMenuCartUpsellSection({
 							aria-label={sectionOn ? "Desactivar sección en carrito para clientes" : "Activar sección en carrito para clientes"}
 						>
 							<span className="menu-carousel-switch-knob" />
-						</button>
+						</Button>
 					</div>
 				</div>
 
@@ -650,15 +651,15 @@ export default function AdminMenuCartUpsellSection({
 				{sectionOn && items.length === 0 && !loading && (
 					<div className="admin-menu-options-cart-empty admin-cart-upsell-empty">
 						<p>Aún no hay ítems. Crea el primero con el botón «{newLabel}».</p>
-						<button
+						<Button variant="default"
 							type="button"
-							className="btn btn-primary"
+							className=""
 							disabled={lockUi}
 							onClick={openCreate}
 						>
 							<Plus size={18} strokeWidth={1.65} aria-hidden />
 							{newLabel}
-						</button>
+						</Button>
 					</div>
 				)}
 
@@ -755,7 +756,7 @@ export default function AdminMenuCartUpsellSection({
 															className="admin-cart-upsell-card__img admin-cart-upsell-card__img--placeholder"
 														/>
 													)}
-													<button
+													<Button variant="default"
 														type="button"
 														className={`admin-cart-upsell-card__status ${item.active !== false ? "is-on" : ""}`}
 														onClick={(e) => void toggleItemActive(e, item)}
@@ -764,7 +765,7 @@ export default function AdminMenuCartUpsellSection({
 														aria-label={item.active !== false ? "Pausar" : "Activar"}
 													>
 														{item.active !== false ? <Eye size={16} /> : <EyeOff size={16} />}
-													</button>
+													</Button>
 												</div>
 												<div className="admin-cart-upsell-card__body">
 													<div className="admin-cart-upsell-card__title-row">
@@ -788,9 +789,9 @@ export default function AdminMenuCartUpsellSection({
 														</div>
 													</div>
 													<div className="admin-cart-upsell-card__actions">
-														<button
+														<Button variant="secondary"
 															type="button"
-															className="btn btn-secondary btn-sm admin-cart-upsell-card__btn-primary"
+															className="admin-cart-upsell-card__btn-primary"
 															onClick={(e) => {
 																e.stopPropagation();
 																openEditForItem(item);
@@ -798,10 +799,10 @@ export default function AdminMenuCartUpsellSection({
 														>
 															<Edit3 size={16} strokeWidth={1.65} aria-hidden />
 															Editar
-														</button>
-														<button
+														</Button>
+														<Button variant="destructive"
 															type="button"
-															className="btn btn-ghost btn-sm admin-cart-upsell-card__btn-danger"
+															className="admin-cart-upsell-card__btn-danger"
 															onClick={(e) => {
 																e.stopPropagation();
 																if (window.confirm(`¿Eliminar «${item.name}»?`)) {
@@ -813,7 +814,7 @@ export default function AdminMenuCartUpsellSection({
 															aria-label={`Eliminar ${item.name}`}
 														>
 															<Trash2 size={16} strokeWidth={1.65} aria-hidden />
-														</button>
+														</Button>
 													</div>
 												</div>
 											</div>
@@ -862,14 +863,14 @@ export default function AdminMenuCartUpsellSection({
 									Se crea una línea en el carrito con el artículo vinculado; ajusta precio e imagen después.
 								</p>
 							</div>
-							<button
+							<Button variant="default"
 								type="button"
 								onClick={() => !saving && setPickInventoryOpen(false)}
 								className="btn-close"
 								aria-label="Cerrar"
 							>
 								<X size={24} />
-							</button>
+							</Button>
 						</header>
 						<div className="modal-form-scroll">
 							<div className="form-group">
@@ -888,7 +889,7 @@ export default function AdminMenuCartUpsellSection({
 								) : (
 									pickInventoryCandidates.map((o) => (
 										<li key={o.id}>
-											<button
+											<Button variant="default"
 												type="button"
 												className="admin-cart-upsell-pick-inv__row"
 												disabled={saving}
@@ -898,7 +899,7 @@ export default function AdminMenuCartUpsellSection({
 												<span className="admin-cart-upsell-pick-inv__meta">
 													{ITEM_TYPE_SHORT[o.item_type] || o.item_type} · {o.stock} {o.unit}
 												</span>
-											</button>
+											</Button>
 										</li>
 									))
 								)}

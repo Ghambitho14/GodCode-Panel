@@ -28,6 +28,7 @@ import {
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
 import AdminHelpTip from "./AdminHelpTip";
+import { Button } from "@/components/ui/button";
 
 /**
  * Lee y escribe `branches.delivery_settings` (JSONB) para la sucursal seleccionada.
@@ -437,7 +438,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									: "Solo retiro o consumo en local; las opciones de abajo están desactivadas."}
 						</span>
 					</div>
-					<button
+					<Button variant="default"
 						type="button"
 						className={`menu-carousel-switch ${deliveryEnabled ? "is-on" : ""}`}
 						role="switch"
@@ -447,7 +448,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						onClick={() => void toggle(!deliveryEnabled)}
 					>
 						<span className="menu-carousel-switch-knob" />
-					</button>
+					</Button>
 				</div>
 			</div>
 
@@ -479,14 +480,14 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								disabled={loading || savingExchangeRate}
 							/>
 						</label>
-						<button
+						<Button variant="default"
 							type="button"
-							className="btn-primary"
+							className=""
 							disabled={loading || savingExchangeRate || !branchId}
 							onClick={() => void saveExchangeRate()}
 						>
 							{savingExchangeRate ? "Guardando…" : "Guardar tasa"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			) : null}
@@ -536,7 +537,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								{deliveryPaymentKeys.map((key) => {
 									const on = deliveryPaymentChecked[key] !== false;
 									return (
-										<button
+										<Button variant="default"
 											key={key}
 											type="button"
 											role="checkbox"
@@ -557,7 +558,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 												{DELIVERY_PAYMENT_CHIP_TITLE[key] ??
 													`Permitir ${DELIVERY_PAYMENT_LABELS[key] ?? key} en pedidos delivery.`}
 											</span>
-										</button>
+										</Button>
 									);
 								})}
 							</div>
@@ -779,9 +780,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						<strong>Vista previa:</strong> {previewText}{" "}
 						<AdminHelpTip text={DELIVERY_TOOLTIPS.preview} />
 					</p>
-					<button
+					<Button variant="default"
 						type="button"
-						className="btn btn-primary admin-tooltip-btn-hover"
+						className=""
 						disabled={lockOptions}
 						onClick={() => void saveTariffs()}
 					>
@@ -789,7 +790,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 							{DELIVERY_TOOLTIPS.saveButton}
 						</span>
-					</button>
+					</Button>
 				</div>
 			) : null}
 		</section>

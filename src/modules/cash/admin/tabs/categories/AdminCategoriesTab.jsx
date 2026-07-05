@@ -5,6 +5,7 @@ import {
 import { createMoneyFormatter } from '@/shared/utils/money';
 import AdminErrorBoundary from '../../../components/AdminErrorBoundary';
 import { useAdmin } from '../../pages/AdminProvider';
+import { Button } from "@/components/ui/button";
 
 export default function AdminCategoriesTab() {
 	const {
@@ -117,7 +118,7 @@ export default function AdminCategoriesTab() {
 										<div className="cat-icon-wrapper">
 											<Tag size={24} />
 										</div>
-										<button
+										<Button variant="default"
 											type="button"
 											className="cat-status-badge cat-status-button"
 											onClick={(event) => {
@@ -128,7 +129,7 @@ export default function AdminCategoriesTab() {
 										>
 											<span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`} />
 											<span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
-										</button>
+										</Button>
 									</div>
 									<div className="cat-card-body">
 										<div className="cat-name-row">
@@ -162,11 +163,11 @@ export default function AdminCategoriesTab() {
 										</div>
 									</div>
 									<div className="cat-card-footer">
-										<button type="button" onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true); }} className="cat-btn-edit">
+										<Button variant="default" type="button" onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true); }} className="cat-btn-edit">
 											<Edit size={16} />
 											Editar
-										</button>
-										<button
+										</Button>
+										<Button variant="default"
 											type="button"
 											onClick={() => {
 												setFilterCategory(c.id);
@@ -176,11 +177,11 @@ export default function AdminCategoriesTab() {
 										>
 											<ShoppingBag size={16} />
 											Ver productos
-										</button>
-										<button type="button" onClick={() => deleteCategory(c)} className="cat-btn-delete" title="Eliminar categoría">
+										</Button>
+										<Button variant="default" type="button" onClick={() => deleteCategory(c)} className="cat-btn-delete" title="Eliminar categoría">
 											<Trash2 size={16} />
 											Borrar
-										</button>
+										</Button>
 									</div>
 								</div>
 							);
@@ -192,9 +193,9 @@ export default function AdminCategoriesTab() {
 								</div>
 								<h3 className="cat-empty-title">No hay categorías</h3>
 								<p className="cat-empty-text">Crea tu primera categoría para organizar tus productos</p>
-								<button type="button" onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }} className="btn btn-primary">
+								<Button variant="default" type="button" onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }} className="">
 									<Plus size={18} /> Crear Categoría
-								</button>
+								</Button>
 							</div>
 						)}
 					</div>

@@ -19,6 +19,7 @@ import ManualOrderCheckout, {
 import useManualOrderBranchConfig from './manual-order/useManualOrderBranchConfig';
 import { isOpenOrderSessionStatus } from '../hooks/manual-order/manualOrderShared';
 import { ADMIN_MOBILE_MQ } from '../constants/responsive';
+import { Button } from "@/components/ui/button";
 
 const ManualOrderModal = ({
 	isOpen,
@@ -285,9 +286,9 @@ const ManualOrderModal = ({
 						onTouchEnd={onTouchEnd}
 					/>
 
-					<button type="button" onClick={onClose} className="manual-order-floating-close" title="Cerrar (Esc)">
+					<Button variant="default" type="button" onClick={onClose} className="manual-order-floating-close" title="Cerrar (Esc)">
 						<X size={24} />
-					</button>
+					</Button>
 
 					<ManualOrderCheckout
 						orderStep={orderStep}

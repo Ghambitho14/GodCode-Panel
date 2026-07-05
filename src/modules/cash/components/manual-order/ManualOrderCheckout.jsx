@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import ClientForm from './ClientForm';
 import OrderSummary from './OrderSummary';
 import PaymentDetails from './PaymentDetails';
+import { Button } from "@/components/ui/button";
 
 export const DESKTOP_WIZARD_STEPS = 2;
 export const MOBILE_WIZARD_STEPS = 3;
@@ -351,44 +352,44 @@ export default function ManualOrderCheckout({
 			aria-label="Navegación del pedido"
 		>
 			{orderStep > 1 ? (
-				<button
+				<Button variant="default"
 					type="button"
 					className={stepNavBackClass}
 					onClick={goPrevStep}
 				>
 					ATRÁS
-				</button>
+				</Button>
 			) : (
 				<span className="manual-order-steps-nav__spacer" aria-hidden />
 			)}
 			{showEditSaveOnFooter ? (
 				<>
-					<button
+					<Button variant="secondary"
 						type="button"
 						className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next-secondary"
 						onClick={goNextStep}
 						disabled={!hasCartItems}
 					>
 						Siguiente
-					</button>
-					<button
+					</Button>
+					<Button variant="default"
 						type="button"
 						className="manual-order-steps-nav__btn manual-order-steps-nav__btn--save"
 						onClick={submitOrder}
 						disabled={loading}
 					>
 						{loading ? 'GUARDANDO...' : 'Guardar cambios'}
-					</button>
+					</Button>
 				</>
 			) : orderStep === 1 ? (
-				<button
+				<Button variant="default"
 					type="button"
 					className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1"
 					onClick={goNextStep}
 					disabled={!hasCartItems}
 				>
 					Siguiente
-				</button>
+				</Button>
 			) : null}
 		</div>
 	);
@@ -443,7 +444,7 @@ export default function ManualOrderCheckout({
 				Pago
 			</div>
 			<div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
-				<button
+				<Button variant="default"
 					type="button"
 					className={cn(
 						openMesaToggleClass,
@@ -452,8 +453,8 @@ export default function ManualOrderCheckout({
 					onClick={() => updateChargeNow?.(false)}
 				>
 					Pago pendiente
-				</button>
-				<button
+				</Button>
+				<Button variant="default"
 					type="button"
 					className={cn(
 						openMesaToggleClass,
@@ -462,7 +463,7 @@ export default function ManualOrderCheckout({
 					onClick={() => updateChargeNow?.(true)}
 				>
 					Ya pagado
-				</button>
+				</Button>
 			</div>
 			<p className={openMesaHintClass}>
 				{manualOrder.charge_now
@@ -490,7 +491,7 @@ export default function ManualOrderCheckout({
 				</p>
 			)}
 			{canMarkPaidSession ? (
-				<button
+				<Button variant="default"
 					type="button"
 					className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[4px] bg-gc-accent px-4 text-sm font-bold text-white transition-colors hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:opacity-55"
 					onClick={(e) => {
@@ -499,7 +500,7 @@ export default function ManualOrderCheckout({
 					}}
 				>
 					Marcar pagado
-				</button>
+				</Button>
 			) : null}
 		</div>
 	) : null;
@@ -518,85 +519,85 @@ export default function ManualOrderCheckout({
 					</div>
 					{showEditSaveOnFooter ? (
 						<div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--edit">
-							<button
+							<Button variant="secondary"
 								type="button"
 								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next-secondary"
 								onClick={goNextStep}
 								disabled={!hasCartItems}
 							>
 								Siguiente
-							</button>
-							<button
+							</Button>
+							<Button variant="default"
 								type="button"
 								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--save"
 								onClick={submitOrder}
 								disabled={loading}
 							>
 								{loading ? 'GUARDANDO...' : 'Guardar'}
-							</button>
+							</Button>
 						</div>
 					) : (
-						<button
+						<Button variant="default"
 							type="button"
 							className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
 							onClick={goNextStep}
 							disabled={!hasCartItems}
 						>
 							Siguiente
-						</button>
+						</Button>
 					)}
 				</>
 			) : null}
 			{orderStep === 2 ? (
 				<div className="manual-order-mobile-dock__actions">
-					<button
+					<Button variant="default"
 						type="button"
 						className={stepNavBackClass}
 						onClick={goPrevStep}
 					>
 						ATRÁS
-					</button>
+					</Button>
 					{effectiveOpenMesaMode && !openMesaChargeNow ? (
-						<button
+						<Button variant="default"
 							type="button"
 							className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
 							onClick={submitOrder}
 							disabled={loading || !isFormValid()}
 						>
 							{openMesaSubmitLabel}
-						</button>
+						</Button>
 					) : effectiveOpenMesaMode && openMesaChargeNow ? (
-						<button
+						<Button variant="default"
 							type="button"
 							className={stepNavNextClass}
 							onClick={goNextStep}
 							disabled={!isClientStepValid()}
 						>
 							Siguiente
-						</button>
+						</Button>
 					) : (
-						<button
+						<Button variant="default"
 							type="button"
 							className={stepNavNextClass}
 							onClick={goNextStep}
 							disabled={!isClientStepValid()}
 						>
 							Siguiente
-						</button>
+						</Button>
 					)}
 				</div>
 			) : null}
 			{orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
 				<div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--confirm">
-					<button
+					<Button variant="default"
 						type="button"
 						className={stepNavBackClass}
 						onClick={goPrevStep}
 					>
 						ATRÁS
-					</button>
+					</Button>
 					{canCancelOrder ? (
-						<button
+						<Button variant="default"
 							type="button"
 							className={cn(
 								stepNavBackClass,
@@ -606,16 +607,16 @@ export default function ManualOrderCheckout({
 							disabled={loading}
 						>
 							Cancelar
-						</button>
+						</Button>
 					) : null}
-					<button
+					<Button variant="default"
 						type="button"
 						className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
 						onClick={submitOrder}
 						disabled={loading || !isFormValid()}
 					>
 						{loading ? 'PROCESANDO...' : (openMesaChargeNow ? openMesaSubmitLabel : (isEditMode ? 'GUARDAR' : 'CONFIRMAR'))}
-					</button>
+					</Button>
 				</div>
 			) : null}
 		</div>
@@ -665,21 +666,21 @@ export default function ManualOrderCheckout({
 								) : null}
 							</div>
 							<div className={cn(checkoutActionsClass, 'px-5 pb-5')}>
-								<button
+								<Button variant="default"
 									type="button"
 									className={checkoutBackBtnClass}
 									onClick={goPrevStep}
 								>
 									ATRÁS
-								</button>
-								<button
+								</Button>
+								<Button variant="default"
 									type="button"
 									className={confirmBtnClass}
 									onClick={submitOrder}
 									disabled={loading || !isFormValid()}
 								>
 									{openMesaSubmitLabel}
-								</button>
+								</Button>
 							</div>
 						</div>
 					) : (
@@ -706,7 +707,7 @@ export default function ManualOrderCheckout({
 
 					if (isEditMode) {
 						return (
-							<button
+							<Button variant="default"
 								key={label}
 								type="button"
 								className={itemClassName}
@@ -718,7 +719,7 @@ export default function ManualOrderCheckout({
 									{isDone ? <CheckCircle2 size={14} /> : n}
 								</span>
 								<span className="manual-order-steps-progress__label">{label}</span>
-							</button>
+							</Button>
 						);
 					}
 

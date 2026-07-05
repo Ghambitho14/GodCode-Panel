@@ -6,6 +6,7 @@ import OrdersViewSwitch from "./OrdersViewSwitch";
 import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import "../styles/AdminMenuOptions.css";
+import { Button } from "@/components/ui/button";
 
 const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel", "orders_view"]);
 
@@ -93,7 +94,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				role="tablist"
 				aria-label="Secciones de opciones de menú"
 			>
-				<button
+				<Button variant="default"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-delivery"
@@ -104,8 +105,8 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				>
 					<Truck size={18} strokeWidth={1.65} aria-hidden />
 					<span>Envío y delivery</span>
-				</button>
-				<button
+				</Button>
+				<Button variant="default"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-carousel"
@@ -116,8 +117,8 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				>
 					<Images size={18} strokeWidth={1.65} aria-hidden />
 					<span>Carrusel</span>
-				</button>
-				<button
+				</Button>
+				<Button variant="default"
 					type="button"
 					role="tab"
 					id="menu-options-subtab-orders-view"
@@ -128,7 +129,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				>
 					<LayoutGrid size={18} strokeWidth={1.65} aria-hidden />
 					<span>Vista de pedidos</span>
-				</button>
+				</Button>
 			</div>
 
 			<div
@@ -200,9 +201,9 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 								{ordersPanelDirty ? ' Pulsa Guardar para aplicar en esta sucursal.' : null}
 							</p>
 							<div className="admin-menu-options-orders-view__actions">
-								<button
+								<Button variant="default"
 									type="button"
-									className="btn btn-primary admin-menu-options-orders-view__save"
+									className="admin-menu-options-orders-view__save"
 									onClick={() => void handleSaveOrdersPanel()}
 									disabled={!ordersPanelDirty || ordersViewModeSaving}
 								>
@@ -214,7 +215,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 											<span>Guardar vista</span>
 										</>
 									)}
-								</button>
+								</Button>
 							</div>
 						</>
 					) : (

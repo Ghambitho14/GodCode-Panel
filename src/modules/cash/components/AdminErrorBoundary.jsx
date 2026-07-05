@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { monitor } from '@/shared/monitor';
+import { Button } from "@/components/ui/button";
 
 export class AdminErrorBoundary extends React.Component {
 	constructor(props) {
@@ -52,7 +53,7 @@ export class AdminErrorBoundary extends React.Component {
 							<p style={{ margin: '8px 0 0', opacity: 0.85, fontSize: 14 }}>
 								Puedes reintentar. Si el problema continúa, recarga la página.
 							</p>
-							<button
+							<Button variant="secondary"
 								type="button"
 								className="admin-btn secondary"
 								onClick={this.handleRetry}
@@ -60,7 +61,7 @@ export class AdminErrorBoundary extends React.Component {
 							>
 								<RefreshCw size={16} />
 								Reintentar
-							</button>
+							</Button>
 						</div>
 					</div>
 				</div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Keyboard } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 /**
  * @param {object} props
@@ -50,9 +51,9 @@ export function AdminShortcutsModal({ open, onClose, rows }) {
 						</table>
 					</div>
 				))}
-				<button type="button" className="admin-btn secondary admin-shortcuts-modal-close" onClick={onClose}>
+				<Button variant="secondary" type="button" className="admin-btn secondary admin-shortcuts-modal-close" onClick={onClose}>
 					Cerrar
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

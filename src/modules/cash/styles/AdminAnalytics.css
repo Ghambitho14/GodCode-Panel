@@ -1388,25 +1388,24 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px;
-    border-radius: 10px;
-    border: 1px solid var(--admin-border, #e8ecf1);
-    background: var(--admin-page-bg, #f4f6f9);
+    padding: 4px;
+    border-radius: 14px;
+    background: var(--admin-icon-bg, #f0f2f6);
 }
 
 .admin-layout .rpt-chart-kind-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: none;
-    border-radius: 8px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--admin-text-muted, #5a6169);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--admin-text-muted, #6b7280);
     background: transparent;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.18s ease, color 0.18s ease;
 }
 
 .admin-layout .rpt-chart-kind-btn:hover:not(.active) {
@@ -1415,9 +1414,9 @@
 }
 
 .admin-layout .rpt-chart-kind-btn.active {
-    background: var(--admin-card-bg, #fff);
-    color: var(--rpt-accent, #2563eb);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    background: color-mix(in srgb, var(--accent-primary, #2563eb) 11%, var(--admin-card-bg, #fff));
+    color: var(--accent-primary, #2563eb);
+    font-weight: 700;
 }
 
 .admin-layout .rpt-chart-kind-label {

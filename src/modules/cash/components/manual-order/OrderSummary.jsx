@@ -3,6 +3,7 @@ import { ShoppingBag, Printer, ChefHat, Banknote, Minus, Plus, StickyNote, Trash
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../../constants/productImagePlaceholder';
 import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
 
 /**
  * Resumen del carrito de compras con estilos Tailwind.
@@ -62,7 +63,7 @@ const OrderSummary = ({
                 </div>
                 {manualOrder.items.length > 0 && (
                     <div className="relative" ref={printMenuRef}>
-                        <button
+                        <Button variant="default"
                             type="button"
                             onClick={() => setPrintMenuOpen((v) => !v)}
                             className="flex h-8 w-8 items-center justify-center rounded-full bg-gc-muted text-gc-text-muted transition-colors hover:bg-gc-accent/10 hover:text-gc-accent"
@@ -72,10 +73,10 @@ const OrderSummary = ({
                             aria-label="Imprimir tickets"
                         >
                             <Printer size={14} />
-                        </button>
+                        </Button>
                         {printMenuOpen && (
                             <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg" role="menu">
-                                <button
+                                <Button variant="default"
                                     type="button"
                                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-gc-text transition-colors hover:bg-gc-muted"
                                     role="menuitem"
@@ -86,8 +87,8 @@ const OrderSummary = ({
                                 >
                                     <ChefHat size={14} className="text-gc-accent" />
                                     Ticket cocina
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="default"
                                     type="button"
                                     className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-gc-text transition-colors hover:bg-gc-muted"
                                     role="menuitem"
@@ -98,7 +99,7 @@ const OrderSummary = ({
                                 >
                                     <Banknote size={14} className="text-gc-success" />
                                     Ticket caja
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -159,25 +160,25 @@ const OrderSummary = ({
 
                                                 <div className="flex items-center gap-1">
                                                     <div className="flex items-center gap-1 rounded-full bg-gc-card p-0.5 shadow-sm">
-                                                        <button
+                                                        <Button variant="default"
                                                             type="button"
                                                             className="flex h-6 w-6 items-center justify-center rounded-full text-gc-text transition-colors hover:bg-gc-muted"
                                                             onClick={() => updateQuantity(item.id, -1)}
                                                             aria-label="Reducir cantidad"
                                                         >
                                                             <Minus size={12} strokeWidth={2.5} />
-                                                        </button>
+                                                        </Button>
                                                         <span className="min-w-[1rem] text-center text-xs font-bold text-gc-text">{item.quantity}</span>
-                                                        <button
+                                                        <Button variant="default"
                                                             type="button"
                                                             className="flex h-6 w-6 items-center justify-center rounded-full text-gc-text transition-colors hover:bg-gc-muted"
                                                             onClick={() => updateQuantity(item.id, 1)}
                                                             aria-label="Aumentar cantidad"
                                                         >
                                                             <Plus size={12} strokeWidth={2.5} />
-                                                        </button>
+                                                        </Button>
                                                     </div>
-                                                    <button
+                                                    <Button variant="destructive"
                                                         type="button"
                                                         className="flex h-7 w-7 items-center justify-center rounded-full bg-gc-card text-gc-text-muted transition-colors hover:bg-gc-danger/10 hover:text-gc-danger"
                                                         onClick={() => removeItem(item.id)}
@@ -185,13 +186,13 @@ const OrderSummary = ({
                                                         aria-label="Eliminar ítem"
                                                     >
                                                         <Trash2 size={12} />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className={cn(
                                             'mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[4px] border px-2.5 py-2 text-[11px] font-semibold transition-colors',
@@ -206,7 +207,7 @@ const OrderSummary = ({
                                     >
                                         <StickyNote size={12} />
                                         {(item.note ?? '').length > 0 ? 'Editar comentario' : 'Comentario para cocina'}
-                                    </button>
+                                    </Button>
 
                                     {noteOpen && (
                                         <div className="mt-2">

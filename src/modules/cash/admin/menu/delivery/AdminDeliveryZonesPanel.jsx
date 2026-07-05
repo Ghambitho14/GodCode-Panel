@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import AdminHelpTip from "../../../components/AdminHelpTip";
 import DeliveryPlaceSuggestInput from "../../../components/DeliveryPlaceSuggestInput";
 import { DELIVERY_TOOLTIPS } from "./deliveryZoneHelpers";
+import { Button } from "@/components/ui/button";
 
 export default function AdminDeliveryZonesPanel({
 	lockOptions,
@@ -39,7 +40,7 @@ export default function AdminDeliveryZonesPanel({
 						<AdminHelpTip text={DELIVERY_TOOLTIPS.strategyIntro} />
 					</p>
 					<div className="admin-delivery-strategy-pills">
-						<button
+						<Button variant="default"
 							type="button"
 							disabled={lockOptions}
 							className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "distance" ? "is-active" : ""}`}
@@ -49,8 +50,8 @@ export default function AdminDeliveryZonesPanel({
 							<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 								{DELIVERY_TOOLTIPS.strategyDistance}
 							</span>
-						</button>
-						<button
+						</Button>
+						<Button variant="default"
 							type="button"
 							disabled={lockOptions}
 							className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "named_areas" ? "is-active" : ""}`}
@@ -60,9 +61,9 @@ export default function AdminDeliveryZonesPanel({
 							<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 								{DELIVERY_TOOLTIPS.strategyNamedAreas}
 							</span>
-						</button>
+						</Button>
 						{allowTenantExternalDelivery ? (
-							<button
+							<Button variant="default"
 								type="button"
 								disabled={lockOptions}
 								className={`btn btn-secondary admin-tooltip-btn-hover ${pricingStrategy === "external" ? "is-active" : ""}`}
@@ -72,7 +73,7 @@ export default function AdminDeliveryZonesPanel({
 								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 									{DELIVERY_TOOLTIPS.strategyExternal}
 								</span>
-							</button>
+							</Button>
 						) : null}
 					</div>
 				</div>
@@ -216,9 +217,9 @@ export default function AdminDeliveryZonesPanel({
 											}}
 										/>
 									</div>
-									<button
+									<Button variant="default"
 										type="button"
-										className="admin-delivery-icon-btn admin-tooltip-btn-hover"
+										className=""
 										disabled={lockOptions}
 										aria-label="Quitar anillo de distancia (radio km y tarifa fija)"
 										onClick={() =>
@@ -231,12 +232,12 @@ export default function AdminDeliveryZonesPanel({
 										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 											{DELIVERY_TOOLTIPS.removeDistanceRing}
 										</span>
-									</button>
+									</Button>
 								</div>
 							))}
-							<button
+							<Button variant="secondary"
 								type="button"
-								className="btn btn-secondary admin-tooltip-btn-hover"
+								className=""
 								style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
 								disabled={lockOptions}
 								onClick={() =>
@@ -250,7 +251,7 @@ export default function AdminDeliveryZonesPanel({
 								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 									{DELIVERY_TOOLTIPS.addDistanceRing}
 								</span>
-							</button>
+							</Button>
 						</div>
 					</>
 				) : pricingStrategy === "named_areas" ? (
@@ -264,7 +265,7 @@ export default function AdminDeliveryZonesPanel({
 								<AdminHelpTip text={DELIVERY_TOOLTIPS.zonesCheckoutSection} />
 							</p>
 							<div className="admin-delivery-strategy-pills">
-								<button
+								<Button variant="default"
 									type="button"
 									disabled={lockOptions}
 									className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "manual_select" ? "is-active" : ""}`}
@@ -274,8 +275,8 @@ export default function AdminDeliveryZonesPanel({
 									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 										{DELIVERY_TOOLTIPS.namedManual}
 									</span>
-								</button>
-								<button
+								</Button>
+								<Button variant="default"
 									type="button"
 									disabled={lockOptions}
 									className={`btn btn-secondary admin-tooltip-btn-hover ${namedAreaResolution === "address_matched" ? "is-active" : ""}`}
@@ -285,7 +286,7 @@ export default function AdminDeliveryZonesPanel({
 									<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 										{DELIVERY_TOOLTIPS.namedAddress}
 									</span>
-								</button>
+								</Button>
 							</div>
 							<p className="admin-menu-options-card-desc" style={{ marginTop: 10, marginBottom: 0 }}>
 								{namedAreaResolution === "manual_select"
@@ -393,9 +394,9 @@ export default function AdminDeliveryZonesPanel({
 											}}
 										/>
 									</div>
-									<button
+									<Button variant="default"
 										type="button"
-										className="admin-delivery-icon-btn admin-tooltip-btn-hover"
+										className=""
 										disabled={lockOptions}
 										aria-label="Quitar zona de la lista (nombre, tarifa y alias)"
 										onClick={() =>
@@ -408,12 +409,12 @@ export default function AdminDeliveryZonesPanel({
 										<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 											{DELIVERY_TOOLTIPS.removeNamedZoneRow}
 										</span>
-									</button>
+									</Button>
 								</div>
 							))}
-							<button
+							<Button variant="secondary"
 								type="button"
-								className="btn btn-secondary admin-tooltip-btn-hover"
+								className=""
 								style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
 								disabled={lockOptions}
 								onClick={() =>
@@ -427,7 +428,7 @@ export default function AdminDeliveryZonesPanel({
 								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 									{DELIVERY_TOOLTIPS.addNamedZone}
 								</span>
-							</button>
+							</Button>
 						</div>
 					</>
 				) : (
@@ -461,7 +462,7 @@ export default function AdminDeliveryZonesPanel({
 							className="admin-delivery-pay-chip-row"
 							style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}
 						>
-							<button
+							<Button variant="default"
 								type="button"
 								role="checkbox"
 								aria-checked={showExternalDeliveryFee}
@@ -473,7 +474,7 @@ export default function AdminDeliveryZonesPanel({
 								<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
 									{DELIVERY_TOOLTIPS.uberShowFee}
 								</span>
-							</button>
+							</Button>
 						</div>
 						<div className="form-group" style={{ maxWidth: "36rem", marginTop: 14 }}>
 							<label htmlFor="adm-del-uber-display-text">

@@ -29,6 +29,7 @@ import {
 	PRODUCT_INVENTORY_RECIPE_SELECT,
 } from "@/modules/cash/services/inventorySelects";
 import useInventoryBranchLoad from "@/modules/cash/admin/tabs/inventory/useInventoryBranchLoad";
+import { Button } from "@/components/ui/button";
 
 const SUB_TABS = [
 	{ id: "summary", label: "Resumen", icon: LayoutDashboard },
@@ -695,7 +696,7 @@ const AdminInventory = ({
 		<div className="inventory-view animate-fade">
 			<nav className="inventory-subtabs" aria-label="Secciones de inventario">
 				{SUB_TABS.map(({ id, label, icon: Icon }) => (
-					<button
+					<Button variant="default"
 						key={id}
 						type="button"
 						className={`inventory-subtab ${subTab === id ? "inventory-subtab--active" : ""}`}
@@ -704,7 +705,7 @@ const AdminInventory = ({
 					>
 						<Icon size={17} aria-hidden />
 						{label}
-					</button>
+					</Button>
 				))}
 			</nav>
 
@@ -767,12 +768,12 @@ const AdminInventory = ({
 							catálogo. Si usas carrito de bebidas o extras, también puedes vincular esos ítems a un artículo.
 						</p>
 						<div className="summary-card__actions-row">
-							<button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubTab("supplies")}>
+							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("supplies")}>
 								<List size={16} /> Ver artículos
-							</button>
-							<button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubTab("recipes")}>
+							</Button>
+							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("recipes")}>
 								<ChefHat size={16} /> Consumo por venta
-							</button>
+							</Button>
 						</div>
 					</div>
 				</div>
@@ -782,12 +783,12 @@ const AdminInventory = ({
 				<>
 					<div className="inventory-header inventory-header--toolbar-only">
 						<div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-							<button className="btn btn-secondary btn-icon-text" type="button" onClick={handleExport}>
+							<Button variant="secondary" className="" type="button" onClick={handleExport}>
 								<Download size={18} /> Exportar
-							</button>
-							<button className="btn btn-primary btn-icon-text" type="button" onClick={handleCreate}>
+							</Button>
+							<Button variant="default" className="" type="button" onClick={handleCreate}>
 								<Plus size={18} /> Nuevo artículo
-							</button>
+							</Button>
 						</div>
 					</div>
 
@@ -834,13 +835,13 @@ const AdminInventory = ({
 												{unlinkedBeverages.map((row) => (
 													<li key={`${row.variant}-${row.item.id}`}>
 														<span className="inventory-cart-unlinked-list__name">{row.item.name}</span>
-														<button
+														<Button variant="secondary"
 															type="button"
-															className="btn btn-secondary btn-sm"
+															className=""
 															onClick={() => openRegisterFromCart(row)}
 														>
 															Registrar en inventario
-														</button>
+														</Button>
 													</li>
 												))}
 											</ul>
@@ -863,13 +864,13 @@ const AdminInventory = ({
 												{unlinkedExtras.map((row) => (
 													<li key={`${row.variant}-${row.item.id}`}>
 														<span className="inventory-cart-unlinked-list__name">{row.item.name}</span>
-														<button
+														<Button variant="secondary"
 															type="button"
-															className="btn btn-secondary btn-sm"
+															className=""
 															onClick={() => openRegisterFromCart(row)}
 														>
 															Registrar en inventario
-														</button>
+														</Button>
 													</li>
 												))}
 											</ul>
@@ -889,14 +890,14 @@ const AdminInventory = ({
 								{ id: "low", label: "Bajo" },
 								{ id: "out", label: "Agotado" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${statusFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setStatusFilter(c.id)}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<div className="inventory-toolbar__chips inventory-toolbar__chips--wrap">
@@ -908,14 +909,14 @@ const AdminInventory = ({
 								{ id: "sellable_extra", label: "Extra" },
 								{ id: "other", label: "Otro" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${itemTypeFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setItemTypeFilter(c.id)}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<div className="search-inventory">
@@ -936,9 +937,9 @@ const AdminInventory = ({
 						<div className="inventory-empty">
 							<p>No hay artículos o no coinciden con los filtros.</p>
 							{items.length === 0 && (
-								<button className="btn btn-primary" type="button" onClick={handleCreate}>
+								<Button variant="default" className="" type="button" onClick={handleCreate}>
 									Crear primer artículo
-								</button>
+								</Button>
 							)}
 						</div>
 					) : (
@@ -948,15 +949,15 @@ const AdminInventory = ({
 									<tr>
 										<th className="inventory-th-expand" aria-hidden />
 										<th>
-											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
+											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
 												Artículo {sortKey === "name" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</button>
+											</Button>
 										</th>
 										<th>Tipo</th>
 										<th>
-											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
+											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
 												Stock {sortKey === "stock" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</button>
+											</Button>
 										</th>
 										<th>Unidad</th>
 										<th>Estado</th>
@@ -978,7 +979,7 @@ const AdminInventory = ({
 												<tr className={expanded ? "inventory-row--open" : ""}>
 													<td className="inventory-td-expand">
 														{branchId !== "all" ? (
-															<button
+															<Button variant="default"
 																type="button"
 																className="inventory-expand-btn"
 																aria-expanded={expanded}
@@ -993,7 +994,7 @@ const AdminInventory = ({
 																title="Últimos movimientos"
 															>
 																{expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-															</button>
+															</Button>
 														) : null}
 													</td>
 													<td className="inventory-td-name">
@@ -1020,22 +1021,22 @@ const AdminInventory = ({
 													<td>{statusBadge}</td>
 													<td className="inventory-td-actions">
 														<div className="inventory-row-actions">
-															<button
-																className="btn-icon-sm"
+															<Button variant="default"
+																className=""
 																type="button"
 																onClick={() => handleEdit(item)}
 																title="Editar"
 															>
 																<Edit size={16} />
-															</button>
-															<button
+															</Button>
+															<Button variant="default"
 																className="btn-trash-sm"
 																type="button"
 																onClick={() => handleDelete(item.id)}
 																title="Eliminar"
 															>
 																<Trash2 size={16} />
-															</button>
+															</Button>
 														</div>
 													</td>
 												</tr>
@@ -1142,9 +1143,9 @@ const AdminInventory = ({
 					</p>
 
 					<div className="inventory-header inventory-toolbar--recipes">
-						<button type="button" className="btn btn-primary btn-icon-text" onClick={openAddRecipePicker}>
+						<Button variant="default" type="button" className="" onClick={openAddRecipePicker}>
 							<Plus size={18} /> Agregar receta
-						</button>
+						</Button>
 						<div className="search-inventory">
 							<Search size={18} className="inventory-search-icon" aria-hidden />
 							<input
@@ -1167,7 +1168,7 @@ const AdminInventory = ({
 								{ id: "without", label: "Sin receta" },
 								{ id: "with", label: "Con receta" },
 							].map((c) => (
-								<button
+								<Button variant="default"
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${recipeFilter === c.id ? "inventory-chip--active" : ""}`}
@@ -1177,7 +1178,7 @@ const AdminInventory = ({
 									}}
 								>
 									{c.label}
-								</button>
+								</Button>
 							))}
 						</div>
 						<p className="inventory-muted inventory-recipes__stats">
@@ -1202,7 +1203,7 @@ const AdminInventory = ({
 												(product.insumoNames.length > 2 ? ` +${product.insumoNames.length - 2}` : "")
 											: null;
 									return (
-										<button
+										<Button variant="default"
 											key={product.id}
 											type="button"
 											className="inventory-recipe-card"
@@ -1231,19 +1232,19 @@ const AdminInventory = ({
 											<span className="inventory-recipe-card__meta">
 												{summary || (product.hasRecipe ? "Clic para editar" : "Clic para configurar")}
 											</span>
-										</button>
+										</Button>
 									);
 								})}
 							</div>
 							{recipeProductList.length > recipeListLimit ? (
 								<div className="inventory-recipes__more">
-									<button
+									<Button variant="secondary"
 										type="button"
-										className="btn btn-secondary btn-sm"
+										className=""
 										onClick={() => setRecipeListLimit((n) => n + RECIPE_PAGE_SIZE)}
 									>
 										Mostrar más ({recipeProductList.length - recipeListLimit} restantes)
-									</button>
+									</Button>
 								</div>
 							) : null}
 						</>
@@ -1270,14 +1271,14 @@ const AdminInventory = ({
 									Busca un producto del catálogo. Por defecto se listan los que aún no tienen consumo configurado.
 								</p>
 							</div>
-							<button
+							<Button variant="default"
 								type="button"
 								className="btn-close"
 								aria-label="Cerrar"
 								onClick={() => setRecipePickProductOpen(false)}
 							>
 								<X size={22} />
-							</button>
+							</Button>
 						</header>
 						<div className="inventory-recipe-picker__toolbar">
 							<div className="search-inventory inventory-recipe-picker__search">
@@ -1309,7 +1310,7 @@ const AdminInventory = ({
 								<ul className="inventory-recipe-picker__items">
 									{recipePickProductList.map((p) => (
 										<li key={p.id}>
-											<button type="button" className="inventory-recipe-picker__item" onClick={() => pickProductForRecipe(p)}>
+											<Button variant="default" type="button" className="inventory-recipe-picker__item" onClick={() => pickProductForRecipe(p)}>
 												<span className="inventory-recipe-picker__item-name">{p.name}</span>
 												{p.categoryName ? (
 													<span className="inventory-recipe-picker__item-cat">{p.categoryName}</span>
@@ -1317,7 +1318,7 @@ const AdminInventory = ({
 												{p.hasRecipe ? (
 													<span className="inventory-recipe-picker__item-badge">Ya tiene receta</span>
 												) : null}
-											</button>
+											</Button>
 										</li>
 									))}
 								</ul>
@@ -1344,7 +1345,7 @@ const AdminInventory = ({
 								<h3 id="recipe-edit-title">Consumo por venta</h3>
 								<p className="inventory-modal-subtitle">{recipeEditingProduct.name}</p>
 							</div>
-							<button
+							<Button variant="default"
 								type="button"
 								className="btn-close"
 								aria-label="Cerrar"
@@ -1352,7 +1353,7 @@ const AdminInventory = ({
 								onClick={() => setRecipeEditingProduct(null)}
 							>
 								<X size={22} />
-							</button>
+							</Button>
 						</header>
 						<form
 							onSubmit={(e) => {
@@ -1372,9 +1373,9 @@ const AdminInventory = ({
 											aria-label="Filtrar artículos"
 										/>
 									</div>
-									<button type="button" className="btn btn-secondary btn-sm" onClick={addRecipeLine}>
+									<Button variant="secondary" type="button" className="" onClick={addRecipeLine}>
 										<Plus size={16} /> Agregar artículo
-									</button>
+									</Button>
 								</div>
 								{recipeLines.length === 0 ? (
 									<p className="inventory-recipe-empty-hint">
@@ -1446,14 +1447,14 @@ const AdminInventory = ({
 															))}
 														</select>
 													</div>
-													<button
+													<Button variant="default"
 														type="button"
 														className="inventory-recipe-line__remove"
 														aria-label="Quitar línea"
 														onClick={() => removeRecipeLine(idx)}
 													>
 														<Trash2 size={18} />
-													</button>
+													</Button>
 													{line.inventory_item_id ? (
 														<p className="inventory-recipe-line__unit-hint form-hint">
 															Se guarda en {getUnitLabel(nativeUnit, { short: true })} (unidad del insumo).
@@ -1466,18 +1467,18 @@ const AdminInventory = ({
 								)}
 							</div>
 							<footer className="modal-footer">
-								<button
+								<Button variant="secondary"
 									type="button"
-									className="btn btn-secondary"
+									className=""
 									disabled={recipeSaving}
 									onClick={() => setRecipeEditingProduct(null)}
 								>
 									Cancelar
-								</button>
-								<button type="submit" className="btn btn-primary" disabled={recipeSaving}>
+								</Button>
+								<Button variant="default" type="submit" className="" disabled={recipeSaving}>
 									<Save size={18} />
 									{recipeSaving ? "Guardando…" : "Guardar receta"}
-								</button>
+								</Button>
 							</footer>
 						</form>
 					</div>

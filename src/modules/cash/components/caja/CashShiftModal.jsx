@@ -11,6 +11,7 @@ import {
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { filterOpenOrderSessions, getOrderTileKind } from '@/shared/utils/orderUtils';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
+import { Button } from "@/components/ui/button";
 
 function formatShiftDuration(openedAt) {
     if (!openedAt) return '—';
@@ -203,9 +204,9 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
                         </span>
                         <h3 id="cash-shift-modal-title">{isOpening ? 'Apertura de caja' : 'Cierre de caja'}</h3>
                     </div>
-                    <button type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
+                    <Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
                         <X size={20} strokeWidth={2} />
-                    </button>
+                    </Button>
                 </header>
 
                 <form onSubmit={handleSubmit} className="cash-shift-modal__form">
@@ -362,14 +363,14 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
 
                                 {otherRows.length > 0 ? (
                                     <div className="cash-shift-close-other">
-                                        <button
+                                        <Button variant="default"
                                             type="button"
                                             className="cash-shift-close-other-toggle"
                                             onClick={() => setShowOtherMovements((v) => !v)}
                                         >
                                             {showOtherMovements ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                             Otros movimientos ({otherRows.length})
-                                        </button>
+                                        </Button>
                                         {showOtherMovements ? (
                                             <ul className="cash-shift-close-other-list">
                                                 {otherRows.map((row) => (
@@ -396,10 +397,10 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
                     </div>
 
                     <div className="cash-shift-modal__footer">
-                        <button type="button" onClick={onClose} className="btn btn-secondary">
+                        <Button variant="secondary" type="button" onClick={onClose} className="">
                             Cancelar
-                        </button>
-                        <button
+                        </Button>
+                        <Button variant="default"
                             type="submit"
                             className={`btn ${isOpening ? 'btn-primary' : 'btn-danger'}`}
                             disabled={!isOpening && !canClose}
@@ -413,7 +414,7 @@ const CashShiftModal = ({ isOpen, onClose, type, onConfirm, activeShift, movemen
                                     <Lock size={16} aria-hidden /> Cerrar turno
                                 </>
                             )}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

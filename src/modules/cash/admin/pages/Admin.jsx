@@ -44,6 +44,7 @@ import { AdminProvider, useAdmin } from './AdminProvider';
 import { Toaster } from 'sileo';
 import 'sileo/styles.css';
 import '../../styles/AdminSileo.css';
+import { Button } from "@/components/ui/button";
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
   const {
@@ -322,8 +323,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
             <p>¿Eliminar producto?</p>
             <div className="admin-confirm-modal__actions">
-              <button type="button" className="admin-btn secondary" onClick={() => setProductToDelete(null)}>Cancelar</button>
-              <button type="button" className="admin-btn danger" onClick={confirmDeleteProduct}>Eliminar</button>
+              <Button variant="secondary" type="button" className="admin-btn secondary" onClick={() => setProductToDelete(null)}>Cancelar</Button>
+              <Button variant="destructive" type="button" className="admin-btn danger" onClick={confirmDeleteProduct}>Eliminar</Button>
             </div>
           </div>
         </div>
@@ -334,8 +335,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
             <p>¿Eliminar categoría &quot;{categoryToDelete.name}&quot;? Los productos quedarán sin categoría.</p>
             <div className="admin-confirm-modal__actions">
-              <button type="button" className="admin-btn secondary" onClick={() => setCategoryToDelete(null)}>Cancelar</button>
-              <button type="button" className="admin-btn danger" onClick={confirmDeleteCategory}>Eliminar</button>
+              <Button variant="secondary" type="button" className="admin-btn secondary" onClick={() => setCategoryToDelete(null)}>Cancelar</Button>
+              <Button variant="destructive" type="button" className="admin-btn danger" onClick={confirmDeleteCategory}>Eliminar</Button>
             </div>
           </div>
         </div>
@@ -383,26 +384,26 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               />
               <OrderNotificationSoundControl />
               {adminShortcutsEnabled ? (
-                <button
+                <Button variant="default"
                   type="button"
-                  className="btn-icon-refresh admin-icon-btn header-action-shortcuts"
+                  className="btn-icon-refresh header-action-shortcuts"
                   onClick={() => { setShortcutsHelpOpen(true); setCommandPaletteOpen(false); }}
                   title="Atajos de teclado (?)"
                   aria-label="Atajos de teclado"
                 >
                   <HelpCircle size={24} strokeWidth={1.65} aria-hidden />
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button variant="default"
                 type="button"
                 onClick={handleRefreshAll}
-                className="btn-icon-refresh admin-icon-btn header-action-refresh"
+                className="btn-icon-refresh header-action-refresh"
                 disabled={refreshing}
                 title="Actualizar datos (Mod+Shift+R)"
                 aria-label="Actualizar datos"
               >
                 <RefreshCw size={24} strokeWidth={1.65} className={refreshing ? 'animate-spin' : ''} />
-              </button>
+              </Button>
             </div>
 
             <AdminHeaderClock dataSyncedAtLabel={lastSyncLabel} className="header-action-clock" />
@@ -431,45 +432,45 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                         : ''
                   }
                 />
-                <button
+                <Button variant="default"
                   type="button"
                   className={`btn header-action-orders-history ${isHistoryView ? 'btn-primary' : 'btn-secondary'}`}
                   onClick={() => setIsHistoryView(!isHistoryView)}
                 >
                   {isHistoryView ? 'Ver Tablero' : 'Ver Historial'}
-                </button>
-                <button
+                </Button>
+                <Button variant="default"
                   type="button"
                   onClick={() => setIsOpenMesaModal(true)}
-                  className="btn btn-primary header-action-orders-manual"
+                  className="header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
                   <PlusCircle size={18} /> {ordersViewMode === 'mesas' ? 'Abrir mesa' : 'Nuevo pedido'}
-                </button>
+                </Button>
               </div>
             )}
             {activeTab === 'products' && (
-              <button
+              <Button variant="default"
                 type="button"
                 onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-                className="btn btn-primary header-action-generic"
+                className="header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
                 <Plus size={18} /> Nuevo Producto
-              </button>
+              </Button>
             )}
             {activeTab === 'categories' && (
-              <button
+              <Button variant="default"
                 type="button"
                 onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
-                className="btn btn-primary header-action-generic"
+                className="header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
                 <Plus size={18} /> Nueva Categ.
-              </button>
+              </Button>
             )}
         </AdminTopBar>
 
@@ -492,14 +493,14 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               Esta empresa aún no tiene locales configurados en el sistema, o no pudimos cargarlos.
               Las sucursales se crean desde el panel de administración SaaS; cuando existan, podrás gestionar pedidos, menú y caja por local.
             </p>
-            <button
+            <Button variant="default"
               type="button"
               className="admin-btn primary admin-empty-branches__retry"
               onClick={() => void refreshBranches()}
             >
               <RefreshCw size={18} strokeWidth={1.65} />
               Reintentar carga
-            </button>
+            </Button>
           </div>
         ) : branches.length === 0 ? (
           <AdminTabFallback />
@@ -711,7 +712,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
           <div className="admin-side-panel admin-receipt-side-panel glass animate-slide-in" onClick={e => e.stopPropagation()}>
             <div className="admin-side-header">
               <h3>Comprobante de Pago</h3>
-              <button onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></button>
+              <Button variant="default" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></Button>
             </div>
             <div className="admin-side-body">
               {receiptModalOrder.payment_ref && receiptModalOrder.payment_ref.startsWith('http') && !receiptPreview && (
@@ -733,7 +734,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                       <div style={{ textAlign: 'left' }}>
                         <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>Imagen Seleccionada</span>
                         <span style={{ fontSize: '0.75rem', color: '#25d366' }}>Click para cambiar</span>
-                        <button 
+                        <Button variant="default" 
                           type="button" 
                           className="btn-text" 
                           style={{ color: '#ff4444', fontSize: '0.75rem', padding: 0, marginTop: 4 }}
@@ -744,7 +745,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                           }}
                         >
                           Quitar
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -757,8 +758,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               </div>
             </div>
             <div className="admin-side-footer">
-              <button
-                className="btn btn-primary btn-block"
+              <Button variant="default"
+                className="btn-block"
                 onClick={() => {
                   const fileInput = document.getElementById('receipt-upload-modal');
                   if (fileInput?.files[0]) {
@@ -770,7 +771,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 disabled={uploadingReceipt || !receiptPreview}
               >
                 {uploadingReceipt ? 'Subiendo...' : 'Guardar Comprobante'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

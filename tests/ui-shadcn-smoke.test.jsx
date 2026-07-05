@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 describe('shadcn/ui smoke test', () => {
 	it('renders Button', () => {
-		render(<Button>Click me</Button>);
+		render(<Button variant="default">Click me</Button>);
 		expect(screen.getByText('Click me')).not.toBeNull();
 	});
 

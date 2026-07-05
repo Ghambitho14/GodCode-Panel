@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { bootstrapSession, login } from "@/integrations/supabase";
+import { Button } from "@/components/ui/button";
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -74,18 +75,18 @@ export function LoginForm() {
             placeholder="••••••••"
             required
           />
-          <button
+          <Button variant="default"
             type="button"
             className="login-password-toggle"
             onClick={() => setShowPassword((value) => !value)}
             aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+          </Button>
         </div>
       </div>
 
-      <button type="submit" className="btn btn-primary login-submit-button" disabled={loading}>
+      <Button variant="default" type="submit" className="login-submit-button" disabled={loading}>
         {loading ? (
           <>
             <Loader2 size={20} className="animate-spin" />
@@ -94,7 +95,7 @@ export function LoginForm() {
         ) : (
           <span>Ingresar</span>
         )}
-      </button>
+      </Button>
     </form>
   );
 }

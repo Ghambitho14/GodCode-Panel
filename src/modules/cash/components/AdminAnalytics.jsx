@@ -1330,7 +1330,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={tryOpenRegisterExpenseModal} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                    <Button variant="default" onClick={tryOpenRegisterExpenseModal} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
                         <Plus size={17} strokeWidth={2.25} aria-hidden />
                         Registrar movimiento
                     </Button>
@@ -1353,7 +1353,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Período</span>
                     <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
                         {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
-                            <button
+                            <Button variant="default"
                                 key={value}
                                 type="button"
                                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
@@ -1364,7 +1364,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 onClick={() => setFilterPeriod(value)}
                             >
                                 {label}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                     <ReportPeriodSelect
@@ -1402,7 +1402,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Agrupar</span>
                     <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
                         {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
-                            <button
+                            <Button variant="default"
                                 key={value}
                                 type="button"
                                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
@@ -1413,7 +1413,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 onClick={() => setExpenseAgg(value)}
                             >
                                 {label}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
@@ -1422,7 +1422,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Tipo</span>
                     <div className="inline-flex flex-wrap gap-1 rounded-xl bg-[#f5f5f7] p-1">
                         {expenseKindFilterOptions.map(({ value, label, count }) => (
-                            <button
+                            <Button variant="default"
                                 key={value}
                                 type="button"
                                 className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
@@ -1438,7 +1438,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         {count}
                                     </span>
                                 ) : null}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
@@ -1713,7 +1713,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Button onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
+                        <Button variant="default" onClick={handleExportMonthlyExcel} disabled={exportLoading} className="gap-2">
                             {exportLoading ? (
                                 <>
                                     <Loader2 size={16} className="animate-spin" aria-hidden />
@@ -1833,23 +1833,19 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
                             <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
                             <div className="flex flex-wrap items-center gap-3">
-                                <div className="inline-flex gap-1 rounded-xl bg-[#f5f5f7] p-1">
+                                <div className="rpt-chart-kind">
                                     {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
-                                        <button
+                                        <Button variant="default"
                                             key={value}
                                             type="button"
-                                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                                activeChartKind === value
-                                                    ? 'bg-white text-[#2563eb] shadow-sm'
-                                                    : 'text-[#6b7280] hover:text-[#1a1a1a]'
-                                            }`}
+                                            className={`rpt-chart-kind-btn ${activeChartKind === value ? 'active' : ''}`}
                                             onClick={() => setChartKind(value)}
                                             title={label}
                                             aria-pressed={activeChartKind === value}
                                         >
                                             <Icon size={14} strokeWidth={1.75} aria-hidden />
-                                            <span className="hidden sm:inline">{label}</span>
-                                        </button>
+                                            <span className="rpt-chart-kind-label">{label}</span>
+                                        </Button>
                                     ))}
                                 </div>
                                 <Tabs value={chartTab} onValueChange={setChartTab}>

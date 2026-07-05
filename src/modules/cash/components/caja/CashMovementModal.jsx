@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowDownCircle, ArrowUpCircle, FileText, CreditCard, DollarSign, Banknote } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
+import { Button } from "@/components/ui/button";
 
 /**
  * @param {'income' | 'cash_withdrawal' | 'operating_expense'} variant
@@ -82,9 +83,9 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
                         )}
                         <h3 className="fw-700">{title}</h3>
                     </div>
-                    <button type="button" onClick={onClose} className="btn-close">
+                    <Button variant="default" type="button" onClick={onClose} className="btn-close">
                         <X size={24} />
-                    </button>
+                    </Button>
                 </header>
 
                 {isCashWithdrawal ? (
@@ -163,7 +164,7 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
                                     className="payment-options"
                                     style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
                                 >
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className={`btn btn-secondary ${formData.paymentMethod === 'cash' ? 'active' : ''}`}
                                         onClick={() =>
@@ -177,8 +178,8 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
                                         }}
                                     >
                                         <DollarSign size={16} style={{ marginRight: 6 }} /> Efectivo
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button variant="default"
                                         type="button"
                                         className={`btn btn-secondary ${formData.paymentMethod === 'card' ? 'active' : ''}`}
                                         onClick={() =>
@@ -193,7 +194,7 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
                                     >
                                         <CreditCard size={16} style={{ marginRight: 6 }} />{' '}
                                         {isIncome ? 'Tarjeta/Transf' : 'Tarjeta'}
-                                    </button>
+                                    </Button>
                                 </div>
                                 <p
                                     style={{
@@ -228,12 +229,12 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
                     </div>
 
                     <div style={{ marginTop: 30, display: 'flex', gap: 10 }}>
-                        <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>
+                        <Button variant="secondary" type="button" onClick={onClose} className="" style={{ flex: 1 }}>
                             Cancelar
-                        </button>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                        </Button>
+                        <Button variant="default" type="submit" className="" style={{ flex: 1 }}>
                             {isCashWithdrawal ? 'Registrar retiro' : 'Guardar movimiento'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>

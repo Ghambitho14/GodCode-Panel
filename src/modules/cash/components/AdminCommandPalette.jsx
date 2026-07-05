@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * @param {object} props
@@ -64,7 +65,7 @@ export function AdminCommandPalette({ open, onClose, items, onSelect }) {
 					) : (
 						filtered.map((it) => (
 							<li key={it.id}>
-								<button
+								<Button variant="default"
 									type="button"
 									className="admin-command-palette-item"
 									onClick={() => {
@@ -76,7 +77,7 @@ export function AdminCommandPalette({ open, onClose, items, onSelect }) {
 									{it.group ? (
 										<span className="admin-command-palette-item-group">{it.group}</span>
 									) : null}
-								</button>
+								</Button>
 							</li>
 						))
 					)}

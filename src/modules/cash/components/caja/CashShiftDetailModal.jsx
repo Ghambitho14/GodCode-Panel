@@ -18,6 +18,7 @@ import AdminIconSlot from '../AdminIconSlot';
 import PickupBagIcon from '../PickupBagIcon';
 import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
+import { Button } from "@/components/ui/button";
 
 const PaymentMethodChip = ({ Icon, label, value }) => (
     <div className="cash-shift-detail-method-chip">
@@ -285,9 +286,9 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                             </div>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
+                    <Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
                         <X size={22} strokeWidth={2} />
-                    </button>
+                    </Button>
                 </header>
 
                 <div className="cash-shift-detail-modal__body">
@@ -643,9 +644,9 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                 </div>
 
                 <footer className="modal-footer cash-shift-detail-modal__footer">
-                    <button type="button" className="btn btn-secondary btn-block" onClick={onClose}>
+                    <Button variant="secondary" type="button" className="btn-block" onClick={onClose}>
                         Cerrar detalle
-                    </button>
+                    </Button>
                 </footer>
             </div>
         </div>

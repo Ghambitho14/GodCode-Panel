@@ -25,6 +25,7 @@ import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/
 import OrderDetailMetaCards from '../OrderDetailMetaCards';
 import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
+import { Button } from "@/components/ui/button";
 
 const ADDRESS_FIELD_LABELS = [
 	['named_area_label', 'Zona'],
@@ -240,14 +241,14 @@ export default function CashOrderDetailPanel({
 							</p>
 						) : null}
 					</div>
-					<button
+					<Button variant="default"
 						type="button"
 						className="order-detail-close"
 						onClick={onClose}
 						aria-label="Cerrar"
 					>
 						<X size={22} strokeWidth={2} />
-					</button>
+					</Button>
 				</div>
 
 				<div className="order-detail-body">
@@ -351,7 +352,7 @@ export default function CashOrderDetailPanel({
 					<div className="order-detail-section">
 						<span className="order-detail-label">Acciones</span>
 						<div className="order-detail-ticket-actions">
-							<button
+							<Button variant="default"
 								type="button"
 								className="order-detail-ticket-btn order-detail-ticket-btn--primary"
 								onClick={() => {
@@ -360,8 +361,8 @@ export default function CashOrderDetailPanel({
 							>
 								<ChefHat size={18} aria-hidden />
 								Ticket cocina
-							</button>
-							<button
+							</Button>
+							<Button variant="default"
 								type="button"
 								className="order-detail-ticket-btn"
 								onClick={() => {
@@ -370,7 +371,7 @@ export default function CashOrderDetailPanel({
 							>
 								<Banknote size={18} aria-hidden />
 								Ticket caja
-							</button>
+							</Button>
 							{telHref ? (
 								<a href={telHref} className="order-detail-ticket-btn">
 									<Phone size={18} aria-hidden />
@@ -400,14 +401,14 @@ export default function CashOrderDetailPanel({
 								</a>
 							) : null}
 							{isDelivery ? (
-								<button
+								<Button variant="default"
 									type="button"
 									className="order-detail-ticket-btn"
 									onClick={() => void handleDeliveryWhatsApp()}
 								>
 									<Send size={18} aria-hidden />
 									WhatsApp envío
-								</button>
+								</Button>
 							) : null}
 						</div>
 					</div>
@@ -424,9 +425,9 @@ export default function CashOrderDetailPanel({
 							})}
 						</span>
 					</div>
-					<button type="button" className="admin-btn primary order-detail-done" onClick={onClose}>
+					<Button variant="default" type="button" className="admin-btn primary order-detail-done" onClick={onClose}>
 						Cerrar
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

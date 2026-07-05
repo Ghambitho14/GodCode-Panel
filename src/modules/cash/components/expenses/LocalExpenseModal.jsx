@@ -8,6 +8,7 @@ import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
 import './LocalExpenseModal.css';
+import { Button } from "@/components/ui/button";
 
 const EXPENSE_CATEGORIES = [
     { id: 'mercaderia', label: 'Mercadería', prefix: '[Mercadería] ' },
@@ -280,13 +281,13 @@ const LocalExpenseModal = ({
                             </p>
                         </div>
                     </div>
-                    <button type="button" className="local-expense-modal-close" onClick={onClose} aria-label="Cerrar">
+                    <Button variant="default" type="button" className="local-expense-modal-close" onClick={onClose} aria-label="Cerrar">
                         <X size={22} />
-                    </button>
+                    </Button>
                 </header>
 
                 <div className="local-expense-modal-tabs" role="tablist" aria-label="Tipo de movimiento">
-                    <button
+                    <Button variant="default"
                         type="button"
                         role="tab"
                         aria-selected={activeTab === 'operating'}
@@ -294,8 +295,8 @@ const LocalExpenseModal = ({
                         onClick={() => setActiveTab('operating')}
                     >
                         Gasto operativo
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="default"
                         type="button"
                         role="tab"
                         aria-selected={activeTab === 'refund'}
@@ -303,7 +304,7 @@ const LocalExpenseModal = ({
                         onClick={() => setActiveTab('refund')}
                     >
                         Devolución pedido
-                    </button>
+                    </Button>
                 </div>
 
                 <div className="local-expense-modal-body">
@@ -317,14 +318,14 @@ const LocalExpenseModal = ({
                                 <span className="local-expense-modal-label">Categoría</span>
                                 <div className="local-expense-modal-categories">
                                     {EXPENSE_CATEGORIES.map((cat) => (
-                                        <button
+                                        <Button variant="default"
                                             key={cat.id}
                                             type="button"
                                             className={`local-expense-modal-chip${categoryId === cat.id ? ' active' : ''}`}
                                             onClick={() => setCategoryId(cat.id)}
                                         >
                                             {cat.label}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -365,20 +366,20 @@ const LocalExpenseModal = ({
                             <div className="local-expense-modal-field">
                                 <span className="local-expense-modal-label">Método de pago</span>
                                 <div className="local-expense-modal-methods">
-                                    <button
+                                    <Button variant="default"
                                         type="button"
                                         className={`local-expense-modal-method${paymentMethod === 'cash' ? ' active' : ''}`}
                                         onClick={() => setPaymentMethod('cash')}
                                     >
                                         <DollarSign size={16} aria-hidden /> Efectivo
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button variant="default"
                                         type="button"
                                         className={`local-expense-modal-method${paymentMethod === 'card' ? ' active' : ''}`}
                                         onClick={() => setPaymentMethod('card')}
                                     >
                                         <CreditCard size={16} aria-hidden /> Tarjeta
-                                    </button>
+                                    </Button>
                                 </div>
                                 <p className="local-expense-modal-note">
                                     Solo los movimientos en <strong>Efectivo</strong> afectan el arqueo de caja física.
@@ -406,13 +407,13 @@ const LocalExpenseModal = ({
                             {error ? <p className="local-expense-modal-error">{error}</p> : null}
 
                             <div className="local-expense-modal-actions">
-                                <button type="button" className="admin-btn secondary" onClick={onClose} disabled={submitting}>
+                                <Button variant="secondary" type="button" className="admin-btn secondary" onClick={onClose} disabled={submitting}>
                                     Cancelar
-                                </button>
-                                <button type="submit" className="admin-btn" disabled={submitting}>
+                                </Button>
+                                <Button variant="default" type="submit" className="admin-btn" disabled={submitting}>
                                     {submitting ? <Loader2 size={16} className="rpt-expenses-spin" aria-hidden /> : <FileText size={16} aria-hidden />}
                                     Guardar gasto
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     ) : (
@@ -436,14 +437,14 @@ const LocalExpenseModal = ({
                                             onChange={(ev) => setOrderQuery(ev.target.value)}
                                             autoFocus
                                         />
-                                        <button type="submit" className="admin-btn secondary" disabled={searchLoading}>
+                                        <Button variant="secondary" type="submit" className="admin-btn secondary" disabled={searchLoading}>
                                             {searchLoading ? (
                                                 <Loader2 size={16} className="rpt-expenses-spin" aria-hidden />
                                             ) : (
                                                 <Search size={16} aria-hidden />
                                             )}
                                             Buscar
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             </form>
@@ -497,10 +498,10 @@ const LocalExpenseModal = ({
                             {refundError ? <p className="local-expense-modal-error">{refundError}</p> : null}
 
                             <div className="local-expense-modal-actions">
-                                <button type="button" className="admin-btn secondary" onClick={onClose} disabled={submitting}>
+                                <Button variant="secondary" type="button" className="admin-btn secondary" onClick={onClose} disabled={submitting}>
                                     Cancelar
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="default"
                                     type="button"
                                     className="admin-btn"
                                     onClick={handleSubmitRefund}
@@ -512,7 +513,7 @@ const LocalExpenseModal = ({
                                         <RotateCcw size={16} aria-hidden />
                                     )}
                                     Registrar devolución
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     )}

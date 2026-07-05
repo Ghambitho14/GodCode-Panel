@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Globe, MapPin, AlertTriangle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionType = 'change' }) => {
   if (!isOpen) return null;
@@ -9,7 +10,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
       <div className="modal-content glass animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
         <div className="modal-header">
           <h3 className="fw-700">Confirmar cambio</h3>
-          <button onClick={onClose} className="btn-close"><X size={24} /></button>
+          <Button variant="default" onClick={onClose} className="btn-close"><X size={24} /></Button>
         </div>
         
         <div className="modal-body" style={{ padding: '20px 0' }}>
@@ -29,7 +30,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
           <div style={{ display: 'grid', gap: 12 }}>
             {/* Opción Local */}
             {branchName !== 'Todas las sucursales' && (
-              <button 
+              <Button variant="default" 
                 className="btn-scope-option"
                 onClick={() => onConfirm('local')}
                 style={{
@@ -47,11 +48,11 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Solo en {branchName}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No afectará a otros locales</div>
                 </div>
-              </button>
+              </Button>
             )}
 
             {/* Opción Global */}
-            <button 
+            <Button variant="default" 
               className="btn-scope-option"
               onClick={() => onConfirm('global')}
               style={{
@@ -69,7 +70,7 @@ const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionTyp
                 <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>En todos los locales</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Se aplicará a toda la cadena</div>
               </div>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

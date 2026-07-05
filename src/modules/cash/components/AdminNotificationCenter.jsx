@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, AlertTriangle, Package, Megaphone, ChevronRight, CheckCircle2, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * Campana del header: comunicados SaaS + alertas de inventario (stock bajo/agotado, productos pausados por stock).
@@ -87,9 +88,9 @@ export default function AdminNotificationCenter({
 
 	return (
 		<div className="admin-notification-center" ref={rootRef}>
-			<button
+			<Button variant="default"
 				type="button"
-				className="btn-icon-refresh admin-icon-btn header-action-bell header-action-notifications admin-notification-center__trigger"
+				className="btn-icon-refresh header-action-bell header-action-notifications admin-notification-center__trigger"
 				onClick={() => setOpen((v) => !v)}
 				title="Notificaciones"
 				aria-label="Notificaciones"
@@ -101,7 +102,7 @@ export default function AdminNotificationCenter({
 						{badgeCount > 99 ? "99+" : badgeCount}
 					</span>
 				) : null}
-			</button>
+			</Button>
 
 			{open ? (
 				<div
@@ -149,7 +150,7 @@ export default function AdminNotificationCenter({
 								<ul className="admin-notification-center__list">
 									{pausedByStock.map((p) => (
 										<li key={p.id}>
-											<button
+											<Button variant="default"
 												type="button"
 												className="admin-notification-center__row"
 												onClick={() => goProduct(p)}
@@ -163,7 +164,7 @@ export default function AdminNotificationCenter({
 													<span>{p.name}</span>
 												</span>
 												<ChevronRight size={16} className="admin-notification-center__chev" />
-											</button>
+											</Button>
 										</li>
 									))}
 								</ul>
@@ -172,7 +173,7 @@ export default function AdminNotificationCenter({
 								<ul className="admin-notification-center__list">
 									{stockAlerts.map((a) => (
 										<li key={a.key}>
-											<button
+											<Button variant="default"
 												type="button"
 												className="admin-notification-center__row"
 												onClick={goInventory}
@@ -191,7 +192,7 @@ export default function AdminNotificationCenter({
 													</span>
 												</span>
 												<ChevronRight size={16} className="admin-notification-center__chev" />
-											</button>
+											</Button>
 										</li>
 									))}
 								</ul>
@@ -236,21 +237,21 @@ export default function AdminNotificationCenter({
 												<strong>{item.title}</strong>
 												<p>{item.message}</p>
 												<div className="admin-notification-center__broadcast-actions">
-													<button
+													<Button variant="secondary"
 														type="button"
 														className="admin-btn secondary admin-notification-center__action-btn"
 														onClick={() => onAcknowledge?.(item.id)}
 														disabled={ackingId === item.id}
 													>
 														{ackingId === item.id ? "Guardando…" : "Marcar leído"}
-													</button>
-													<button
+													</Button>
+													<Button variant="secondary"
 														type="button"
 														className="admin-btn secondary admin-notification-center__action-btn"
 														onClick={scrollBroadcasts}
 													>
 														Ver en página
-													</button>
+													</Button>
 												</div>
 											</div>
 										</li>

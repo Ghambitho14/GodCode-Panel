@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { LoginForm } from "./login-form";
 import { resetDocumentMeta } from "@/shared/utils/documentMeta";
+import { Button } from "@/components/ui/button";
 
 interface LoginShellProps {
   displayName: string;
@@ -64,7 +65,7 @@ export function LoginShell({ displayName }: LoginShellProps) {
               ) : (
                 <p className="login-admin-external-wrap">
                   <a
-                    className="btn btn-primary login-submit-button login-admin-external-link"
+                    className="login-submit-button login-admin-external-link"
                     href="https://www.godcode.me/login"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -109,13 +110,13 @@ export function LoginShell({ displayName }: LoginShellProps) {
             </div>
             <h3 className="login-sliding-panel__title">{panelCopy.heading}</h3>
             <p className="login-sliding-panel__text">{panelCopy.line}</p>
-            <button
+            <Button variant="default"
               type="button"
               className="login-sliding-panel__btn"
               onClick={() => setAccessMode(panelCopy.action)}
             >
               {panelCopy.buttonLabel}
-            </button>
+            </Button>
           </div>
         </aside>
       </div>

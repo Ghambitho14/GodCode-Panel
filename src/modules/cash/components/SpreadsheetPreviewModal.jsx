@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { X, Download } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { downloadExcel } from '@/shared/utils/exportUtils';
+import { Button } from "@/components/ui/button";
 
 const SpreadsheetPreviewModal = ({ isOpen, onClose, title, rows = [], filename }) => {
     useLockBodyScroll(isOpen);
@@ -34,9 +35,9 @@ const SpreadsheetPreviewModal = ({ isOpen, onClose, title, rows = [], filename }
                     <h3 id="rpt-spreadsheet-preview-title" className="rpt-spreadsheet-preview-modal__title">
                         {title}
                     </h3>
-                    <button type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
+                    <Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
                         <X size={22} strokeWidth={2} />
-                    </button>
+                    </Button>
                 </header>
 
                 <div className="rpt-spreadsheet-preview-modal__body">
@@ -67,22 +68,22 @@ const SpreadsheetPreviewModal = ({ isOpen, onClose, title, rows = [], filename }
                 </div>
 
                 <footer className="modal-footer rpt-spreadsheet-preview-modal__footer">
-                    <button
+                    <Button variant="secondary"
                         type="button"
-                        className="btn btn-secondary"
+                        className=""
                         onClick={onClose}
                     >
                         Cerrar
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="default"
                         type="button"
-                        className="btn btn-primary"
+                        className=""
                         onClick={handleDownload}
                         disabled={!rows.length}
                     >
                         <Download size={16} aria-hidden />
                         Descargar
-                    </button>
+                    </Button>
                 </footer>
             </div>
         </div>

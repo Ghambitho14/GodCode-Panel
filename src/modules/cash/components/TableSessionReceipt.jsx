@@ -12,6 +12,7 @@ import {
 	resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
 import PickupBagIcon from './PickupBagIcon';
+import { Button } from "@/components/ui/button";
 
 function formatOrderRef(orderId) {
 	const raw = String(orderId ?? '').replace(/-/g, '');
@@ -111,34 +112,34 @@ export default function TableSessionReceipt({
 				</div>
 				<div className="table-session-receipt__head-actions">
 					{mode === 'session' && onEdit ? (
-						<button
+						<Button variant="default"
 							type="button"
 							className="table-session-receipt__icon-btn"
 							onClick={onEdit}
 							aria-label="Editar pedido"
 						>
 							<Edit2 size={18} strokeWidth={1.75} />
-						</button>
+						</Button>
 					) : null}
 					{mode === 'session' && onCancel ? (
-						<button
+						<Button variant="destructive"
 							type="button"
 							className="table-session-receipt__icon-btn table-session-receipt__icon-btn--danger"
 							onClick={onCancel}
 							aria-label="Cancelar pedido"
 						>
 							<Trash2 size={18} strokeWidth={1.75} />
-						</button>
+						</Button>
 					) : null}
 					{onClose ? (
-						<button
+						<Button variant="default"
 							type="button"
 							className="table-session-receipt__icon-btn"
 							onClick={onClose}
 							aria-label="Cerrar"
 						>
 							<X size={18} strokeWidth={1.75} />
-						</button>
+						</Button>
 					) : null}
 				</div>
 			</header>

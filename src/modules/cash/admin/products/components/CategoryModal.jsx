@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOrder, saving = false }) => {
   const nameInputRef = useRef();
@@ -73,9 +74,9 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <header className="modal-header">
           <h3>{category ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
-          <button onClick={handleSafeClose} className="btn-close">
+          <Button variant="default" onClick={handleSafeClose} className="btn-close">
             <X size={24} />
-          </button>
+          </Button>
         </header>
 
         <form onSubmit={handleSubmit}>
@@ -127,11 +128,11 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
           </div>
 
           <footer className="modal-footer" style={{ borderTop: '1px solid #22304a' }}>
-            <button type="button" onClick={handleSafeClose} className="btn btn-secondary" disabled={saving}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={saving}>Cancelar</Button>
+            <Button variant="default" type="submit" className="" disabled={saving}>
               {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               <span>{saving ? 'Guardando...' : 'Guardar'}</span>
-            </button>
+            </Button>
           </footer>
         </form>
       </div>

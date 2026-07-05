@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Button } from "@/components/ui/button";
 import { Send, Plus, MessageSquare, AlertCircle, Clock, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
 import {
   listTickets as listTicketsService,
@@ -230,7 +231,7 @@ export default function TenantTicketsPanel({
           </select>
         </div>
         
-        <button 
+        <Button variant="default" 
             onClick={createTicket} 
             className="ticket-action-btn" 
             disabled={saving}
@@ -241,7 +242,7 @@ export default function TenantTicketsPanel({
             }}
         >
           {saving ? <><Loader2 size={18} className="animate-spin" /> Guardando...</> : <><Plus size={18} /> Crear ticket</>}
-        </button>
+        </Button>
         </div>
       </div>
 
@@ -342,7 +343,7 @@ export default function TenantTicketsPanel({
               rows={3} 
             />
             
-            <button 
+            <Button variant="default" 
                 onClick={sendReply} 
                 disabled={saving} 
                 className="ticket-action-btn"
@@ -354,7 +355,7 @@ export default function TenantTicketsPanel({
                 }}
             >
               {saving ? <><Loader2 size={16} className="animate-spin" /> Enviando...</> : <><Send size={16} /> Enviar respuesta</>}
-            </button>
+            </Button>
             </div>
           </>
         ) : (

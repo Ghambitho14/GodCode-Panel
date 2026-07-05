@@ -2,6 +2,7 @@ import React, { useState, useEffect, useId } from "react";
 import { X, Save, MapPin } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { getInventoryUnitSelectGroups, normalizeUnit } from "@/lib/inventory-units";
+import { Button } from "@/components/ui/button";
 
 const ITEM_TYPES = [
 	{ id: "kitchen", label: "General / materia prima" },
@@ -265,9 +266,9 @@ const InventoryItemModal = ({
 									: "Define el artículo y el stock inicial para la sucursal seleccionada."}
 						</p>
 					</div>
-					<button type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
+					<Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
 						<X size={22} />
-					</button>
+					</Button>
 				</header>
 
 				<form onSubmit={handleSubmit}>
@@ -451,16 +452,16 @@ const InventoryItemModal = ({
 					</div>
 
 					<footer className="modal-footer">
-						<button type="button" onClick={onClose} className="btn btn-secondary">
+						<Button variant="secondary" type="button" onClick={onClose} className="">
 							Cancelar
-						</button>
-						<button type="submit" disabled={loading} className="btn btn-primary">
+						</Button>
+						<Button variant="default" type="submit" disabled={loading} className="">
 							{loading ? "Guardando…" : (
 								<>
 									<Save size={18} /> Guardar artículo
 								</>
 							)}
-						</button>
+						</Button>
 					</footer>
 				</form>
 			</div>

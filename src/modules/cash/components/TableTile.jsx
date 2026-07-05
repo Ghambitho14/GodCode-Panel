@@ -9,6 +9,7 @@ import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import DeliveryMotoIcon from './DeliveryMotoIcon';
 import TableRestaurantIcon from './TableRestaurantIcon';
 import PickupBagIcon from './PickupBagIcon';
+import { Button } from "@/components/ui/button";
 
 const STATUS_CLASS = {
 	pending: 'table-tile--pending',
@@ -67,7 +68,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 				</div>
 				<div className="table-tile__head-actions">
 					<div className="order-ticket-menu" ref={ticketMenuRef}>
-						<button
+						<Button variant="default"
 							type="button"
 							onClick={(e) => {
 								e.stopPropagation();
@@ -80,7 +81,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 							aria-label="Imprimir tickets"
 						>
 							<Printer size={11} aria-hidden />
-						</button>
+						</Button>
 						{ticketMenuOpen ? (
 							<OrderCardAnchoredMenu
 								anchorRef={ticketMenuRef}
@@ -89,14 +90,14 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 								menuWidth={200}
 								menuHeight={120}
 							>
-								<button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchen}>
+								<Button variant="default" type="button" className="order-ticket-menu-item" role="menuitem" onClick={printKitchen}>
 									<ChefHat size={16} aria-hidden />
 									Ticket cocina
-								</button>
-								<button type="button" className="order-ticket-menu-item" role="menuitem" onClick={printCashier}>
+								</Button>
+								<Button variant="default" type="button" className="order-ticket-menu-item" role="menuitem" onClick={printCashier}>
 									<Banknote size={16} aria-hidden />
 									Ticket caja
-								</button>
+								</Button>
 							</OrderCardAnchoredMenu>
 						) : null}
 					</div>
@@ -107,7 +108,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 					) : null}
 				</div>
 			</header>
-			<button
+			<Button variant="default"
 				type="button"
 				className="table-tile__body"
 				onClick={() => onClick(order)}
@@ -115,11 +116,11 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 			>
 				<span className="table-tile__kind-icon" aria-hidden>
 					{kind === 'moto' ? (
-						<DeliveryMotoIcon className="table-tile__kind-svg table-tile__kind-svg--moto" />
+						<DeliveryMotoIcon className="table-tile__kind-svg--moto" />
 					) : kind === 'retiro' ? (
-						<PickupBagIcon className="table-tile__kind-svg table-tile__kind-svg--retiro" />
+						<PickupBagIcon className="table-tile__kind-svg--retiro" />
 					) : (
-						<TableRestaurantIcon className="table-tile__kind-svg table-tile__kind-svg--mesa" />
+						<TableRestaurantIcon className="table-tile__kind-svg--mesa" />
 					)}
 				</span>
 				<span className="table-tile__client">{order.client_name || 'Cliente'}</span>
@@ -138,7 +139,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 						</>
 					) : null}
 				</span>
-			</button>
+			</Button>
 		</div>
 	);
 }

@@ -24,6 +24,7 @@ import {
 } from '../utils/carouselImageFit';
 import AdminIconSlot from './AdminIconSlot';
 import '../styles/AdminMenuCarousel.css';
+import { Button } from "@/components/ui/button";
 
 const shortUrlSnippet = (url) => {
 	if (!url) return '—';
@@ -481,14 +482,14 @@ export default function AdminMenuCarousel({
 						/>
 					</div>
 					<div className="form-group menu-carousel-save-wrap">
-						<button
+						<Button variant="default"
 							type="button"
-							className="btn btn-primary menu-carousel-settings-save-btn"
+							className="menu-carousel-settings-save-btn"
 							onClick={() => void saveSettings()}
 							disabled={savingSettings}
 						>
 							{savingSettings ? 'Guardando…' : 'Guardar ajustes'}
-						</button>
+						</Button>
 					</div>
 				</div>
 			</section>
@@ -499,7 +500,7 @@ export default function AdminMenuCarousel({
 					<span className="menu-carousel-count">{banners.length === 0 ? '(vacía)' : `(${banners.length})`}</span>
 				</h3>
 				<div>
-					<label className="btn btn-secondary menu-carousel-upload-inline" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+					<label className="menu-carousel-upload-inline" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
 						{uploading ? (
 							<AdminIconSlot Icon={Loader2} slotSize="sm" className="animate-spin" />
 						) : (
@@ -515,7 +516,7 @@ export default function AdminMenuCarousel({
 			{banners.length === 0 ? (
 				<div className="menu-carousel-empty">
 					<p>Aún no hay diapositivas para esta sucursal. Sube imágenes promocionales o del menú; aparecerán en el carrusel del menú público cuando estén activas.</p>
-					<label className="btn btn-primary" style={{ cursor: uploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+					<label className="" style={{ cursor: uploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
 						{uploading ? (
 							<Loader2 size={18} color="#fff" className="animate-spin" aria-hidden />
 						) : (
@@ -591,7 +592,7 @@ export default function AdminMenuCarousel({
 												<span>Promo con duración</span>
 											</div>
 											<div className="menu-carousel-row-promo menu-carousel-row-promo--card">
-												<button
+												<Button variant="default"
 													type="button"
 													className={`menu-carousel-switch menu-carousel-switch--sm ${bannerPromoOn(b) ? 'is-on' : ''}`}
 													role="switch"
@@ -600,7 +601,7 @@ export default function AdminMenuCarousel({
 													onClick={() => void toggleBannerPromo(b)}
 												>
 													<span className="menu-carousel-switch-knob" />
-												</button>
+												</Button>
 												{bannerPromoOn(b) ? (
 													<div className="menu-carousel-promo-days-wrap">
 														<label className="menu-carousel-promo-days-label" htmlFor={`promo-days-${b.id}`}>Días</label>
@@ -623,7 +624,7 @@ export default function AdminMenuCarousel({
 										</div>
 									</div>
 									<div className="menu-carousel-slide-card-actions">
-										<button
+										<Button variant="default"
 											type="button"
 											className="menu-carousel-btn-delete"
 											aria-label="Eliminar imagen del carrusel"
@@ -634,11 +635,11 @@ export default function AdminMenuCarousel({
 										>
 											<Trash2 size={18} aria-hidden />
 											<span className="menu-carousel-delete-label">Eliminar</span>
-										</button>
+										</Button>
 										<div className="menu-carousel-kebab-wrap">
-											<button
+											<Button variant="default"
 												type="button"
-												className="admin-icon-btn admin-icon-btn--sm menu-carousel-kebab-trigger"
+												className="admin-icon-btn--sm menu-carousel-kebab-trigger"
 												aria-expanded={menuOpenId === b.id}
 												aria-haspopup="menu"
 												aria-label="Más opciones"
@@ -648,7 +649,7 @@ export default function AdminMenuCarousel({
 												}}
 											>
 												<MoreVertical size={18} aria-hidden />
-											</button>
+											</Button>
 											{menuOpenId === b.id ? (
 												<div
 													className="menu-carousel-kebab-menu"
@@ -659,41 +660,41 @@ export default function AdminMenuCarousel({
 														if (e.key === 'Escape') setMenuOpenId(null);
 													}}
 												>
-													<button
+													<Button variant="default"
 														type="button"
 														role="menuitem"
 														onClick={() => { void openEditorForBanner(b); }}
 													>
 														<AdminIconSlot Icon={WandSparkles} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 														Ajustar diseño
-													</button>
+													</Button>
 													{idx > 0 ? (
-														<button
+														<Button variant="default"
 															type="button"
 															role="menuitem"
 															onClick={() => { void move(idx, -1); setMenuOpenId(null); }}
 														>
 															<AdminIconSlot Icon={ChevronUp} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 															Subir
-														</button>
+														</Button>
 													) : null}
 													{idx < banners.length - 1 ? (
-														<button
+														<Button variant="default"
 															type="button"
 															role="menuitem"
 															onClick={() => { void move(idx, 1); setMenuOpenId(null); }}
 														>
 															<AdminIconSlot Icon={ChevronDown} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 															Bajar
-														</button>
+														</Button>
 													) : null}
-													<button
+													<Button variant="default"
 														type="button"
 														role="menuitem"
 														onClick={() => { void toggleActive(b); setMenuOpenId(null); }}
 													>
 														{b.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
-													</button>
+													</Button>
 												</div>
 											) : null}
 										</div>
@@ -729,24 +730,24 @@ export default function AdminMenuCarousel({
 						</div>
 						<div className="menu-carousel-editor-controls">
 							<div className="menu-carousel-editor-mode-toggle" role="radiogroup" aria-label="Modo de ajuste">
-								<button
+								<Button variant="default"
 									type="button"
 									className={`btn btn-secondary ${editorMode === 'cover' ? 'is-active' : ''}`}
 									onClick={() => setEditorMode('cover')}
 								>
 									Recortar
-								</button>
-								<button
+								</Button>
+								<Button variant="default"
 									type="button"
 									className={`btn btn-secondary ${editorMode === 'contain' ? 'is-active' : ''}`}
 									onClick={() => setEditorMode('contain')}
 								>
 									Ajustar completa
-								</button>
+								</Button>
 							</div>
-							<button
+							<Button variant="ghost"
 								type="button"
-								className="btn btn-ghost menu-carousel-editor-reset-btn"
+								className="menu-carousel-editor-reset-btn"
 								onClick={() => {
 									setEditorZoom(editorView.minZoom);
 									setEditorOffsetX(0.5);
@@ -754,7 +755,7 @@ export default function AdminMenuCarousel({
 								}}
 							>
 								Reset vista
-							</button>
+							</Button>
 							<label htmlFor="menu-carousel-editor-zoom">
 								{editorMode === 'contain' ? 'Escala' : 'Zoom'}
 								<input
@@ -798,12 +799,12 @@ export default function AdminMenuCarousel({
 							</p>
 						) : null}
 						<div className="menu-carousel-editor-actions">
-							<button type="button" className="btn btn-ghost" onClick={dismissPendingUpload} disabled={uploading || editing}>
+							<Button variant="ghost" type="button" className="" onClick={dismissPendingUpload} disabled={uploading || editing}>
 								Cancelar
-							</button>
-							<button type="button" className="btn btn-primary" onClick={() => void saveEditedImage()} disabled={uploading || editing}>
+							</Button>
+							<Button variant="default" type="button" className="" onClick={() => void saveEditedImage()} disabled={uploading || editing}>
 								{editing ? 'Aplicando…' : 'Guardar ajustes'}
-							</button>
+							</Button>
 						</div>
 					</div>
 				</div>

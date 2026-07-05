@@ -5,6 +5,7 @@ import {
 import AdminErrorBoundary from '../../../components/AdminErrorBoundary';
 import InventoryCard from '../../../components/InventoryCard';
 import { useAdmin } from '../../pages/AdminProvider';
+import { Button } from "@/components/ui/button";
 
 export default function AdminProductsTab() {
 	const {
@@ -64,7 +65,7 @@ export default function AdminProductsTab() {
 							<strong className="admin-stats-bar__value admin-stats-bar__value--danger">{productStats.paused}</strong>
 						</div>
 					</div>
-					<button
+					<Button variant="default"
 						type="button"
 						className={`admin-stats-bar__photos-toggle${showProductPhotos ? ' is-on' : ''}`}
 						onClick={() => setShowProductPhotos((v) => !v)}
@@ -73,7 +74,7 @@ export default function AdminProductsTab() {
 					>
 						{showProductPhotos ? <Image size={18} aria-hidden /> : <ImageOff size={18} aria-hidden />}
 						<span>{showProductPhotos ? 'Fotos visibles' : 'Fotos ocultas'}</span>
-					</button>
+					</Button>
 				</div>
 
 				<div className="admin-toolbar glass">
@@ -107,12 +108,12 @@ export default function AdminProductsTab() {
 								<option value="price-desc">Precio (Mayor a Menor)</option>
 							</select>
 						</div>
-						<button type="button" className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} title="Vista Grilla">
+						<Button variant="default" type="button" className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')} title="Vista Grilla">
 							<LayoutGrid size={18} />
-						</button>
-						<button type="button" className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vista Lista">
+						</Button>
+						<Button variant="default" type="button" className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vista Lista">
 							<List size={18} />
-						</button>
+						</Button>
 					</div>
 				</div>
 

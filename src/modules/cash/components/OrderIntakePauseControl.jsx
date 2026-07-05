@@ -7,6 +7,7 @@ import {
 	setOrderIntakePaused,
 } from '../services/orderIntakeService';
 import { isValidBranchId } from '@/shared/utils/safeIds';
+import { Button } from "@/components/ui/button";
 
 /**
  * Control de pausa de pedidos online (menú público) por sucursal.
@@ -130,7 +131,7 @@ export default function OrderIntakePauseControl({
 				)}
 			</span>
 
-			<button
+			<Button variant="default"
 				type="button"
 				className={`btn btn-sm ${status.paused ? 'btn-primary' : 'btn-secondary'} order-intake-pause__btn`}
 				onClick={handleToggleClick}
@@ -146,7 +147,7 @@ export default function OrderIntakePauseControl({
 						<PauseCircle size={16} aria-hidden /> Pausar
 					</>
 				)}
-			</button>
+			</Button>
 
 			{confirmPauseOpen ? (
 				<div
@@ -178,22 +179,22 @@ export default function OrderIntakePauseControl({
 						{messageDraft.trim() || DEFAULT_ORDER_INTAKE_PAUSE_MESSAGE}
 					</p>
 					<div className="order-intake-pause__confirm-actions">
-						<button
+						<Button variant="secondary"
 							type="button"
-							className="btn btn-secondary"
+							className=""
 							onClick={() => setConfirmPauseOpen(false)}
 							disabled={saving}
 						>
 							Cancelar
-						</button>
-						<button
+						</Button>
+						<Button variant="destructive"
 							type="button"
-							className="btn btn-danger"
+							className=""
 							onClick={() => void applyPaused(true)}
 							disabled={saving}
 						>
 							{saving ? 'Guardando…' : 'Confirmar pausa'}
-						</button>
+						</Button>
 					</div>
 				</div>
 			) : null}

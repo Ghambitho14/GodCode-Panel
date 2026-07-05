@@ -1,5 +1,6 @@
 import React from 'react';
 import { LayoutGrid, ClipboardList } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const MODES = [
 	{ id: 'mesas', label: 'Mesas', Icon: LayoutGrid },
@@ -14,7 +15,7 @@ export default function OrdersViewSwitch({ value, onChange, className = '' }) {
 			{MODES.map(({ id, label, Icon }) => {
 				const active = value === id;
 				return (
-					<button
+					<Button variant="default"
 						key={id}
 						type="button"
 						className={`orders-view-switch__btn${active ? ' orders-view-switch__btn--active' : ''}`}
@@ -23,7 +24,7 @@ export default function OrdersViewSwitch({ value, onChange, className = '' }) {
 					>
 						<Icon size={15} strokeWidth={1.75} aria-hidden />
 						<span>{label}</span>
-					</button>
+					</Button>
 				);
 			})}
 		</div>

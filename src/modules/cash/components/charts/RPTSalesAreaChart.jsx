@@ -1,6 +1,7 @@
 import React, { useId, useMemo, useState } from 'react';
 import { area, curveMonotoneX, line, scaleLinear, scalePoint, max } from 'd3';
 import { formatMoney } from '@/shared/utils/money';
+import { Button } from "@/components/ui/button";
 
 const RPT_ACCENT = '#2563eb';
 const RPT_ACCENT_LIGHT = '#60a5fa';
@@ -99,7 +100,7 @@ export default function RPTSalesAreaChart({
 				</svg>
 				<div className="rpt-sales-area__hits">
 					{data.map((d, i) => (
-						<button
+						<Button variant="default"
 							key={d.key}
 							type="button"
 							className={`rpt-sales-area__hit${hoverIdx === i ? ' is-active' : ''}`}

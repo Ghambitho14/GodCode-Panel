@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Save, Trash2, X, Image as ImageIcon } from "lucide-react";
 import { parseTagList } from "@/lib/inventory-taxonomy";
 import "../styles/AdminMenuCarousel.css";
+import { Button } from "@/components/ui/button";
 
 const BEVERAGE_CATEGORY_PRESETS = [
 	"Aguas",
@@ -290,9 +291,9 @@ export default function AdminCartUpsellItemModal({
 							{item ? "Revisa datos, cantidades y visibilidad." : "Nombre y precio obligatorios; el resto es opcional."}
 						</p>
 					</div>
-					<button type="button" onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
+					<Button variant="default" type="button" onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
 						<X size={24} />
-					</button>
+					</Button>
 				</header>
 
 				<form onSubmit={handleSubmit} autoComplete="off">
@@ -324,14 +325,14 @@ export default function AdminCartUpsellItemModal({
 										height={300}
 									/>
 									<div className="image-overlay">
-										<button
+										<Button variant="default"
 											type="button"
-											className="btn-icon-overlay"
+											className=""
 											onClick={clearImage}
 											title="Quitar imagen"
 										>
 											<Trash2 size={18} />
-										</button>
+										</Button>
 										<span className="overlay-text">Click para cambiar</span>
 									</div>
 								</div>
@@ -528,7 +529,7 @@ export default function AdminCartUpsellItemModal({
 									<span className="switch-title">Visible en carrito</span>
 									<span className="switch-desc">Si está apagado, el cliente no lo verá en la lista</span>
 								</div>
-								<button
+								<Button variant="default"
 									type="button"
 									className={`menu-carousel-switch menu-carousel-switch--sm${formData.active ? " is-on" : ""}`}
 									role="switch"
@@ -540,7 +541,7 @@ export default function AdminCartUpsellItemModal({
 									}}
 								>
 									<span className="menu-carousel-switch-knob" aria-hidden />
-								</button>
+								</Button>
 							</div>
 						</div>
 					</div>
@@ -548,25 +549,25 @@ export default function AdminCartUpsellItemModal({
 					<footer className="modal-footer">
 						<div className="modal-footer__start">
 							{item && typeof onDelete === "function" && (
-								<button
+								<Button variant="destructive"
 									type="button"
-									className="btn btn-ghost text-danger"
+									className="text-danger"
 									onClick={handleDeleteClick}
 									disabled={saving}
 								>
 									<Trash2 size={18} />
 									Eliminar
-								</button>
+								</Button>
 							)}
 						</div>
 						<div className="modal-footer__end">
-							<button type="button" onClick={handleSafeClose} className="btn btn-secondary" disabled={saving}>
+							<Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={saving}>
 								Cancelar
-							</button>
-							<button type="submit" className="btn btn-primary" disabled={saving}>
+							</Button>
+							<Button variant="default" type="submit" className="" disabled={saving}>
 								{saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
 								<span>{saving ? "Guardando…" : "Guardar"}</span>
-							</button>
+							</Button>
 						</div>
 					</footer>
 				</form>
