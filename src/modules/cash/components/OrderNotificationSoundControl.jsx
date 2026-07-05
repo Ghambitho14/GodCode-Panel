@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Volume2, Volume1, VolumeX, Check } from 'lucide-react';
 import {
@@ -8,6 +8,7 @@ import {
     ORDER_SOUND_MODE_OPTIONS,
     labelForOrderSoundMode,
 } from '../utils/orderNotificationPrefs';
+import { openHeaderPopover, listenHeaderPopoverOpen } from '../utils/headerPopoverEvents';
 
 function iconForMode(mode) {
     if (mode === 'off') return VolumeX;
@@ -18,7 +19,19 @@ function iconForMode(mode) {
 export default function OrderNotificationSoundControl() {
     const [open, setOpen] = useState(false);
     const [mode, setMode] = useState(() => getOrderSoundMode());
+    const [popoverPos, setPopoverPos] = useState(null);
     const rootRef = useRef(null);
+    const triggerRef = useRef(null);
+
+    const updatePopoverPos = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        const cluster = document.querySelector('.header-actions-cluster');
+        const fallback = document.querySelector('.header-actions');
+        const ref = cluster && cluster.getBoundingClientRect().height > 0 ? cluster : fallback;
+        if (!ref) return;
+        const r = ref.getBoundingClientRect();
+        setPopoverPos({ top: r.bottom + 10 });
+    }, []);
 
     useEffect(() => {
         const sync = () => setMode(getOrderSoundMode());
@@ -29,6 +42,25 @@ export default function OrderNotificationSoundControl() {
             window.removeEventListener('storage', sync);
         };
     }, []);
+
+    useLayoutEffect(() => {
+        if (!open) return undefined;
+        updatePopoverPos();
+        const onReposition = () => updatePopoverPos();
+        window.addEventListener('scroll', onReposition, true);
+        window.addEventListener('resize', onReposition);
+        return () => {
+            window.removeEventListener('scroll', onReposition, true);
+            window.removeEventListener('resize', onReposition);
+        };
+    }, [open, updatePopoverPos]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        return listenHeaderPopoverOpen((source) => {
+            if (source !== 'sound') setOpen(false);
+        });
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -51,9 +83,14 @@ export default function OrderNotificationSoundControl() {
     return (
         <div className="order-sound-control" ref={rootRef}>
             <Button variant="default"
+                ref={triggerRef}
                 type="button"
                 className={`btn-icon-refresh admin-icon-btn header-action-order-sound order-sound-control__trigger${mode !== 'all' ? ' order-sound-control__trigger--muted' : ''}`}
-                onClick={() => setOpen((v) => !v)}
+                onClick={() => {
+                    const next = !open;
+                    setOpen(next);
+                    if (next) openHeaderPopover('sound');
+                }}
                 title={title}
                 aria-label={title}
                 aria-expanded={open}
@@ -67,6 +104,7 @@ export default function OrderNotificationSoundControl() {
                     className="order-sound-control__popover"
                     role="dialog"
                     aria-labelledby="order-sound-control-title"
+                    style={popoverPos ? { top: popoverPos.top, left: '50%', transform: 'translateX(-50%)' } : undefined}
                 >
                     <header className="order-sound-control__head">
                         <h2 className="order-sound-control__title" id="order-sound-control-title">
@@ -79,23 +117,29 @@ export default function OrderNotificationSoundControl() {
                     <ul className="order-sound-control__options" role="listbox" aria-label="Modo de sonido">
                         {ORDER_SOUND_MODE_OPTIONS.map((opt) => {
                             const active = mode === opt.value;
+                            const OptionIcon = iconForMode(opt.value);
                             return (
                                 <li key={opt.value}>
-                                    <Button variant="default"
+                                    <button
                                         type="button"
                                         role="option"
                                         aria-selected={active}
                                         className={`order-sound-control__option${active ? ' is-active' : ''}`}
                                         onClick={() => selectMode(opt.value)}
                                     >
+                                        <span className="order-sound-control__option-icon-wrap">
+                                            <OptionIcon size={20} strokeWidth={1.8} aria-hidden />
+                                        </span>
                                         <span className="order-sound-control__option-text">
                                             <span className="order-sound-control__option-label">{opt.label}</span>
                                             <span className="order-sound-control__option-desc">{opt.description}</span>
                                         </span>
                                         {active ? (
-                                            <Check size={18} strokeWidth={2.25} className="order-sound-control__check" aria-hidden />
+                                            <span className="order-sound-control__check-wrap" aria-hidden>
+                                                <Check size={18} strokeWidth={2.5} className="order-sound-control__check" />
+                                            </span>
                                         ) : null}
-                                    </Button>
+                                    </button>
                                 </li>
                             );
                         })}

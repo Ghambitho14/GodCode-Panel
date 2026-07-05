@@ -366,6 +366,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         <AdminTopBar
           title={pageTitle}
           hideTitleVisual={hideOrdersHeaderTitle}
+          clusterClassName={activeTab === 'orders' ? 'header-actions-cluster--orders' : ''}
         >
             <div className="header-actions-toolbar-row">
               <AdminNotificationCenter
@@ -431,7 +432,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                         ? 'Selecciona una sucursal'
                         : ''
                   }
-                  combined={isMobile}
                 />
                 <Button variant="default"
                   type="button"
@@ -443,7 +443,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 <Button variant="default"
                   type="button"
                   onClick={() => setIsOpenMesaModal(true)}
-                  className="header-action-orders-manual"
+                  className="btn header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
@@ -455,7 +455,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               <Button variant="default"
                 type="button"
                 onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
-                className="header-action-generic"
+                className="btn header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >
@@ -466,7 +466,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               <Button variant="default"
                 type="button"
                 onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
-                className="header-action-generic"
+                className="btn header-action-generic"
                 disabled={!selectedBranch || selectedBranch.id === 'all'}
                 title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
               >

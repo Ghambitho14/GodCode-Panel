@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bell, AlertTriangle, Package, Megaphone, ChevronRight, CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { openHeaderPopover, listenHeaderPopoverOpen } from "../utils/headerPopoverEvents";
 
 /**
  * Campana del header: comunicados SaaS + alertas de inventario (stock bajo/agotado, productos pausados por stock).
@@ -20,7 +21,19 @@ export default function AdminNotificationCenter({
 	canAccessProducts = true,
 }) {
 	const [open, setOpen] = useState(false);
+	const [popoverPos, setPopoverPos] = useState(null);
 	const rootRef = useRef(null);
+	const triggerRef = useRef(null);
+
+	const updatePopoverPos = useCallback(() => {
+		if (typeof window === 'undefined') return;
+		const cluster = document.querySelector('.header-actions-cluster');
+		const fallback = document.querySelector('.header-actions');
+		const ref = cluster && cluster.getBoundingClientRect().height > 0 ? cluster : fallback;
+		if (!ref) return;
+		const r = ref.getBoundingClientRect();
+		setPopoverPos({ top: r.bottom + 10 });
+	}, []);
 
 	const pausedByStock = useMemo(
 		() => (products || []).filter((p) => p.inventory_pause_reason === "out_of_stock"),
@@ -52,6 +65,25 @@ export default function AdminNotificationCenter({
 	);
 
 	const badgeCount = pausedByStock.length + stockAlerts.length + pendingBroadcasts.length;
+
+	useLayoutEffect(() => {
+		if (!open) return undefined;
+		updatePopoverPos();
+		const onReposition = () => updatePopoverPos();
+		window.addEventListener("scroll", onReposition, true);
+		window.addEventListener("resize", onReposition);
+		return () => {
+			window.removeEventListener("scroll", onReposition, true);
+			window.removeEventListener("resize", onReposition);
+		};
+	}, [open, updatePopoverPos]);
+
+	useEffect(() => {
+		if (!open) return undefined;
+		return listenHeaderPopoverOpen((source) => {
+			if (source !== 'notifications') setOpen(false);
+		});
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -89,9 +121,14 @@ export default function AdminNotificationCenter({
 	return (
 		<div className="admin-notification-center" ref={rootRef}>
 			<Button variant="default"
+				ref={triggerRef}
 				type="button"
 				className="btn-icon-refresh header-action-bell header-action-notifications admin-notification-center__trigger"
-				onClick={() => setOpen((v) => !v)}
+				onClick={() => {
+					const next = !open;
+					setOpen(next);
+					if (next) openHeaderPopover('notifications');
+				}}
 				title="Notificaciones"
 				aria-label="Notificaciones"
 				aria-expanded={open}
@@ -109,6 +146,7 @@ export default function AdminNotificationCenter({
 					className="admin-notification-center__popover"
 					role="dialog"
 					aria-labelledby="admin-notification-center-title"
+					style={popoverPos ? { top: popoverPos.top, left: '50%', transform: 'translateX(-50%)' } : undefined}
 				>
 					<header className="admin-notification-center__head">
 						<h2 className="admin-notification-center__title" id="admin-notification-center-title">

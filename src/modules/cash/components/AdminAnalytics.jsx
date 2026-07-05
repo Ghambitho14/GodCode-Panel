@@ -1852,7 +1852,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 </p>
             )}
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
                 {KPI_META.map((meta) => {
                     const value = meta.key === 'clients' ? newClientsInfo.count : meta.key === 'expenses' ? expensesData.total : kpis[meta.key];
                     const trendKey = meta.key === 'clients' ? null : resolveKpiTrendKey(meta.key);
@@ -1885,7 +1885,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <div className="grid min-w-0 items-start gap-5 md:grid-cols-1 lg:grid-cols-[1fr_minmax(280px,320px)] xl:grid-cols-[1fr_minmax(300px,380px)]">
                 <div className="flex min-w-0 flex-col gap-5">
                     <Card className="flex h-fit min-w-0 flex-col">
-                        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-start sm:justify-between">
+                        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
                             <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                                 <div className="rpt-chart-kind">

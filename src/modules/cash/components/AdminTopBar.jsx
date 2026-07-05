@@ -3,7 +3,7 @@ import React from "react";
  * Cabecera de página del admin: título + acciones (campana / notificaciones va en `children`).
  * hideTitleVisual: oculta el H1 en pantalla; mantiene texto para lectores de pantalla.
  */
-export default function AdminTopBar({ title, children, hideTitleVisual = false }) {
+export default function AdminTopBar({ title, children, hideTitleVisual = false, clusterClassName = '' }) {
 	return (
 		<header className="content-header admin-top-bar">
 			<div
@@ -16,7 +16,9 @@ export default function AdminTopBar({ title, children, hideTitleVisual = false }
 				<h1 className={hideTitleVisual ? "admin-visually-hidden" : undefined}>{title}</h1>
 			</div>
 			<div className="header-actions header-actions--mobile-toolbar">
-				{children}
+				<div className={`header-actions-cluster${clusterClassName ? ` ${clusterClassName}` : ''}`}>
+					{children}
+				</div>
 			</div>
 		</header>
 	);

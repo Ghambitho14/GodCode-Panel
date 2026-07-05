@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from "react-dom";
 import { MapPin, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { openHeaderPopover, listenHeaderPopoverOpen } from "../utils/headerPopoverEvents";
 
 /**
  * Selector de sucursal para la cabecera: mismo lenguaje visual que el sidebar (Lucide + tarjeta),
@@ -40,8 +41,8 @@ export default function AdminBranchSelector({
 		const r = el.getBoundingClientRect();
 		setMenuPos({
 			top: r.bottom + 6,
-			right: window.innerWidth - r.right,
-			minWidth: Math.max(r.width, 220),
+			left: r.left,
+			minWidth: r.width,
 		});
 	}, []);
 
@@ -56,6 +57,13 @@ export default function AdminBranchSelector({
 			window.removeEventListener("resize", onReposition);
 		};
 	}, [open, updateMenuPos]);
+
+	useEffect(() => {
+		if (!open) return undefined;
+		return listenHeaderPopoverOpen((source) => {
+			if (source !== 'branch') setOpen(false);
+		});
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) return undefined;
@@ -101,7 +109,12 @@ export default function AdminBranchSelector({
 				id={triggerId}
 				data-admin-branch-select-trigger
 				className="admin-branch-select__trigger"
-				onClick={() => !disabled && setOpen((v) => !v)}
+				onClick={() => {
+					if (disabled) return;
+					const next = !open;
+					setOpen(next);
+					if (next) openHeaderPopover('branch');
+				}}
 				disabled={disabled}
 				aria-haspopup="listbox"
 				aria-expanded={open}
@@ -126,11 +139,11 @@ export default function AdminBranchSelector({
 							role="listbox"
 							aria-labelledby={triggerId}
 							className="admin-branch-select__menu-portal"
-							style={{
-								top: menuPos.top,
-								right: menuPos.right,
-								minWidth: menuPos.minWidth,
-							}}
+						style={{
+							top: menuPos.top,
+							left: menuPos.left,
+							minWidth: menuPos.minWidth,
+						}}
 						>
 							{options.map((opt) => {
 								const isActive = String(opt.id) === String(selectedId);

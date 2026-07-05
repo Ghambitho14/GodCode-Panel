@@ -197,6 +197,11 @@
 	flex-shrink: 0;
 }
 
+/* Envoltorio único para agrupar y centrar todos los controles del header en desktop */
+.admin-layout .header-actions-cluster {
+	display: contents;
+}
+
 /* Reloj digital cabecera (hora en vivo + fecha) */
 .admin-layout .admin-header-clock {
 	display: flex;
@@ -312,7 +317,9 @@
 	border: 1px solid var(--admin-border);
 	border-radius: 12px;
 	box-shadow: var(--admin-shadow-md);
+	box-sizing: border-box;
 	max-height: min(320px, 60vh);
+	max-width: calc(100vw - 24px);
 	overflow-y: auto;
 	font-family: var(--admin-font);
 	/* -webkit-overflow-scrolling: touch; Eliminado por compatibilidad */
@@ -366,7 +373,7 @@
 	gap: 4px;
 	min-width: 0;
 	padding: 4px;
-	border-radius: 4px;
+	border-radius: 12px;
 	background: var(--admin-card-bg);
 	border: 1px solid var(--admin-border);
 	box-shadow: var(--admin-shadow-sm);
@@ -380,44 +387,47 @@
 
 /* Hijos sin borde propio: un solo bloque visual (como orders-view-switch) */
 .admin-layout .header-actions .header-actions-orders-row .order-intake-pause {
-	gap: 4px;
+	display: flex;
+	align-items: stretch;
+	min-width: 0;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .btn,
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__btn {
+.admin-layout .header-actions .header-actions-orders-row .btn {
 	border: none;
 	box-shadow: none;
-	border-radius: 4px;
+	border-radius: 10px;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .btn-secondary,
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__btn.btn-secondary {
+.admin-layout .header-actions .header-actions-orders-row .btn-secondary {
 	background: transparent;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .btn-secondary:hover:not(:disabled),
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__btn.btn-secondary:hover:not(:disabled) {
+.admin-layout .header-actions .header-actions-orders-row .btn-secondary:hover:not(:disabled) {
 	border: none;
 	box-shadow: none;
 	background: var(--admin-icon-bg);
 	transform: none;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .btn-primary,
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__btn.btn-primary {
+.admin-layout .header-actions .header-actions-orders-row .btn-primary {
 	border: none;
 	box-shadow: none;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .btn-primary:hover:not(:disabled),
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__btn.btn-primary:hover:not(:disabled) {
+.admin-layout .header-actions .header-actions-orders-row .btn-primary:hover:not(:disabled) {
 	border: none;
 	box-shadow: none;
 	transform: none;
 }
 
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause--active .order-intake-pause__btn {
-	border: none;
+/* Botón combinado de pedidos online: respetar sus colores de estado */
+.admin-layout .header-actions .header-actions-orders-row .order-intake-pause__combined {
+	height: auto;
+	min-height: 34px;
+	padding: 6px 12px;
+	border-radius: 10px;
+	font-size: 0.75rem;
+	line-height: 1.2;
 }
 
 /* Toolbar: contenedor agrupado (campana + sonido + reloj + atajos + refresh) */
@@ -428,7 +438,7 @@
 	gap: 4px;
 	min-width: 0;
 	padding: 4px;
-	border-radius: 4px;
+	border-radius: 12px;
 	background: var(--admin-card-bg);
 	border: 1px solid var(--admin-border);
 	box-shadow: var(--admin-shadow-sm);
@@ -442,7 +452,7 @@
 }
 
 /* Reloj como hermano del toolbar (entre toolbar y sucursal) */
-.admin-layout .header-actions > .header-action-clock.admin-header-clock {
+.admin-layout .header-actions-cluster > .header-action-clock.admin-header-clock {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -477,51 +487,12 @@
 /* Pausa pedidos online (menú público) */
 .admin-layout .order-intake-pause {
 	display: inline-flex;
-	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px;
 	position: relative;
 }
 
-.admin-layout .order-intake-pause__badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 6px 12px;
-	border-radius: 999px;
-	font-size: 0.72rem;
-	font-weight: 700;
-	background: rgba(37, 211, 102, 0.12);
-	color: #15803d;
-	border: 1px solid rgba(37, 211, 102, 0.28);
-}
-
-.admin-layout .order-intake-pause__badge--paused {
-	background: #e0e0e5;
-	color: var(--admin-danger-hover, #b91c1c);
-	border-color: transparent;
-}
-
-/* Header orders-row: badge gris activo, gris oscuro cuando está pausado */
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause .order-intake-pause__badge {
-	border: none;
-	border-radius: 2px;
-	min-height: 34px;
-	box-sizing: border-box;
-	background-color: var(--admin-icon-bg);
-}
-
-.admin-layout .header-actions .header-actions-orders-row .order-intake-pause .order-intake-pause__badge.order-intake-pause__badge--paused {
-	background-color: #e0e0e5;
-	color: var(--admin-danger-hover, #b91c1c);
-}
-
-.admin-layout .order-intake-pause--active .order-intake-pause__btn {
-	border-color: rgba(220, 38, 38, 0.4);
-}
-
 .admin-layout .order-intake-pause__confirm {
-	position: absolute;
+	position: fixed;
 	top: calc(100% + 8px);
 	right: 0;
 	z-index: 120;
@@ -879,6 +850,84 @@
 	}
 }
 
+@media (min-width: 1025px) {
+	.admin-layout .header-actions {
+		justify-content: center;
+	}
+
+	.admin-layout .header-actions-cluster {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		min-width: 0;
+		padding: 6px;
+		border-radius: 16px;
+		background: var(--admin-card-bg);
+		border: 1px solid var(--admin-border);
+		box-shadow: var(--admin-shadow-sm);
+		box-sizing: border-box;
+	}
+
+	/* Dentro del cluster los sub-contenedores pierden su caja propia */
+	.admin-layout .header-actions-cluster .header-actions-toolbar-row,
+	.admin-layout .header-actions-cluster .header-actions-orders-row {
+		background: transparent;
+		border: none;
+		box-shadow: none;
+		min-height: auto;
+		padding: 0;
+	}
+
+	/* Selector de sucursal en el header: misma forma que los botones de acción */
+	.admin-layout .header-actions-cluster .header-action-branch .admin-branch-select__trigger {
+		height: 42px;
+		min-height: 42px;
+		padding: 0 14px 0 10px;
+		border-radius: 10px;
+		background: var(--admin-icon-bg);
+		border: 1px solid var(--admin-border);
+		box-shadow: var(--admin-shadow-sm);
+		gap: 8px;
+	}
+
+	.admin-layout .header-actions-cluster .header-action-branch .admin-branch-select__pin.nav-icon-slot {
+		width: 28px;
+		height: 28px;
+		min-width: 28px;
+		min-height: 28px;
+		border-radius: 8px;
+	}
+
+	/* En desktop: toolbar → reloj → selector → acciones; en mobile se respeta el orden del DOM */
+	.admin-layout .header-actions-cluster .header-actions-toolbar-row {
+		order: 0;
+	}
+
+	.admin-layout .header-actions-cluster .header-action-clock {
+		order: 1;
+	}
+
+	.admin-layout .header-actions-cluster .header-action-branch {
+		order: 2;
+	}
+
+	.admin-layout .header-actions-cluster .header-actions-orders-row,
+	.admin-layout .header-actions-cluster .header-action-generic {
+		order: 3;
+	}
+
+	/* En Cocina/Pedidos el selector de sucursal va a la izquierda del reloj */
+	.admin-layout .header-actions-cluster--orders .header-action-branch {
+		order: 1;
+	}
+
+	.admin-layout .header-actions-cluster--orders .header-action-clock {
+		order: 2;
+	}
+}
+
 @media (max-width: 1024px) {
 	.admin-layout {
 		flex-direction: column;
@@ -1101,12 +1150,13 @@
 		justify-content: center;
 	}
 
-	/* Diálogo pausa: anclar a la izquierda para no salir del viewport en columna estrecha */
+	/* Diálogo pausa: centrar horizontalmente bajo el header en mobile */
 	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__confirm {
-		left: 0;
-		right: auto;
-		width: min(320px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 32px));
-		max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px);
+		left: 50% !important;
+		right: auto !important;
+		transform: translateX(-50%) !important;
+		width: min(320px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px));
+		max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
 		box-sizing: border-box;
 	}
 
@@ -1128,12 +1178,12 @@
 
 	/*
 	 * Popover: en escritorio la campana va a la derecha → right:0 (regla global).
-	 * En ≤1024px la campana está a la izquierda del toolbar-row: right:0 + ancho ~400px desplaza el panel fuera del viewport.
-	 * Anclar por la izquierda del contenedor de la campana y limitar ancho al viewport + safe area.
+	 * En ≤1024px centrar horizontalmente bajo el header y limitar ancho al viewport + safe area.
 	 */
 	.admin-layout .header-actions--mobile-toolbar .header-actions-toolbar-row .admin-notification-center__popover {
-		left: 0;
-		right: auto;
+		left: 50% !important;
+		right: auto !important;
+		transform: translateX(-50%) !important;
 		width: min(
 			400px,
 			calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px)
@@ -1178,43 +1228,28 @@
 			display: none;
 		}
 	}
-}
 
-/* Pedidos en escritorio angosto: toolbar + reloj + sucursal arriba; fila de pedidos abajo */
-@media (min-width: 1025px) and (max-width: 1280px) {
-	.admin-layout .header-actions:has(.header-actions-orders-row) {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		grid-template-rows: auto auto;
+	/* En tabs que no son Pedidos, el selector de sucursal ocupa todo el ancho de la fila superior */
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch {
+		flex: 1 1 100%;
 		width: 100%;
-		align-items: center;
-		column-gap: 12px;
-		row-gap: 10px;
+		max-width: 100%;
 	}
 
-	.admin-layout .header-actions:has(.header-actions-orders-row) .header-actions-toolbar-row {
-		grid-column: 1;
-		grid-row: 1;
-	}
-
-	.admin-layout .header-actions:has(.header-actions-orders-row) > .header-action-clock {
-		grid-column: 2;
-		grid-row: 1;
-		justify-self: center;
-	}
-
-	.admin-layout .header-actions:has(.header-actions-orders-row) .header-action-branch {
-		grid-column: 3;
-		grid-row: 1;
-		justify-self: end;
-		min-width: 0;
-	}
-
-	.admin-layout .header-actions:has(.header-actions-orders-row) .header-actions-orders-row {
-		grid-column: 1 / -1;
-		grid-row: 2;
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch .admin-branch-select {
 		width: 100%;
-		min-width: 0;
+		margin-left: 0;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch .admin-branch-select__trigger {
+		width: 100%;
+		max-width: 100%;
+		justify-content: space-between;
+	}
+
+	/* Hora un poco más grande en tabs que no son Pedidos */
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-clock .admin-header-clock__time {
+		font-size: clamp(1.2rem, 3.8vw + 0.55rem, 1.9rem);
 	}
 }
 
@@ -1393,7 +1428,7 @@ body:has(.admin-layout),
 }
 
 .admin-notification-center__popover {
-	position: absolute;
+	position: fixed;
 	top: calc(100% + 10px);
 	right: 0;
 	width: min(400px, calc(100vw - 24px));
@@ -1809,106 +1844,143 @@ body:has(.admin-layout),
 }
 
 .admin-layout .order-sound-control__popover {
-	position: absolute;
+	position: fixed;
 	top: calc(100% + 10px);
 	right: 0;
-	width: min(320px, calc(100vw - 24px));
+	width: min(420px, calc(100vw - 24px));
 	z-index: 10060;
-	border-radius: 14px;
+	border-radius: 16px;
 	border: 1px solid var(--admin-border, #e2e8f0);
 	box-shadow: var(--admin-shadow-md, 0 12px 40px -16px rgba(15, 23, 42, 0.18));
 	overflow: hidden;
 	background: var(--admin-card-bg, #fff);
+	box-sizing: border-box;
 }
 
 .admin-layout .order-sound-control__head {
-	padding: 14px 16px 12px;
+	padding: 16px 18px 14px;
 	border-bottom: 1px solid var(--admin-border, #e2e8f0);
 	background: var(--admin-icon-bg, #f8fafc);
 }
 
 .admin-layout .order-sound-control__title {
 	margin: 0;
-	font-size: 0.95rem;
+	font-size: 1rem;
 	font-weight: 800;
 	color: var(--admin-text, #0f172a);
 }
 
 .admin-layout .order-sound-control__sub {
 	margin: 6px 0 0;
-	font-size: 0.78rem;
-	line-height: 1.4;
+	font-size: 0.8rem;
+	line-height: 1.45;
 	color: var(--admin-text-muted, #64748b);
 }
 
 .admin-layout .order-sound-control__options {
 	margin: 0;
-	padding: 8px;
+	padding: 10px;
 	list-style: none;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 8px;
 }
 
 .admin-layout .order-sound-control__option {
 	width: 100%;
 	display: flex;
 	align-items: flex-start;
-	justify-content: space-between;
-	gap: 10px;
-	padding: 10px 12px;
-	border: 1px solid transparent;
-	border-radius: 10px;
-	background: transparent;
+	gap: 12px;
+	padding: 12px 14px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	border-radius: 12px;
+	background: var(--admin-card-bg, #fff);
 	text-align: left;
 	cursor: pointer;
 	color: var(--admin-text, #0f172a);
-	transition: background 0.15s ease, border-color 0.15s ease;
+	box-shadow: none;
+	transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .admin-layout .order-sound-control__option:hover {
 	background: var(--admin-icon-bg, #f8fafc);
-	border-color: var(--admin-border, #e2e8f0);
+	border-color: color-mix(in srgb, var(--accent-primary, #e63946) 35%, var(--admin-border, #e2e8f0));
 }
 
 .admin-layout .order-sound-control__option.is-active {
-	background: color-mix(in srgb, var(--accent-primary, #e63946) 8%, var(--admin-icon-bg, #f8fafc));
-	border-color: color-mix(in srgb, var(--accent-primary, #e63946) 28%, var(--admin-border, #e2e8f0));
+	background: color-mix(in srgb, var(--accent-primary, #e63946) 8%, var(--admin-card-bg, #fff));
+	border-color: var(--accent-primary, #e63946);
+	box-shadow: 0 0 0 1px var(--accent-primary, #e63946);
+}
+
+.admin-layout .order-sound-control__option-icon-wrap {
+	flex-shrink: 0;
+	width: 36px;
+	height: 36px;
+	display: grid;
+	place-items: center;
+	border-radius: 10px;
+	background: var(--admin-icon-bg, #f8fafc);
+	color: var(--admin-text-muted, #64748b);
+	transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-layout .order-sound-control__option.is-active .order-sound-control__option-icon-wrap {
+	background: color-mix(in srgb, var(--accent-primary, #e63946) 14%, var(--admin-icon-bg, #f8fafc));
+	color: var(--accent-primary, #e63946);
 }
 
 .admin-layout .order-sound-control__option-text {
+	flex: 1 1 auto;
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 2px;
 	min-width: 0;
+	overflow-wrap: break-word;
 }
 
 .admin-layout .order-sound-control__option-label {
-	font-size: 0.84rem;
+	font-size: 0.9rem;
 	font-weight: 700;
-	line-height: 1.3;
+	line-height: 1.25;
+	overflow-wrap: break-word;
 }
 
 .admin-layout .order-sound-control__option-desc {
-	font-size: 0.72rem;
-	line-height: 1.35;
+	font-size: 0.78rem;
+	line-height: 1.4;
 	color: var(--admin-text-muted, #64748b);
 	font-weight: 500;
+	overflow-wrap: break-word;
+}
+
+.admin-layout .order-sound-control__check-wrap {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	display: grid;
+	place-items: center;
+	border-radius: 50%;
+	background: var(--accent-primary, #e63946);
+	color: #fff;
+	margin-top: 7px;
 }
 
 .admin-layout .order-sound-control__check {
 	flex-shrink: 0;
-	margin-top: 2px;
-	color: var(--accent-primary, #e63946);
+	width: 13px;
+	height: 13px;
 }
 
 @media (max-width: 1024px) {
+	/* Popover sonido: centrar horizontalmente bajo el header en mobile */
 	.admin-layout .header-actions--mobile-toolbar .header-actions-toolbar-row .order-sound-control__popover {
-		left: 0;
-		right: auto;
+		left: 50% !important;
+		right: auto !important;
+		transform: translateX(-50%) !important;
 		width: min(
-			320px,
-			calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px)
+			380px,
+			calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px)
 		);
 		max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
 		box-sizing: border-box;
