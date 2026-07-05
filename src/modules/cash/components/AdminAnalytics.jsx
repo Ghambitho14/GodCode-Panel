@@ -5,7 +5,7 @@ import {
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
     BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink, LineChart
 } from 'lucide-react';
-import { PieChart, Pie, Cell, Sector, Tooltip as RechartsTooltip } from 'recharts';
+import { PieChart, Pie, Cell, Sector, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
 import { expenseBucketKey, expenseBucketKeysForRange, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
@@ -377,18 +377,18 @@ function resolveTopProductsRange(reportRange) {
 
 const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend, trendSignificant = true }) => {
     return (
-        <Card className="flex flex-col p-5 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)]">
+        <Card className="flex flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">{meta.label}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] sm:text-[11px]">{meta.label}</p>
                 {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} /> : null}
             </div>
             <div className="mt-1">
                 {loading ? <Skeleton className="h-8 w-28" /> : (
-                    <p className="text-[28px] font-bold leading-tight tracking-tight text-[#14161a]">{formatKpiValue(meta.key, value, fmt)}</p>
+                    <p className="text-[20px] font-bold leading-tight tracking-tight text-[#14161a] sm:text-[28px]">{formatKpiValue(meta.key, value, fmt)}</p>
                 )}
             </div>
-            {subtitle && <p className="mt-1 text-xs font-medium text-[#6b7280]">{subtitle}</p>}
-            <div className="mt-auto flex h-12 items-end pt-4">
+            {subtitle && <p className="mt-1 text-[11px] font-medium text-[#6b7280] sm:text-xs">{subtitle}</p>}
+            <div className="mt-auto flex h-8 items-end pt-2 sm:h-12 sm:pt-4">
                 <ReportSparkline
                     values={sparklineValues}
                     trend={trend}
@@ -1369,15 +1369,27 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
               : 'area';
 
     const reportPeriodHeader = (
-        <header className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-                <h1 className="text-2xl font-black tracking-tight text-[#1a1a1a]">Reportes</h1>
-                <p className="text-sm font-medium text-[#6b7280]">
-                    Resumen de ventas, pedidos y métricas clave
-                </p>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-xl font-black tracking-tight text-[#1a1a1a] sm:text-2xl">Reportes</h1>
+                    <p className="text-xs font-medium text-[#6b7280] sm:text-sm">
+                        Resumen de ventas, pedidos y métricas clave
+                    </p>
+                </div>
+                <div className="sm:hidden">
+                    <ReportPeriodSelect
+                        className="rpt-period-select--compact w-[150px]"
+                        value={filterPeriod}
+                        onChange={setFilterPeriod}
+                        aria-label="Rango de fechas del informe"
+                        icon={<Calendar size={16} strokeWidth={1.65} className="text-[#2563eb]" />}
+                    />
+                </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:flex sm:w-auto">
                 <ReportPeriodSelect
+                    className="w-full sm:w-[260px]"
                     value={filterPeriod}
                     onChange={setFilterPeriod}
                     aria-label="Rango de fechas del informe"
@@ -1397,8 +1409,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         aparecen aquí para control del CEO.
                     </CardDescription>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="default" onClick={tryOpenRegisterExpenseModal} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <Button variant="default" onClick={tryOpenRegisterExpenseModal} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 sm:w-auto">
                         <Plus size={17} strokeWidth={2.25} aria-hidden />
                         Registrar movimiento
                     </Button>
@@ -1406,6 +1418,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         variant="outline"
                         onClick={handleExportManualExpensesExcel}
                         disabled={exportExpensesLoading || !(manualExpenseRows.length || refundExpenseRows.length)}
+                        className="w-full sm:w-auto"
                     >
                         {exportExpensesLoading ? (
                             <Loader2 size={14} className="animate-spin" aria-hidden />
@@ -1779,7 +1792,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 variant={variant}
                                 onClick={() => runMonthlyOrdersExport(action === 'download-raw' ? 'download' : action)}
                                 disabled={exportLoading || !companyId}
-                                className="gap-2"
+                                className="w-full gap-2 sm:w-auto"
                             >
                                 {exportLoading ? (
                                     <Loader2 size={16} className="animate-spin" aria-hidden />
@@ -1797,7 +1810,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     if (view === 'expensesOnly') {
         return (
-            <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-6 animate-fade">
+        <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-4 sm:p-6 animate-fade">
                 {gastosLocalSection}
                 {monthlyExportBlock}
                 <LocalExpenseModal
@@ -1825,7 +1838,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }
 
     return (
-        <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-6 animate-fade">
+        <div className="mx-auto flex min-h-screen max-w-[1440px] flex-col gap-6 bg-[#f5f5f7] p-4 sm:p-6 animate-fade">
             {reportPeriodHeader}
 
             {multiCurrencyWarning ? (
@@ -1839,7 +1852,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 </p>
             )}
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {KPI_META.map((meta) => {
                     const value = meta.key === 'clients' ? newClientsInfo.count : meta.key === 'expenses' ? expensesData.total : kpis[meta.key];
                     const trendKey = meta.key === 'clients' ? null : resolveKpiTrendKey(meta.key);
@@ -1869,12 +1882,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 })}
             </div>
 
-            <div className="grid items-start gap-5 lg:grid-cols-[1fr_380px]">
-                <div className="flex flex-col gap-5">
-                    <Card className="flex h-fit flex-col">
-                        <CardHeader className="flex flex-col gap-4 pb-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="grid min-w-0 items-start gap-5 md:grid-cols-1 lg:grid-cols-[1fr_minmax(280px,320px)] xl:grid-cols-[1fr_minmax(300px,380px)]">
+                <div className="flex min-w-0 flex-col gap-5">
+                    <Card className="flex h-fit min-w-0 flex-col">
+                        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-start sm:justify-between">
                             <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
-                            <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                                 <div className="rpt-chart-kind">
                                     {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
                                         <Button variant="default"
@@ -1891,10 +1904,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     ))}
                                 </div>
                                 <Tabs value={chartTab} onValueChange={setChartTab}>
-                                    <TabsList className="h-9">
-                                        <TabsTrigger value="all" className="text-xs">Todos</TabsTrigger>
-                                        <TabsTrigger value="store" className="text-xs">Tienda</TabsTrigger>
-                                        <TabsTrigger value="online" className="text-xs">Online</TabsTrigger>
+                                    <TabsList className="h-8 sm:h-9">
+                                        <TabsTrigger value="all" className="px-2 text-[11px] sm:px-3 sm:text-xs">Todos</TabsTrigger>
+                                        <TabsTrigger value="store" className="px-2 text-[11px] sm:px-3 sm:text-xs">Tienda</TabsTrigger>
+                                        <TabsTrigger value="online" className="px-2 text-[11px] sm:px-3 sm:text-xs">Online</TabsTrigger>
                                     </TabsList>
                                 </Tabs>
                             </div>
@@ -1992,8 +2005,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     </Card>
                 </div>
 
-                <div className="flex flex-col gap-5">
-                    <Card>
+                <div className="flex min-w-0 flex-col gap-5">
+                    <Card className="min-w-0">
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-base">
                                 <CreditCard size={18} className="text-[#2563eb]" />
@@ -2012,14 +2025,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     const Icon = pm.Icon;
                                     return (
                                         <div key={`${pm.key}-${pct}`} className="space-y-1.5">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${pm.bg}`}>
+                                            <div className="flex items-center justify-between gap-3 text-sm">
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${pm.bg}`}>
                                                         <Icon size={14} style={{ color: pm.color }} />
                                                     </div>
-                                                    <span className="font-semibold text-[#1a1a1a]">{pm.label}</span>
+                                                    <span className="truncate font-semibold text-[#1a1a1a]">{pm.label}</span>
                                                 </div>
-                                                <div className="text-right">
+                                                <div className="shrink-0 text-right">
                                                     <p className="font-bold text-[#1a1a1a]">{fmt(value)}</p>
                                                     <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
                                                 </div>
@@ -2046,43 +2059,45 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex flex-col items-center gap-4">
-                                <div className="relative h-40 w-40 shrink-0 overflow-visible">
-                                    <PieChart width={152} height={152}>
-                                        <RechartsTooltip
-                                            content={({ active, payload }) => {
-                                                if (!active || !payload?.length) return null;
-                                                const row = payload[0]?.payload;
-                                                if (!row) return null;
-                                                const pct = newClientsInfo.total > 0 ? Math.round((row.value / newClientsInfo.total) * 100) : 0;
-                                                return (
-                                                    <div className="rounded-lg bg-[#1a1a1a] px-3 py-2 text-xs shadow-lg">
-                                                        <p className="mb-1 font-semibold text-white">{row.name}</p>
-                                                        <p className="font-bold text-white">{row.value} clientes ({pct}%)</p>
-                                                    </div>
-                                                );
-                                            }}
-                                        />
-                                        <Pie
-                                            data={clientsDonutData}
-                                            cx={76}
-                                            cy={76}
-                                            innerRadius={52}
-                                            outerRadius={68}
-                                            dataKey="value"
-                                            stroke="none"
-                                            paddingAngle={0}
-                                            animationDuration={500}
-                                            animationEasing="ease-out"
-                                            activeIndex={activeClientIndex}
-                                            activeShape={ActiveClientSector}
-                                            onMouseEnter={(_, index) => setActiveClientIndex(index)}
-                                            onMouseLeave={() => setActiveClientIndex(null)}
-                                        >
-                                            {clientsDonutData.map((entry) => (
-                                                <Cell key={entry.name} fill={entry.color} stroke="none" />
-                                            ))}
-                                        </Pie>
-                                    </PieChart>
+                                <div className="relative h-44 w-44 shrink-0 overflow-visible sm:h-48 sm:w-48">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <RechartsTooltip
+                                                content={({ active, payload }) => {
+                                                    if (!active || !payload?.length) return null;
+                                                    const row = payload[0]?.payload;
+                                                    if (!row) return null;
+                                                    const pct = newClientsInfo.total > 0 ? Math.round((row.value / newClientsInfo.total) * 100) : 0;
+                                                    return (
+                                                        <div className="rounded-lg bg-[#1a1a1a] px-3 py-2 text-xs shadow-lg">
+                                                            <p className="mb-1 font-semibold text-white">{row.name}</p>
+                                                            <p className="font-bold text-white">{row.value} clientes ({pct}%)</p>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                            <Pie
+                                                data={clientsDonutData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius="58%"
+                                                outerRadius="82%"
+                                                dataKey="value"
+                                                stroke="none"
+                                                paddingAngle={0}
+                                                animationDuration={500}
+                                                animationEasing="ease-out"
+                                                activeIndex={activeClientIndex}
+                                                activeShape={ActiveClientSector}
+                                                onMouseEnter={(_, index) => setActiveClientIndex(index)}
+                                                onMouseLeave={() => setActiveClientIndex(null)}
+                                            >
+                                                {clientsDonutData.map((entry) => (
+                                                    <Cell key={entry.name} fill={entry.color} stroke="none" />
+                                                ))}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
                                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                         <span className="text-lg font-bold text-[#14161a]">
                                             {newClientsInfo.total > 0 ? Math.round((newClientsInfo.count / newClientsInfo.total) * 100) : 0}%
@@ -2111,10 +2126,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 {branchStats.map((b, idx) => {
                                     const pct = kpis.total > 0 ? Math.round((b.total / kpis.total) * 100) : 0;
                                     return (
-                                        <div key={`${b.id}-${pct}`} className="space-y-1.5">
-                                            <div className="flex items-center justify-between gap-3 text-sm">
-                                                <span className="truncate font-medium text-[#14161a]">{b.name}</span>
-                                                <div className="shrink-0 text-right">
+                                    <div key={`${b.id}-${pct}`} className="space-y-1.5">
+                                        <div className="flex items-center justify-between gap-3 text-sm">
+                                            <span className="min-w-0 truncate font-medium text-[#14161a]">{b.name}</span>
+                                            <div className="shrink-0 text-right">
                                                     <p className="font-bold text-[#14161a]">{fmt(b.total)}</p>
                                                     <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
                                                 </div>

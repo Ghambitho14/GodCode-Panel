@@ -71,10 +71,10 @@ function ReportPaymentDonut({ data = [], currency = 'CLP' }) {
 		);
 	}
 
-	return (
-		<div className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-[#e5e5ea] bg-white p-0">
-			<div className="relative h-44 w-full max-w-[280px]">
-				<ResponsiveContainer width="100%" height="100%">
+    return (
+        <div className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-[#e5e5ea] bg-white p-0">
+            <div className="relative h-44 w-full max-w-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
 					<PieChart>
 						<Tooltip content={renderTooltip} />
 						<Pie

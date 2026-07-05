@@ -74,6 +74,25 @@
     gap: 10px;
 }
 
+.admin-layout .rpt-period-select--compact .admin-branch-select__trigger {
+    min-height: 34px;
+    padding: 5px 10px 5px 6px;
+    gap: 6px;
+    font-size: 0.8rem;
+    border-radius: 10px;
+}
+
+.admin-layout .rpt-period-select--compact .admin-branch-select__pin.nav-icon-slot {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+}
+
+.admin-layout .rpt-period-select--compact .admin-branch-select__pin svg {
+    width: 14px;
+    height: 14px;
+}
+
 .admin-layout .rpt-period-select--with-day .rpt-period-menu-select.admin-branch-select {
     max-width: min(100%, 220px);
 }
@@ -1436,6 +1455,36 @@
     .admin-layout .rpt-segmented-btn,
     .admin-layout .rpt-chart-kind-btn {
         padding: 8px 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-layout .rpt-chart-kind {
+        gap: 6px;
+        padding: 3px;
+        border-radius: 12px;
+    }
+
+    .admin-layout .rpt-chart-kind-btn {
+        padding: 8px 12px;
+        border-radius: 10px;
+    }
+
+    .admin-layout .rpt-chart-kind-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+
+@media (max-width: 400px) {
+    .admin-layout .rpt-chart-kind {
+        gap: 5px;
+        padding: 2px;
+    }
+
+    .admin-layout .rpt-chart-kind-btn {
+        padding: 7px 10px;
+        border-radius: 9px;
     }
 }
 

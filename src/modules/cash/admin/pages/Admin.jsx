@@ -431,6 +431,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                         ? 'Selecciona una sucursal'
                         : ''
                   }
+                  combined={isMobile}
                 />
                 <Button variant="default"
                   type="button"
