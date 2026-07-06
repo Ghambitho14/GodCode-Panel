@@ -21,7 +21,7 @@
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     transition: var(--transition-bounce);
     position: relative;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
@@ -189,8 +189,8 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
     color: #2563eb;
-    background: #dbeafe;
-    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
     flex-shrink: 0;
 }
 
@@ -471,7 +471,7 @@
 
 .admin-layout .card-items-summary {
     background: #f8fafc;
-    padding: 8px 10px;
+    padding: 6px 8px;
     border-radius: 10px;
     border: 1px solid #e5e5ea;
     min-height: auto;
@@ -674,14 +674,13 @@
 }
 
 .admin-layout .order-card-tool-btn svg {
-	width: 13px;
-	height: 13px;
+	width: 16px;
+	height: 16px;
 	flex-shrink: 0;
 }
 
-.admin-layout .kanban-card:not(.kanban-card--expanded) .order-detail-trigger {
-    font-size: 0.62rem;
-    padding: 4px 8px;
+.admin-layout .order-card-header-tools {
+    gap: 4px;
 }
 
 .admin-layout .kanban-card:not(.kanban-card--expanded) .btn-action {
@@ -715,7 +714,7 @@
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
         padding: 12px 14px;
         border-radius: 12px;
-        gap: 8px;
+        gap: 6px;
         box-shadow: none;
     }
 
@@ -784,7 +783,7 @@
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card-divider {
-        margin: 6px 0 !important;
+        margin: 2px 0 !important;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .card-items {
@@ -831,7 +830,7 @@
     .admin-layout .kanban-board.kanban-board--split-desktop .kanban-card {
         padding: 12px 14px;
         border-radius: 12px;
-        gap: 8px;
+        gap: 6px;
         box-shadow: none;
     }
 
@@ -935,7 +934,7 @@
     padding: 0 5px;
     margin-right: 6px;
     border-radius: 6px;
-    background: #dbeafe;
+    background: #eff6ff;
     color: #2563eb;
     font-weight: 900;
     font-size: 0.72rem;
@@ -953,6 +952,19 @@
     min-width: 0;
     max-width: 100%;
     font-size: 0.65rem;
+}
+
+.admin-layout .order-time__text {
+    color: inherit;
+}
+
+.admin-layout .order-time--warning .order-time__text {
+    color: #D97706;
+}
+
+.admin-layout .order-time--danger .order-time__text {
+    color: #DC2626;
+    font-weight: 700;
 }
 
 .admin-layout .order-card-payment-stack {
@@ -1043,7 +1055,7 @@
 
 /* --- CLIENTE --- */
 .admin-layout .card-client {
-    margin-top: 2px;
+    margin-top: 0;
 }
 
 .admin-layout .card-client h4 {
@@ -1104,6 +1116,16 @@
 
 .admin-layout .kanban-card--grid-tile .card-items {
 	padding: 6px 8px;
+}
+
+.admin-layout .card-items--always-visible {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 /* Decoración de ticket */
@@ -1200,10 +1222,129 @@
     min-width: 0;
 }
 
+/* --- LISTA DE PRODUCTOS SIEMPRE VISIBLE (con checkbox) --- */
+.admin-layout .card-items--always-visible .order-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 0;
+}
+
+.admin-layout .card-items--always-visible .order-item-row--prepared .order-item-name {
+    color: #9CA3AF;
+    text-decoration: line-through;
+    text-decoration-color: #D1D5DB;
+    text-decoration-thickness: 1px;
+}
+
+.admin-layout .order-item-checkbox-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    cursor: pointer;
+}
+
+.admin-layout .order-item-checkbox {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.admin-layout .order-item-checkbox-visual {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #D1D5DB;
+    border-radius: 4px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: all 0.15s ease;
+}
+
+.admin-layout .order-item-checkbox-visual--checked {
+    background: #2563EB;
+    border-color: #2563EB;
+}
+
+.admin-layout .order-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.admin-layout .order-item-main {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #14161a;
+}
+
+.admin-layout .order-item-qty {
+    font-weight: 800;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.admin-layout .order-item-name {
+    font-weight: 500;
+    color: #14161a;
+    word-break: break-word;
+}
+
+.admin-layout .order-item-meta {
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: #9CA3AF;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+
+.admin-layout .order-item-meta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.admin-layout .order-items-expand-link {
+    align-self: flex-start;
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #6b7280;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    margin-top: 2px;
+}
+
+.admin-layout .order-items-expand-link:hover {
+    color: #14161a;
+}
+
 .admin-layout .kanban-card-divider {
     border: none;
     border-top: 1px solid #e5e5ea;
-    margin: 4px 0;
+    margin: 2px 0;
 }
 
 .admin-layout .order-card-meta-sep {
@@ -1283,7 +1424,7 @@
     font-weight: 800;
     text-align: right;
     color: #14161a;
-    margin-top: 4px;
+    margin-top: 2px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1345,7 +1486,7 @@
     display: grid;
     grid-template-columns: 40px 1fr 40px;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 6px;
     align-items: center;
 }
 
@@ -1441,11 +1582,11 @@
     color: #14161a;
 }
 
-.admin-layout .btn-icon-action.cancel:hover,
-.admin-layout .btn-icon-action.cancel:active {
-    background: #fee2e2;
-    color: #dc2626;
-    border-color: #fca5a5;
+.admin-layout .kanban-card .btn-icon-action.cancel:hover,
+.admin-layout .kanban-card .btn-icon-action.cancel:active {
+    background: rgba(220, 38, 38, 0.1);
+    color: #DC2626;
+    border-color: #DC2626;
 }
 
 /* Animación de entrada sutil: corta para no causar parpadeo en re-ordenes */
@@ -1550,7 +1691,7 @@
     }
 }
 
-/* Fila meta: badge delivery + ver detalles */
+/* Fila meta: canal + estado de pago + método de pago + ver detalle */
 .admin-layout .card-kanban-meta-row {
     display: flex;
     align-items: center;
@@ -1559,28 +1700,34 @@
     flex-wrap: wrap;
 }
 
-.admin-layout .order-detail-trigger {
+.admin-layout .card-kanban-meta-row .order-card-payment-stack--inline {
+    justify-content: flex-start;
+    max-width: none;
+    flex: 0 1 auto;
+}
+
+.admin-layout .order-detail-link {
     margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border: 1px solid #e5e5ea;
-    background: #f5f5f7;
+    background: transparent;
+    border: none;
+    padding: 0;
     color: #6b7280;
     font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 4px 8px;
-    border-radius: 8px;
     cursor: pointer;
-    transition: color 0.2s, background 0.2s, border-color 0.2s;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    transition: color 0.2s;
 }
 
-.admin-layout .order-detail-trigger:hover {
+.admin-layout .order-detail-link:hover {
     color: #14161a;
-    background: #ffffff;
-    border-color: #bfdbfe;
 }
 
 /* Menú impresión: reimprimir ticket cocina o ticket caja */
@@ -1731,6 +1878,12 @@
     color: #2563eb;
     background: #dbeafe;
     border: 1px solid #bfdbfe;
+}
+
+.admin-layout .order-fulfillment-pill--web {
+    color: #4B5563;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
 }
 
 /* Modal detalle pedido (portal en body) */

@@ -1,7 +1,7 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
     Clock, XCircle, Upload, ImageIcon, Printer, Edit2, Copy, Send,
-    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2, CheckCircle2,
+    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2, CheckCircle2, Check,
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
@@ -34,7 +34,7 @@ function buildItemsSummary(items, { missingItems = false } = {}) {
     const list = Array.isArray(items) ? items : [];
     const count = list.length;
     if (missingItems && count === 0) {
-        return { count: 0, text: 'Tocá "Ver más" para cargar los productos' };
+        return { count: 0, text: '' };
     }
     if (count === 0) return { count: 0, text: 'Sin productos' };
     const preview = list
@@ -78,10 +78,13 @@ const OrderCard = ({
     const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const [paymentModalIntent, setPaymentModalIntent] = useState(null);
-    const [expanded, setExpanded] = useState(false);
+    const [showAllItems, setShowAllItems] = useState(false);
+    const [gridExpanded, setGridExpanded] = useState(false);
     const [itemsHydrating, setItemsHydrating] = useState(false);
     const [editPreparing, setEditPreparing] = useState(false);
+    const [preparedItemIds, setPreparedItemIds] = useState(new Set());
     const ticketMenuRef = useRef(null);
+    const hasAttemptedHydrate = useRef(false);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
 
@@ -152,13 +155,47 @@ const OrderCard = ({
         [clients, order.client_id],
     );
     const isVip = clientData?.total_orders >= 5;
-    const hasLoadedItems = Array.isArray(liveOrder.items) && liveOrder.items.length > 0;
+    const hasLoadedItems = Array.isArray(liveOrder.items);
+    const itemsCount = liveOrder.items?.length ?? 0;
     const itemsSummary = useMemo(
         () => buildItemsSummary(liveOrder.items, { missingItems: !hasLoadedItems }),
         [liveOrder.items, hasLoadedItems],
     );
 
-    const handleExpandItems = useCallback(async (e) => {
+    useEffect(() => {
+        if (hasAttemptedHydrate.current) return;
+        if (!hasLoadedItems && hydrateOrderItems) {
+            hasAttemptedHydrate.current = true;
+            setItemsHydrating(true);
+            hydrateOrderItems(order.id)
+                .catch((err) => {
+                    console.error('Error hydrating order items:', err);
+                    showNotify?.('No se pudieron cargar los productos del pedido', 'error');
+                })
+                .finally(() => setItemsHydrating(false));
+        }
+    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+
+    useEffect(() => {
+        if (liveOrder.status === 'completed' && Array.isArray(liveOrder.items) && liveOrder.items.length > 0) {
+            setPreparedItemIds((prev) => {
+                const allIndices = new Set(liveOrder.items.map((_, idx) => idx));
+                if (prev.size === allIndices.size) return prev;
+                return allIndices;
+            });
+        }
+    }, [liveOrder.status, liveOrder.items]);
+
+    const togglePrepared = useCallback((idx) => {
+        setPreparedItemIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
+    }, []);
+
+    const handleGridExpandItems = useCallback(async (e) => {
         e.stopPropagation();
         if (!hasLoadedItems && hydrateOrderItems) {
             setItemsHydrating(true);
@@ -171,7 +208,7 @@ const OrderCard = ({
                 setItemsHydrating(false);
             }
         }
-        setExpanded(true);
+        setGridExpanded(true);
     }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
 
     const handleOpenEdit = useCallback(async (e) => {
@@ -239,9 +276,10 @@ const OrderCard = ({
         setTicketMenuOpen(false);
     };
 
+    const isWebChannel = fulfillmentLabel === 'Web';
     const fulfillmentPill = fulfillmentKind ? (
         <span
-            className={`order-fulfillment-pill order-fulfillment-pill--${fulfillmentKind === 'moto' ? 'delivery' : fulfillmentKind}`}
+            className={`order-fulfillment-pill order-fulfillment-pill--${fulfillmentKind === 'moto' ? 'delivery' : fulfillmentKind}${isWebChannel ? ' order-fulfillment-pill--web' : ''}`}
             title={
                 fulfillmentKind === 'moto'
                     ? 'Pedido con envío'
@@ -288,15 +326,19 @@ const OrderCard = ({
         </div>
     );
 
+    const minutesElapsed = Math.floor((new Date() - new Date(order.created_at)) / 60000);
+    const timerColorClass =
+        minutesElapsed >= 20 ? 'order-time--danger' : minutesElapsed >= 10 ? 'order-time--warning' : '';
+
     const orderTimeEl = (
-        <span className="order-time" title={new Date(order.created_at).toLocaleString()}>
+        <span className={`order-time${timerColorClass ? ` ${timerColorClass}` : ''}`} title={new Date(order.created_at).toLocaleString()}>
             {!gridTile && queueIndex != null ? (
                 <span className="order-queue-badge" title={`Pedido ${queueIndex} en la cola (más antiguo primero)`}>
                     {queueIndex}
                 </span>
             ) : null}
             <Clock size={12} />
-            {formatTimeElapsed(order.created_at)}
+            <span className="order-time__text">{formatTimeElapsed(order.created_at)}</span>
         </span>
     );
 
@@ -308,7 +350,7 @@ const OrderCard = ({
                 className="admin-icon-btn--sm order-card-tool-btn"
                 title="Copiar resumen del pedido"
             >
-                <Copy size={14} aria-hidden />
+                <Copy size={16} aria-hidden />
             </Button>
             {isDelivery ? (
                 <Button variant="default"
@@ -318,7 +360,7 @@ const OrderCard = ({
                     title="WhatsApp envío"
                     aria-label="Enviar datos de delivery por WhatsApp"
                 >
-                    <Send size={14} aria-hidden />
+                    <Send size={16} aria-hidden />
                 </Button>
             ) : null}
             <div className="order-ticket-menu" ref={ticketMenuRef}>
@@ -334,7 +376,7 @@ const OrderCard = ({
                     aria-haspopup="menu"
                     aria-label="Menú imprimir tickets"
                 >
-                    <Printer size={14} aria-hidden />
+                    <Printer size={16} aria-hidden />
                 </Button>
                 {ticketMenuOpen ? (
                     <OrderCardAnchoredMenu
@@ -363,14 +405,14 @@ const OrderCard = ({
                     title="Ver detalle del pedido"
                     aria-label="Ver detalle del pedido"
                 >
-                    <Eye size={14} aria-hidden />
+                    <Eye size={16} aria-hidden />
                 </Button>
             ) : null}
         </>
     );
 
     return (
-        <div className={`kanban-card glass animate-slide-up${expanded ? ' kanban-card--expanded' : ''}${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile kanban-card--receipt-clean' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
+        <div className={`kanban-card glass animate-slide-up${(gridTile ? gridExpanded : true) ? ' kanban-card--expanded' : ''}${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile kanban-card--receipt-clean' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
             <div className="kanban-card-top">
                 {gridTile ? (
                     <>
@@ -401,7 +443,7 @@ const OrderCard = ({
                                 </div>
                             </div>
                         </div>
-                        {expanded && deliverySubtitle ? (
+                        {gridExpanded && deliverySubtitle ? (
                             <div className="order-delivery-mini" title={deliverySubtitle}>
                                 {deliverySubtitle}
                             </div>
@@ -413,11 +455,10 @@ const OrderCard = ({
                             {orderTimeEl}
                             <div className="order-card-header-tools">
                                 {headerTools}
-                                {paymentMeta}
                             </div>
                         </div>
 
-                        {expanded && deliverySubtitle ? (
+                        {deliverySubtitle ? (
                             <div className="order-delivery-mini" title={deliverySubtitle}>
                                 {deliverySubtitle}
                             </div>
@@ -434,15 +475,15 @@ const OrderCard = ({
                             </div>
                             <div className="card-kanban-meta-row">
                                 {fulfillmentPill}
-                                <Button variant="default"
+                                {paymentMeta}
+                                <button
                                     type="button"
-                                    className="order-detail-trigger"
+                                    className="order-detail-link"
                                     onClick={openDetailModal}
                                     title="Ver todo el detalle del pedido"
                                 >
-                                    <Eye size={12} aria-hidden />
                                     Ver detalle
-                                </Button>
+                                </button>
                             </div>
                         </div>
 
@@ -452,80 +493,167 @@ const OrderCard = ({
             </div>
 
             <div className="kanban-card-scroll">
-                {!expanded ? (
-                    <div className={`card-items-summary${gridTile ? ' card-items-summary--receipt' : ''}`} title={itemsSummary.text}>
-                        <p className="card-items-summary__text">{itemsSummary.text}</p>
-                        {deliverySubtitle ? (
-                            <p className="card-items-summary__delivery" title={deliverySubtitle}>
-                                {deliverySubtitle}
-                            </p>
-                        ) : null}
-                        <Button variant="default"
-                            type="button"
-                            className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
-                            onClick={handleExpandItems}
-                            aria-expanded={false}
-                            disabled={itemsHydrating}
-                        >
-                            {itemsHydrating ? (
-                                <Loader2 size={14} className="animate-spin" aria-hidden />
-                            ) : (
-                                <ChevronDown size={14} aria-hidden />
-                            )}
-                            {hasLoadedItems ? `Ver más (${itemsSummary.count})` : 'Ver más'}
-                        </Button>
-                    </div>
+                {gridTile ? (
+                    <>
+                        {!gridExpanded ? (
+                            <div className="card-items-summary card-items-summary--receipt" title={itemsSummary.text}>
+                                {itemsSummary.text ? <p className="card-items-summary__text">{itemsSummary.text}</p> : null}
+                                {deliverySubtitle ? (
+                                    <p className="card-items-summary__delivery" title={deliverySubtitle}>
+                                        {deliverySubtitle}
+                                    </p>
+                                ) : null}
+                                <Button variant="default"
+                                    type="button"
+                                    className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
+                                    onClick={handleGridExpandItems}
+                                    aria-expanded={false}
+                                    disabled={itemsHydrating}
+                                >
+                                    {itemsHydrating ? (
+                                        <Loader2 size={14} className="animate-spin" aria-hidden />
+                                    ) : (
+                                        <ChevronDown size={14} aria-hidden />
+                                    )}
+                                    {hasLoadedItems && itemsCount > 0 ? `Ver más (${itemsCount})` : 'Ver más'}
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="card-items card-items--expanded">
+                                    {itemsHydrating ? (
+                                        <div className="card-items-hydrating">
+                                            <Loader2 size={16} className="animate-spin" aria-hidden />
+                                            <span>Cargando productos…</span>
+                                        </div>
+                                    ) : Array.isArray(liveOrder.items) && liveOrder.items.length > 0 ? (
+                                    liveOrder.items.map((item, idx) => {
+                                        const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
+                                        return (
+                                            <div key={idx} className="order-item-row order-item-row--stacked">
+                                                <div className="order-item-row__main">
+                                                    <span className="qty-circle">{item.quantity}</span>
+                                                    <span className="item-name">{item.name}</span>
+                                                </div>
+                                                {Array.isArray(item.extras) && item.extras.length > 0 ? (
+                                                    <div className="order-item-extras">
+                                                        {item.extras.map((extra, extraIdx) => (
+                                                            <div key={extraIdx} className="order-item-extra-line">
+                                                                <span className="order-item-extra-plus">+</span>
+                                                                <span>{extra.quantity || 1}x {extra.name}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                                {itemNote ? (
+                                                    <div className="order-item-note" title={itemNote}>
+                                                        <span className="order-item-note-tag">NOTA</span>
+                                                        <span className="order-item-note-text">{itemNote}</span>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        );
+                                    })
+                                    ) : (
+                                        <p className="card-items-empty">Sin productos</p>
+                                    )}
+                                    <Button variant="default"
+                                        type="button"
+                                        className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setGridExpanded(false);
+                                        }}
+                                        aria-expanded
+                                    >
+                                        <ChevronUp size={14} aria-hidden />
+                                        Ver menos
+                                    </Button>
+                                </div>
+
+                                {order.payment_type === 'online' ? (
+                                    <div className="receipt-container receipt-container--kanban">
+                                        {order.payment_ref && order.payment_ref.startsWith('http') ? (
+                                            <div className="receipt-container__row">
+                                                <a href={order.payment_ref} target="_blank" rel="noreferrer" className="receipt-link">
+                                                    <ImageIcon size={14} aria-hidden /> Ver Comprobante
+                                                </a>
+                                                <Button variant="default" type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
+                                                    Cambiar
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Button variant="default"
+                                                type="button"
+                                                onClick={() => setReceiptModalOrder(order)}
+                                                className="receipt-link receipt-link--optional"
+                                                title="Opcional: subir imagen del comprobante"
+                                            >
+                                                <Upload size={14} aria-hidden /> Comprobante (opcional)
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
+                    </>
                 ) : (
                     <>
-                        <div className="card-items card-items--expanded">
+                        <div className="card-items card-items--always-visible">
                             {itemsHydrating ? (
                                 <div className="card-items-hydrating">
                                     <Loader2 size={16} className="animate-spin" aria-hidden />
                                     <span>Cargando productos…</span>
                                 </div>
-                            ) : Array.isArray(liveOrder.items) && liveOrder.items.length > 0 ? (
-                            liveOrder.items.map((item, idx) => {
-                                const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
-                                return (
-                                    <div key={idx} className="order-item-row order-item-row--stacked">
-                                        <div className="order-item-row__main">
-                                            <span className="qty-circle">{item.quantity}</span>
-                                            <span className="item-name">{item.name}</span>
-                                        </div>
-                                        {Array.isArray(item.extras) && item.extras.length > 0 ? (
-                                            <div className="order-item-extras">
-                                                {item.extras.map((extra, extraIdx) => (
-                                                    <div key={extraIdx} className="order-item-extra-line">
-                                                        <span className="order-item-extra-plus">+</span>
-                                                        <span>{extra.quantity || 1}x {extra.name}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                        {itemNote ? (
-                                            <div className="order-item-note" title={itemNote}>
-                                                <span className="order-item-note-tag">NOTA</span>
-                                                <span className="order-item-note-text">{itemNote}</span>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })
-                            ) : (
+                            ) : !hasLoadedItems || itemsCount === 0 ? (
                                 <p className="card-items-empty">Sin productos</p>
+                            ) : (
+                                <>
+                                    {(showAllItems ? liveOrder.items : liveOrder.items.slice(0, 6)).map((item, idx) => {
+                                        const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
+                                        const isPrepared = preparedItemIds.has(idx);
+                                        const extrasText = Array.isArray(item.extras) && item.extras.length > 0
+                                            ? item.extras.map((extra) => `${extra.quantity || 1}x ${extra.name}`).join(', ')
+                                            : '';
+                                        return (
+                                            <div key={idx} className={`order-item-row${isPrepared ? ' order-item-row--prepared' : ''}`}>
+                                                <label className="order-item-checkbox-label" title={isPrepared ? 'Marcar como pendiente' : 'Marcar como preparado'}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="order-item-checkbox"
+                                                        checked={isPrepared}
+                                                        onChange={() => togglePrepared(idx)}
+                                                    />
+                                                    <span className={`order-item-checkbox-visual${isPrepared ? ' order-item-checkbox-visual--checked' : ''}`}>
+                                                        {isPrepared ? <Check size={11} strokeWidth={3} aria-hidden /> : null}
+                                                    </span>
+                                                </label>
+                                                <div className="order-item-content">
+                                                    <div className="order-item-main">
+                                                        <span className="order-item-qty">{item.quantity ?? 1}x</span>
+                                                        <span className="order-item-name">{item.name ?? 'Producto'}</span>
+                                                    </div>
+                                                    {(extrasText || itemNote) ? (
+                                                        <div className="order-item-meta">
+                                                            {extrasText ? <span>{extrasText}</span> : null}
+                                                            {itemNote ? <span>{itemNote}</span> : null}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {itemsCount > 6 && !showAllItems ? (
+                                        <button
+                                            type="button"
+                                            className="order-items-expand-link"
+                                            onClick={() => setShowAllItems(true)}
+                                        >
+                                            +{itemsCount - 6} más
+                                        </button>
+                                    ) : null}
+                                </>
                             )}
-                            <Button variant="default"
-                                type="button"
-                                className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpanded(false);
-                                }}
-                                aria-expanded
-                            >
-                                <ChevronUp size={14} aria-hidden />
-                                Ver menos
-                            </Button>
                         </div>
 
                         {order.payment_type === 'online' ? (
