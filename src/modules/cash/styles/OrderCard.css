@@ -4,33 +4,37 @@
 
 .admin-layout {
     /* Tarjetas cuadradas en cuadrícula Kanban */
-    --card-radius: 8px;
-    --inner-radius: 6px;
-    --shadow-soft: 0 6px 20px -8px rgba(15, 23, 42, 0.12);
+    --card-radius: 12px;
+    --inner-radius: 8px;
+    --shadow-soft: 0 6px 20px -8px rgba(16, 24, 40, 0.1);
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    --kanban-card-compact-h: 176px;
+    --kanban-card-compact-h: 156px;
     /* Altura ficha cuadrícula: escala con viewport (clamp) y se afina por @container en cada card */
     --kanban-grid-tile-compact-h: clamp(320px, 18rem + 4vw, 400px);
 }
 
 /* Altura natural por defecto; fichas cuadradas solo en vista «Una columna» (focus) */
 .admin-layout .kanban-card {
-    background: var(--admin-card-bg, #fff);
-    border: 1px solid var(--admin-border, #e2e8f0);
-    border-radius: var(--card-radius);
-    padding: 8px 9px;
+    background: #ffffff;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 6px;
     transition: var(--transition-bounce);
     position: relative;
-    box-shadow: none;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
     width: 100%;
     max-width: none;
     margin: 0;
     min-height: min-content;
     aspect-ratio: auto;
     overflow: visible;
+}
+
+.admin-layout .kanban-card:hover {
+    box-shadow: 0 8px 24px -12px rgba(16, 24, 40, 0.12);
 }
 
 /* Secciones internas: no encoger el bloque central (evita solapamiento con header/footer) */
@@ -80,38 +84,38 @@
 }
 
 @container order-card-grid (max-width: 260px) {
-    .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-        --kanban-grid-tile-compact-h: clamp(380px, 52cqi, 440px);
-    }
+	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
+		--kanban-grid-tile-compact-h: clamp(300px, 48cqi, 360px);
+	}
 
-    .admin-layout .kanban-card-receipt-head {
-        flex-wrap: wrap;
-        row-gap: 8px;
-    }
+	.admin-layout .kanban-card-receipt-head {
+		flex-wrap: wrap;
+		row-gap: 8px;
+	}
 
-    .admin-layout .kanban-card--receipt-clean .order-card-header-tools {
-        margin-left: auto;
-    }
+	.admin-layout .kanban-card--receipt-clean .order-card-header-tools {
+		margin-left: auto;
+	}
 
-    .admin-layout .kanban-card--receipt-clean .order-card-header-tools .admin-icon-btn--sm,
-    .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-card-tool-btn {
-        width: 30px;
-        height: 30px;
-        min-width: 30px;
-        min-height: 30px;
-    }
+	.admin-layout .kanban-card--receipt-clean .order-card-header-tools .admin-icon-btn--sm,
+	.admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-card-tool-btn {
+		width: 28px;
+		height: 28px;
+		min-width: 28px;
+		min-height: 28px;
+	}
 }
 
 @container order-card-grid (min-width: 261px) and (max-width: 320px) {
-    .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-        --kanban-grid-tile-compact-h: clamp(350px, 48cqi, 400px);
-    }
+	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
+		--kanban-grid-tile-compact-h: clamp(280px, 44cqi, 340px);
+	}
 }
 
 @container order-card-grid (min-width: 321px) {
-    .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-        --kanban-grid-tile-compact-h: clamp(320px, 42cqi, 380px);
-    }
+	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
+		--kanban-grid-tile-compact-h: clamp(260px, 40cqi, 320px);
+	}
 }
 
 .admin-layout .kanban-card.kanban-card--grid-tile:hover,
@@ -136,31 +140,32 @@
     flex-shrink: 0;
 }
 
-/* Vista cuadrícula — diseño tipo recibo (prueba) */
+/* Vista cuadrícula — diseño tipo recibo */
 .admin-layout .kanban-card.kanban-card--receipt-clean {
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: 8px;
-    box-shadow: none;
+	gap: 8px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .admin-layout .kanban-card.kanban-card--receipt-clean.urgent-pulse {
-    animation: none;
-    box-shadow: none;
-    border-color: color-mix(in srgb, #ef4444 35%, var(--admin-border));
-    box-shadow: inset 3px 0 0 #ef4444;
+	animation: none;
+	box-shadow: inset 3px 0 0 #ef4444;
+	border-color: #e5e5ea;
 }
 
 .admin-layout .kanban-card-receipt-head {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
     gap: 10px;
 }
 
 .admin-layout .kanban-card-receipt-head__main {
     min-width: 0;
     flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .admin-layout .kanban-card-receipt-title-row {
@@ -183,39 +188,42 @@
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
-    color: var(--admin-text);
-    background: var(--admin-icon-bg);
-    border: 1px solid var(--admin-border);
+    color: #2563eb;
+    background: #dbeafe;
+    border: 1px solid #bfdbfe;
     flex-shrink: 0;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-client-name {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1.3;
-    color: var(--admin-text);
-    display: block;
-    overflow: visible;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-    word-break: break-word;
+	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 700;
+	line-height: 1.25;
+	color: #14161a;
+	display: block;
+	overflow: visible;
+	-webkit-line-clamp: unset;
+	line-clamp: unset;
+	word-break: break-word;
 }
 
 .admin-layout .kanban-card-receipt-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-    font-size: 0.72rem;
-    line-height: 1.35;
-    color: var(--admin-text-muted);
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 5px;
+	font-size: 0.7rem;
+	line-height: 1.35;
+	color: #6b7280;
 }
 
 .admin-layout .kanban-card-receipt-meta__dot {
-    color: color-mix(in srgb, var(--admin-text-muted) 70%, transparent);
+    color: #9ca3af;
     user-select: none;
+}
+
+.admin-layout .kanban-card--receipt-clean .order-card-header-tools--receipt-meta {
+    margin-left: auto;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-payment-stack--inline {
@@ -229,7 +237,7 @@
 .admin-layout .kanban-card--receipt-clean .order-card-paid-badge,
 .admin-layout .kanban-card--receipt-clean .order-card-unpaid-badge,
 .admin-layout .kanban-card--receipt-clean .payment-badge {
-    font-size: 0.68rem;
+    font-size: 0.65rem;
     padding: 3px 7px;
     border-radius: 999px;
 }
@@ -242,7 +250,7 @@
     font-weight: 600;
     text-transform: none;
     letter-spacing: 0;
-    color: var(--admin-text-muted);
+    color: #6b7280;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools {
@@ -252,35 +260,37 @@
     gap: 0;
     padding: 0;
     border: none;
-    border-radius: var(--receipt-btn-radius-md, 5px);
+    border-radius: 8px;
     overflow: hidden;
-    background: var(--admin-icon-bg);
+    background: #f5f5f7;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-ticket-menu {
     display: flex;
     align-items: stretch;
-    background: var(--admin-icon-bg);
+    background: #f5f5f7;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .admin-icon-btn--sm,
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-card-tool-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    min-height: 32px;
-    border: none;
-    border-radius: 0;
-    background: var(--admin-icon-bg);
-    box-shadow: none;
+	width: 28px;
+	height: 28px;
+	min-width: 28px;
+	min-height: 28px;
+	border: none;
+	border-radius: 0;
+	background: #f5f5f7;
+	box-shadow: none;
+	color: #6b7280;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-card-tool-btn:hover:not(:disabled),
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-card-tool-btn.is-active,
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools .order-ticket-menu:has(.order-card-tool-btn:hover) {
-    background: var(--admin-card-bg);
+    background: #ffffff;
     border: none;
     box-shadow: none;
+    color: #14161a;
 }
 
 .admin-layout .kanban-card--receipt-clean .order-card-header-tools > .order-card-tool-btn:first-child,
@@ -296,148 +306,150 @@
 }
 
 .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) .card-items-summary--receipt {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 4.5rem;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: auto;
 }
 
 .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) .card-items-summary--receipt .kanban-card-expand-toggle--inline {
-    flex-shrink: 0;
-    margin-top: auto;
+	flex-shrink: 0;
+	margin-top: auto;
 }
 
 .admin-layout .card-items-summary--receipt {
-    background: transparent;
-    border: none;
-    padding: 0;
-    min-height: unset;
-    border-top: 1px solid var(--admin-border);
-    padding-top: 12px;
+	background: transparent;
+	border: none;
+	padding: 0;
+	min-height: unset;
+	border-top: 1px solid var(--admin-border);
+	padding-top: 8px;
 }
 
 .admin-layout .card-items-summary--receipt .card-items-summary__text {
-    margin: 0;
-    font-size: 0.82rem;
-    font-weight: 500;
-    line-height: 1.4;
-    color: var(--admin-text-muted);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
+	margin: 0;
+	font-size: 0.78rem;
+	font-weight: 500;
+	line-height: 1.4;
+	color: var(--admin-text-muted);
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
 }
 
 .admin-layout .card-items-summary--receipt .card-items-summary__delivery {
-    font-size: 0.75rem;
-    margin-top: 6px;
+	font-size: 0.72rem;
+	margin-top: 4px;
 }
 
 .admin-layout .card-items-summary--receipt .kanban-card-expand-toggle--inline {
-    margin-top: 8px;
-    padding: 0;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--admin-text-muted);
-    background: transparent;
-    border: none;
-    gap: 4px;
+	margin-top: 6px;
+	padding: 4px 0;
+	font-size: 0.68rem;
+	font-weight: 700;
+	color: var(--admin-text-muted);
+	background: transparent;
+	border: none;
+	border-top: 1px solid var(--admin-border);
+	gap: 4px;
+	letter-spacing: 0.02em;
 }
 
 .admin-layout .card-items-summary--receipt .kanban-card-expand-toggle--inline:hover {
-    color: var(--admin-text);
+	color: var(--admin-text);
 }
 
 .admin-layout .kanban-card-receipt-foot {
-    margin-top: 0;
-    padding-top: 12px;
-    border-top: 1px solid var(--admin-border);
-    gap: 10px;
+	margin-top: 0;
+	padding-top: 8px;
+	border-top: 1px solid #e5e5ea;
+	gap: 6px;
 }
 
 .admin-layout .kanban-card-receipt-total {
-    margin-top: 0;
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--admin-text-muted);
+	margin-top: 0;
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: #6b7280;
 }
 
 .admin-layout .kanban-card-receipt-total--final {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--admin-text);
+	font-size: 0.9rem;
+	font-weight: 700;
+	color: #14161a;
 }
 
 .admin-layout .kanban-card-receipt-total--final .total-label {
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--admin-text);
+	font-size: 0.9rem;
+	font-weight: 700;
+	letter-spacing: 0;
+	text-transform: none;
+	color: #14161a;
 }
 
 .admin-layout .kanban-card-receipt-total--final .total-amount {
-    font-size: 1.12rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
+	font-size: 1rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 0;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions .btn-action {
-    width: 100%;
-    min-height: 44px;
-    padding: 11px 14px;
-    border-radius: var(--receipt-btn-radius-lg, 6px);
-    font-size: 0.78rem;
-    box-shadow: none;
+	width: 100%;
+	min-height: 34px;
+	padding: 6px 10px;
+	border-radius: 8px;
+	font-size: 0.7rem;
+	box-shadow: none;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions .btn-icon-action {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--receipt-btn-radius-md, 5px);
+	width: 34px;
+	height: 34px;
+	border-radius: 8px;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions .btn-icon-action.cancel {
-    order: 1;
+	order: 1;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions .btn-action {
-    order: 0;
+	order: 0;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions .btn-icon-action:not(.cancel) {
-    order: 2;
-    margin-left: auto;
+	order: 2;
+	margin-left: auto;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action) {
-    display: grid;
-    grid-template-columns: 36px 1fr 36px;
-    align-items: center;
-    gap: 8px;
+	display: grid;
+	grid-template-columns: 36px 1fr 36px;
+	align-items: center;
+	gap: 6px;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action) .btn-action {
-    grid-column: 2;
+	grid-column: 2;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action) .btn-icon-action.cancel {
-    grid-column: 1;
-    grid-row: 1;
+	grid-column: 1;
+	grid-row: 1;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action) .btn-icon-action:not(.cancel) {
-    grid-column: 3;
-    grid-row: 1;
-    margin-left: 0;
+	grid-column: 3;
+	grid-row: 1;
+	margin-left: 0;
 }
 
 .admin-layout .kanban-card--expanded {
@@ -458,18 +470,21 @@
 }
 
 .admin-layout .card-items-summary {
-    background: var(--admin-icon-bg);
-    padding: 6px 8px;
-    border-radius: var(--inner-radius);
-    border: 1px solid var(--admin-border);
-    min-height: 44px;
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #e5e5ea;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .admin-layout .card-items-summary__text {
     margin: 0;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1.35;
-    color: var(--admin-text);
+    color: #6b7280;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -481,7 +496,7 @@
     margin: 4px 0 0;
     font-size: 0.68rem;
     line-height: 1.3;
-    color: var(--admin-text-muted);
+    color: #6b7280;
     display: -webkit-box;
     -webkit-line-clamp: 1;
     line-clamp: 1;
@@ -497,10 +512,10 @@
     width: 100%;
     margin: 4px 0 0;
     padding: 5px 8px;
-    border: 1px dashed var(--admin-border);
-    border-radius: var(--inner-radius);
+    border: 1px dashed #e5e5ea;
+    border-radius: 8px;
     background: transparent;
-    color: var(--admin-text-muted);
+    color: #6b7280;
     font-size: 0.62rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -510,24 +525,26 @@
 }
 
 .admin-layout .kanban-card-expand-toggle--inline {
-    width: 100%;
-    margin: 6px 0 0;
-    padding: 6px 0 0;
-    border: none;
-    border-top: 1px solid color-mix(in srgb, var(--admin-border) 85%, transparent);
-    border-radius: 0;
-    background: transparent;
-    font-size: 0.65rem;
+	width: 100%;
+	margin: 4px 0 0;
+	padding: 5px 0;
+	border: none;
+	border-top: 1px solid #e5e5ea;
+	border-radius: 0 0 6px 6px;
+	background: transparent;
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.03em;
 }
 
 .admin-layout .card-items--expanded .kanban-card-expand-toggle--inline {
-    margin-top: 8px;
+	margin-top: 6px;
 }
 
 .admin-layout .kanban-card-expand-toggle:hover {
-    color: var(--admin-text);
-    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
-    background: var(--admin-icon-bg);
+	color: #14161a;
+	border-color: #bfdbfe;
+	background: #f5f5f7;
 }
 
 .admin-layout .order-delivery-mini {
@@ -580,23 +597,28 @@
 }
 
 .admin-layout .receipt-container__row {
-    display: flex;
-    gap: 8px;
+	display: flex;
+	align-items: stretch;
+	gap: 8px;
 }
 
 .admin-layout .receipt-container__row .receipt-link {
-    flex: 1;
-    text-decoration: none;
+	flex: 1;
+	text-decoration: none;
+	min-height: 36px;
 }
 
 .admin-layout .receipt-link--optional {
-    background: rgba(148, 163, 184, 0.12);
-    color: #64748b;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    cursor: pointer;
+	background: rgba(148, 163, 184, 0.12);
+	color: #64748b;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	width: 100%;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	min-height: 36px;
+	white-space: nowrap;
 }
 
 .admin-layout .btn-action--deliver {
@@ -652,9 +674,9 @@
 }
 
 .admin-layout .order-card-tool-btn svg {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
+	width: 13px;
+	height: 13px;
+	flex-shrink: 0;
 }
 
 .admin-layout .kanban-card:not(.kanban-card--expanded) .order-detail-trigger {
@@ -792,16 +814,16 @@
         font-size: 0.75rem;
     }
 
-    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--receipt-clean {
-        padding: 14px 16px;
-        border-radius: 8px;
-        gap: 12px;
-        box-shadow: none;
-    }
+	.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--receipt-clean {
+		padding: 12px 14px;
+		border-radius: 8px;
+		gap: 8px;
+		box-shadow: none;
+	}
 
-    .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--receipt-clean .kanban-card-foot {
-        padding-top: 12px;
-    }
+	.admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--receipt-clean .kanban-card-foot {
+		padding-top: 8px;
+	}
 }
 
 /* Escritorio + tres columnas: tarjeta a ancho de columna, tipografía legible, sin miniatura */
@@ -879,35 +901,25 @@
     transform: scale(0.97);
 }
 
-/* Indicador de urgencia tipo "Glow" sutil */
+/* Indicador de urgencia: barra lateral roja en lugar de borde completo */
 .admin-layout .urgent-pulse {
-    border-color: rgba(255, 68, 68, 0.5);
-    animation: urgent-glow 2s infinite alternate;
+	border-color: #e5e5ea;
+	box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.85);
 }
 
-/* Cocina y listos: mismo borde destacado que entrantes (urgent-pulse) */
+/* Cocina y listos: borde neutro */
 .admin-layout .col-active .column-body > .kanban-card,
 .admin-layout .col-completed .column-body > .kanban-card {
-    border-color: rgba(255, 68, 68, 0.5);
-}
-
-@keyframes urgent-glow {
-    from {
-        box-shadow: 0 0 5px rgba(255, 68, 68, 0.2);
-    }
-
-    to {
-        box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
-    }
+	border-color: #e5e5ea;
 }
 
 /* --- CABECERA ESTILO DASHBOARD --- */
 .admin-layout .card-header-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 8px;
     font-size: 0.62rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -923,23 +935,24 @@
     padding: 0 5px;
     margin-right: 6px;
     border-radius: 6px;
-    background: color-mix(in srgb, var(--accent-primary) 18%, var(--admin-icon-bg));
-    color: var(--accent-primary);
+    background: #dbeafe;
+    color: #2563eb;
     font-weight: 900;
     font-size: 0.72rem;
     line-height: 1;
 }
 
 .admin-layout .order-time {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 3px;
-    color: var(--admin-text-muted);
-    background: var(--admin-icon-bg);
-    padding: 2px 6px;
+    gap: 4px;
+    color: #6b7280;
+    background: #f5f5f7;
+    padding: 3px 7px;
     border-radius: 999px;
     min-width: 0;
     max-width: 100%;
+    font-size: 0.65rem;
 }
 
 .admin-layout .order-card-payment-stack {
@@ -950,32 +963,41 @@
     flex-shrink: 0;
 }
 
+.admin-layout .order-card-payment-stack--inline {
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 4px;
+	max-width: min(100%, 180px);
+}
+
 .admin-layout .payment-badge {
-    background: var(--admin-icon-bg);
-    color: var(--admin-text-muted);
-    padding: 2px 7px;
+    background: #f5f5f7;
+    color: #6b7280;
+    padding: 2px 6px;
     border-radius: 999px;
-    border: 1px solid var(--admin-border);
-    font-size: 0.65rem;
+    border: 1px solid #e5e5ea;
+    font-size: 0.6rem;
     white-space: nowrap;
 }
 
 .admin-layout .payment-badge--settled {
-    font-size: 0.6rem;
+    font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
 
 .admin-layout .payment-badge.online {
-    background: color-mix(in srgb, var(--accent-primary) 10%, var(--admin-icon-bg));
-    color: var(--admin-text);
-    border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
 }
 
 .admin-layout .payment-badge--pending {
-    background: rgba(234, 179, 8, 0.14);
+    background: #fef3c7;
     color: #a16207;
-    border-color: rgba(234, 179, 8, 0.35);
+    border-color: #fde68a;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -985,33 +1007,35 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 2px 7px;
+    padding: 2px 6px;
     border-radius: 999px;
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 700;
     line-height: 1.2;
-    color: #15803d;
-    background: rgba(37, 211, 102, 0.16);
-    border: 1px solid rgba(37, 211, 102, 0.35);
+    color: #16a34a;
+    background: #dcfce7;
+    border: 1px solid #86efac;
     white-space: nowrap;
 }
 
 .admin-layout .order-card-paid-badge svg {
     flex-shrink: 0;
+    width: 10px;
+    height: 10px;
 }
 
 .admin-layout .order-card-unpaid-badge {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 2px 7px;
+    padding: 2px 6px;
     border-radius: 999px;
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 700;
     line-height: 1.2;
-    color: #c05621;
-    background: rgba(234, 123, 75, 0.16);
-    border: 1px solid rgba(234, 123, 75, 0.38);
+    color: #dc2626;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
     white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -1019,15 +1043,15 @@
 
 /* --- CLIENTE --- */
 .admin-layout .card-client {
-    margin-top: 5px;
+    margin-top: 2px;
 }
 
 .admin-layout .card-client h4 {
     margin: 0;
-    font-size: 0.95rem;
-    color: var(--admin-text, #1a1d21);
-    font-weight: 800;
-    line-height: 1.15;
+    font-size: 1.05rem;
+    color: #14161a;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 /* Cliente habitual (≥5 pedidos): texto discreto, sin icono llamativo */
@@ -1038,10 +1062,10 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 3px 6px;
-    border-radius: 4px;
-    color: var(--admin-text-muted);
-    background: var(--admin-icon-bg);
-    border: 1px solid var(--admin-border);
+    border-radius: 6px;
+    color: #6b7280;
+    background: #f5f5f7;
+    border: 1px solid #e5e5ea;
 }
 
 .admin-layout .client-phone {
@@ -1071,11 +1095,15 @@
 
 /* --- LISTA DE PRODUCTOS (ESTILO TICKET) --- */
 .admin-layout .card-items {
-    background: var(--admin-icon-bg);
-    padding: 8px 10px;
-    border-radius: var(--inner-radius);
-    border: 1px solid var(--admin-border);
-    position: relative;
+	background: var(--admin-icon-bg);
+	padding: 8px 10px;
+	border-radius: var(--inner-radius);
+	border: 1px solid var(--admin-border);
+	position: relative;
+}
+
+.admin-layout .kanban-card--grid-tile .card-items {
+	padding: 6px 8px;
 }
 
 /* Decoración de ticket */
@@ -1089,35 +1117,50 @@
 }
 
 .admin-layout .order-item-row {
-    display: flex;
-    gap: 8px;
-    font-size: 0.8rem;
-    margin-bottom: 6px;
-    align-items: center;
+	display: flex;
+	gap: 8px;
+	font-size: 0.8rem;
+	margin-bottom: 6px;
+	align-items: center;
+}
+
+.admin-layout .kanban-card--grid-tile .order-item-row {
+	font-size: 0.75rem;
+	margin-bottom: 4px;
 }
 
 .admin-layout .order-item-row:last-child {
-    margin-bottom: 0;
+	margin-bottom: 0;
 }
 
 .admin-layout .qty-circle {
-    background: var(--admin-card-bg);
-    color: var(--admin-text);
-    border: 1px solid var(--admin-border);
-    font-weight: 800;
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    flex-shrink: 0;
+	background: var(--admin-card-bg);
+	color: var(--admin-text);
+	border: 1px solid var(--admin-border);
+	font-weight: 800;
+	width: 20px;
+	height: 20px;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.7rem;
+	flex-shrink: 0;
+}
+
+.admin-layout .kanban-card--grid-tile .qty-circle {
+	width: 18px;
+	height: 18px;
+	font-size: 0.65rem;
 }
 
 .admin-layout .item-name {
-    color: var(--admin-text);
-    font-weight: 500;
+	color: var(--admin-text);
+	font-weight: 500;
+}
+
+.admin-layout .kanban-card--grid-tile .item-name {
+	font-size: 0.75rem;
 }
 
 /* Comentario por item en la card del kanban. Lo mostramos como badge ambar
@@ -1159,28 +1202,32 @@
 
 .admin-layout .kanban-card-divider {
     border: none;
-    border-top: 1px solid var(--admin-border, #e2e8f0);
+    border-top: 1px solid #e5e5ea;
     margin: 4px 0;
 }
 
 .admin-layout .order-card-meta-sep {
     margin: 0 6px;
-    color: var(--admin-text-muted, #64748b);
+    color: #6b7280;
     opacity: 0.55;
     user-select: none;
 }
 
 .admin-layout .order-card-receipt-secondary {
-    background: var(--admin-icon-bg, #f8fafc);
-    border: 1px solid var(--admin-border, #e2e8f0);
-    color: var(--admin-text-muted, #64748b);
-    font-size: 0.75rem;
-    cursor: pointer;
-    border-radius: 8px;
-    padding: 0 12px;
-    min-height: 36px;
-    font-weight: 600;
-    font-family: inherit;
+	background: var(--admin-icon-bg, #f8fafc);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	color: var(--admin-text-muted, #64748b);
+	font-size: 0.75rem;
+	cursor: pointer;
+	border-radius: 8px;
+	padding: 0 12px;
+	min-height: 36px;
+	font-weight: 600;
+	font-family: inherit;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
 }
 
 .admin-layout .order-card-receipt-secondary:hover {
@@ -1210,18 +1257,19 @@
 }
 
 .admin-layout .receipt-link {
-    font-size: 0.75rem;
-    color: var(--admin-text);
-    background: var(--admin-icon-bg);
-    padding: 8px;
-    border-radius: var(--inner-radius);
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px solid var(--admin-border);
-    font-weight: 600;
+	font-size: 0.75rem;
+	color: var(--admin-text);
+	background: var(--admin-icon-bg);
+	padding: 8px;
+	border-radius: var(--inner-radius);
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	border: 1px solid var(--admin-border);
+	font-weight: 600;
+	white-space: nowrap;
 }
 
 .admin-layout .receipt-link:hover {
@@ -1231,20 +1279,20 @@
 
 /* --- TOTAL SECCION --- */
 .admin-layout .card-total {
-    font-size: 1.1rem;
-    font-weight: 900;
+    font-size: 1rem;
+    font-weight: 800;
     text-align: right;
-    color: var(--admin-text);
-    margin-top: 2px;
+    color: #14161a;
+    margin-top: 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .admin-layout .card-total .total-label {
-    font-size: 0.65rem;
-    color: var(--admin-text-muted, #64748b);
-    letter-spacing: 0.12em;
+    font-size: 0.62rem;
+    color: #6b7280;
+    letter-spacing: 0.1em;
     font-weight: 700;
 }
 
@@ -1266,49 +1314,50 @@
 }
 
 .admin-layout .card-total-before-price {
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 600;
-    color: var(--admin-text-muted, #64748b);
+    color: #6b7280;
     text-decoration: line-through;
     opacity: 0.85;
 }
 
 .admin-layout .card-total-before-pct {
-    font-size: 0.58rem;
+    font-size: 0.56rem;
     font-weight: 700;
     line-height: 1.2;
     padding: 1px 4px;
     border-radius: 4px;
-    color: color-mix(in srgb, var(--accent-primary, #25d366) 88%, #fff);
-    background: color-mix(in srgb, var(--accent-primary, #25d366) 14%, transparent);
+    color: #15803d;
+    background: #dcfce7;
 }
 
 .admin-layout .kanban-card:not(.kanban-card--expanded) .card-total-before-price {
-    font-size: 0.58rem;
+    font-size: 0.56rem;
 }
 
 .admin-layout .kanban-card:not(.kanban-card--expanded) .card-total-before-pct {
-    font-size: 0.54rem;
+    font-size: 0.52rem;
     padding: 0 3px;
 }
 
 /* --- ACCIONES (GRID SYSTEM) --- */
 .admin-layout .card-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr 40px;
-    gap: 6px;
-    margin-top: 4px;
+    grid-template-columns: 40px 1fr 40px;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
 }
 
 /* Para órdenes en pantallas angostas */
 @media (max-width: 480px) {
     .admin-layout .card-actions {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 40px 1fr 40px;
     }
 
     .admin-layout .btn-icon-action {
-        grid-column: span 2;
-        width: 100% !important;
+        grid-column: auto;
+        width: 40px !important;
     }
 
     .admin-layout .kanban-card--receipt-clean {
@@ -1330,66 +1379,89 @@
 
 .admin-layout .btn-action {
     border: none;
-    padding: 9px 8px;
-    border-radius: var(--inner-radius);
+    padding: 8px 12px;
+    border-radius: 10px;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.75rem;
+    letter-spacing: 0.01em;
     color: #fff;
+    min-height: 40px;
     transition: var(--transition-bounce);
 }
 
 .admin-layout .btn-action.primary {
-    background: var(--accent-primary);
-    box-shadow: 0 4px 15px var(--accent-shadow, rgba(230, 57, 70, 0.3));
+    background: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.admin-layout .btn-action.primary:hover {
+    background: #1d4ed8;
 }
 
 .admin-layout .btn-action.success {
-    background: var(--accent-primary);
-    box-shadow: 0 4px 15px var(--accent-shadow, rgba(230, 57, 70, 0.3));
+    background: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.admin-layout .btn-action.success:hover {
+    background: #1d4ed8;
+}
+
+.admin-layout .btn-action--deliver {
+    background: #2563eb;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
+}
+
+.admin-layout .btn-action--deliver:hover {
+    background: #1d4ed8;
 }
 
 .admin-layout .kanban-card .btn-icon-action {
     width: 40px;
     height: 40px;
-    border: 1px solid var(--admin-border);
-    background: var(--admin-icon-bg);
+    border: 1px solid #e5e5ea;
+    background: #f5f5f7;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--inner-radius);
-    color: var(--admin-text-muted);
+    border-radius: 10px;
+    color: #6b7280;
     transition: all 0.2s;
+}
+
+.admin-layout .kanban-card .btn-icon-action:hover {
+    background: #ffffff;
+    border-color: #bfdbfe;
+    color: #14161a;
 }
 
 .admin-layout .btn-icon-action.cancel:hover,
 .admin-layout .btn-icon-action.cancel:active {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-    border-color: #ef4444;
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
 }
 
-/* Animación de entrada fluida */
+/* Animación de entrada sutil: corta para no causar parpadeo en re-ordenes */
 .admin-layout .animate-slide-up {
-    animation: slideUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    animation: slideUp 0.25s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(30px) scale(0.9);
+        transform: translateY(12px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
     }
 }
 
@@ -1482,8 +1554,8 @@
 .admin-layout .card-kanban-meta-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 6px;
+    gap: 6px;
+    margin-top: 4px;
     flex-wrap: wrap;
 }
 
@@ -1491,24 +1563,24 @@
     margin-left: auto;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border: 1px solid var(--admin-border);
-    background: var(--admin-icon-bg);
-    color: var(--admin-text-muted);
-    font-size: 0.68rem;
+    gap: 5px;
+    border: 1px solid #e5e5ea;
+    background: #f5f5f7;
+    color: #6b7280;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 6px 10px;
-    border-radius: var(--inner-radius);
+    padding: 4px 8px;
+    border-radius: 8px;
     cursor: pointer;
     transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
 
 .admin-layout .order-detail-trigger:hover {
-    color: var(--admin-text);
-    background: var(--admin-card-bg);
-    border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
+    color: #14161a;
+    background: #ffffff;
+    border-color: #bfdbfe;
 }
 
 /* Menú impresión: reimprimir ticket cocina o ticket caja */
@@ -1625,15 +1697,15 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--fulfillment-delivery-fg, #f4a261);
-    background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
-    border: 1px solid var(--fulfillment-delivery-border, rgba(244, 162, 97, 0.35));
-    padding: 4px 8px;
-    border-radius: var(--inner-radius);
+    color: #ea580c;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    padding: 3px 7px;
+    border-radius: 6px;
 }
 
 .admin-layout .order-fulfillment-pill--retiro,
@@ -1641,24 +1713,24 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 4px 8px;
-    border-radius: var(--inner-radius);
+    padding: 3px 7px;
+    border-radius: 6px;
 }
 
 .admin-layout .order-fulfillment-pill--retiro {
-    color: var(--fulfillment-retiro-fg, #15803d);
-    background: var(--fulfillment-retiro-bg, rgba(37, 211, 102, 0.1));
-    border: 1px solid var(--fulfillment-retiro-border, rgba(37, 211, 102, 0.28));
+    color: #16a34a;
+    background: #dcfce7;
+    border: 1px solid #86efac;
 }
 
 .admin-layout .order-fulfillment-pill--mesa {
-    color: var(--fulfillment-mesa-fg, #7c3aed);
-    background: var(--fulfillment-mesa-bg, rgba(167, 139, 250, 0.12));
-    border: 1px solid var(--fulfillment-mesa-border, rgba(167, 139, 250, 0.28));
+    color: #2563eb;
+    background: #dbeafe;
+    border: 1px solid #bfdbfe;
 }
 
 /* Modal detalle pedido (portal en body) */
@@ -2114,8 +2186,8 @@
     font-weight: 700;
     line-height: 1.2;
     color: var(--admin-text);
-    background: color-mix(in srgb, var(--accent-primary, var(--admin-accent)) 12%, var(--admin-icon-bg));
-    border: 1px solid color-mix(in srgb, var(--accent-primary, var(--admin-accent)) 28%, var(--admin-border));
+    background: color-mix(in srgb, var(--admin-accent, #2563eb) 12%, var(--admin-icon-bg));
+    border: 1px solid color-mix(in srgb, var(--admin-accent, #2563eb) 28%, var(--admin-border));
 }
 
 .admin-layout .order-detail-payment-chip--pending {
@@ -2265,7 +2337,7 @@
 .admin-layout .order-detail-item-qty {
     flex-shrink: 0;
     font-weight: 800;
-    color: var(--accent-primary, #e63946);
+    color: var(--admin-accent, #2563eb);
     font-size: 1rem;
 }
 
@@ -2318,7 +2390,7 @@
     margin-top: 4px;
     border-radius: 12px;
     border: 1px solid var(--admin-border);
-    background: color-mix(in srgb, var(--accent-primary, #e63946) 6%, var(--admin-icon-bg));
+    background: color-mix(in srgb, var(--admin-accent, #2563eb) 6%, var(--admin-icon-bg));
 }
 
 .admin-layout .order-detail-total {
@@ -2374,9 +2446,9 @@
 }
 
 .admin-layout .order-detail-ticket-btn--primary {
-    border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--admin-border));
-    background: color-mix(in srgb, var(--accent-primary) 12%, transparent);
-    color: var(--accent-primary);
+    border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 45%, var(--admin-border));
+    background: color-mix(in srgb, var(--admin-accent, #2563eb) 12%, transparent);
+    color: var(--admin-accent, #2563eb);
 }
 
 .admin-layout .order-detail-ticket-btn--whatsapp {
@@ -2516,7 +2588,7 @@
 }
 
 .admin-layout .order-detail-panel--receipt .table-session-receipt__head {
-    background: var(--admin-card-bg, #fff);
+    background: var(--admin-page-bg, #f8fafc);
 }
 
 .admin-layout .order-detail-receipt-dl {

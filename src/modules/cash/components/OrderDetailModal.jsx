@@ -11,6 +11,11 @@ import {
     ImageIcon,
     ExternalLink,
     Loader2,
+    ShoppingBag,
+    Bike,
+    UtensilsCrossed,
+    MessageCircle,
+    CheckCircle2,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
@@ -18,7 +23,7 @@ import { getFormStrategy, paymentMethodRequiresReceipt } from '@/lib/geo/country
 import { isVenezuelaCountry, resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { paymentMethodUsesBolivaresInVenezuela } from '@/lib/money/venezuela-payment-copy';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
-import { buildWhatsAppUrl, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
+import { buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import {
     isOrderDelivery,
     deliveryAddressLines,
@@ -44,9 +49,6 @@ import {
 } from '@/shared/utils/orderUtils';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
-import DeliveryMotoIcon from './DeliveryMotoIcon';
-import TableRestaurantIcon from './TableRestaurantIcon';
-import PickupBagIcon from './PickupBagIcon';
 import { Button } from "@/components/ui/button";
 
 const STATUS_LABELS = {
@@ -302,7 +304,7 @@ const OrderDetailModal = ({
                                     </span>
                                     {showPaidBadge ? (
                                         <span className="table-session-receipt__paid-badge" title="Pedido ya pagado">
-                                            <PickupBagIcon size={16} aria-hidden />
+                                            <CheckCircle2 size={16} aria-hidden />
                                             Pagado
                                         </span>
                                     ) : null}
@@ -376,7 +378,7 @@ const OrderDetailModal = ({
                                                             title="WhatsApp"
                                                             aria-label="WhatsApp"
                                                         >
-                                                            <WhatsAppGlyph className="order-detail-wa-glyph" />
+                                                            <MessageCircle size={16} className="order-detail-wa-glyph" aria-hidden />
                                                         </a>
                                                     ) : null}
                                                 </>
@@ -415,11 +417,11 @@ const OrderDetailModal = ({
                                 <h3 className="table-session-receipt__section-title">Entrega</h3>
                                 <div className={`order-detail-fulfillment is-${fulfillmentKind}`}>
                                     {fulfillmentKind === 'moto' ? (
-                                        <DeliveryMotoIcon size={18} aria-hidden />
+                                        <Bike size={18} aria-hidden />
                                     ) : fulfillmentKind === 'retiro' ? (
-                                        <PickupBagIcon size={18} aria-hidden />
+                                        <ShoppingBag size={18} aria-hidden />
                                     ) : (
-                                        <TableRestaurantIcon size={18} aria-hidden />
+                                        <UtensilsCrossed size={18} aria-hidden />
                                     )}
                                     {fulfillmentLabel}
                                 </div>
@@ -614,7 +616,7 @@ const OrderDetailModal = ({
                                         rel="noopener noreferrer"
                                         className="order-detail-receipt-action order-detail-receipt-action--whatsapp"
                                     >
-                                        <WhatsAppGlyph className="order-detail-wa-glyph order-detail-wa-glyph--btn" />
+                                        <MessageCircle size={18} className="order-detail-wa-glyph order-detail-wa-glyph--btn" aria-hidden />
                                         WhatsApp
                                     </a>
                                 ) : null}

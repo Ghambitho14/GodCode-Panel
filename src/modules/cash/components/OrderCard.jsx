@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
     Clock, XCircle, Upload, ImageIcon, Printer, Edit2, Copy, Send,
-    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2,
+    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2, CheckCircle2,
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
@@ -23,7 +23,6 @@ import {
     orderDeliveryKanbanSubtitle,
     resolveItemKitchenNote,
 } from '@/shared/utils/orderUtils';
-import PickupBagIcon from './PickupBagIcon';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import ManualOrderModal from './ManualOrderModal';
@@ -35,7 +34,7 @@ function buildItemsSummary(items, { missingItems = false } = {}) {
     const list = Array.isArray(items) ? items : [];
     const count = list.length;
     if (missingItems && count === 0) {
-        return { count: 0, text: 'Tocá Ver más para ver productos' };
+        return { count: 0, text: 'Tocá "Ver más" para cargar los productos' };
     }
     if (count === 0) return { count: 0, text: 'Sin productos' };
     const preview = list
@@ -258,7 +257,7 @@ const OrderCard = ({
     const paymentMeta = showPaidBadge ? (
         <div className="order-card-payment-stack order-card-payment-stack--inline">
             <span className="order-card-paid-badge" title="Pedido ya pagado">
-                <PickupBagIcon size={12} aria-hidden />
+                <CheckCircle2 size={12} aria-hidden />
                 Pagado
             </span>
             <span
@@ -398,9 +397,9 @@ const OrderCard = ({
                                     {paymentMeta}
                                     <span className="kanban-card-receipt-meta__dot" aria-hidden>·</span>
                                     {orderTimeEl}
+                                    <div className="order-card-header-tools order-card-header-tools--receipt-meta">{headerTools}</div>
                                 </div>
                             </div>
-                            <div className="order-card-header-tools">{headerTools}</div>
                         </div>
                         {expanded && deliverySubtitle ? (
                             <div className="order-delivery-mini" title={deliverySubtitle}>
