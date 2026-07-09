@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap");
-
 /* Neutros tipo portal cuenta SaaS; --accent-primary/--accent-hover los inyecta el tema del tenant */
 :root {
   --surface-page: #fbfbfd;
@@ -43,7 +41,7 @@ select:focus {
   box-sizing: border-box;
   background: var(--surface-page);
   color: var(--text-heading);
-  font-family: "Outfit", system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9375rem;
   font-weight: 500;
 }
@@ -58,7 +56,7 @@ select:focus {
 }
 
 body {
-  font-family: "Outfit", sans-serif;
+  font-family: var(--font-sans);
   background-color: transparent !important;
   color: var(--text-primary);
   line-height: 1.5;

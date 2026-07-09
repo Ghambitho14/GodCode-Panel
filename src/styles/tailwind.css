@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 @theme {
+  /* Fuente sans global: Inter variable (400-900) */
+  --font-sans: "Inter", system-ui, sans-serif;
+
   /* Admin tokens (fallback claro) */
   --color-gc-page: var(--admin-page-bg, #fffffb);
   --color-gc-card: var(--admin-card-bg, #ffffff);
@@ -25,6 +28,13 @@
 }
 
 @layer base {
+  html {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   *,
   *::before,
   *::after {

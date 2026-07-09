@@ -444,19 +444,18 @@ export default function AdminDeliveryZonesPanel({
 								Store ID (Uber Direct) — esta sucursal
 								<AdminHelpTip text={DELIVERY_TOOLTIPS.uberStoreId} />
 							</label>
-							<input
-								id="adm-del-uber-store-id"
-								type="text"
-								className="form-input"
-								style={{ fontFamily: "ui-monospace, monospace" }}
-								placeholder="UUID o id del local en Uber"
-								disabled={lockOptions}
-								autoComplete="off"
-								value={draft.uberDirectStoreId}
-								onChange={(ev) =>
-									setDraft((d) => ({ ...d, uberDirectStoreId: ev.target.value }))
-								}
-							/>
+                            <input
+                                id="adm-del-uber-store-id"
+                                type="text"
+                                className="form-input tabular-nums"
+                                placeholder="UUID o id del local en Uber"
+                                disabled={lockOptions}
+                                autoComplete="off"
+                                value={draft.uberDirectStoreId}
+                                onChange={(ev) =>
+                                    setDraft((d) => ({ ...d, uberDirectStoreId: ev.target.value }))
+                                }
+                            />
 						</div>
 						<div
 							className="admin-delivery-pay-chip-row"

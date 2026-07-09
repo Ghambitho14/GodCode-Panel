@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
+import { supabase, TABLES } from '@/integrations/supabase';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { formatTimeElapsed } from '@/shared/utils/formatters';
 import {
@@ -22,6 +23,8 @@ import {
     isOrderPaymentSettled,
     orderDeliveryKanbanSubtitle,
     resolveItemKitchenNote,
+    ORDERS_PANEL_SELECT,
+    sanitizeOrder,
 } from '@/shared/utils/orderUtils';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -83,8 +86,9 @@ const OrderCard = ({
     const [itemsHydrating, setItemsHydrating] = useState(false);
     const [editPreparing, setEditPreparing] = useState(false);
     const [preparedItemIds, setPreparedItemIds] = useState(new Set());
+    const [localItems, setLocalItems] = useState(null);
+    const [itemsHydrated, setItemsHydrated] = useState(false);
     const ticketMenuRef = useRef(null);
-    const hasAttemptedHydrate = useRef(false);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
 
@@ -155,36 +159,67 @@ const OrderCard = ({
         [clients, order.client_id],
     );
     const isVip = clientData?.total_orders >= 5;
-    const hasLoadedItems = Array.isArray(liveOrder.items);
-    const itemsCount = liveOrder.items?.length ?? 0;
+    const displayItems = localItems ?? liveOrder.items;
+    const hasLoadedItems = Array.isArray(displayItems);
+    const itemsCount = displayItems?.length ?? 0;
     const itemsSummary = useMemo(
-        () => buildItemsSummary(liveOrder.items, { missingItems: !hasLoadedItems }),
-        [liveOrder.items, hasLoadedItems],
+        () => buildItemsSummary(displayItems, { missingItems: !hasLoadedItems }),
+        [displayItems, hasLoadedItems],
     );
 
-    useEffect(() => {
-        if (hasAttemptedHydrate.current) return;
-        if (!hasLoadedItems && hydrateOrderItems) {
-            hasAttemptedHydrate.current = true;
-            setItemsHydrating(true);
-            hydrateOrderItems(order.id)
-                .catch((err) => {
-                    console.error('Error hydrating order items:', err);
-                    showNotify?.('No se pudieron cargar los productos del pedido', 'error');
-                })
-                .finally(() => setItemsHydrating(false));
+    const loadOrderItems = useCallback(async (orderId) => {
+        if (!orderId) return;
+        setItemsHydrating(true);
+        try {
+            if (hydrateOrderItems) {
+                const result = await hydrateOrderItems(orderId);
+                if (result?.items && result.items.length > 0) {
+                    setLocalItems(result.items);
+                    return;
+                }
+            }
+            const { data, error } = await supabase
+                .from(TABLES.orders)
+                .select(ORDERS_PANEL_SELECT)
+                .eq('id', orderId)
+                .maybeSingle();
+            if (error) throw error;
+            if (data) {
+                const hydrated = sanitizeOrder(data);
+                if (Array.isArray(hydrated.items) && hydrated.items.length > 0) {
+                    setLocalItems(hydrated.items);
+                }
+            }
+        } catch (err) {
+            console.error('Error loading order items:', err);
+            showNotify?.('No se pudieron cargar los productos del pedido', 'error');
+        } finally {
+            setItemsHydrating(false);
         }
-    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+    }, [hydrateOrderItems, showNotify]);
 
     useEffect(() => {
-        if (liveOrder.status === 'completed' && Array.isArray(liveOrder.items) && liveOrder.items.length > 0) {
+        setLocalItems(null);
+        setPreparedItemIds(new Set());
+        setShowAllItems(false);
+        setItemsHydrated(false);
+    }, [order.id]);
+
+    useEffect(() => {
+        if (!liveOrder.id || itemsHydrated) return;
+        setItemsHydrated(true);
+        loadOrderItems(liveOrder.id);
+    }, [liveOrder.id, itemsHydrated, loadOrderItems]);
+
+    useEffect(() => {
+        if (liveOrder.status === 'completed' && Array.isArray(displayItems) && displayItems.length > 0) {
             setPreparedItemIds((prev) => {
-                const allIndices = new Set(liveOrder.items.map((_, idx) => idx));
+                const allIndices = new Set(displayItems.map((_, idx) => idx));
                 if (prev.size === allIndices.size) return prev;
                 return allIndices;
             });
         }
-    }, [liveOrder.status, liveOrder.items]);
+    }, [liveOrder.status, displayItems]);
 
     const togglePrepared = useCallback((idx) => {
         setPreparedItemIds((prev) => {
@@ -197,27 +232,19 @@ const OrderCard = ({
 
     const handleGridExpandItems = useCallback(async (e) => {
         e.stopPropagation();
-        if (!hasLoadedItems && hydrateOrderItems) {
-            setItemsHydrating(true);
-            try {
-                await hydrateOrderItems(order.id);
-            } catch (err) {
-                console.error('Error hydrating order items:', err);
-                showNotify?.('No se pudieron cargar los productos del pedido', 'error');
-            } finally {
-                setItemsHydrating(false);
-            }
+        if (!hasLoadedItems && liveOrder.id) {
+            await loadOrderItems(liveOrder.id);
         }
         setGridExpanded(true);
-    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+    }, [hasLoadedItems, liveOrder.id, loadOrderItems]);
 
     const handleOpenEdit = useCallback(async (e) => {
         e.stopPropagation();
         setTicketMenuOpen(false);
-        if (!hasLoadedItems && hydrateOrderItems) {
+        if (!hasLoadedItems && liveOrder.id) {
             setEditPreparing(true);
             try {
-                await hydrateOrderItems(order.id);
+                await loadOrderItems(liveOrder.id);
             } catch (err) {
                 console.error('Error hydrating order items for edit:', err);
                 showNotify?.('No se pudieron cargar los productos del pedido', 'error');
@@ -227,7 +254,7 @@ const OrderCard = ({
             }
         }
         setEditWizardOpen(true);
-    }, [hasLoadedItems, hydrateOrderItems, order.id, showNotify]);
+    }, [hasLoadedItems, liveOrder.id, loadOrderItems, showNotify]);
 
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
     const paymentDeferred = isOrderPaymentDeferred(liveOrder);
@@ -526,8 +553,8 @@ const OrderCard = ({
                                             <Loader2 size={16} className="animate-spin" aria-hidden />
                                             <span>Cargando productos…</span>
                                         </div>
-                                    ) : Array.isArray(liveOrder.items) && liveOrder.items.length > 0 ? (
-                                    liveOrder.items.map((item, idx) => {
+                                    ) : Array.isArray(displayItems) && displayItems.length > 0 ? (
+                                    displayItems.map((item, idx) => {
                                         const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                         return (
                                             <div key={idx} className="order-item-row order-item-row--stacked">
@@ -609,7 +636,7 @@ const OrderCard = ({
                                 <p className="card-items-empty">Sin productos</p>
                             ) : (
                                 <>
-                                    {(showAllItems ? liveOrder.items : liveOrder.items.slice(0, 6)).map((item, idx) => {
+                                    {(showAllItems ? displayItems : displayItems.slice(0, 6)).map((item, idx) => {
                                         const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                         const isPrepared = preparedItemIds.has(idx);
                                         const extrasText = Array.isArray(item.extras) && item.extras.length > 0

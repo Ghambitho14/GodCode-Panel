@@ -1169,9 +1169,9 @@ export function resolveOrderCouponCode(rawOrder) {
 const ORDERS_PANEL_COLUMNS =
 	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
 
-/** Lista kanban / carga inicial sin JSONB items (hydrate puntual al expandir). */
+/** Lista kanban / carga inicial: incluye items JSONB para mostrar productos sin expandir. */
 const ORDERS_LIST_COLUMNS =
-	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
 
 /** Detalle de un pedido (single-row): incluye items JSONB. */
 export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(code)`;

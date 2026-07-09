@@ -76,15 +76,44 @@ pnpm build         # tsc + vite build
 
 Tras cambios relevantes, correr `pnpm test`. Si se tocó CSS responsive u orders, correr también los tests específicos de esa área.
 
-PALETA DE COLORES
+## Paleta de colores
 
-VERDE: #00e4bb
-SALMON: #ff5879
-ROJO: #c31d2d
-AZUL: #0078ff
-FONDO EN TODO: #fffffb
-NARANJA: #ea7b4b
-AZL OSCURO: #12597a
+| Token | Valor |
+|-------|-------|
+| VERDE | `#00e4bb` |
+| SALMON | `#ff5879` |
+| ROJO | `#c31d2d` |
+| AZUL | `#0078ff` |
+| FONDO EN TODO | `#fffffb` |
+| NARANJA | `#ea7b4b` |
+| AZUL OSCURO | `#12597a` |
+
+## Tipografía
+
+La fuente oficial del sistema es **Inter** (variable, 100–900), cargada vía Google Fonts en `index.html` con `display=swap`.
+
+| Capa | Configuración |
+|------|---------------|
+| Fuente sans global | `Inter`, `system-ui`, `sans-serif` |
+| Tailwind v4 | `--font-sans` en `src/styles/tailwind.css` |
+| Aplicación global | `html { font-family: var(--font-sans); }` en `tailwind.css` |
+
+### Escala de pesos
+
+| Peso | Clase Tailwind | Uso |
+|------|----------------|-----|
+| 400 Regular | `font-normal` | Texto de soporte, descripciones, notas |
+| 500 Medium | `font-medium` | Labels de KPI, nombres de producto, texto de tags |
+| 600 SemiBold | `font-semibold` | Títulos de sección, valores de KPI |
+| 700 Bold | `font-bold` | Montos totales, timers con urgencia, títulos principales de página |
+
+### Números tabulares
+
+Todos los valores numéricos del sistema usan `font-variant-numeric: tabular-nums` (aplicado globalmente en `html`), incluyendo montos, porcentajes, timers y cantidades. Esto evita que los dígitos "bailen" de ancho al actualizarse en tiempo real.
+
+### Internacionalización
+
+Inter cubre latin-ext, así que tildes, eñes y signos de apertura (`¿`, `¡`) se renderizan correctamente en todo el UI.
 
 ## Especificaciones de onboarding (docs/)
 

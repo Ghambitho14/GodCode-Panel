@@ -397,7 +397,7 @@
 .admin-layout .client-total-amount {
     color: #25d366;
     font-weight: 700;
-    font-family: monospace; /* Alineación numérica perfecta */
+    font-variant-numeric: tabular-nums;
     font-size: 1rem;
 }
 

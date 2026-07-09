@@ -1104,7 +1104,7 @@
 
 /* Portal en document.body: hereda tokens del panel sin depender del DOM de .admin-layout */
 .manual-order-portal-scope {
-    --admin-font: "Plus Jakarta Sans", "Outfit", system-ui, -apple-system, sans-serif;
+    --admin-font: "Inter", system-ui, -apple-system, sans-serif;
     --admin-page-bg: #fbfbfd;
     --admin-card-bg: #ffffff;
     --admin-border: #e5e5ea;

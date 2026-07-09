@@ -5,7 +5,7 @@
 
 .admin-layout {
 	/* Tipografía dashboard (referencia estilo plantillas tipo Jobie) */
-	--admin-font: "Plus Jakarta Sans", "Outfit", system-ui, -apple-system, sans-serif;
+	--admin-font: "Inter", system-ui, -apple-system, sans-serif;
 	--admin-sidebar-width: 268px;
 
 	/* Neutros alineados con portal cuenta (#fbfbfd, blanco, #e5e5ea) */
