@@ -23,7 +23,8 @@
     --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     --kanban-card-compact-h: 172px;
     /* Altura ficha cuadrícula: escala con viewport (clamp) y se afina por @container en cada card */
-    --kanban-grid-tile-compact-h: clamp(320px, 18rem + 4vw, 400px);
+    /* Piso mínimo real para que una tarjeta con 1 solo ítem no se vea aplastada — NO es un alto objetivo, la tarjeta crece con su contenido */
+    --kanban-grid-tile-min-h: 150px;
 }
 
 /* Altura natural por defecto; fichas cuadradas solo en vista «Una columna» (focus) */
@@ -35,7 +36,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: var(--transition-bounce);
+    transition: var(--transition-bounce), box-shadow 0.2s ease-out;
     position: relative;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
     width: 100%;
@@ -71,13 +72,13 @@
     overflow: hidden;
 }
 
-/* Vista cuadrícula (Una columna): altura uniforme hasta «Ver más» */
+/* Vista cuadrícula (Una columna): min-height de referencia, pero la tarjeta crece según su contenido real (evita cajas vacías en pedidos con pocos ítems) */
 .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
     position: relative;
     z-index: 1;
-    min-height: var(--kanban-grid-tile-compact-h);
-    height: var(--kanban-grid-tile-compact-h);
-    overflow: hidden;
+    min-height: var(--kanban-grid-tile-min-h);
+    height: auto;
+    overflow: visible;
     gap: 6px;
 }
 
@@ -97,10 +98,6 @@
 }
 
 @container order-card-grid (max-width: 260px) {
-	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-		--kanban-grid-tile-compact-h: clamp(300px, 48cqi, 360px);
-	}
-
 	.admin-layout .kanban-card-receipt-head {
 		flex-wrap: wrap;
 		row-gap: 8px;
@@ -119,26 +116,14 @@
 	}
 }
 
-@container order-card-grid (min-width: 261px) and (max-width: 320px) {
-	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-		--kanban-grid-tile-compact-h: clamp(280px, 44cqi, 340px);
-	}
-}
-
-@container order-card-grid (min-width: 321px) {
-	.admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-		--kanban-grid-tile-compact-h: clamp(260px, 40cqi, 320px);
-	}
-}
-
 .admin-layout .kanban-card.kanban-card--grid-tile:hover,
 .admin-layout .kanban-card.kanban-card--grid-tile.kanban-card--menu-open {
     z-index: 20;
 }
 
 .admin-layout .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) .kanban-card-scroll {
-    overflow: hidden;
-    flex: 1 1 auto;
+    overflow: visible;
+    flex: 0 0 auto;
     min-height: 0;
 }
 
@@ -742,11 +727,6 @@
 }
 
 /* Escritorio + vista una columna: misma lectura que split — texto completo, sin scroll interno */
-@media (min-width: 1025px) and (max-width: 1320px) {
-    .admin-layout {
-        --kanban-grid-tile-compact-h: clamp(360px, 20rem + 5vw, 420px);
-    }
-}
 
 @media (min-width: 1025px) {
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card {
@@ -771,9 +751,9 @@
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) {
-        min-height: var(--kanban-grid-tile-compact-h);
-        height: var(--kanban-grid-tile-compact-h);
-        overflow: hidden;
+        min-height: var(--kanban-grid-tile-min-h);
+        height: auto;
+        overflow: visible;
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--grid-tile.kanban-card--expanded {
@@ -783,8 +763,8 @@
     }
 
     .admin-layout .kanban-board.kanban-board--focus-desktop .kanban-card.kanban-card--grid-tile:not(.kanban-card--expanded) .kanban-card-scroll {
-        overflow: hidden;
-        flex: 1 1 auto;
+        overflow: visible;
+        flex: 0 0 auto;
         min-height: 0;
     }
 
@@ -1566,7 +1546,7 @@
     letter-spacing: 0.01em;
     color: #fff;
     min-height: 40px;
-    transition: var(--transition-bounce);
+    transition: var(--transition-bounce), box-shadow 0.2s ease-out;
 }
 
 .admin-layout .btn-action.primary {
