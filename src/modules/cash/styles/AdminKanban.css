@@ -214,39 +214,66 @@
     box-sizing: border-box;
 }
 
-/* Vista una etapa a pantalla completa: cuadrícula de tarjetas */
+/* Vista una etapa a pantalla completa: masonry vertical con lectura horizontal.
+   El componente reordena las cards para que, aunque el layout sea column-count,
+   se lean por filas (1,2,3…). column-count fijo sincronizado con JS. */
 .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    grid-auto-rows: max-content;
-    gap: 16px;
-    align-content: start;
-    align-items: start;
+    display: block;
+    column-count: 1;
+    column-gap: 16px;
+    column-fill: balance;
     padding: 8px;
 }
 
+@media (min-width: 940px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+        column-count: 2;
+    }
+}
+
+@media (min-width: 1240px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+        column-count: 3;
+    }
+}
+
+@media (min-width: 1540px) {
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
+        column-count: 4;
+    }
+}
+
 .admin-layout .kanban-board.kanban-board--focus-desktop .column-body > .kanban-card {
-    align-self: start;
+    display: inline-block;
     width: 100%;
     max-width: 100%;
-}
-
-.admin-layout .kanban-board.kanban-board--focus-desktop .column-body > .kanban-card {
-    min-height: var(--kanban-grid-tile-compact-h, clamp(320px, 18rem + 4vw, 400px));
+    break-inside: avoid;
+    margin-bottom: 16px;
+    vertical-align: top;
+    align-self: flex-start;
     height: auto;
+    contain: layout;
 }
 
-/* Cuadrícula focus: gap más amplio en pantallas grandes */
+/* Ajustes de separación y padding en pantallas grandes */
 @media (min-width: 1321px) {
     .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
-        gap: 18px;
+        column-gap: 18px;
         padding: 10px 12px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body > .kanban-card {
+        margin-bottom: 18px;
     }
 }
 
 @media (min-width: 1600px) {
     .admin-layout .kanban-board.kanban-board--focus-desktop .column-body {
-        gap: 20px;
+        column-gap: 20px;
+    }
+
+    .admin-layout .kanban-board.kanban-board--focus-desktop .column-body > .kanban-card {
+        margin-bottom: 20px;
     }
 }
 

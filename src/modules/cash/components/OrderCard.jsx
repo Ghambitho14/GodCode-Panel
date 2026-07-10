@@ -484,7 +484,7 @@ const OrderCard = ({
                             <p className="card-items-empty">Sin productos</p>
                         ) : (
                             <>
-                                {displayItems.slice(0, 5).map((item, idx) => {
+                                {displayItems.slice(0, 3).map((item, idx) => {
                                     const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                     const hasExtras = Array.isArray(item.extras) && item.extras.length > 0;
                                     return (
@@ -498,13 +498,13 @@ const OrderCard = ({
                                         </div>
                                     );
                                 })}
-                                {itemsCount > 5 ? (
+                                {itemsCount > 3 ? (
                                     <button
                                         type="button"
                                         className="order-items-expand-link"
                                         onClick={() => setDetailOpen(true)}
                                     >
-                                        +{itemsCount - 5} más
+                                        +{itemsCount - 3} más
                                     </button>
                                 ) : null}
                             </>

@@ -905,9 +905,12 @@
     }
 }
 
-/* Efecto al presionar (Mobile Haptics) */
-.admin-layout .kanban-card:active {
-    transform: scale(0.97);
+/* Efecto al presionar solo en móvil; en escritorio generaba parpadeo
+   con layouts de column-count al reordenar las fichas. */
+@media (max-width: 1024px) {
+    .admin-layout .kanban-card:active {
+        transform: scale(0.97);
+    }
 }
 
 /* Indicador de urgencia: barra lateral roja en lugar de borde completo */
