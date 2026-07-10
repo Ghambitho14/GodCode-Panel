@@ -1,26 +1,27 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
-    Clock, XCircle, Upload, ImageIcon, Printer, Edit2, Copy, Send,
-    ChefHat, Banknote, Eye, ChevronDown, ChevronUp, Loader2, CheckCircle2, Check,
+    Clock, X, Upload, ImageIcon, Printer, Pencil, Copy, Send,
+    ChefHat, Banknote, Eye, Loader2, Check,
+    AlertTriangle, ShoppingBag, Utensils, Bike, Globe, MapPin,
+    Star,
 } from 'lucide-react';
 import OrderDetailModal from './OrderDetailModal';
 import CloseTableModal from './CloseTableModal';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
-import { formatTimeElapsed } from '@/shared/utils/formatters';
+import { formatTimeElapsed, getElapsedMinutes, getTimerUrgencyClass } from '@/shared/utils/formatters';
 import {
     buildOrderWhatsAppShareText,
     buildOrderDeliveryDriverPack,
     shareDeliveryPackViaWhatsApp,
-    getPaymentLabel,
     getOrderPaymentDisplayLabel,
-    getOrderPaymentPreferenceHint,
     getOrderCouponDiscountMeta,
     getOrderTileKind,
     getOrderFulfillmentDisplayLabel,
+    getOrderFulfillmentKind,
     isOrderDelivery,
     isOrderPaymentDeferred,
-    isOrderPaymentSettled,
+    isMenuOrder,
     orderDeliveryKanbanSubtitle,
     resolveItemKitchenNote,
     ORDERS_PANEL_SELECT,
@@ -32,24 +33,6 @@ import ManualOrderModal from './ManualOrderModal';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { Button } from "@/components/ui/button";
-
-function buildItemsSummary(items, { missingItems = false } = {}) {
-    const list = Array.isArray(items) ? items : [];
-    const count = list.length;
-    if (missingItems && count === 0) {
-        return { count: 0, text: '' };
-    }
-    if (count === 0) return { count: 0, text: 'Sin productos' };
-    const preview = list
-        .slice(0, 2)
-        .map((item) => `${item.quantity ?? 1}x ${item.name ?? 'Producto'}`)
-        .join(', ');
-    const suffix = count > 2 ? '…' : '';
-    return {
-        count,
-        text: `${count} producto${count === 1 ? '' : 's'} · ${preview}${suffix}`,
-    };
-}
 
 const OrderCard = ({
     order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients,
@@ -73,6 +56,10 @@ const OrderCard = ({
         }),
         [orderMoney],
     );
+    const formatLinePrice = useCallback(
+        (item) => formatMoney(Number(item.total ?? item.subtotal ?? (item.price || 0) * (item.quantity ?? 1)) || 0),
+        [formatMoney],
+    );
     const liveOrder = useMemo(
         () => (orders || []).find((o) => o.id === order.id) ?? order,
         [orders, order],
@@ -82,7 +69,6 @@ const OrderCard = ({
     const [detailOpen, setDetailOpen] = useState(false);
     const [paymentModalIntent, setPaymentModalIntent] = useState(null);
     const [showAllItems, setShowAllItems] = useState(false);
-    const [gridExpanded, setGridExpanded] = useState(false);
     const [itemsHydrating, setItemsHydrating] = useState(false);
     const [editPreparing, setEditPreparing] = useState(false);
     const [preparedItemIds, setPreparedItemIds] = useState(new Set());
@@ -162,11 +148,6 @@ const OrderCard = ({
     const displayItems = localItems ?? liveOrder.items;
     const hasLoadedItems = Array.isArray(displayItems);
     const itemsCount = displayItems?.length ?? 0;
-    const itemsSummary = useMemo(
-        () => buildItemsSummary(displayItems, { missingItems: !hasLoadedItems }),
-        [displayItems, hasLoadedItems],
-    );
-
     const loadOrderItems = useCallback(async (orderId) => {
         if (!orderId) return;
         setItemsHydrating(true);
@@ -230,13 +211,7 @@ const OrderCard = ({
         });
     }, []);
 
-    const handleGridExpandItems = useCallback(async (e) => {
-        e.stopPropagation();
-        if (!hasLoadedItems && liveOrder.id) {
-            await loadOrderItems(liveOrder.id);
-        }
-        setGridExpanded(true);
-    }, [hasLoadedItems, liveOrder.id, loadOrderItems]);
+
 
     const handleOpenEdit = useCallback(async (e) => {
         e.stopPropagation();
@@ -258,11 +233,25 @@ const OrderCard = ({
 
     const discountMeta = useMemo(() => getOrderCouponDiscountMeta(order), [order]);
     const paymentDeferred = isOrderPaymentDeferred(liveOrder);
-    const showPaidBadge = isOrderPaymentSettled(liveOrder);
     const paymentMethodLabel = getOrderPaymentDisplayLabel(liveOrder);
-    const paymentPreferenceHint = getOrderPaymentPreferenceHint(liveOrder);
     const fulfillmentKind = getOrderTileKind(liveOrder);
     const fulfillmentLabel = getOrderFulfillmentDisplayLabel(liveOrder);
+    const TypeIcon = useMemo(() => {
+        switch (fulfillmentKind) {
+            case 'mesa': return Utensils;
+            case 'retiro': return ShoppingBag;
+            case 'moto': return isMenuOrder(liveOrder) ? Globe : Bike;
+            default: return ShoppingBag;
+        }
+    }, [fulfillmentKind, liveOrder]);
+    const deliveryZone = useMemo(() => {
+        if (fulfillmentKind !== 'moto') return '';
+        const addr = liveOrder.delivery_address;
+        if (addr && typeof addr === 'object') {
+            return addr.named_area_label || addr.formatted_address || addr.address || '';
+        }
+        return deliverySubtitle;
+    }, [fulfillmentKind, liveOrder.delivery_address, deliverySubtitle]);
     const canMarkPaid =
         Boolean(markOrderSessionPaid) &&
         paymentDeferred &&
@@ -303,62 +292,25 @@ const OrderCard = ({
         setTicketMenuOpen(false);
     };
 
-    const isWebChannel = fulfillmentLabel === 'Web';
-    const fulfillmentPill = fulfillmentKind ? (
-        <span
-            className={`order-fulfillment-pill order-fulfillment-pill--${fulfillmentKind === 'moto' ? 'delivery' : fulfillmentKind}${isWebChannel ? ' order-fulfillment-pill--web' : ''}`}
-            title={
-                fulfillmentKind === 'moto'
-                    ? 'Pedido con envío'
-                    : fulfillmentKind === 'retiro'
-                      ? 'Retiro en local'
-                      : 'Consumo en salón'
-            }
-        >
-            {fulfillmentLabel}
+    const paymentMeta = paymentDeferred ? (
+        <span className="order-card-unpaid-badge" title="Pago pendiente de cobro en caja">
+            <AlertTriangle size={10} aria-hidden />
+            Sin pagar
         </span>
+    ) : paymentMethodLabel && paymentMethodLabel !== 'Pago pendiente' ? (
+        <span className="order-payment-method">{paymentMethodLabel}</span>
     ) : null;
 
-    const paymentMeta = showPaidBadge ? (
-        <div className="order-card-payment-stack order-card-payment-stack--inline">
-            <span className="order-card-paid-badge" title="Pedido ya pagado">
-                <CheckCircle2 size={12} aria-hidden />
-                Pagado
-            </span>
-            <span
-                className={`payment-badge payment-badge--settled${order.payment_type === 'online' ? ' online' : ''}`}
-            >
-                {getPaymentLabel(order)}
-            </span>
-        </div>
-    ) : (
-        <div className="order-card-payment-stack order-card-payment-stack--inline">
-            {paymentDeferred ? (
-                <span className="order-card-unpaid-badge" title="Pago pendiente de cobro en caja">
-                    Sin pagar
-                </span>
-            ) : null}
-            {paymentDeferred && paymentPreferenceHint ? (
-                <span
-                    className="payment-badge payment-badge--pending"
-                    title="Método elegido en el menú (preferencia, todavía sin cobrar)"
-                >
-                    {paymentPreferenceHint}
-                </span>
-            ) : !paymentDeferred && paymentMethodLabel !== 'Pago pendiente' ? (
-                <span className={`payment-badge${order.payment_type === 'online' ? ' online' : ''}`}>
-                    {paymentMethodLabel}
-                </span>
-            ) : null}
-        </div>
-    );
-
-    const minutesElapsed = Math.floor((new Date() - new Date(order.created_at)) / 60000);
-    const timerColorClass =
-        minutesElapsed >= 20 ? 'order-time--danger' : minutesElapsed >= 10 ? 'order-time--warning' : '';
+    const timerMinutes = getElapsedMinutes(order.created_at);
+    const timerColorClass = getTimerUrgencyClass(order.created_at);
 
     const orderTimeEl = (
-        <span className={`order-time${timerColorClass ? ` ${timerColorClass}` : ''}`} title={new Date(order.created_at).toLocaleString()}>
+        <span
+            className={`order-time${timerColorClass ? ` ${timerColorClass}` : ''}`}
+            title={new Date(order.created_at).toLocaleString()}
+            data-timer-minutes={timerMinutes ?? ''}
+            data-timer-class={timerColorClass || 'neutral'}
+        >
             {!gridTile && queueIndex != null ? (
                 <span className="order-queue-badge" title={`Pedido ${queueIndex} en la cola (más antiguo primero)`}>
                     {queueIndex}
@@ -439,7 +391,7 @@ const OrderCard = ({
     );
 
     return (
-        <div className={`kanban-card glass animate-slide-up${(gridTile ? gridExpanded : true) ? ' kanban-card--expanded' : ''}${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile kanban-card--receipt-clean' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
+        <div className={`kanban-card glass animate-slide-up${menuOpen ? ' kanban-card--menu-open' : ''}${gridTile ? ' kanban-card--grid-tile kanban-card--receipt-clean' : ''} ${order.status === 'pending' ? 'urgent-pulse' : ''}`}>
             <div className="kanban-card-top">
                 {gridTile ? (
                     <>
@@ -454,37 +406,33 @@ const OrderCard = ({
                                             {queueIndex}
                                         </span>
                                     ) : null}
+                                    <TypeIcon size={18} className="order-type-icon" aria-label={fulfillmentLabel} />
                                     <h4 className="card-client-name">{order.client_name}</h4>
                                     {isVip ? (
-                                        <span className="order-card-vip-badge" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
-                                            VIP
+                                        <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
+                                            <Star size={14} aria-hidden />
                                         </span>
                                     ) : null}
+                                    <span className="order-short-id" title={`Pedido #${String(order.id).slice(-4)}`}>
+                                        #{String(order.id).slice(-4)}
+                                    </span>
                                 </div>
+                                {deliveryZone ? (
+                                    <div className="order-delivery-zone" title={deliverySubtitle || deliveryZone}>
+                                        <MapPin size={11} aria-hidden />
+                                        {deliveryZone}
+                                    </div>
+                                ) : null}
                                 <div className="kanban-card-receipt-meta">
-                                    {fulfillmentPill}
-                                    {paymentMeta}
-                                    <span className="kanban-card-receipt-meta__dot" aria-hidden>·</span>
                                     {orderTimeEl}
+                                    {paymentMeta}
                                     <div className="order-card-header-tools order-card-header-tools--receipt-meta">{headerTools}</div>
                                 </div>
                             </div>
                         </div>
-                        {gridExpanded && deliverySubtitle ? (
-                            <div className="order-delivery-mini" title={deliverySubtitle}>
-                                {deliverySubtitle}
-                            </div>
-                        ) : null}
                     </>
                 ) : (
                     <>
-                        <div className="card-header-row">
-                            {orderTimeEl}
-                            <div className="order-card-header-tools">
-                                {headerTools}
-                            </div>
-                        </div>
-
                         {deliverySubtitle ? (
                             <div className="order-delivery-mini" title={deliverySubtitle}>
                                 {deliverySubtitle}
@@ -493,15 +441,19 @@ const OrderCard = ({
 
                         <div className="card-client">
                             <div className="card-client-name-row">
+                                <TypeIcon size={18} className="order-type-icon order-type-icon--normal" aria-label={fulfillmentLabel} />
                                 <h4 className="card-client-name">{order.client_name}</h4>
                                 {isVip ? (
-                                    <span className="order-card-vip-badge" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
-                                        VIP
+                                    <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
+                                        <Star size={14} aria-hidden />
                                     </span>
                                 ) : null}
+                                <span className="order-short-id" title={`Pedido #${String(order.id).slice(-4)}`}>
+                                    #{String(order.id).slice(-4)}
+                                </span>
                             </div>
                             <div className="card-kanban-meta-row">
-                                {fulfillmentPill}
+                                {orderTimeEl}
                                 {paymentMeta}
                                 <button
                                     type="button"
@@ -511,6 +463,7 @@ const OrderCard = ({
                                 >
                                     Ver detalle
                                 </button>
+                                <div className="order-card-header-tools">{headerTools}</div>
                             </div>
                         </div>
 
@@ -521,109 +474,42 @@ const OrderCard = ({
 
             <div className="kanban-card-scroll">
                 {gridTile ? (
-                    <>
-                        {!gridExpanded ? (
-                            <div className="card-items-summary card-items-summary--receipt" title={itemsSummary.text}>
-                                {itemsSummary.text ? <p className="card-items-summary__text">{itemsSummary.text}</p> : null}
-                                {deliverySubtitle ? (
-                                    <p className="card-items-summary__delivery" title={deliverySubtitle}>
-                                        {deliverySubtitle}
-                                    </p>
-                                ) : null}
-                                <Button variant="default"
-                                    type="button"
-                                    className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
-                                    onClick={handleGridExpandItems}
-                                    aria-expanded={false}
-                                    disabled={itemsHydrating}
-                                >
-                                    {itemsHydrating ? (
-                                        <Loader2 size={14} className="animate-spin" aria-hidden />
-                                    ) : (
-                                        <ChevronDown size={14} aria-hidden />
-                                    )}
-                                    {hasLoadedItems && itemsCount > 0 ? `Ver más (${itemsCount})` : 'Ver más'}
-                                </Button>
+                    <div className="card-items card-items--grid-tile">
+                        {itemsHydrating ? (
+                            <div className="card-items-hydrating">
+                                <Loader2 size={16} className="animate-spin" aria-hidden />
+                                <span>Cargando productos…</span>
                             </div>
+                        ) : !hasLoadedItems || itemsCount === 0 ? (
+                            <p className="card-items-empty">Sin productos</p>
                         ) : (
                             <>
-                                <div className="card-items card-items--expanded">
-                                    {itemsHydrating ? (
-                                        <div className="card-items-hydrating">
-                                            <Loader2 size={16} className="animate-spin" aria-hidden />
-                                            <span>Cargando productos…</span>
+                                {displayItems.slice(0, 5).map((item, idx) => {
+                                    const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
+                                    const hasExtras = Array.isArray(item.extras) && item.extras.length > 0;
+                                    return (
+                                        <div key={idx} className="order-item-row order-item-row--grid-tile">
+                                            <span className="qty-circle">{item.quantity}</span>
+                                            <span className="item-name" title={item.name}>{item.name}</span>
+                                            <span className="order-item-price order-item-price--grid">{formatLinePrice(item)}</span>
+                                            {(hasExtras || itemNote) ? (
+                                                <span className="order-item-detail-dot" title={itemNote || 'Con modificadores'}>!</span>
+                                            ) : null}
                                         </div>
-                                    ) : Array.isArray(displayItems) && displayItems.length > 0 ? (
-                                    displayItems.map((item, idx) => {
-                                        const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
-                                        return (
-                                            <div key={idx} className="order-item-row order-item-row--stacked">
-                                                <div className="order-item-row__main">
-                                                    <span className="qty-circle">{item.quantity}</span>
-                                                    <span className="item-name">{item.name}</span>
-                                                </div>
-                                                {Array.isArray(item.extras) && item.extras.length > 0 ? (
-                                                    <div className="order-item-extras">
-                                                        {item.extras.map((extra, extraIdx) => (
-                                                            <div key={extraIdx} className="order-item-extra-line">
-                                                                <span className="order-item-extra-plus">+</span>
-                                                                <span>{extra.quantity || 1}x {extra.name}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : null}
-                                                {itemNote ? (
-                                                    <div className="order-item-note" title={itemNote}>
-                                                        <span className="order-item-note-tag">NOTA</span>
-                                                        <span className="order-item-note-text">{itemNote}</span>
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                        );
-                                    })
-                                    ) : (
-                                        <p className="card-items-empty">Sin productos</p>
-                                    )}
-                                    <Button variant="default"
+                                    );
+                                })}
+                                {itemsCount > 5 ? (
+                                    <button
                                         type="button"
-                                        className="kanban-card-expand-toggle kanban-card-expand-toggle--inline"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setGridExpanded(false);
-                                        }}
-                                        aria-expanded
+                                        className="order-items-expand-link"
+                                        onClick={() => setDetailOpen(true)}
                                     >
-                                        <ChevronUp size={14} aria-hidden />
-                                        Ver menos
-                                    </Button>
-                                </div>
-
-                                {order.payment_type === 'online' ? (
-                                    <div className="receipt-container receipt-container--kanban">
-                                        {order.payment_ref && order.payment_ref.startsWith('http') ? (
-                                            <div className="receipt-container__row">
-                                                <a href={order.payment_ref} target="_blank" rel="noreferrer" className="receipt-link">
-                                                    <ImageIcon size={14} aria-hidden /> Ver Comprobante
-                                                </a>
-                                                <Button variant="default" type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
-                                                    Cambiar
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <Button variant="default"
-                                                type="button"
-                                                onClick={() => setReceiptModalOrder(order)}
-                                                className="receipt-link receipt-link--optional"
-                                                title="Opcional: subir imagen del comprobante"
-                                            >
-                                                <Upload size={14} aria-hidden /> Comprobante (opcional)
-                                            </Button>
-                                        )}
-                                    </div>
+                                        +{itemsCount - 5} más
+                                    </button>
                                 ) : null}
                             </>
                         )}
-                    </>
+                    </div>
                 ) : (
                     <>
                         <div className="card-items card-items--always-visible">
@@ -659,6 +545,7 @@ const OrderCard = ({
                                                     <div className="order-item-main">
                                                         <span className="order-item-qty">{item.quantity ?? 1}x</span>
                                                         <span className="order-item-name">{item.name ?? 'Producto'}</span>
+                                                        <span className="order-item-price">{formatLinePrice(item)}</span>
                                                     </div>
                                                     {(extrasText || itemNote) ? (
                                                         <div className="order-item-meta">
@@ -733,7 +620,7 @@ const OrderCard = ({
                     {order.status === 'pending' ? (
                         <>
                             <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
-                                <XCircle size={16} />
+                                <X size={16} />
                             </Button>
                             <Button variant="default" type="button" onClick={handleMoveToKitchen} className="btn-action primary">
                                 A Cocina
@@ -743,7 +630,7 @@ const OrderCard = ({
                     {order.status === 'active' ? (
                         <>
                             <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
-                                <XCircle size={16} />
+                                <X size={16} />
                             </Button>
                             <Button variant="default" type="button" onClick={() => moveOrder(order.id, 'completed')} className="btn-action success">
                                 Pedido Listo
@@ -753,7 +640,7 @@ const OrderCard = ({
                     {order.status === 'completed' ? (
                         <>
                             <Button variant="default" type="button" onClick={handleCancelOrder} className="btn-icon-action cancel" title="Cancelar Pedido">
-                                <XCircle size={16} />
+                                <X size={16} />
                             </Button>
                             <Button variant="default"
                                 type="button"
@@ -772,7 +659,7 @@ const OrderCard = ({
                         aria-label="Editar pedido"
                         disabled={editPreparing}
                     >
-                        {editPreparing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Edit2 size={16} />}
+                        {editPreparing ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Pencil size={16} />}
                     </Button>
                 </div>
             </div>

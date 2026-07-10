@@ -125,7 +125,10 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                 ].filter(Boolean).join(' ')}
             >
                 {columnConfig.map((col) => {
-                    const ordersInColumn = columns[col.id] || [];
+                    const rawList = columns[col.id] || [];
+                    const ordersInColumn = showDesktopSingle
+                        ? [...rawList].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                        : rawList;
                     const hidden = isColumnHidden(col.id);
 
                     return (
