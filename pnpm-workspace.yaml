@@ -1,8 +1,0 @@
-packages:
-  - "."
-
-allowBuilds:
-  esbuild: true
-
-patchedDependencies:
-  recharts@3.9.1: patches/recharts@3.9.1.patch
