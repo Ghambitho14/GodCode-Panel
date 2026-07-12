@@ -2,7 +2,7 @@ packages:
   - "."
 
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
 
 patchedDependencies:
   recharts@3.9.1: patches/recharts@3.9.1.patch
