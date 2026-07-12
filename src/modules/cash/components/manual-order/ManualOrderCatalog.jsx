@@ -379,22 +379,22 @@ const ManualOrderCatalog = ({
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
-                                <Button variant="default"
+                                <Button variant="ghost"
                                     key={`mobile-${it.key}`}
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
                                     className={cn(
                                         'flex min-h-[40px] flex-shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors',
                                         isActive
-                                            ? 'border-gc-accent bg-gc-accent text-white'
-                                            : 'border-gc-border bg-gc-card text-gc-text',
+                                            ? 'border-gc-accent/40 bg-gc-accent/10 text-gc-accent'
+                                            : 'border-gc-border text-gc-text hover:bg-gc-muted',
                                     )}
                                     aria-current={isActive ? 'true' : undefined}
                                 >
                                     <span className="max-w-[9rem] truncate">{it.name}</span>
                                     <span className={cn(
                                         'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-                                        isActive ? 'bg-white/20 text-white' : 'bg-gc-muted text-gc-text-muted',
+                                        isActive ? 'bg-gc-accent/15 text-gc-accent' : 'bg-gc-muted text-gc-text-muted',
                                     )}>
                                         {it.count}
                                     </span>
@@ -414,20 +414,20 @@ const ManualOrderCatalog = ({
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
-                                <Button variant="default"
+                                <Button variant="ghost"
                                     key={it.key}
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
-                                    className={`flex items-center justify-between rounded-[4px] border px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                                    className={`flex items-center justify-between rounded-[4px] border-l-2 px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
                                         isActive
-                                            ? 'border-gc-accent bg-gc-accent text-white'
-                                            : 'border-gc-border text-gc-text hover:bg-gc-muted'
+                                            ? 'border-gc-accent bg-gc-accent/10 text-gc-accent font-semibold'
+                                            : 'border-transparent text-gc-text hover:bg-gc-muted'
                                     }`}
                                     title={it.name}
                                     aria-current={isActive ? 'true' : undefined}
                                 >
                                     <span className="truncate pr-2">{it.name}</span>
-                                    <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive ? 'bg-white/20 text-white' : 'bg-gc-muted text-gc-text-muted'}`}>
+                                    <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive ? 'bg-gc-accent/15 text-gc-accent' : 'bg-gc-muted text-gc-text-muted'}`}>
                                         {it.count}
                                     </span>
                                 </Button>

@@ -2,20 +2,25 @@
    MANUAL ORDER MODAL - RESPONSIVE & PROFESSIONAL
    ============================================ */
 
-/* === CSS CUSTOM PROPERTIES === */
+/* === CSS CUSTOM PROPERTIES ===
+   Paleta alineada a godcode-panel-design-system.md: azul #2563eb como acento único,
+   fondos claros, verde/rojo reservados para success/danger semánticos. */
 .manual-order-overlay {
-    --modal-bg: linear-gradient(145deg, #0d0d0d 0%, #0a0a0a 100%);
-    --modal-border: #1a1a1a;
-    --section-border: #1a1a1a;
-    --input-bg: #0a0a0a;
-    --input-border: #1a1a1a;
-    --input-focus: #e63946;
-    --text-primary: #ffffff;
-    --text-secondary: #888;
-    --text-muted: #666;
-    --accent-red: #e63946;
-    --success-green: #2ecc71;
-    --warning-yellow: #f39c12;
+    --modal-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    --modal-border: #e5e5ea;
+    --section-border: #e5e5ea;
+    --input-bg: #ffffff;
+    --input-border: #e5e5ea;
+    --input-focus: var(--accent-primary, #2563eb);
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-muted: #6b7280;
+    --accent-red: var(--accent-primary, #2563eb);
+    --accent-hover: #1d4ed8;
+    --success-green: #16a34a;
+    --warning-yellow: #f59e0b;
+    /* Rojo real reservado solo para errores/validación (no confundir con --accent-red, que es alias del azul de marca) */
+    --danger-red: #dc2626;
     --spacing-xs: 8px;
     --spacing-sm: 12px;
     --spacing-md: 16px;
@@ -383,7 +388,7 @@
 .manual-order-input:focus {
     outline: none;
     border-color: var(--input-focus);
-    box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-focus, #2563eb) 15%, transparent);
 }
 
 .manual-order-input::placeholder {
@@ -391,8 +396,8 @@
 }
 
 .manual-order-input.error {
-    border-color: var(--accent-red);
-    background: rgba(230, 57, 70, 0.05);
+    border-color: var(--danger-red, #dc2626);
+    background: color-mix(in srgb, var(--danger-red, #dc2626) 5%, transparent);
 }
 
 .manual-order-input--readonly,
@@ -613,7 +618,7 @@
 }
 
 .manual-order-payment-btn.active {
-    background: rgba(230, 57, 70, 0.15);
+    background: color-mix(in srgb, var(--accent-red, #2563eb) 15%, transparent);
     border-color: var(--accent-red);
     color: var(--accent-red);
 }
@@ -643,7 +648,7 @@
 .manual-order-mixed-toggle.active {
     border-color: var(--accent-red);
     color: var(--accent-red);
-    background: rgba(230, 57, 70, 0.08);
+    background: color-mix(in srgb, var(--accent-red, #2563eb) 8%, transparent);
 }
 
 .manual-order-mixed-split__grid {
@@ -668,7 +673,7 @@
 }
 
 .manual-order-mixed-split__status--ok {
-    color: #25d366;
+    color: var(--success-green, #16a34a);
 }
 
 .manual-order-mixed-split__status--warn {
@@ -676,7 +681,7 @@
 }
 
 .manual-order-mixed-split__status--error {
-    color: var(--accent-red);
+    color: var(--danger-red, #dc2626);
 }
 
 .manual-order-cash-tender__input {
@@ -717,13 +722,13 @@
 }
 
 .manual-order-change-due--ok {
-    border-color: rgba(37, 211, 102, 0.45);
-    background: rgba(37, 211, 102, 0.08);
+    border-color: color-mix(in srgb, var(--success-green, #16a34a) 45%, transparent);
+    background: color-mix(in srgb, var(--success-green, #16a34a) 8%, transparent);
 }
 
 .manual-order-change-due--error {
-    border-color: rgba(230, 57, 70, 0.45);
-    background: rgba(230, 57, 70, 0.08);
+    border-color: color-mix(in srgb, var(--danger-red, #dc2626) 45%, transparent);
+    background: color-mix(in srgb, var(--danger-red, #dc2626) 8%, transparent);
 }
 
 .manual-order-change-due__label {
@@ -748,7 +753,7 @@
 /* === BOTÓN CONFIRMAR === */
 .manual-order-confirm-btn {
     width: 100%;
-    background: linear-gradient(135deg, var(--accent-red) 0%, #ef4444 100%);
+    background: linear-gradient(135deg, var(--accent-red) 0%, var(--accent-hover, #1d4ed8) 100%);
     border: none;
     border-radius: var(--radius-sm);
     padding: 12px;
@@ -769,7 +774,7 @@
 
 .manual-order-confirm-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(230, 57, 70, 0.4);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
 }
 
 .manual-order-confirm-btn:active:not(:disabled) {
@@ -852,9 +857,9 @@
 .manual-order-order-type-btn {
     padding: 10px;
     border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    background: rgba(255, 255, 255, 0.92);
-    color: #111;
+    border: 1px solid var(--admin-border, #e5e5ea);
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text, #1d1d1f);
     font-size: 12px;
     font-weight: 600;
     display: flex;
@@ -865,28 +870,15 @@
     transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
-.manual-order-order-type-btn.is-active {
-    border-color: #25d366;
-    background: rgba(37, 211, 102, 0.12);
-    color: #15803d;
-}
-
-.manual-order-order-type-btn--mesa.is-active {
-    border-color: var(--fulfillment-mesa-border, rgba(167, 139, 250, 0.35));
-    background: var(--fulfillment-mesa-bg, rgba(167, 139, 250, 0.12));
-    color: var(--fulfillment-mesa-fg, #7c3aed);
-}
-
-.manual-order-order-type-btn--retiro.is-active {
-    border-color: var(--fulfillment-retiro-border, rgba(37, 211, 102, 0.35));
-    background: var(--fulfillment-retiro-bg, rgba(37, 211, 102, 0.12));
-    color: var(--fulfillment-retiro-fg, #15803d);
-}
-
+/* Un solo tratamiento de acento (azul) para el estado activo, sin importar el tipo:
+   mesa/retiro/delivery ya se distinguen por ícono y label, no necesitan 3 colores distintos. */
+.manual-order-order-type-btn.is-active,
+.manual-order-order-type-btn--mesa.is-active,
+.manual-order-order-type-btn--retiro.is-active,
 .manual-order-order-type-btn--delivery.is-active {
-    border-color: var(--fulfillment-delivery-border, rgba(244, 162, 97, 0.35));
-    background: var(--fulfillment-delivery-bg, rgba(244, 162, 97, 0.12));
-    color: var(--fulfillment-delivery-fg, #f4a261);
+    border-color: var(--accent-primary, #2563eb);
+    background: color-mix(in srgb, var(--accent-primary, #2563eb) 11%, var(--admin-card-bg, #fff));
+    color: var(--accent-primary, #2563eb);
 }
 
 .manual-order-fulfillment-fields {
@@ -1114,8 +1106,8 @@
     --admin-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
     --admin-shadow-md: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 28px -8px rgba(15, 23, 42, 0.1);
     --admin-overlay-scrim: rgba(15, 23, 42, 0.5);
-    --admin-accent: var(--accent-primary, #e63946);
-    --admin-accent-hover: var(--accent-hover, #c1121f);
+    --admin-accent: var(--accent-primary, #2563eb);
+    --admin-accent-hover: var(--accent-hover, #1d4ed8);
     --text-primary: var(--admin-text);
     --text-secondary: var(--admin-text-muted);
     --text-muted: #6d7582;
@@ -1136,7 +1128,9 @@
     pointer-events: auto;
 }
 
-/* === Tema claro dentro del panel admin (y modal portaleado) === */
+/* === Conexión a tokens reales del panel admin (cuando el modal vive dentro de .admin-layout o el portal) ===
+   La base ya usa la paleta clara/azul; este bloque solo enlaza a los valores reales
+   del admin (--admin-border, --admin-text, etc.) en vez de los fallbacks hardcodeados. */
 .admin-layout .manual-order-overlay,
 .manual-order-portal-scope .manual-order-overlay {
 	--modal-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -1148,7 +1142,7 @@
 	--text-primary: var(--admin-text, #0f172a);
 	--text-secondary: var(--admin-text-muted, #64748b);
 	--text-muted: #64748b;
-	--accent-red: var(--accent-primary, #e63946);
+	--accent-red: var(--accent-primary, #2563eb);
 	background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.5));
 }
 
@@ -1348,7 +1342,7 @@
 
 .manual-order-steps-progress__item.is-done + .manual-order-steps-progress__item::before,
 .manual-order-steps-progress__item.is-active + .manual-order-steps-progress__item::before {
-    background: var(--accent-red, #e63946);
+    background: var(--accent-red, #2563eb);
 }
 
 .manual-order-steps-progress__dot {
@@ -1366,12 +1360,12 @@
 }
 
 .manual-order-steps-progress__item.is-active .manual-order-steps-progress__dot {
-    background: var(--accent-red, #e63946);
-    box-shadow: 0 0 0 4px rgba(230, 57, 70, 0.18);
+    background: var(--accent-red, #2563eb);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-primary, #2563eb) 18%, transparent);
 }
 
 .manual-order-steps-progress__item.is-done .manual-order-steps-progress__dot {
-    background: #25d366;
+    background: var(--success-green, #16a34a);
 }
 
 .manual-order-steps-progress__item.is-active {
@@ -1402,7 +1396,7 @@
 }
 
 .manual-order-steps-progress--editable .manual-order-steps-progress__item--clickable:focus-visible {
-    outline: 2px solid var(--accent-red, #e63946);
+    outline: 2px solid var(--accent-red, #2563eb);
     outline-offset: 2px;
 }
 
@@ -1570,17 +1564,17 @@
 }
 
 .manual-order-wizard .manual-order-footer-nav--edit .manual-order-steps-nav__btn--next-secondary:hover:not(:disabled) {
-    border-color: var(--accent-red, #e63946);
-    color: var(--accent-red, #e63946);
+    border-color: var(--accent-red, #2563eb);
+    color: var(--accent-red, #2563eb);
 }
 
 .manual-order-wizard .manual-order-footer-nav--edit .manual-order-steps-nav__btn--save {
     flex: 1 1 36%;
     min-width: 0;
-    background: linear-gradient(135deg, var(--accent-red, #e63946) 0%, #ef4444 100%);
+    background: linear-gradient(135deg, var(--accent-red, #2563eb) 0%, var(--accent-hover, #1d4ed8) 100%);
     color: #fff;
     border: none;
-    box-shadow: 0 6px 14px rgba(230, 57, 70, 0.35);
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
 }
 
 .manual-order-steps-nav__btn {
@@ -1604,12 +1598,12 @@
 .manual-order-steps-nav__btn--next {
     background: linear-gradient(
         135deg,
-        var(--accent-primary, var(--accent-red, #e63946)) 0%,
-        var(--accent-hover, var(--accent-primary, #ef4444)) 100%
+        var(--accent-primary, #2563eb) 0%,
+        var(--accent-hover, #1d4ed8) 100%
     );
     color: #fff;
     border: none;
-    box-shadow: 0 6px 14px var(--accent-shadow, rgba(230, 57, 70, 0.35));
+    box-shadow: 0 6px 14px var(--accent-shadow, rgba(37, 99, 235, 0.35));
 }
 
 .manual-order-steps-nav__btn:disabled {
@@ -1681,18 +1675,18 @@
 
 .manual-order-step-1 .manual-order-footer .manual-order-steps-nav__btn--next-step1:not(:disabled),
 .manual-order-step-1 .manual-order-mobile-dock .manual-order-steps-nav__btn--next-step1:not(:disabled) {
-    background: #4f5bff;
-    border-color: #4f5bff;
+    background: var(--accent-primary, #2563eb);
+    border-color: var(--accent-primary, #2563eb);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(79, 91, 255, 0.35);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 .manual-order-step-1 .manual-order-footer .manual-order-steps-nav__btn--next-step1:not(:disabled):hover,
 .manual-order-step-1 .manual-order-mobile-dock .manual-order-steps-nav__btn--next-step1:not(:disabled):hover {
-    background: #3d48e6;
-    border-color: #3d48e6;
+    background: var(--accent-hover, #1d4ed8);
+    border-color: var(--accent-hover, #1d4ed8);
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(79, 91, 255, 0.45);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
 }
 
 .manual-order-step-1 .manual-order-footer .manual-order-steps-nav__btn--next-step1:disabled {
@@ -1768,17 +1762,17 @@
 }
 
 .manual-order-accordion-item {
-    border: 1px solid rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--admin-border, #e5e5ea);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--admin-card-bg, #fff);
     overflow: hidden;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .manual-order-accordion-item.active {
-    border-color: rgba(37, 211, 102, 0.45);
-    background: rgba(255, 255, 255, 0.04);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    border-color: color-mix(in srgb, var(--success-green, #16a34a) 45%, transparent);
+    background: var(--admin-card-bg, #fff);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .manual-order-accordion-header {
@@ -1787,9 +1781,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.12);
+    background: var(--admin-icon-bg, #f5f5f7);
     border: none;
-    color: #000000;
+    color: var(--admin-text, #1d1d1f);
     font-weight: 700;
     font-size: 11px;
     text-transform: uppercase;
@@ -1800,17 +1794,17 @@
 }
 
 .manual-order-accordion-header:hover {
-    background: rgba(0, 0, 0, 0.18);
+    background: color-mix(in srgb, var(--admin-icon-bg, #f5f5f7) 70%, var(--admin-text, #1d1d1f) 6%);
 }
 
 .manual-order-accordion-item.active .manual-order-accordion-header {
-    color: #25d366;
-    background: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--success-green, #16a34a);
+    background: color-mix(in srgb, var(--success-green, #16a34a) 10%, var(--admin-card-bg, #fff));
+    border-bottom: 1px solid var(--admin-border, #e5e5ea);
 }
 
 .manual-order-accordion-badge {
-    background: var(--accent-red, #e63946);
+    background: var(--accent-primary, #2563eb);
     color: #ffffff;
     padding: 2px 8px;
     border-radius: 99px;
@@ -1819,18 +1813,18 @@
 }
 
 .manual-order-accordion-badge-text {
-    color: #64748b;
+    color: var(--admin-text-muted, #64748b);
     font-size: 10px;
     font-weight: 800;
     text-transform: uppercase;
 }
 
 .manual-order-accordion-item.active .manual-order-accordion-badge-text {
-    color: #25d366;
+    color: var(--success-green, #16a34a);
 }
 
 .manual-order-accordion-content {
-    background: rgba(0, 0, 0, 0.03);
+    background: var(--admin-page-bg, #f8fafc);
     animation: accordionSlideDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1932,7 +1926,7 @@
     }
 
     .manual-order--mobile .manual-order-mobile-cart-bar svg {
-        color: #4f5bff;
+        color: var(--accent-primary, #2563eb);
         flex-shrink: 0;
     }
 
