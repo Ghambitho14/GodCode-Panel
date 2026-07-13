@@ -6,7 +6,7 @@ import { loadEnv, type Plugin, type ViteDevServer } from "vite";
 /**
  * Plugin SOLO de desarrollo: monta las funciones serverless `/api/auth/*` dentro
  * del dev server de Vite para poder probar el BFF de cookies httpOnly con un unico
- * `pnpm dev` (sin Vercel CLI). En produccion estas rutas corren como funciones
+ * `npm run dev` (sin Vercel CLI). En produccion estas rutas corren como funciones
  * nativas en Vercel y este plugin no se usa (`apply: "serve"`).
  */
 
