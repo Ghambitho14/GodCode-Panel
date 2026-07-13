@@ -192,6 +192,7 @@ async function handleLogin(req, res) {
     const supabase = createServerSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data.session) {
+      console.error("[auth/login] error de Supabase:", error?.message || "sin sesión");
       return json(res, 401, { error: "Credenciales incorrectas." });
     }
     return json(res, 200, sessionPayload(data.session, data.user), {
