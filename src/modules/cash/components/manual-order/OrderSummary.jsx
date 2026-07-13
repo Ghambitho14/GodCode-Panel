@@ -60,7 +60,7 @@ const OrderSummary = ({
 
     return (
         <div className={cn(
-            'gc-order-summary flex min-h-0 flex-col overflow-hidden rounded-[4px] border border-gc-border bg-gc-page',
+            'gc-order-summary flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-gc-border bg-gc-page shadow-sm',
             !summaryHasFewItems && 'flex-1',
         )}>
             <div className="flex items-center justify-between border-b border-gc-border px-4 py-3">

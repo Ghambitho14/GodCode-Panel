@@ -321,46 +321,48 @@ const ManualOrderCatalog = ({
     return (
         <div className="flex h-full flex-col">
             {/* Header */}
-            <div className="mb-4 flex flex-col gap-3 border-b border-gc-border/60 pb-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                    <h2 className={`${textScale.emphasis} font-bold text-gc-text`}>Productos disponibles</h2>
-                    <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>
-                        {totalItems} {totalItems === 1 ? 'ítem' : 'ítems'} en catálogo
-                    </p>
-                </div>
-
-                <div className={`flex w-full flex-col ${spacing.compact} sm:w-auto sm:flex-row sm:flex-wrap sm:items-center`}>
-                    <div className="relative flex w-full min-w-0 items-center sm:w-auto">
-                        <Search size={15} className="pointer-events-none absolute left-3.5 text-gc-text-muted" />
-                        <input
-                            type="text"
-                            placeholder="Buscar producto..."
-                            className={`h-10 w-full min-w-0 ${pillRadiusClass} bg-gc-muted pl-10 pr-4 ${textScale.body} text-gc-text transition-all placeholder:text-gc-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-gc-accent/15 sm:w-56`}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+            <div className="mb-4 rounded-[22px] border border-gc-border bg-gc-card p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <h2 className={`${textScale.emphasis} font-bold text-gc-text`}>Productos disponibles</h2>
+                        <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>
+                            {totalItems} {totalItems === 1 ? 'ítem' : 'ítems'} en catálogo
+                        </p>
                     </div>
 
-                    <Button variant="default"
-                        type="button"
-                        onClick={() => setShowProductImages((v) => !v)}
-                        className={`flex h-9 items-center gap-1.5 rounded-[4px] border px-3 ${textScale.micro} font-semibold transition-colors ${
-                            showProductImages
-                                ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
-                                : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-text'
-                        }`}
-                        aria-pressed={showProductImages}
-                    >
-                        {showProductImages ? <Image size={15} /> : <ImageOff size={15} />}
-                        Imágenes
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+                            <Search size={15} className="pointer-events-none absolute left-3.5 text-gc-text-muted" />
+                            <input
+                                type="text"
+                                placeholder="Buscar producto..."
+                                className={`h-10 w-full min-w-0 ${pillRadiusClass} bg-gc-muted pl-10 pr-4 ${textScale.body} text-gc-text transition-all placeholder:text-gc-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-gc-accent/15`}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        <Button variant="default"
+                            type="button"
+                            onClick={() => setShowProductImages((v) => !v)}
+                            className={`flex h-10 shrink-0 items-center gap-1.5 ${pillRadiusClass} border px-3 ${textScale.micro} font-semibold transition-colors ${
+                                showProductImages
+                                    ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
+                                    : 'border-gc-border bg-gc-page text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-text'
+                            }`}
+                            aria-pressed={showProductImages}
+                        >
+                            {showProductImages ? <Image size={15} /> : <ImageOff size={15} />}
+                            Imágenes
+                        </Button>
+                    </div>
                 </div>
             </div>
 
             {/* Layout */}
             <div className={`flex min-h-0 flex-1 flex-col ${spacing.normal}`}>
                 {sidebarCategories.length > 0 && (
-                    <nav className="flex items-center gap-5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
+                    <nav className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
@@ -369,10 +371,10 @@ const ManualOrderCatalog = ({
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
                                     className={cn(
-                                        `whitespace-nowrap ${textScale.body} transition-colors`,
+                                        `whitespace-nowrap ${textScale.body} transition-all`,
                                         isActive
-                                            ? 'font-bold text-gc-text'
-                                            : 'font-medium text-gc-text-muted hover:text-gc-text',
+                                            ? 'border-gc-text bg-gc-text font-semibold text-white'
+                                            : 'border-gc-border bg-gc-muted font-medium text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-card hover:text-gc-text',
                                     )}
                                     aria-current={isActive ? 'true' : undefined}
                                 >
@@ -385,7 +387,7 @@ const ManualOrderCatalog = ({
 
                 <div
                     ref={catalogScrollRef}
-                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-page px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[22px] border border-gc-border bg-gc-page px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
                 >
                     {!hasAnyResults ? (
                         <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
