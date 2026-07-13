@@ -23,6 +23,9 @@ importers:
       '@radix-ui/react-tabs':
         specifier: ^1.1.16
         version: 1.1.16(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@rolldown/binding-linux-x64-gnu':
+        specifier: ^1.1.5
+        version: 1.1.5
       '@supabase/supabase-js':
         specifier: ^2.106.1
         version: 2.106.1
@@ -57,7 +60,7 @@ importers:
         specifier: ^7.15.1
         version: 7.15.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       recharts:
-        specifier: ^3.9.1
+        specifier: 3.9.1
         version: 3.9.1(patch_hash=0fa0e9cdd2751b2c717ff0e84125ed2da9076a4e084b9affda8f4d0e946b5704)(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@17.0.2)(react@19.2.6)(redux@5.0.1)
       sileo:
         specifier: ^0.1.5
@@ -1458,6 +1461,12 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+
+  '@rolldown/binding-linux-x64-gnu@1.1.5':
+    resolution: {integrity: sha512-FjcpEKUyJygHgs1o50VYNvkt5+7Le/VEdYt0AkRpkL33MnyQfwr8l5mXwMmfmTbyMPr5vJLC+8/Gd9gXnwU1QQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [linux]
 
   '@rolldown/binding-linux-x64-musl@1.0.2':
     resolution: {integrity: sha512-mjSkrzZK5Qsl0a9d1JgILOiuZOSDTVdKENcSXBoqbzSrspLR/4/IRVDo5wd2GgZjNss/viBFJdeq+j7qH2nypw==}
@@ -5440,6 +5449,8 @@ snapshots:
 
   '@rolldown/binding-linux-x64-gnu@1.0.2':
     optional: true
+
+  '@rolldown/binding-linux-x64-gnu@1.1.5': {}
 
   '@rolldown/binding-linux-x64-musl@1.0.2':
     optional: true
