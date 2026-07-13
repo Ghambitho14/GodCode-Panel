@@ -3,7 +3,7 @@ import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, MoreVertical,
 	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles, WandSparkles,
 } from 'lucide-react';
-import { uploadImageToSupabase, validateImageFile } from '@/shared/utils/supabaseStorage';
+import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
 import {
 	listMenuCarousel,
 	createBanner,
@@ -81,9 +81,7 @@ export default function AdminMenuCarousel({
 	const [editing, setEditing] = useState(false);
 
 	const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : null;
-	const storageFolder = companyId && branchId
-		? `menu_carousel/${companyId}/${branchId}`
-		: 'menu_carousel';
+	const storageFolder = companyStorageFolder(companyId, branchId ? `carousel/${branchId}` : 'carousel');
 
 	const load = useCallback(async () => {
 		if (!branchId) {
@@ -251,6 +249,7 @@ export default function AdminMenuCarousel({
 		}
 		setMenuOpenId(null);
 		try {
+			await deleteStorageObject(banner.image_url, 'menu');
 			await deleteBanner({ bannerId: banner.id, companyId });
 			setBanners((prev) => prev.filter((b) => b.id !== banner.id));
 			showNotify('Imagen eliminada.');
@@ -272,7 +271,12 @@ export default function AdminMenuCarousel({
 	};
 
 	const uploadAndReplaceBannerImage = async (bannerId, fileToUpload) => {
+		const banner = banners.find((b) => b.id === bannerId);
+		const previousUrl = banner?.image_url || null;
 		const url = await uploadImageToSupabase(fileToUpload, 'menu', storageFolder);
+		if (previousUrl && previousUrl !== url) {
+			await deleteStorageObject(previousUrl, 'menu');
+		}
 		const updated = await patchBanner(bannerId, { image_url: url });
 		mergeBanner(bannerId, updated);
 	};

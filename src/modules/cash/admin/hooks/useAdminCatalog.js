@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImageToSupabase, validateImageFile } from '@/shared/utils/supabaseStorage';
+import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
 
@@ -48,7 +48,17 @@ export function useAdminCatalog({
 		if (!file) return;
 		setUploadingReceipt(true);
 		try {
-            const receiptUrl = await uploadImageToSupabase(file, 'receipts');
+			const { data: order } = await supabase
+				.from(TABLES.orders)
+				.select('payment_ref')
+				.eq('id', orderId)
+				.eq('company_id', companyId)
+				.maybeSingle();
+			const previousRef = order?.payment_ref || null;
+			const receiptUrl = await uploadImageToSupabase(file, 'receipts', companyStorageFolder(companyId));
+			if (previousRef && previousRef !== receiptUrl) {
+				await deleteStorageObject(previousRef, 'receipts');
+			}
 			const { error } = await supabase
 				.from(TABLES.orders)
 				.update({ payment_ref: receiptUrl })
@@ -94,7 +104,13 @@ export function useAdminCatalog({
 		setRefreshing(true);
 		try {
 			let finalImageUrl = formData.image_url;
-            if (localFile) finalImageUrl = await uploadImageToSupabase(localFile, 'menu');
+			if (localFile) {
+				const previousImageUrl = editingProduct?.image_url || formData.image_url;
+				finalImageUrl = await uploadImageToSupabase(localFile, 'menu', companyStorageFolder(companyId));
+				if (previousImageUrl && previousImageUrl !== finalImageUrl) {
+					await deleteStorageObject(previousImageUrl, 'menu');
+				}
+			}
 			const priceStr = String(Number(formData.price) || 0);
 			const discountStr = formData.has_discount
 				? String(Number(formData.discount_price) || 0)

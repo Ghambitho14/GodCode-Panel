@@ -348,6 +348,9 @@ export default function ManualOrderCheckout({
 	);
 
 	const showEditSaveOnFooter = isEditMode && orderStep === 1;
+	const nextStepLabel = hasCartItems
+		? `Siguiente · ${formatMoney(manualOrder.total ?? 0)}`
+		: 'Siguiente';
 
 	const wizardNavButtons = (
 		<div
@@ -363,9 +366,7 @@ export default function ManualOrderCheckout({
 				>
 					ATRÁS
 				</Button>
-			) : (
-				<span className="manual-order-steps-nav__spacer" aria-hidden />
-			)}
+			) : null}
 			{showEditSaveOnFooter ? (
 				<>
 					<Button variant="secondary"
@@ -374,7 +375,7 @@ export default function ManualOrderCheckout({
 						onClick={goNextStep}
 						disabled={!hasCartItems}
 					>
-						Siguiente
+						{nextStepLabel}
 					</Button>
 					<Button variant="default"
 						type="button"
@@ -388,11 +389,11 @@ export default function ManualOrderCheckout({
 			) : orderStep === 1 ? (
 				<Button variant="default"
 					type="button"
-					className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1"
+					className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full"
 					onClick={goNextStep}
 					disabled={!hasCartItems}
 				>
-					Siguiente
+					{nextStepLabel}
 				</Button>
 			) : null}
 		</div>
@@ -537,11 +538,11 @@ export default function ManualOrderCheckout({
 					) : (
 						<Button variant="default"
 							type="button"
-							className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
+							className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
 							onClick={goNextStep}
 							disabled={!hasCartItems}
 						>
-							Siguiente
+							{nextStepLabel}
 						</Button>
 					)}
 				</>

@@ -1,5 +1,5 @@
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImageToSupabase } from '@/shared/utils/supabaseStorage';
+import { uploadImageToSupabase, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
 import {
     computeCouponDiscountAmount,
     fetchActiveCouponByCode,
@@ -486,7 +486,8 @@ export const ordersService = {
             let receiptUploadFailed = false;
             if (orderData.payment_type === 'online' && receiptFile) {
                 try {
-                    receiptUrl = await uploadImageToSupabase(receiptFile, 'receipts');
+                    const folder = companyStorageFolder(orderData.company_id);
+                    receiptUrl = await uploadImageToSupabase(receiptFile, 'receipts', folder);
                 } catch {
                     receiptUploadFailed = true;
                 }

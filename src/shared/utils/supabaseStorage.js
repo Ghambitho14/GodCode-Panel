@@ -3,6 +3,19 @@ import { supabase } from '@/integrations/supabase/client';
 const MAX_SIZE_MB = 5;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/**
+ * Construye una ruta de carpeta dentro de un bucket agrupada por empresa.
+ * Si no hay companyId, usa la carpeta fallback 'general'.
+ *
+ * @param {string | null | undefined} companyId
+ * @param {string} [subFolder] - Subcarpeta opcional (p.ej. 'carousel/{branchId}', 'upsell').
+ * @returns {string}
+ */
+export function companyStorageFolder(companyId, subFolder) {
+    const base = companyId ? String(companyId).trim() : 'general';
+    return subFolder ? `${base}/${subFolder}` : base;
+}
+
 export function validateImageFile(file) {
     if (!file) return { valid: false, error: 'No se seleccionó ningún archivo.' };
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -104,4 +117,30 @@ export function extractStoragePath(urlOrPath, bucket) {
     const idx = trimmed.indexOf(marker);
     if (idx === -1) return trimmed;
     return trimmed.slice(idx + marker.length);
+}
+
+/**
+ * Elimina un archivo de Supabase Storage de forma silenciosa.
+ *
+ * @param {string | null | undefined} pathOrUrl - Ruta relativa o URL pública del archivo.
+ * @param {'menu' | 'receipts' | 'products'} bucket - Bucket.
+ * @returns {Promise<void>}
+ */
+export async function deleteStorageObject(pathOrUrl, bucket) {
+    if (!pathOrUrl) return;
+    const path = extractStoragePath(pathOrUrl, bucket);
+    if (!path) return;
+    // No intentar borrar URLs externas (Cloudinary, etc.)
+    if (/^https?:\/\//i.test(path)) return;
+
+    try {
+        const { error } = await supabase.storage.from(bucket).remove([path]);
+        if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[deleteStorageObject]', error.message);
+        }
+    } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[deleteStorageObject]', err instanceof Error ? err.message : err);
+    }
 }

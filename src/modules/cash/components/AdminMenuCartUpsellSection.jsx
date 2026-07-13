@@ -3,7 +3,7 @@ import "../styles/AdminMenuOptions.css";
 import "../styles/AdminMenuCarousel.css";
 import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { uploadImageToSupabase, validateImageFile } from "@/shared/utils/supabaseStorage";
+import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from "@/shared/utils/supabaseStorage";
 import {
 	CART_UPSELL_MAX_ITEMS,
 	cartUpsellEffectiveMaxPerOrder,
@@ -469,7 +469,12 @@ export default function AdminMenuCartUpsellSection({
 				return;
 			}
 			try {
-				imageUrl = await uploadImageToSupabase(localFile, "menu");
+				const previousImageUrl = modalItem?.imageUrl || "";
+				const folder = companyStorageFolder(effectiveCompanyId, "upsell");
+				imageUrl = await uploadImageToSupabase(localFile, "menu", folder);
+				if (previousImageUrl && previousImageUrl !== imageUrl) {
+					await deleteStorageObject(previousImageUrl, "menu");
+				}
 			} catch (err) {
 				showNotify(err instanceof Error ? err.message : "Error al subir imagen", "error");
 				return;
@@ -524,6 +529,9 @@ export default function AdminMenuCartUpsellSection({
 
 	const handleModalDelete = async (item) => {
 		const next = items.filter((i) => i.id !== item.id);
+		if (item?.imageUrl) {
+			await deleteStorageObject(item.imageUrl, "menu");
+		}
 		await persistCatalog(next);
 	};
 

@@ -362,7 +362,7 @@ const ManualOrderCatalog = ({
             {/* Layout */}
             <div className={`flex min-h-0 flex-1 flex-col ${spacing.normal}`}>
                 {sidebarCategories.length > 0 && (
-                    <nav className="flex items-center gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
+                    <nav className="flex items-center gap-2 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
@@ -371,10 +371,10 @@ const ManualOrderCatalog = ({
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
                                     className={cn(
-                                        `whitespace-nowrap ${textScale.body} transition-all`,
+                                        `shrink-0 snap-start whitespace-nowrap border px-3.5 py-1.5 ${pillRadiusClass} ${textScale.body} transition-all`,
                                         isActive
-                                            ? 'border-gc-text bg-gc-text font-semibold text-white'
-                                            : 'border-gc-border bg-gc-muted font-medium text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-card hover:text-gc-text',
+                                            ? 'border-gc-text bg-gc-text font-semibold text-white shadow-sm'
+                                            : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-muted hover:text-gc-text',
                                     )}
                                     aria-current={isActive ? 'true' : undefined}
                                 >
