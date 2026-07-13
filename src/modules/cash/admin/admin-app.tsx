@@ -127,6 +127,7 @@ export function AdminApp({
 	const [resolvedAssignedBranchId, setResolvedAssignedBranchId] = useState<string | null>(null);
 	const [resolvedPublicSlug, setResolvedPublicSlug] = useState<string | null>(null);
 	const [gateLoading, setGateLoading] = useState(() => !companyIdProp?.trim());
+	const [gateError, setGateError] = useState<string | null>(null);
 	const gateResolvedKeyRef = useRef<string | null>(null);
 	const tabLabelsFromProp = resolvedTabLabelsProp ?? EMPTY_TAB_LABELS;
 
@@ -215,8 +216,9 @@ export function AdminApp({
 			if (cancelled) return;
 
 			if (!row?.company_id) {
-				await logout();
-				navigate("/", { replace: true });
+				if (cancelled) return;
+				setGateError('Tu usuario no está asociado a una empresa en el sistema. Contactá al administrador.');
+				setGateLoading(false);
 				return;
 			}
 
@@ -294,14 +296,35 @@ export function AdminApp({
 				className="admin-gate-loading"
 				style={{
 					display: "flex",
+					flexDirection: "column",
 					alignItems: "center",
 					justifyContent: "center",
 					minHeight: "40vh",
 					gap: 10,
 				}}
 			>
-				<Loader2 className="animate-spin" size={22} aria-hidden />
-				<span>Cargando tu cuenta...</span>
+				{gateError ? (
+					<>
+						<span style={{ color: "var(--danger-red, #dc2626)", fontWeight: 600, textAlign: "center" }}>
+							{gateError}
+						</span>
+						<button
+							type="button"
+							className="btn btn-secondary"
+							onClick={() => {
+								void logout();
+								navigate("/", { replace: true });
+							}}
+						>
+							Volver al login
+						</button>
+					</>
+				) : (
+					<>
+						<Loader2 className="animate-spin" size={22} aria-hidden />
+						<span>Cargando tu cuenta...</span>
+					</>
+				)}
 			</div>
 		);
 	}
