@@ -12,7 +12,7 @@
  *   formulario lo edite como strings simples (igual que `useManualOrder`).
  */
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { validateImageFile } from '@/shared/utils/cloudinary';
+import { validateImageFile } from '@/shared/utils/supabaseStorage';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { ordersService } from '../admin/orders/services/orders';

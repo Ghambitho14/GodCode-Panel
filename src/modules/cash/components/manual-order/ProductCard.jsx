@@ -2,6 +2,7 @@ import React from 'react';
 import { Minus, Check } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
+import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
@@ -42,12 +43,16 @@ const ProductCard = ({
     };
 
     const inCart = quantity > 0;
-    const imageUrl = product.image_url?.trim() || null;
+    const rawImageUrl = product.image_url?.trim() || null;
     const categoryName = product.category_name || product.category?.name || '';
     const initial = String(product.name ?? '').trim().charAt(0).toUpperCase();
 
-    const [imageStage, setImageStage] = React.useState(imageUrl ? 'real' : 'fallback');
-    React.useEffect(() => { setImageStage(imageUrl ? 'real' : 'fallback'); }, [imageUrl]);
+    const { url: signedImageUrl } = useSignedImageUrl(rawImageUrl, 'menu');
+    const imageUrl = signedImageUrl || rawImageUrl;
+    const hasValidImageUrl = /^https?:\/\//i.test(imageUrl || '');
+
+    const [imageStage, setImageStage] = React.useState(hasValidImageUrl ? 'real' : 'fallback');
+    React.useEffect(() => { setImageStage(hasValidImageUrl ? 'real' : 'fallback'); }, [hasValidImageUrl]);
 
     const { url: fallbackImageUrl, failed: fallbackFailed } = useFoodFallbackImage(
         categoryName,
@@ -56,8 +61,8 @@ const ProductCard = ({
     );
 
     React.useEffect(() => {
-        if (!imageUrl && fallbackFailed) setImageStage('initial');
-    }, [imageUrl, fallbackFailed]);
+        if (!hasValidImageUrl && fallbackFailed) setImageStage('initial');
+    }, [hasValidImageUrl, fallbackFailed]);
 
     const handleImageError = () => {
         setImageStage((prev) => (prev === 'real' ? 'fallback' : 'initial'));
@@ -69,7 +74,7 @@ const ProductCard = ({
         <Button variant="default"
             type="button"
             onClick={handleAddClick}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-gc-accent text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
+            className="flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-gc-accent p-0 text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
             aria-label={`Agregar ${product.name}`}
         >
             +
@@ -79,18 +84,18 @@ const ProductCard = ({
             <Button variant="outline"
                 type="button"
                 onClick={handleMinusClick}
-                className="flex h-6 w-6 items-center justify-center rounded-full border-0 bg-transparent text-white transition-colors hover:bg-white/15 active:scale-95"
+                className="hidden h-6 w-6 items-center justify-center rounded-full border-0 bg-transparent text-white transition-colors hover:bg-white/15 active:scale-95 sm:flex"
                 aria-label="Reducir cantidad"
             >
                 <Minus size={12} strokeWidth={2.5} />
             </Button>
-            <span className={`min-w-[1rem] text-center ${textScale.micro} font-bold text-white tabular-nums`}>
+            <span className={`hidden min-w-[1rem] text-center ${textScale.micro} font-bold text-white tabular-nums sm:inline`}>
                 {quantity}
             </span>
             <Button variant="default"
                 type="button"
                 onClick={handleAddClick}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-transparent text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
+                className="flex aspect-square h-6 w-6 min-h-6 min-w-6 items-center justify-center !rounded-full bg-transparent p-0 text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
                 aria-label="Aumentar cantidad"
             >
                 +
@@ -101,7 +106,7 @@ const ProductCard = ({
     return (
         <article
             className={cn(
-                'group relative flex cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-4 transition-shadow duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2',
+                'group relative flex h-full cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-4 shadow-xs transition-shadow duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2',
                 cardRadiusClass,
             )}
             onClick={() => addItem(product)}
@@ -109,40 +114,42 @@ const ProductCard = ({
             role="button"
             tabIndex={0}
         >
-            <div className={cn(
-                'relative mt-2 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gc-muted',
-                !isShowingImage && 'border border-gc-border/60',
-                inCart && 'ring-2 ring-gc-accent',
-            )}>
-                {showProductImages && imageStage === 'real' && imageUrl ? (
-                    <img
-                        src={imageUrl}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                        decoding="async"
-                        onError={handleImageError}
-                    />
-                ) : showProductImages && imageStage === 'fallback' ? (
-                    <img
-                        src={fallbackImageUrl}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                        decoding="async"
-                        onError={handleImageError}
-                    />
-                ) : (
-                    <span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>
-                )}
+            <div className="relative mt-2">
+                <div className={cn(
+                    'flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gc-muted',
+                    !isShowingImage && 'border border-gc-border/60',
+                    inCart && 'ring-2 ring-gc-accent',
+                )}>
+                    {showProductImages && imageStage === 'real' && imageUrl ? (
+                        <img
+                            src={imageUrl}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                            decoding="async"
+                            onError={handleImageError}
+                        />
+                    ) : showProductImages && imageStage === 'fallback' ? (
+                        <img
+                            src={fallbackImageUrl}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                            decoding="async"
+                            onError={handleImageError}
+                        />
+                    ) : (
+                        <span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>
+                    )}
+                </div>
                 {inCart && (
-                    <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-gc-accent text-white shadow-sm">
-                        <Check size={12} strokeWidth={3} />
+                    <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-gc-accent text-[10px] font-bold text-white shadow-sm">
+                        {quantity}
                     </span>
                 )}
             </div>
 
-            <div className={`mt-4 flex w-full flex-col items-center ${spacing.compact}`}>
+            <div className={`mt-4 flex w-full flex-1 flex-col items-center ${spacing.compact}`}>
                 {categoryName && (
                     <span className={`${textScale.micro} truncate text-gc-text-muted`}>{categoryName}</span>
                 )}
@@ -153,7 +160,7 @@ const ProductCard = ({
                     {product.name}
                 </p>
 
-                <div className="flex w-full items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="mt-auto flex w-full items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
                     <span className={`${textScale.price} font-bold text-gc-text`}>
                         {hasDiscount ? (
                             <>

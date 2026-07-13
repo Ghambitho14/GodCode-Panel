@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { validateImageFile } from '@/shared/utils/cloudinary';
+import { validateImageFile } from '@/shared/utils/supabaseStorage';
 
 /**
  * Hook especializado en gestionar el archivo del comprobante de pago,

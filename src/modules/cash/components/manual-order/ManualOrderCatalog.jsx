@@ -387,7 +387,7 @@ const ManualOrderCatalog = ({
 
                 <div
                     ref={catalogScrollRef}
-                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[22px] border border-gc-border bg-gc-page px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[22px] border border-gc-border bg-gc-muted px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
                 >
                     {!hasAnyResults ? (
                         <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">

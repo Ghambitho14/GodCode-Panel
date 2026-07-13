@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
+import { uploadImageToSupabase, validateImageFile } from '@/shared/utils/supabaseStorage';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
 
@@ -48,7 +48,7 @@ export function useAdminCatalog({
 		if (!file) return;
 		setUploadingReceipt(true);
 		try {
-			const receiptUrl = await uploadImage(file, 'receipts');
+            const receiptUrl = await uploadImageToSupabase(file, 'receipts');
 			const { error } = await supabase
 				.from(TABLES.orders)
 				.update({ payment_ref: receiptUrl })
@@ -94,7 +94,7 @@ export function useAdminCatalog({
 		setRefreshing(true);
 		try {
 			let finalImageUrl = formData.image_url;
-			if (localFile) finalImageUrl = await uploadImage(localFile, 'menu');
+            if (localFile) finalImageUrl = await uploadImageToSupabase(localFile, 'menu');
 			const priceStr = String(Number(formData.price) || 0);
 			const discountStr = formData.has_discount
 				? String(Number(formData.discount_price) || 0)

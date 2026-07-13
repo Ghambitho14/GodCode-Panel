@@ -3,7 +3,7 @@ import "../styles/AdminMenuOptions.css";
 import "../styles/AdminMenuCarousel.css";
 import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { uploadImage, validateImageFile } from "@/shared/utils/cloudinary";
+import { uploadImageToSupabase, validateImageFile } from "@/shared/utils/supabaseStorage";
 import {
 	CART_UPSELL_MAX_ITEMS,
 	cartUpsellEffectiveMaxPerOrder,
@@ -469,7 +469,7 @@ export default function AdminMenuCartUpsellSection({
 				return;
 			}
 			try {
-				imageUrl = await uploadImage(localFile, "menu");
+				imageUrl = await uploadImageToSupabase(localFile, "menu");
 			} catch (err) {
 				showNotify(err instanceof Error ? err.message : "Error al subir imagen", "error");
 				return;

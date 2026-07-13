@@ -1,5 +1,5 @@
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImage } from '@/shared/utils/cloudinary';
+import { uploadImageToSupabase } from '@/shared/utils/supabaseStorage';
 import {
     computeCouponDiscountAmount,
     fetchActiveCouponByCode,
@@ -486,7 +486,7 @@ export const ordersService = {
             let receiptUploadFailed = false;
             if (orderData.payment_type === 'online' && receiptFile) {
                 try {
-                    receiptUrl = await uploadImage(receiptFile, 'receipts');
+                    receiptUrl = await uploadImageToSupabase(receiptFile, 'receipts');
                 } catch {
                     receiptUploadFailed = true;
                 }

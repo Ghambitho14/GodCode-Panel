@@ -3,7 +3,7 @@ import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, MoreVertical,
 	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles, WandSparkles,
 } from 'lucide-react';
-import { uploadImage, validateImageFile } from '@/shared/utils/cloudinary';
+import { uploadImageToSupabase, validateImageFile } from '@/shared/utils/supabaseStorage';
 import {
 	listMenuCarousel,
 	createBanner,
@@ -42,7 +42,12 @@ const shortUrlSnippet = (url) => {
 	return t.length > 44 ? `${t.slice(0, 42)}…` : t;
 };
 
-const isCloudinaryUrl = (url) => typeof url === 'string' && url.includes('res.cloudinary.com');
+const getImageSource = (url) => {
+	if (typeof url !== 'string') return { label: 'URL externa', accent: false };
+	if (url.includes('res.cloudinary.com')) return { label: 'Cloudinary', accent: false };
+	if (url.includes('.supabase.co/storage/')) return { label: 'Supabase', accent: true };
+	return { label: 'URL externa', accent: false };
+};
 
 const humanSize = (n) => `${Math.round(n).toLocaleString('es-CL')}px`;
 
@@ -76,7 +81,7 @@ export default function AdminMenuCarousel({
 	const [editing, setEditing] = useState(false);
 
 	const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : null;
-	const cloudinaryFolder = companyId && branchId
+	const storageFolder = companyId && branchId
 		? `menu_carousel/${companyId}/${branchId}`
 		: 'menu_carousel';
 
@@ -259,7 +264,7 @@ export default function AdminMenuCarousel({
 		if (!companyId) {
 			throw new Error('Falta identificar la empresa');
 		}
-		const url = await uploadImage(fileToUpload, cloudinaryFolder);
+		const url = await uploadImageToSupabase(fileToUpload, 'menu', storageFolder);
 		const banner = await createBanner({ branchId, companyId, imageUrl: url });
 		if (banner) {
 			setBanners((prev) => [...prev, banner].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
@@ -267,7 +272,7 @@ export default function AdminMenuCarousel({
 	};
 
 	const uploadAndReplaceBannerImage = async (bannerId, fileToUpload) => {
-		const url = await uploadImage(fileToUpload, cloudinaryFolder);
+		const url = await uploadImageToSupabase(fileToUpload, 'menu', storageFolder);
 		const updated = await patchBanner(bannerId, { image_url: url });
 		mergeBanner(bannerId, updated);
 	};
@@ -574,9 +579,14 @@ export default function AdminMenuCarousel({
 												<AdminIconSlot Icon={Star} slotSize="xxs" />
 												Orden {b.sort_order ?? idx}
 											</span>
-											<span className={`menu-carousel-chip ${isCloudinaryUrl(b.image_url) ? 'menu-carousel-chip--accent' : 'menu-carousel-chip--neutral'}`}>
-												{isCloudinaryUrl(b.image_url) ? 'Cloudinary' : 'URL externa'}
-											</span>
+											{(() => {
+												const source = getImageSource(b.image_url);
+												return (
+													<span className={`menu-carousel-chip ${source.accent ? 'menu-carousel-chip--accent' : 'menu-carousel-chip--neutral'}`}>
+														{source.label}
+													</span>
+												);
+											})()}
 											<span className="menu-carousel-chip menu-carousel-chip--neutral">
 												<AdminIconSlot Icon={Calendar} slotSize="xxs" />
 												{dateStr}

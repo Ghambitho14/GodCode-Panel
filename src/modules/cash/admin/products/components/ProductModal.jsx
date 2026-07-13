@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
+import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 
 const INITIAL_STATE = {
   name: '',
@@ -37,7 +38,19 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
   });
 
   const [localFile, setLocalFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(() => product?.image_url || '');
+  const rawExistingUrl = product?.image_url || '';
+  const { url: signedExistingUrl } = useSignedImageUrl(rawExistingUrl, 'menu');
+  const resolvePreview = (value) => {
+    const candidate = value || '';
+    return /^https?:\/\//i.test(candidate) ? candidate : '';
+  };
+  const [previewUrl, setPreviewUrl] = useState(() => resolvePreview(signedExistingUrl || rawExistingUrl));
+
+  useEffect(() => {
+    if (!localFile) {
+      setPreviewUrl(resolvePreview(signedExistingUrl || rawExistingUrl));
+    }
+  }, [localFile, signedExistingUrl, rawExistingUrl]);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
