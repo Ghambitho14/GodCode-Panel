@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShoppingBag, Printer, ChefHat, Banknote, Minus, Plus, StickyNote, Trash2, Receipt } from 'lucide-react';
+import { ShoppingBag, Printer, ChefHat, Banknote, Receipt } from 'lucide-react';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
-import { PRODUCT_IMAGE_PLACEHOLDER } from '../../constants/productImagePlaceholder';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
+import SectionHeader from './SectionHeader';
+import CartItemCard from './CartItemCard';
+import { spacing, textScale } from './manualOrderStyles';
 
 /**
  * Resumen del carrito de compras con estilos Tailwind.
@@ -54,13 +56,15 @@ const OrderSummary = ({
         manualOrder.items.length > 0 &&
         (manualOrder.order_type === 'delivery' || deliveryFeeAmt > 0);
 
+    const summaryHasFewItems = manualOrder.items.length <= 2 && !showCheckoutTotals;
+
     return (
-        <div className="gc-order-summary flex min-h-0 flex-1 flex-col overflow-hidden rounded-[4px] border border-gc-border bg-gc-page">
+        <div className={cn(
+            'gc-order-summary flex min-h-0 flex-col overflow-hidden rounded-[4px] border border-gc-border bg-gc-page',
+            !summaryHasFewItems && 'flex-1',
+        )}>
             <div className="flex items-center justify-between border-b border-gc-border px-4 py-3">
-                <div className="flex items-center gap-2 text-[13px] font-bold text-gc-text">
-                    <ShoppingBag size={15} className="text-gc-accent" />
-                    Resumen ({totalQty})
-                </div>
+                <SectionHeader icon={ShoppingBag} tone="accent">Resumen ({totalQty})</SectionHeader>
                 {manualOrder.items.length > 0 && (
                     <div className="relative" ref={printMenuRef}>
                         <Button variant="default"
@@ -75,10 +79,10 @@ const OrderSummary = ({
                             <Printer size={14} />
                         </Button>
                         {printMenuOpen && (
-                            <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg" role="menu">
+                            <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-[4px] border border-gc-border bg-gc-card p-1.5 shadow-lg" role="menu">
                                 <Button variant="default"
                                     type="button"
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-gc-text transition-colors hover:bg-gc-muted"
+                                    className={`flex w-full items-center gap-2 rounded-[4px] border border-gc-border bg-gc-card px-3 py-2 text-left ${textScale.body} font-bold text-gc-text transition-colors hover:bg-gc-muted`}
                                     role="menuitem"
                                     onClick={() => {
                                         printManualKitchen();
@@ -90,7 +94,7 @@ const OrderSummary = ({
                                 </Button>
                                 <Button variant="default"
                                     type="button"
-                                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-gc-text transition-colors hover:bg-gc-muted"
+                                    className={`flex w-full items-center gap-2 rounded-[4px] border border-gc-border bg-gc-card px-3 py-2 text-left ${textScale.body} font-bold text-gc-text transition-colors hover:bg-gc-muted`}
                                     role="menuitem"
                                     onClick={() => {
                                         printManualCaja();
@@ -108,134 +112,36 @@ const OrderSummary = ({
 
             <div className="flex-1 overflow-y-auto p-3">
                 {manualOrder.items.length === 0 ? (
-                    <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2.5 text-center">
+                    <div className={`flex h-full min-h-[140px] flex-col items-center justify-center ${spacing.normal} text-center`}>
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gc-muted">
                             <Receipt size={22} className="text-gc-text-muted" />
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-gc-text">Carrito vacío</p>
-                            <p className="mt-0.5 text-xs text-gc-text-muted">Agregá productos para armar el pedido.</p>
+                            <p className={`${textScale.emphasis} font-semibold text-gc-text`}>Carrito vacío</p>
+                            <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>Agregá productos para armar el pedido.</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-2.5">
-                        {manualOrder.items.map(item => {
-                            const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
-                            const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
-                            const subtotal = unit * Number(item.quantity || 1);
-                            const noteOpen = isItemNoteOpen(item);
-
-                            return (
-                                <div key={item.id} className="rounded-[4px] border border-gc-border bg-gc-page p-2.5">
-                                    <div className="flex gap-2.5">
-                                        <img
-                                            src={item.image_url || PRODUCT_IMAGE_PLACEHOLDER}
-                                            alt={item.name}
-                                            className="h-12 w-12 flex-shrink-0 rounded-[4px] object-cover"
-                                            onError={(e) => { e.target.src = PRODUCT_IMAGE_PLACEHOLDER; }}
-                                        />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-xs font-bold text-gc-text">{item.name}</p>
-                                                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                                                        {hasDiscount && (
-                                                            <span className="rounded bg-gc-discount/10 px-1 py-0.5 text-[9px] font-bold uppercase text-gc-discount">
-                                                                Oferta
-                                                            </span>
-                                                        )}
-                                                        {hasDiscount && (
-                                                            <span className="text-[11px] text-gc-text-muted line-through">
-                                                                {formatMoney(Number(item.price))}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs font-black text-gc-text">
-                                                        {formatMoney(subtotal)}
-                                                        <span className="ml-1 text-[10px] font-semibold text-gc-text-muted">
-                                                            ({formatMoney(unit)} c/u)
-                                                        </span>
-                                                    </p>
-                                                </div>
-
-                                                <div className="flex items-center gap-1">
-                                                    <div className="flex items-center gap-1 rounded-full bg-gc-card p-0.5 shadow-sm">
-                                                        <Button variant="default"
-                                                            type="button"
-                                                            className="flex h-6 w-6 items-center justify-center rounded-full text-gc-text transition-colors hover:bg-gc-muted"
-                                                            onClick={() => updateQuantity(item.id, -1)}
-                                                            aria-label="Reducir cantidad"
-                                                        >
-                                                            <Minus size={12} strokeWidth={2.5} />
-                                                        </Button>
-                                                        <span className="min-w-[1rem] text-center text-xs font-bold text-gc-text">{item.quantity}</span>
-                                                        <Button variant="default"
-                                                            type="button"
-                                                            className="flex h-6 w-6 items-center justify-center rounded-full text-gc-text transition-colors hover:bg-gc-muted"
-                                                            onClick={() => updateQuantity(item.id, 1)}
-                                                            aria-label="Aumentar cantidad"
-                                                        >
-                                                            <Plus size={12} strokeWidth={2.5} />
-                                                        </Button>
-                                                    </div>
-                                                    <Button variant="destructive"
-                                                        type="button"
-                                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-gc-card text-gc-text-muted transition-colors hover:bg-gc-danger/10 hover:text-gc-danger"
-                                                        onClick={() => removeItem(item.id)}
-                                                        title="Eliminar ítem"
-                                                        aria-label="Eliminar ítem"
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <Button variant="default"
-                                        type="button"
-                                        className={cn(
-                                            'mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-[4px] border px-2.5 py-2 text-[11px] font-semibold transition-colors',
-                                            (item.note ?? '').length > 0
-                                                ? 'border-gc-accent/30 bg-gc-accent/10 text-gc-accent'
-                                                : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/25 hover:text-gc-accent',
-                                        )}
-                                        onClick={() => toggleItemNote(item.id)}
-                                        title={(item.note ?? '').length > 0 ? 'Editar comentario' : 'Agregar comentario para cocina'}
-                                        aria-label={(item.note ?? '').length > 0 ? 'Editar comentario' : 'Agregar comentario para cocina'}
-                                        aria-pressed={noteOpen}
-                                    >
-                                        <StickyNote size={12} />
-                                        {(item.note ?? '').length > 0 ? 'Editar comentario' : 'Comentario para cocina'}
-                                    </Button>
-
-                                    {noteOpen && (
-                                        <div className="mt-2">
-                                            <textarea
-                                                className="w-full rounded-[4px] border border-gc-border bg-gc-card p-2 text-xs text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/20"
-                                                value={item.note ?? ''}
-                                                onChange={(e) => updateItemNote(item.id, e.target.value)}
-                                                placeholder="Ej: sin cebolla, salsa aparte. Máx. 140 caracteres."
-                                                maxLength={140}
-                                                rows={2}
-                                                aria-label={`Comentario para ${item.name}`}
-                                            />
-                                            <span className="mt-1 block text-right text-[10px] text-gc-text-muted">
-                                                {(item.note ?? '').length}/140
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                    <div className={`flex flex-col ${spacing.normal}`}>
+                        {manualOrder.items.map(item => (
+                            <CartItemCard
+                                key={item.id}
+                                item={item}
+                                updateQuantity={updateQuantity}
+                                removeItem={removeItem}
+                                updateItemNote={updateItemNote}
+                                isItemNoteOpen={isItemNoteOpen}
+                                toggleItemNote={toggleItemNote}
+                            />
+                        ))}
                     </div>
                 )}
             </div>
 
             {/* Totals */}
             {showTotals && (
-                <div className="border-t border-gc-border bg-gc-muted/40 p-4">
-                    <div className="space-y-1.5 text-xs text-gc-text-muted">
+                <div className="border-t-2 border-gc-border p-4">
+                    <div className={`space-y-1.5 ${textScale.micro} text-gc-text-muted`}>
                         <div className="flex justify-between">
                             <span>Subtotal productos</span>
                             <span className="font-semibold text-gc-text">{formatMoney(itemsSubtotal)}</span>
@@ -247,9 +153,9 @@ const OrderSummary = ({
                             </div>
                         )}
                     </div>
-                    <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
-                        <span className="text-xs font-black uppercase tracking-wider text-gc-text-muted">Total</span>
-                        <span className="text-lg font-black text-gc-text">
+                    <div className="mt-3 flex items-center justify-between pt-1">
+                        <span className={`${textScale.micro} font-black uppercase tracking-wider text-gc-text-muted`}>Total</span>
+                        <span className={`${textScale.price} font-black text-gc-text`}>
                             {formatOrderAmount({
                                 amountUsd: checkoutTotal,
                                 paymentMethod: manualOrder.payment_method_specific

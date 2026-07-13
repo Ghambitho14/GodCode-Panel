@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../constants/productImagePlaceholder';
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +12,18 @@ import { Button } from "@/components/ui/button";
  */
 const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct, viewMode = 'grid', showPhotos = true }) => {
     const { formatMoney } = useBranchMoney();
+    const imageUrl = product.image_url?.trim() || null;
+    const categoryName = product.category_name || product.category?.name || '';
+    const { url: fallbackUrl } = useFoodFallbackImage(categoryName, product.id, showPhotos);
+    const [errorStage, setErrorStage] = React.useState(0);
+
+    React.useEffect(() => { setErrorStage(0); }, [imageUrl]);
+
+    const displayedSrc = errorStage === 0
+        ? (imageUrl || fallbackUrl || PRODUCT_IMAGE_PLACEHOLDER)
+        : errorStage === 1
+            ? (fallbackUrl || PRODUCT_IMAGE_PLACEHOLDER)
+            : PRODUCT_IMAGE_PLACEHOLDER;
 
     // Manejadores de eventos limpios para evitar lógica en el JSX
     const handleEditClick = () => {
@@ -28,10 +41,9 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
         deleteProduct(product.id);
     };
 
-    // Manejo seguro de imagen rota (evita bucles infinitos)
-    const handleImageError = (e) => {
-        e.target.onerror = null; // Previene bucle si el logo también falla
-        e.target.src = PRODUCT_IMAGE_PLACEHOLDER;
+    // Manejo seguro de imagen rota: real -> fallback local -> placeholder genérico
+    const handleImageError = () => {
+        setErrorStage((prev) => Math.min(prev + 1, 2));
     };
 
     // Manejo de teclado para accesibilidad (Enter para editar)
@@ -68,7 +80,7 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
             {showPhotos ? (
                 <div className="inv-img-wrapper">
                     <img
-                        src={product.image_url || PRODUCT_IMAGE_PLACEHOLDER}
+                        src={displayedSrc}
                         alt={product.name}
                         onError={handleImageError}
                         loading="lazy"

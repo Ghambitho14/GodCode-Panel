@@ -24,21 +24,20 @@ import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import PickupBagIcon from '../PickupBagIcon';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
+import { selectedToggleActiveClass, spacing, textScale } from './manualOrderStyles';
+import SectionHeader from './SectionHeader';
 
 const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
-const sectionTitleClass =
-    'mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gc-text-muted';
 const inputClass =
-    'w-full rounded-[4px] border border-gc-border bg-gc-page px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
+    `w-full rounded-[4px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const inputReadonlyClass =
     'cursor-not-allowed border-gc-border/50 bg-gc-muted/60 text-gc-text-muted focus:ring-0';
 const toggleBaseClass =
-    'flex min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 text-xs font-semibold text-gc-text transition-colors sm:px-3';
-const toggleActiveClass = 'border-gc-accent bg-gc-accent/10 text-gc-accent';
+    `flex min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
 const hintClass =
-    'mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 text-xs leading-relaxed text-gc-text-muted';
+    `mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
 const inlineActionClass =
-    'inline-flex items-center gap-1.5 self-start rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-2 text-xs font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50';
+    `inline-flex items-center gap-1.5 self-start rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-2 ${textScale.body} font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50`;
 
 const fulfillmentActiveClass = {
     mesa: 'border-[var(--fulfillment-mesa-border)] bg-[var(--fulfillment-mesa-bg)] text-[var(--fulfillment-mesa-fg)]',
@@ -289,10 +288,10 @@ const ClientForm = ({
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelectClient(client)}
                     >
-                        <span className="text-[13px] font-bold text-gc-text">
+                        <span className={`${textScale.body} font-bold text-gc-text`}>
                             {client.name}
                         </span>
-                        <span className="text-[10px] text-gc-text-muted">
+                        <span className={`${textScale.micro} text-gc-text-muted`}>
                             {[client.rut, client.phone].filter(Boolean).join(' · ')}
                         </span>
                     </Button>
@@ -407,7 +406,7 @@ const ClientForm = ({
     );
 
     const deliveryFields = isDelivery ? (
-        <div className="mt-3 flex flex-col gap-2.5">
+        <div className={`mt-3 flex flex-col ${spacing.normal}`}>
             {savedAddresses.length > 0 ? (
                 inputWithIcon(
                     <MapPin size={14} aria-hidden />,
@@ -555,7 +554,7 @@ const ClientForm = ({
             ) : null}
 
             {showDistancePricing && !distanceAutoMode && (
-                <p className="text-xs italic leading-relaxed text-gc-text-muted">
+                <p className={`${textScale.micro} italic leading-relaxed text-gc-text-muted`}>
                     Configura la ubicación del local en Settings → Delivery para autocalcular distancia.
                 </p>
             )}
@@ -598,16 +597,13 @@ const ClientForm = ({
         const visibleModes = LOCAL_FULFILLMENT_MODES.filter((mode) => channels[mode]);
 
         return (
-            <div className="w-full space-y-3.5">
-                <div className={sectionCardClass}>
-                    <div className={sectionTitleClass}>
-                        <Store size={14} className="text-gc-accent" aria-hidden />
-                        Tipo de pedido local
-                    </div>
+            <div className="w-full space-y-3">
+            <div className={sectionCardClass}>
+                <SectionHeader icon={Store} tone="accent">Tipo de pedido local</SectionHeader>
 
-                    {visibleModes.length > 0 ? (
+                {visibleModes.length > 0 ? (
                         <div className={cn(
-                            'grid gap-2.5',
+                            `grid ${spacing.normal}`,
                             visibleModes.length === 1
                                 ? 'grid-cols-1'
                                 : visibleModes.length === 2
@@ -676,17 +672,14 @@ const ClientForm = ({
                     ) : null}
                 </div>
 
-                <div className={sectionCardClass}>
-                    <div className={sectionTitleClass}>
-                        <User size={14} className="text-gc-accent" aria-hidden />
-                        {isMesa ? 'Mesa / Cliente' : 'Cliente'}
-                    </div>
+            <div className={sectionCardClass}>
+                <SectionHeader icon={User} tone="accent">{isMesa ? 'Mesa / Cliente' : 'Cliente'}</SectionHeader>
 
-                    {isMesa ? (
-                        <div className="mb-3 grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+                {isMesa ? (
+                        <div className={`mb-3 grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
                             <Button variant="default"
                                 type="button"
-                                className={cn(toggleBaseClass, isMesero && toggleActiveClass)}
+                                className={cn(toggleBaseClass, isMesero && selectedToggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('mesero')}
                             >
                                 <User size={16} />
@@ -694,7 +687,7 @@ const ClientForm = ({
                             </Button>
                             <Button variant="default"
                                 type="button"
-                                className={cn(toggleBaseClass, !isMesero && toggleActiveClass)}
+                                className={cn(toggleBaseClass, !isMesero && selectedToggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('cliente')}
                             >
                                 <User size={16} />
@@ -720,14 +713,11 @@ const ClientForm = ({
                         })}
                 </div>
 
-                {isDelivery ? (
-                    <div className={sectionCardClass}>
-                        <div className={sectionTitleClass}>
-                            <Truck size={14} className="text-gc-accent" aria-hidden />
-                            Datos de delivery
-                        </div>
-                        {branchDeliveryCfgLoading ? (
-                            <p className="flex items-center gap-2 text-xs text-gc-text-muted" role="status">
+            {isDelivery ? (
+                <div className={sectionCardClass}>
+                    <SectionHeader icon={Truck} tone="accent">Datos de delivery</SectionHeader>
+                    {branchDeliveryCfgLoading ? (
+                            <p className={`flex items-center gap-2 ${textScale.micro} text-gc-text-muted`} role="status">
                                 <Loader2 size={14} className="animate-spin" aria-hidden />
                                 Cargando zonas y tarifas de delivery…
                             </p>
@@ -747,14 +737,11 @@ const ClientForm = ({
 
     return (
         <div className="w-full">
-            <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-                <div className={sectionCardClass}>
-                    <div className={sectionTitleClass}>
-                        <User size={14} className="text-gc-accent" aria-hidden />
-                        Datos cliente
-                    </div>
+            <div className={`grid grid-cols-1 ${spacing.normal} lg:grid-cols-2`}>
+            <div className={sectionCardClass}>
+                <SectionHeader icon={User} tone="accent">Datos cliente</SectionHeader>
 
-                    <div className="grid gap-3">
+                <div className="grid gap-3">
                         <div className="relative w-full" ref={clientSearchRef}>
                             <input
                                 type="text"
@@ -808,15 +795,12 @@ const ClientForm = ({
                 </div>
 
                 <div className={sectionCardClass}>
-                    <div className={sectionTitleClass}>
-                        <Truck size={14} className="text-gc-accent" aria-hidden />
-                        Retiro o delivery
-                    </div>
+                    <SectionHeader icon={Truck} tone="accent">Retiro o delivery</SectionHeader>
 
-                    <div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+                    <div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
                         <Button variant="default"
                             type="button"
-                            className={cn(toggleBaseClass, isPickup && toggleActiveClass)}
+                            className={cn(toggleBaseClass, isPickup && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('pickup')}
                         >
                             <Store size={16} />
@@ -824,7 +808,7 @@ const ClientForm = ({
                         </Button>
                         <Button variant="default"
                             type="button"
-                            className={cn(toggleBaseClass, isDelivery && toggleActiveClass)}
+                            className={cn(toggleBaseClass, isDelivery && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('delivery')}
                         >
                             <Truck size={16} />

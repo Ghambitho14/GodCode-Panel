@@ -17,6 +17,7 @@ import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import AdminHelpTip from "./AdminHelpTip";
 import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
 import { PRODUCT_IMAGE_PLACEHOLDER } from "../constants/productImagePlaceholder";
+import { getFoodFallbackImageUrl } from "@/modules/cash/utils/foodFallbackImage";
 import { Button } from "@/components/ui/button";
 
 function branchFlag(map, branchId, defaultOn = true) {
@@ -670,10 +671,11 @@ export default function AdminMenuCartUpsellSection({
 								<h4 className="admin-cart-upsell-category-block__title">{group.label}</h4>
 								<div className="admin-cart-upsell-grid">
 									{group.items.map((item) => {
-										const url =
-											item.imageUrl && /^https?:\/\//i.test(item.imageUrl) ? item.imageUrl : null;
-										const broken = imgBroken[item.id];
-										const showImg = url && !broken;
+                                        const url =
+                                            item.imageUrl && /^https?:\/\//i.test(item.imageUrl) ? item.imageUrl : null;
+                                        const fallbackUrl = getFoodFallbackImageUrl(group.label, item.id);
+                                        const broken = imgBroken[item.id];
+                                        const showImg = (url || fallbackUrl) && !broken;
 										const invKey =
 											item.inventoryItemId != null && String(item.inventoryItemId).trim()
 												? String(item.inventoryItemId).trim().toLowerCase()
@@ -741,21 +743,21 @@ export default function AdminMenuCartUpsellSection({
 												}}
 												aria-label={`Editar ${item.name}`}
 											>
-												<div className="admin-cart-upsell-card__img-wrap">
-													{showImg ? (
-														<img
-															src={url}
-															alt=""
-															className="admin-cart-upsell-card__img"
-															onError={() => setImgBroken((m) => ({ ...m, [item.id]: true }))}
-														/>
-													) : (
-														<img
-															src={PRODUCT_IMAGE_PLACEHOLDER}
-															alt=""
-															className="admin-cart-upsell-card__img admin-cart-upsell-card__img--placeholder"
-														/>
-													)}
+                                                <div className="admin-cart-upsell-card__img-wrap">
+                                                    {showImg ? (
+                                                        <img
+                                                            src={url || fallbackUrl}
+                                                            alt=""
+                                                            className="admin-cart-upsell-card__img"
+                                                            onError={() => setImgBroken((m) => ({ ...m, [item.id]: true }))}
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src={PRODUCT_IMAGE_PLACEHOLDER}
+                                                            alt=""
+                                                            className="admin-cart-upsell-card__img admin-cart-upsell-card__img--placeholder"
+                                                        />
+                                                    )}
 													<Button variant="default"
 														type="button"
 														className={`admin-cart-upsell-card__status ${item.active !== false ? "is-on" : ""}`}

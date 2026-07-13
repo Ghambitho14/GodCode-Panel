@@ -14,11 +14,12 @@ import CloseTableModal from './CloseTableModal';
 import ManualOrderCheckout, {
 	DESKTOP_WIZARD_STEPS,
 	MOBILE_WIZARD_STEPS,
+	TABLET_WIZARD_STEPS,
 	useManualOrderCheckoutFlow,
 } from './manual-order/ManualOrderCheckout';
 import useManualOrderBranchConfig from './manual-order/useManualOrderBranchConfig';
 import { isOpenOrderSessionStatus } from '../hooks/manual-order/manualOrderShared';
-import { ADMIN_MOBILE_MQ } from '../constants/responsive';
+import { ADMIN_MOBILE_MQ, ADMIN_TABLET_MQ } from '../constants/responsive';
 import { Button } from "@/components/ui/button";
 
 const ManualOrderModal = ({
@@ -101,6 +102,10 @@ const ManualOrderModal = ({
 		if (typeof window === 'undefined') return false;
 		return window.matchMedia(ADMIN_MOBILE_MQ).matches;
 	});
+	const [isTabletNav, setIsTabletNav] = useState(() => {
+		if (typeof window === 'undefined') return false;
+		return window.matchMedia(ADMIN_TABLET_MQ).matches;
+	});
 
 	const [touchStart, setTouchStart] = useState(null);
 	const [touchEnd, setTouchEnd] = useState(null);
@@ -116,7 +121,9 @@ const ManualOrderModal = ({
 
 	const wizardStepCount = effectiveOpenMesaMode
 		? (openMesaChargeNow && isCompactNav ? 3 : 2)
-		: (isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
+		: (isCompactNav
+			? MOBILE_WIZARD_STEPS
+			: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS));
 
 	useEffect(() => {
 		if (isOpen && !wasOpenRef.current) {
@@ -137,13 +144,24 @@ const ManualOrderModal = ({
 	}, []);
 
 	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const mq = window.matchMedia(ADMIN_TABLET_MQ);
+		const sync = () => setIsTabletNav(mq.matches);
+		sync();
+		mq.addEventListener('change', sync);
+		return () => mq.removeEventListener('change', sync);
+	}, []);
+
+	useEffect(() => {
 		setOrderStep((prev) => {
-			const max = isCompactNav ? MOBILE_WIZARD_STEPS : DESKTOP_WIZARD_STEPS;
+			const max = isCompactNav
+				? MOBILE_WIZARD_STEPS
+				: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
 			if (prev <= max) return prev;
 			if (!isCompactNav && prev === 3) return 2;
 			return max;
 		});
-	}, [isCompactNav]);
+	}, [isCompactNav, isTabletNav]);
 
 	const manualOrderForTicket = useMemo(() => {
 		if (manualOrder.order_type !== 'delivery') return manualOrder;
@@ -276,7 +294,7 @@ const ManualOrderModal = ({
 		<div className="manual-order-portal-scope">
 			<div className="manual-order-overlay" onClick={onClose}>
 				<div
-					className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
+					className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${isTabletNav ? ' manual-order--tablet' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
 					onClick={e => e.stopPropagation()}
 				>
 					<div
@@ -295,6 +313,7 @@ const ManualOrderModal = ({
 						setOrderStep={setOrderStep}
 						wizardStepCount={wizardStepCount}
 						isCompactNav={isCompactNav}
+						isTabletNav={isTabletNav}
 						isEditMode={isEditMode}
 						effectiveOpenMesaMode={effectiveOpenMesaMode}
 						showClassicPaymentStep={showClassicPaymentStep}

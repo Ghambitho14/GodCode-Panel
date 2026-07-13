@@ -12,32 +12,36 @@ import ClientForm from './ClientForm';
 import OrderSummary from './OrderSummary';
 import PaymentDetails from './PaymentDetails';
 import { Button } from "@/components/ui/button";
+import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale } from './manualOrderStyles';
+import SectionHeader from './SectionHeader';
 
 export const DESKTOP_WIZARD_STEPS = 2;
+export const TABLET_WIZARD_STEPS = 2;
 export const MOBILE_WIZARD_STEPS = 3;
 
 export const stepNavBackClass =
-	'flex max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-all';
-export const stepNavNextClass =
-	'flex min-h-[44px] flex-1 items-center justify-center rounded-[4px] bg-gc-accent px-6 text-[13px] font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-all hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0';
-export const confirmBtnClass =
-	'manual-order-checkout-actions__confirm flex min-h-[44px] w-full min-w-0 items-center justify-center gap-2 rounded-[4px] border border-transparent bg-gc-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-[background,border-color,color,box-shadow,transform] enabled:hover:-translate-y-0.5 enabled:hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border-gc-accent/40 disabled:bg-gc-accent/10 disabled:text-gc-accent disabled:shadow-none disabled:hover:translate-y-0';
+	`flex max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-all`;
+export const stepNavNextClass = cn(
+	primaryActionButtonClass,
+	`flex-1 px-6 ${textScale.body} gap-0`,
+);
+export const confirmBtnClass = cn(
+	primaryActionButtonClass,
+	'manual-order-checkout-actions__confirm w-full',
+);
 export const checkoutColBase =
 	'manual-order-checkout-col flex min-h-0 min-w-0 flex-col overflow-hidden';
 export const checkoutColCard =
 	'rounded-[4px] border border-gc-border bg-gc-card';
 export const openMesaPaymentCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
-export const openMesaSectionTitleClass =
-	'mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gc-text-muted';
 export const openMesaToggleClass =
-	'flex min-h-[44px] items-center justify-center rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 text-xs font-semibold text-gc-text transition-colors sm:px-3';
-export const openMesaToggleActiveClass = 'border-gc-accent bg-gc-accent/10 text-gc-accent';
+	`flex min-h-[44px] items-center justify-center rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
 export const openMesaHintClass =
-	'mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 text-xs leading-relaxed text-gc-text-muted';
+	`mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
 export const checkoutActionsClass =
-	'manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col gap-2 border-t border-gc-border bg-gc-card pt-3';
+	`manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col ${spacing.compact} border-t border-gc-border bg-gc-card pt-3`;
 export const checkoutBackBtnClass =
-	'manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
+	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-colors`;
 
 export function useManualOrderCheckoutFlow({
 	manualOrder,
@@ -438,17 +442,14 @@ export default function ManualOrderCheckout({
 	};
 
 	const openMesaPaymentChoiceSection = showOpenMesaPaymentChoice ? (
-		<div className={openMesaPaymentCardClass}>
-			<div className={openMesaSectionTitleClass}>
-				<Banknote size={14} className="text-gc-accent" aria-hidden />
-				Pago
-			</div>
-			<div className="grid grid-cols-1 gap-2.5 min-[400px]:grid-cols-2">
+			<div className={openMesaPaymentCardClass}>
+			<SectionHeader icon={Banknote} tone="accent">Pago</SectionHeader>
+			<div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
 				<Button variant="default"
 					type="button"
 					className={cn(
 						openMesaToggleClass,
-						!manualOrder.charge_now && openMesaToggleActiveClass,
+						!manualOrder.charge_now && selectedToggleActiveClass,
 					)}
 					onClick={() => updateChargeNow?.(false)}
 				>
@@ -458,7 +459,7 @@ export default function ManualOrderCheckout({
 					type="button"
 					className={cn(
 						openMesaToggleClass,
-						manualOrder.charge_now && openMesaToggleActiveClass,
+						manualOrder.charge_now && selectedToggleActiveClass,
 					)}
 					onClick={() => updateChargeNow?.(true)}
 				>
@@ -476,12 +477,9 @@ export default function ManualOrderCheckout({
 	const isLocalSessionEdit = isEditMode && isLocalOpenSessionOrder(liveEditOrder);
 
 	const openMesaSessionPaymentSection = isEditMode && isLocalSessionEdit ? (
-		<div className={openMesaPaymentCardClass}>
-			<div className={openMesaSectionTitleClass}>
-				<Banknote size={14} className="text-gc-accent" aria-hidden />
-				Pago
-			</div>
-			{sessionPaymentDeferred ? (
+				<div className={openMesaPaymentCardClass}>
+					<SectionHeader icon={Banknote} tone="accent">Pago</SectionHeader>
+					{sessionPaymentDeferred ? (
 				<p className={openMesaHintClass}>
 					El cobro se registra al cerrar la mesa, retiro o delivery.
 				</p>
@@ -493,7 +491,7 @@ export default function ManualOrderCheckout({
 			{canMarkPaidSession ? (
 				<Button variant="default"
 					type="button"
-					className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[4px] bg-gc-accent px-4 text-sm font-bold text-white transition-colors hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:opacity-55"
+					className={`mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[4px] bg-gc-accent px-4 ${textScale.body} font-bold text-white transition-colors hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:opacity-55`}
 					onClick={(e) => {
 						e.stopPropagation();
 						setPayModalOpen(true);
@@ -599,10 +597,10 @@ export default function ManualOrderCheckout({
 					{canCancelOrder ? (
 						<Button variant="default"
 							type="button"
-							className={cn(
-								stepNavBackClass,
-								'max-w-[36%] text-[10px] text-gc-danger',
-							)}
+						className={cn(
+							stepNavBackClass,
+							`max-w-[36%] ${textScale.micro} text-gc-danger`,
+						)}
 							onClick={handleCancelOrder}
 							disabled={loading}
 						>
@@ -624,7 +622,7 @@ export default function ManualOrderCheckout({
 
 	const sidebarSection = (
 		<div className={cn(
-			'manual-order-sidebar flex min-h-0 w-full min-w-0 flex-shrink-0 flex-col gap-3 overflow-hidden !bg-gc-page lg:w-80',
+			`manual-order-sidebar flex min-h-0 w-full min-w-0 flex-shrink-0 flex-col ${spacing.normal} overflow-hidden !bg-gc-page lg:w-80`,
 			orderStep === 2 && '!border-gc-border',
 		)}>
 			{orderStep === 1 ? (
@@ -641,11 +639,11 @@ export default function ManualOrderCheckout({
 				</>
 			) : (
 				<div className={cn(
-					'manual-order-checkout-stage grid w-full max-w-[1280px] flex-1 grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,1.15fr)_minmax(220px,1fr)_minmax(220px,1fr)]',
+					`manual-order-checkout-stage grid w-full max-w-[1280px] flex-1 grid-cols-1 ${spacing.normal} items-start xl:grid-cols-[minmax(260px,1.15fr)_minmax(220px,1fr)_minmax(220px,1fr)]`,
 					effectiveOpenMesaMode && 'manual-order-checkout-stage--open-mesa',
 				)}>
 					<div className={cn(checkoutColBase, 'manual-order-checkout-col--client')}>
-						<div className="manual-order-client-stage flex w-full flex-col gap-3.5">
+						<div className={`manual-order-client-stage flex w-full flex-col ${spacing.normal}`}>
 							{clientSection}
 						</div>
 					</div>
@@ -658,7 +656,7 @@ export default function ManualOrderCheckout({
 							checkoutColCard,
 							'manual-order-checkout-col--payment manual-order-checkout-col--payment-open overflow-hidden p-0',
 						)}>
-							<div className="manual-order-checkout-col__scroll flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-5">
+							<div className={`manual-order-checkout-col__scroll flex min-h-0 flex-1 flex-col ${spacing.normal} overflow-y-auto p-5`}>
 								{openMesaPaymentChoiceSection}
 								{openMesaSessionPaymentSection}
 								{openMesaChargeNow ? (
@@ -684,7 +682,7 @@ export default function ManualOrderCheckout({
 							</div>
 						</div>
 					) : (
-						<div className={cn(checkoutColBase, checkoutColCard, 'manual-order-checkout-col--payment gap-3.5 p-5')}>
+						<div className={cn(checkoutColBase, checkoutColCard, `manual-order-checkout-col--payment ${spacing.normal} p-5`)}>
 							<PaymentDetails {...paymentDetailsProps} />
 						</div>
 					)}
@@ -742,7 +740,7 @@ export default function ManualOrderCheckout({
 						</div>
 					) : null}
 					{orderStep === 2 ? (
-						<div className="manual-order-mobile-panel manual-order-mobile-panel--client flex flex-col gap-3">
+						<div className={`manual-order-mobile-panel manual-order-mobile-panel--client flex flex-col ${spacing.normal}`}>
 							{effectiveOpenMesaMode ? (
 								<>
 									{clientSection}
@@ -764,7 +762,7 @@ export default function ManualOrderCheckout({
 				</div>
 			) : (
 				<div className={cn(
-					'manual-order-body flex min-h-0 flex-1 gap-5 p-5 !bg-gc-page',
+					`manual-order-body flex min-h-0 flex-1 ${spacing.normal} p-5 !bg-gc-page`,
 				)}>
 					<div className="manual-order-stage min-h-0 flex-1 overflow-hidden">
 						{catalogBlock}

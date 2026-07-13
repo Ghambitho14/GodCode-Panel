@@ -152,17 +152,23 @@ export default function CashOrderDetailPanel({
 		};
 	}, [order?.id]);
 
-	useEffect(() => {
-		const onEsc = (e) => {
-			if (e.key === 'Escape') onClose();
-		};
-		if (order) window.addEventListener('keydown', onEsc);
-		return () => window.removeEventListener('keydown', onEsc);
-	}, [order, onClose]);
+    useEffect(() => {
+        const onEsc = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        if (order) window.addEventListener('keydown', onEsc);
+        return () => window.removeEventListener('keydown', onEsc);
+    }, [order, onClose]);
 
-	if (!order || typeof document === 'undefined') return null;
+    const shareLocale = useMemo(() => ({
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
+    }), [branch, companyProfile, orderMoney.exchangeRate]);
 
-	const displayOrder = liveOrder ?? order;
+    if (!order || typeof document === 'undefined') return null;
+
+    const displayOrder = liveOrder ?? order;
 	const items = parseItems(displayOrder.items);
 	const isDelivery = isOrderDelivery(displayOrder);
 	const addrLines = deliveryAddressLines(displayOrder.delivery_address);
@@ -189,22 +195,16 @@ export default function CashOrderDetailPanel({
 	const fulfillmentLabel = getOrderFulfillmentDisplayLabel(displayOrder);
 	const sessionNumber = displayOrder.shift_sequence ?? null;
 
-	const ticketPrintOpts = (variant) => ({
-		variant,
-		branchAddress: branch?.address ?? null,
-		companyName: companyName ?? null,
-		branch,
-		company: companyProfile,
-		exchangeRate: orderMoney.exchangeRate,
-	});
+    const ticketPrintOpts = (variant) => ({
+        variant,
+        branchAddress: branch?.address ?? null,
+        companyName: companyName ?? null,
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
+    });
 
-	const shareLocale = useMemo(() => ({
-		branch,
-		company: companyProfile,
-		exchangeRate: orderMoney.exchangeRate,
-	}), [branch, companyProfile, orderMoney.exchangeRate]);
-
-	const handleDeliveryWhatsApp = async () => {
+    const handleDeliveryWhatsApp = async () => {
 		const text = buildOrderDeliveryDriverPack(
 			displayOrder,
 			branch?.name ?? null,

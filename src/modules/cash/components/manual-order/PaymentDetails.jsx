@@ -10,6 +10,8 @@ import AdminIconSlot from '../AdminIconSlot';
 import { cn } from '@/lib/utils';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { Button } from "@/components/ui/button";
+import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale, tileRadiusClass, activeStateClass } from './manualOrderStyles';
+import SectionHeader from './SectionHeader';
 
 const BILL_SHORTCUTS = [1000, 2000, 5000, 10000, 20000];
 
@@ -22,13 +24,13 @@ function resolveManualCheckoutPaymentMethod(manualOrder) {
     return pt;
 }
 
-const sectionTitleClass =
-    'mb-2.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-gc-text-muted';
 const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-page p-4';
 const inputClass =
     'w-full rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
-const confirmBtnClass =
-    'manual-order-checkout-actions__confirm flex min-h-[44px] w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-[4px] border border-transparent bg-gc-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-[background,border-color,color,box-shadow,transform] enabled:hover:-translate-y-0.5 enabled:hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border-gc-accent/40 disabled:bg-gc-accent/10 disabled:text-gc-accent disabled:shadow-none disabled:hover:translate-y-0';
+const confirmBtnClass = cn(
+    primaryActionButtonClass,
+    'manual-order-checkout-actions__confirm w-full flex-1',
+);
 const backBtnClass =
     'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
 
@@ -157,32 +159,31 @@ const PaymentDetails = ({
     };
 
     const paymentBtnClass = (active) => cn(
-        'flex flex-col items-center justify-center gap-1 rounded-[4px] border px-2 py-3 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+        `flex aspect-square flex-col items-center justify-center gap-2 ${tileRadiusClass} p-3 ${textScale.body} font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45`,
         active
-            ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
-            : 'border-gc-border bg-gc-page text-gc-text-muted hover:border-gc-accent/25',
+            ? activeStateClass
+            : 'bg-gc-muted text-gc-text-muted hover:bg-gc-border/60',
     );
 
     return (
         <div className={cn(
-            'flex min-h-0 flex-col gap-3.5',
+            `flex min-h-0 flex-col ${spacing.normal}`,
             !embedded && 'h-full',
             isReceipt && 'manual-order-checkout--receipt',
         )}>
             <div ref={paymentMethodRef} className={cn(sectionCardClass, 'scroll-mt-3')}>
-                <div className={sectionTitleClass}>
-                    {!isReceipt ? <CreditCard size={14} className="text-gc-accent" aria-hidden /> : null}
+                <SectionHeader icon={CreditCard} tone="accent">
                     {isReceipt ? 'Seleccionar método de pago' : 'Método de pago'}
-                </div>
-                <div className="grid grid-cols-2 gap-2 min-[400px]:grid-cols-3">
+                </SectionHeader>
+                <div className={`grid grid-cols-3 ${spacing.compact}`}>
                     <Button variant="default"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tienda')}
                         onClick={() => handlePaymentTypeSelect('tienda')}
                         disabled={paymentMethodsDisabled}
                     >
-                        <Store size={20} />
-                        {isReceipt ? 'Efectivo' : 'EFECTIVO'}
+                        <Store size={24} />
+                        {isReceipt ? 'Efectivo' : 'Efectivo'}
                     </Button>
                     <Button variant="default"
                         type="button"
@@ -190,8 +191,8 @@ const PaymentDetails = ({
                         onClick={() => handlePaymentTypeSelect('tarjeta')}
                         disabled={paymentMethodsDisabled}
                     >
-                        <CreditCard size={20} />
-                        {isReceipt ? 'Tarjeta' : 'TARJETA'}
+                        <CreditCard size={24} />
+                        {isReceipt ? 'Tarjeta' : 'Tarjeta'}
                     </Button>
                     <Button variant="default"
                         type="button"
@@ -199,14 +200,14 @@ const PaymentDetails = ({
                         onClick={() => handlePaymentTypeSelect('online')}
                         disabled={paymentMethodsDisabled}
                     >
-                        <ReceiptIcon size={20} />
-                        {isReceipt ? 'Transf.' : 'TRANSF.'}
+                        <ReceiptIcon size={24} />
+                        {isReceipt ? 'Transf.' : 'Transferencia'}
                     </Button>
                 </div>
                 <Button variant="default"
                     type="button"
                     className={cn(
-                        'mt-2.5 inline-flex items-center gap-2 rounded-[4px] border border-dashed px-3 py-2 text-[11px] font-semibold transition-colors',
+                        `mt-2.5 inline-flex items-center ${spacing.compact} rounded-[4px] border border-dashed px-3 py-2 ${textScale.micro} font-semibold transition-colors`,
                         isMixed
                             ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
                             : 'border-gc-border bg-transparent text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-accent',
@@ -219,13 +220,10 @@ const PaymentDetails = ({
             </div>
 
             {isMixed ? (
-                <div ref={mixedSplitRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
-                    <div className={sectionTitleClass}>
-                        {!isReceipt ? <Split size={14} className="text-gc-accent" aria-hidden /> : null}
-                        {isReceipt ? 'Desglose del pago' : 'Desglose del pago'}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                        <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-gc-text-muted">
+            <div ref={mixedSplitRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
+                <SectionHeader icon={Split} tone="accent">Desglose del pago</SectionHeader>
+                    <div className={`grid grid-cols-2 ${spacing.normal}`}>
+                        <label className={`flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`}>
                             <span>Efectivo</span>
                             <input
                                 type="number"
@@ -238,7 +236,7 @@ const PaymentDetails = ({
                                 placeholder="0"
                             />
                         </label>
-                        <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-gc-text-muted">
+                        <label className={`flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`}>
                             <span>Tarjeta</span>
                             <input
                                 type="number"
@@ -275,12 +273,9 @@ const PaymentDetails = ({
             ) : null}
 
             {showCashTender ? (
-                <div ref={cashTenderRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
-                    <div className={sectionTitleClass}>
-                        {!isReceipt ? <Coins size={14} className="text-gc-accent" aria-hidden /> : null}
-                        {isReceipt ? 'Efectivo recibido' : 'Efectivo recibido'}
-                    </div>
-                    <input
+            <div ref={cashTenderRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
+                <SectionHeader icon={Coins} tone="accent">Efectivo recibido</SectionHeader>
+                <input
                         type="number"
                         inputMode="numeric"
                         min="0"
@@ -290,12 +285,12 @@ const PaymentDetails = ({
                         onChange={(e) => updateCashTendered(e.target.value)}
                         placeholder={cashDue > 0 ? formatMoney(cashDue) : '0'}
                     />
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className={`mt-2 flex flex-wrap ${spacing.compact}`}>
                         {BILL_SHORTCUTS.map((bill) => (
                             <Button variant="outline"
                                 key={bill}
                                 type="button"
-                                className="rounded-full border border-gc-border bg-gc-card px-2.5 py-1 text-[10px] font-bold text-gc-text transition-colors hover:border-gc-accent hover:text-gc-accent"
+                                className={`rounded-full border border-gc-border bg-gc-card px-2.5 py-1 ${textScale.micro} font-bold text-gc-text transition-colors hover:border-gc-accent hover:text-gc-accent`}
                                 onClick={() => handleBillShortcut(bill)}
                             >
                                 {formatMoney(bill)}
@@ -312,8 +307,8 @@ const PaymentDetails = ({
                             )}
                             role="status"
                         >
-                            <span className="text-[11px] font-semibold text-gc-text-muted">Cambio a devolver</span>
-                            <span className="text-base font-extrabold text-gc-text">
+                            <span className={`${textScale.micro} font-semibold text-gc-text-muted`}>Cambio a devolver</span>
+                            <span className={`${textScale.emphasis} font-extrabold text-gc-text`}>
                                 {paymentValidation.reason === 'insufficient_tender'
                                     ? `Faltan ${formatMoney(cashDue - (Number(manualOrder.cash_tendered) || 0))}`
                                     : formatMoney(changeDue)}
@@ -324,11 +319,8 @@ const PaymentDetails = ({
             ) : null}
 
             {!hideCouponSection ? (
-                <div ref={postPaymentRef} className={cn(sectionCardClass, 'scroll-mt-3')}>
-                    <div className={sectionTitleClass}>
-                        <Tag size={14} className="text-gc-accent" aria-hidden />
-                        Código de descuento (opc.)
-                    </div>
+            <div ref={postPaymentRef} className={cn(sectionCardClass, 'scroll-mt-3')}>
+                <SectionHeader icon={Tag} tone="accent">Código de descuento (opc.)</SectionHeader>
                     <input
                         type="text"
                         className={inputClass}
@@ -339,12 +331,12 @@ const PaymentDetails = ({
                         placeholder="Ej. PROMO15"
                     />
                     {couponPreview?.loading && (
-                        <span className="text-[11px] font-semibold text-gc-text-muted">Validando código…</span>
+                        <span className={`${textScale.micro} font-semibold text-gc-text-muted`}>Validando código…</span>
                     )}
                     {couponPreview?.message && (
                         <span
                             className={cn(
-                                'text-[11px] font-semibold',
+                                `${textScale.micro} font-semibold`,
                                 couponPreview.variant === 'error' && 'text-gc-danger',
                                 couponPreview.variant === 'success' && 'text-gc-success',
                                 (!couponPreview.variant || couponPreview.variant === 'info') && 'text-gc-text-muted',
@@ -361,30 +353,28 @@ const PaymentDetails = ({
                 ref={hideCouponSection ? postPaymentRef : null}
                 className={cn(sectionCardClass, hideCouponSection && 'scroll-mt-3')}
             >
-                <div className={sectionTitleClass}>
-                    Total
-                </div>
+                <SectionHeader>Total</SectionHeader>
                 <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs text-gc-text-muted">
+                    <div className={`flex justify-between ${textScale.micro} text-gc-text-muted`}>
                         <span>Artículos</span>
                         <span className="font-semibold text-gc-text">{formatMoney(grossItems)}</span>
                     </div>
                     {couponDiscountApplied > 0 && (
-                        <div className="flex justify-between text-xs text-gc-discount">
+                        <div className={`flex justify-between ${textScale.micro} text-gc-discount`}>
                             <span>Descuento (cupón)</span>
                             <span className="font-semibold">−{formatMoney(couponDiscountApplied)}</span>
                         </div>
                     )}
                     {deliveryFeeAmt > 0 && (
-                        <div className="flex justify-between text-xs text-gc-text-muted">
+                        <div className={`flex justify-between ${textScale.micro} text-gc-text-muted`}>
                             <span>Delivery</span>
                             <span className="font-semibold text-gc-text">{formatMoney(deliveryFeeAmt)}</span>
                         </div>
                     )}
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-gc-text-muted">Total a pagar</span>
-                    <span className="text-xl font-black text-gc-price">{formatCheckoutTotal(totalToPay)}</span>
+                    <span className={`${textScale.micro} font-extrabold uppercase tracking-wide text-gc-text-muted`}>Total a pagar</span>
+                    <span className={`${textScale.price} font-black text-gc-price`}>{formatCheckoutTotal(totalToPay)}</span>
                 </div>
             </div>
             ) : hideCouponSection ? (
@@ -392,20 +382,17 @@ const PaymentDetails = ({
             ) : null}
 
             {manualOrder.payment_type === 'online' && !isMixed && (
-                <div className={cn(sectionCardClass, 'animate-fade-in')}>
-                    <div className={sectionTitleClass}>
-                        <Upload size={14} className="text-gc-accent" aria-hidden />
-                        Comprobante (opc.)
-                    </div>
-                    <p className="mb-2 text-[10px] leading-relaxed text-gc-text-muted">
+            <div className={cn(sectionCardClass, 'animate-fade-in')}>
+                <SectionHeader icon={Upload} tone="accent">Comprobante (opc.)</SectionHeader>
+                    <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
                         Podés confirmar el pedido sin imagen. Si querés, subí el comprobante ahora o después desde la tarjeta del pedido.
                     </p>
                     <label
                         htmlFor="receipt-upload"
-                        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[4px] border border-dashed border-gc-border bg-gc-muted/50 p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted"
+                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[4px] border border-dashed border-gc-border bg-gc-muted/50 p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
                     >
                         <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
-                        <span className="text-xs font-medium text-gc-text-muted">
+                        <span className={`${textScale.body} font-medium text-gc-text-muted`}>
                             {receiptFile ? receiptFile.name : 'Click para subir imagen'}
                         </span>
                     </label>
@@ -421,7 +408,7 @@ const PaymentDetails = ({
                             <img src={receiptPreview} alt="Preview comprobante" className="block max-h-[150px] w-full object-cover" />
                             <Button variant="destructive"
                                 type="button"
-                                className="absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 text-[10px] font-bold text-white"
+                                className={`absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 ${textScale.micro} font-bold text-white`}
                                 onClick={(e) => {
                                     e.preventDefault();
                                     removeReceipt();

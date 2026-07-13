@@ -3,6 +3,7 @@ import { Search, ImageOff, Image, PackageX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import { Button } from "@/components/ui/button";
+import { selectedToggleActiveClass, catalogGridGapClass, spacing, textScale, pillRadiusClass } from './manualOrderStyles';
 
 /**
  * Agrupa los productos en base a su categoría y los ordena según corresponda.
@@ -100,12 +101,6 @@ function scrollWithinCatalog(el, offsetTop = 12) {
 
     scrollParent.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
 }
-
-const sectionMeta = {
-    products: { eyebrow: 'Catálogo principal', title: 'Productos', note: 'Producto regular del menú para este pedido manual.' },
-    beverages: { eyebrow: 'Upsell sucursal', title: 'Bebidas', note: 'Opciones de bebida activas para esta sucursal.' },
-    extras: { eyebrow: 'Upsell sucursal', title: 'Extras', note: 'Complementos opcionales disponibles en carrito.' },
-};
 
 const ManualOrderCatalog = ({
     products = [],
@@ -252,24 +247,8 @@ const ManualOrderCatalog = ({
     const renderCatalogSection = (catalog, variant = 'products') => {
         if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
 
-        const meta = sectionMeta[variant];
-        const totalCount = catalog.groupedCategories.reduce((sum, cat) => sum + cat.products.length, 0) + catalog.uncategorized.length;
-
         return (
             <section className="mb-10 last:mb-0">
-                <header className="mb-5 flex items-end justify-between gap-4 border-b border-gc-border/80 pb-3">
-                    <div>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gc-text-muted">
-                            {meta.eyebrow}
-                        </span>
-                        <h2 className="mt-0.5 text-base font-bold text-gc-text">{meta.title}</h2>
-                    </div>
-                    <span className="rounded-full border border-gc-border bg-gc-card px-2.5 py-1 text-[11px] font-semibold text-gc-text-muted">
-                        {totalCount} {totalCount === 1 ? 'ítem' : 'ítems'}
-                    </span>
-                </header>
-                <p className="mb-5 text-xs leading-relaxed text-gc-text-muted">{meta.note}</p>
-
                 {catalog.groupedCategories.map((cat) => {
                     const navKey = buildCategoryNavKey(variant, cat.id);
                     return (
@@ -279,11 +258,14 @@ const ManualOrderCatalog = ({
                             data-category-key={navKey}
                             ref={setCategoryRef(navKey)}
                         >
-                            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gc-text">
+                            <h3 className={`mb-3 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text`}>
                                 <span className="h-4 w-0.5 rounded-full bg-gc-accent" aria-hidden />
                                 {cat.name}
+                                <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
+                                    {cat.products.length}
+                                </span>
                             </h3>
-                            <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] min-[880px]:gap-5">
+                            <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
                                 {cat.products.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -308,11 +290,14 @@ const ManualOrderCatalog = ({
                         data-category-key={buildCategoryNavKey(variant, '__uncat__')}
                         ref={setCategoryRef(buildCategoryNavKey(variant, '__uncat__'))}
                     >
-                        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gc-text">
+                        <h3 className={`mb-3 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text`}>
                             <span className="h-4 w-0.5 rounded-full bg-gc-text-muted" aria-hidden />
                             Otros
+                            <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
+                                {catalog.uncategorized.length}
+                            </span>
                         </h3>
-                        <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))] min-[880px]:gap-5">
+                        <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
                             {catalog.uncategorized.map((p) => (
                                 <ProductCard
                                     key={p.id}
@@ -338,19 +323,19 @@ const ManualOrderCatalog = ({
             {/* Header */}
             <div className="mb-4 flex flex-col gap-3 border-b border-gc-border/60 pb-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                    <h2 className="text-lg font-bold text-gc-text">Productos disponibles</h2>
-                    <p className="mt-0.5 text-xs text-gc-text-muted">
+                    <h2 className={`${textScale.emphasis} font-bold text-gc-text`}>Productos disponibles</h2>
+                    <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>
                         {totalItems} {totalItems === 1 ? 'ítem' : 'ítems'} en catálogo
                     </p>
                 </div>
 
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                <div className={`flex w-full flex-col ${spacing.compact} sm:w-auto sm:flex-row sm:flex-wrap sm:items-center`}>
                     <div className="relative flex w-full min-w-0 items-center sm:w-auto">
-                        <Search size={15} className="pointer-events-none absolute left-3 text-gc-text-muted" />
+                        <Search size={15} className="pointer-events-none absolute left-3.5 text-gc-text-muted" />
                         <input
                             type="text"
                             placeholder="Buscar producto..."
-                            className="h-9 w-full min-w-0 rounded-lg border border-gc-border bg-gc-card pl-9 pr-3 text-sm text-gc-text transition-all placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15 sm:w-44 sm:focus:w-52"
+                            className={`h-10 w-full min-w-0 ${pillRadiusClass} bg-gc-muted pl-10 pr-4 ${textScale.body} text-gc-text transition-all placeholder:text-gc-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-gc-accent/15 sm:w-56`}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -359,7 +344,7 @@ const ManualOrderCatalog = ({
                     <Button variant="default"
                         type="button"
                         onClick={() => setShowProductImages((v) => !v)}
-                        className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors ${
+                        className={`flex h-9 items-center gap-1.5 rounded-[4px] border px-3 ${textScale.micro} font-semibold transition-colors ${
                             showProductImages
                                 ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
                                 : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-text'
@@ -373,67 +358,29 @@ const ManualOrderCatalog = ({
             </div>
 
             {/* Layout */}
-            <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
-                {sidebarCategories.length > 0 ? (
-                    <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                        {sidebarCategories.map((it) => {
-                            const isActive = activeCategory === it.key;
-                            return (
-                                <Button variant="ghost"
-                                    key={`mobile-${it.key}`}
-                                    type="button"
-                                    onClick={() => scrollToCategory(it.key)}
-                                    className={cn(
-                                        'flex min-h-[40px] flex-shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors',
-                                        isActive
-                                            ? 'border-gc-accent/40 bg-gc-accent/10 text-gc-accent'
-                                            : 'border-gc-border text-gc-text hover:bg-gc-muted',
-                                    )}
-                                    aria-current={isActive ? 'true' : undefined}
-                                >
-                                    <span className="max-w-[9rem] truncate">{it.name}</span>
-                                    <span className={cn(
-                                        'rounded-full px-1.5 py-0.5 text-[10px] tabular-nums',
-                                        isActive ? 'bg-gc-accent/15 text-gc-accent' : 'bg-gc-muted text-gc-text-muted',
-                                    )}>
-                                        {it.count}
-                                    </span>
-                                </Button>
-                            );
-                        })}
-                    </div>
-                ) : null}
-
-                <div className="flex min-h-0 flex-1 gap-4">
-                {/* Sidebar */}
+            <div className={`flex min-h-0 flex-1 flex-col ${spacing.normal}`}>
                 {sidebarCategories.length > 0 && (
-                    <aside className="hidden w-56 flex-shrink-0 flex-col gap-0.5 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-page p-2 lg:flex">
-                        <div className="mb-1.5 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-gc-text-muted">
-                            Categorías
-                        </div>
+                    <nav className="flex items-center gap-5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
                         {sidebarCategories.map((it) => {
                             const isActive = activeCategory === it.key;
                             return (
-                                <Button variant="ghost"
+                                <button
                                     key={it.key}
                                     type="button"
                                     onClick={() => scrollToCategory(it.key)}
-                                    className={`flex items-center justify-between rounded-[4px] border-l-2 px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${
+                                    className={cn(
+                                        `whitespace-nowrap ${textScale.body} transition-colors`,
                                         isActive
-                                            ? 'border-gc-accent bg-gc-accent/10 text-gc-accent font-semibold'
-                                            : 'border-transparent text-gc-text hover:bg-gc-muted'
-                                    }`}
-                                    title={it.name}
+                                            ? 'font-bold text-gc-text'
+                                            : 'font-medium text-gc-text-muted hover:text-gc-text',
+                                    )}
                                     aria-current={isActive ? 'true' : undefined}
                                 >
-                                    <span className="truncate pr-2">{it.name}</span>
-                                    <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive ? 'bg-gc-accent/15 text-gc-accent' : 'bg-gc-muted text-gc-text-muted'}`}>
-                                        {it.count}
-                                    </span>
-                                </Button>
+                                    {it.name}
+                                </button>
                             );
                         })}
-                    </aside>
+                    </nav>
                 )}
 
                 <div
@@ -446,8 +393,8 @@ const ManualOrderCatalog = ({
                                 <PackageX size={28} className="text-gc-text-muted" />
                             </div>
                             <div>
-                                <p className="text-base font-bold text-gc-text">No se encontraron productos</p>
-                                <p className="text-xs text-gc-text-muted">Probá con otra búsqueda o categoría.</p>
+                                <p className={`${textScale.emphasis} font-bold text-gc-text`}>No se encontraron productos</p>
+                                <p className={`${textScale.body} text-gc-text-muted`}>Probá con otra búsqueda o categoría.</p>
                             </div>
                         </div>
                     ) : (
@@ -467,7 +414,6 @@ const ManualOrderCatalog = ({
                             ) : null}
                         </>
                     )}
-                </div>
                 </div>
             </div>
         </div>
