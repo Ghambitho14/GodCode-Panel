@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import { request, type IncomingMessage, type ServerResponse } from "node:http";
 import { loadEnv, type Plugin, type ViteDevServer } from "vite";
 
 /**
@@ -73,6 +73,40 @@ function wrapResponse(res: ServerResponse) {
   return shim;
 }
 
+function proxyToSupabaseDev(req: IncomingMessage, res: ServerResponse) {
+  const url = new URL(req.url || "/", "http://localhost");
+  const targetUrl =
+    process.env.SUPABASE_INTERNAL_URL?.trim() ||
+    process.env.SUPABASE_URL?.trim() ||
+    "http://127.0.0.1:54321";
+  const target = new URL(targetUrl);
+  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
+  const proxyReq = request(
+    {
+      protocol: target.protocol,
+      hostname: target.hostname,
+      port: target.port,
+      path: targetPath,
+      method: req.method,
+      headers: { ...req.headers, host: `${target.hostname}:${target.port}` },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+      proxyRes.pipe(res);
+    },
+  );
+  proxyReq.on("error", (error) => {
+    // eslint-disable-next-line no-console
+    console.error("[gc-bff-dev] proxy error:", error);
+    if (!res.headersSent) {
+      res.statusCode = 502;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+    }
+    res.end(JSON.stringify({ error: "Supabase no disponible." }));
+  });
+  req.pipe(proxyReq);
+}
+
 export function bffDevPlugin(mode: string): Plugin {
   return {
     name: "gc-bff-dev",
@@ -122,6 +156,10 @@ export function bffDevPlugin(mode: string): Plugin {
           }
         });
       }
+
+      server.middlewares.use("/api/supabase", (req, res) => {
+        proxyToSupabaseDev(req, res);
+      });
     },
   };
 }

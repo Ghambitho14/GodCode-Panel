@@ -34,7 +34,8 @@ function isProd() {
 
 function resolveServerConfig() {
   const url = String(
-    process.env.SUPABASE_URL ||
+    process.env.SUPABASE_INTERNAL_URL ||
+      process.env.SUPABASE_URL ||
       process.env.VITE_SUPABASE_URL ||
       process.env.NEXT_PUBLIC_SUPABASE_URL ||
       "",
@@ -254,6 +255,39 @@ async function handleLogout(req, res) {
   return json(res, 200, { ok: true }, { "Set-Cookie": serializeCookie("", 0) });
 }
 
+/**
+ * Proxy hacia Supabase CLI corriendo en la misma instancia.
+ * El navegador nunca ve la IP/puerto privado de Supabase; habla con el mismo
+ * dominio del frontend bajo `/api/supabase/*` y el BFF redirige internamente.
+ */
+async function proxyToSupabase(req, res) {
+  const url = new URL(req.url || "/", "http://localhost");
+  const targetUrl = resolveServerConfig().url;
+  const target = new URL(targetUrl);
+  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
+  const options = {
+    protocol: target.protocol,
+    hostname: target.hostname,
+    port: target.port,
+    path: targetPath,
+    method: req.method,
+    headers: { ...req.headers },
+  };
+  options.headers.host = `${target.hostname}:${target.port}`;
+  delete options.headers.connection;
+  delete options.headers["proxy-connection"];
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on("error", (error) => {
+    console.error("[proxy/supabase] error:", error);
+    json(res, 502, { error: "Supabase no disponible." });
+  });
+  req.pipe(proxyReq);
+}
+
 function serveFile(res, filePath) {
   const ext = extname(filePath);
   res.writeHead(200, {
@@ -287,6 +321,7 @@ async function handleRequest(req, res) {
   if (url.pathname === "/api/auth/session") return handleSession(req, res);
   if (url.pathname === "/api/auth/refresh") return handleRefresh(req, res);
   if (url.pathname === "/api/auth/logout") return handleLogout(req, res);
+  if (url.pathname.startsWith("/api/supabase/")) return proxyToSupabase(req, res);
   return serveStatic(req, res);
 }
 

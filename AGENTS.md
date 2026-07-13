@@ -14,3 +14,12 @@ Quick rules when touching image uploads:
 - Delete the stored image when the entity is removed.
 - Display private images with `useSignedImageUrl(path, bucket)`.
 - Store relative paths in the database, not signed URLs.
+
+## Supabase Proxy (BFF)
+
+The browser never talks directly to Supabase. The frontend uses `VITE_SUPABASE_URL=/api/supabase`, and the Node BFF (`server.js`) proxies those requests to the real Supabase instance via `SUPABASE_INTERNAL_URL`.
+
+- Client config lives in `src/integrations/supabase/client.ts` and resolves relative URLs against `window.location.origin`.
+- Production proxy is handled by `server.js` (`/api/supabase/*` → `SUPABASE_INTERNAL_URL`).
+- Dev proxy is handled by `vite/bff-dev-plugin.ts`.
+- If Supabase runs in a separate Docker service on Coolify, set `SUPABASE_INTERNAL_URL` to that service URL (e.g. `http://supabase:54321/`), not to the public frontend domain.

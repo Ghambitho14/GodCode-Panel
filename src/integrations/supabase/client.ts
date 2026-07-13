@@ -4,12 +4,25 @@ import { getAccessToken, onAuthEvent } from "./auth-session";
 const CONFIG_WARN =
   "[GodCode] Faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY. Copiá .env.example a .env y pegá URL + anon key del proyecto (Supabase → Settings → API).";
 
+function resolveBaseUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("/")) {
+    if (typeof window === "undefined") {
+      // Fallback para ambientes sin window (SSR); en el navegador nunca ocurre.
+      return `https://placeholder-relative${trimmed}`;
+    }
+    return `${window.location.origin}${trimmed}`;
+  }
+  return trimmed;
+}
+
 function resolveConfig(): { url: string; anonKey: string } {
-  const url = String(
+  const rawUrl = String(
     import.meta.env.VITE_SUPABASE_URL ??
       import.meta.env.NEXT_PUBLIC_SUPABASE_URL ??
       "",
   ).trim();
+  const url = resolveBaseUrl(rawUrl);
   const anonKey = String(
     import.meta.env.VITE_SUPABASE_ANON_KEY ??
       import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
