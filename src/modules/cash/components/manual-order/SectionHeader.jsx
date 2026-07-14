@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 /**
  * Encabezado de sección reutilizable para el flujo de Pedido Manual.
@@ -6,11 +7,11 @@ import React from 'react';
  *
  * @param {{ icon?: React.ElementType, children: React.ReactNode, tone?: 'muted' | 'accent' }} props
  */
-const SectionHeader = ({ icon: Icon, children, tone = 'muted' }) => (
-	<div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-gc-text-muted">
+const SectionHeader = ({ icon: Icon, children, tone = 'muted', className }) => (
+	<div className={cn('mb-3 flex items-center gap-2 text-[13px] font-bold leading-none text-gc-text', className)}>
 		{Icon ? (
 			<Icon
-				size={14}
+				size={15}
 				className={tone === 'accent' ? 'text-gc-accent' : 'text-gc-text-muted'}
 				aria-hidden
 			/>

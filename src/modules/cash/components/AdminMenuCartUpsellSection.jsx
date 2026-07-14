@@ -19,6 +19,7 @@ import AdminCartUpsellItemModal from "./AdminCartUpsellItemModal";
 import { PRODUCT_IMAGE_PLACEHOLDER } from "../constants/productImagePlaceholder";
 import { getFoodFallbackImageUrl } from "@/modules/cash/utils/foodFallbackImage";
 import { Button } from "@/components/ui/button";
+import ProgressiveProductImage from "./ProgressiveProductImage";
 
 function branchFlag(map, branchId, defaultOn = true) {
 	if (!branchId || !map || typeof map !== "object") return defaultOn;
@@ -127,7 +128,6 @@ export default function AdminMenuCartUpsellSection({
 	const [items, setItems] = useState([]);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editingIndex, setEditingIndex] = useState(null);
-	const [imgBroken, setImgBroken] = useState({});
 	const [inventoryOptions, setInventoryOptions] = useState([]);
 	const [pickInventoryOpen, setPickInventoryOpen] = useState(false);
 	const [pickInvSearch, setPickInvSearch] = useState("");
@@ -225,7 +225,6 @@ export default function AdminMenuCartUpsellSection({
 				setSectionOn(branchFlag(data.extrasEnabledByBranch, branchId, true));
 				setItems(normalizeItemsFromApi(data.cartGlobalExtrasCatalog));
 			}
-			setImgBroken({});
 		},
 		[branchId, isBev],
 	);
@@ -679,11 +678,7 @@ export default function AdminMenuCartUpsellSection({
 								<h4 className="admin-cart-upsell-category-block__title">{group.label}</h4>
 								<div className="admin-cart-upsell-grid">
 									{group.items.map((item) => {
-                                        const url =
-                                            item.imageUrl && /^https?:\/\//i.test(item.imageUrl) ? item.imageUrl : null;
                                         const fallbackUrl = getFoodFallbackImageUrl(group.label, item.id);
-                                        const broken = imgBroken[item.id];
-                                        const showImg = (url || fallbackUrl) && !broken;
 										const invKey =
 											item.inventoryItemId != null && String(item.inventoryItemId).trim()
 												? String(item.inventoryItemId).trim().toLowerCase()
@@ -752,20 +747,14 @@ export default function AdminMenuCartUpsellSection({
 												aria-label={`Editar ${item.name}`}
 											>
                                                 <div className="admin-cart-upsell-card__img-wrap">
-                                                    {showImg ? (
-                                                        <img
-                                                            src={url || fallbackUrl}
-                                                            alt=""
-                                                            className="admin-cart-upsell-card__img"
-                                                            onError={() => setImgBroken((m) => ({ ...m, [item.id]: true }))}
-                                                        />
-                                                    ) : (
-                                                        <img
-                                                            src={PRODUCT_IMAGE_PLACEHOLDER}
-                                                            alt=""
-                                                            className="admin-cart-upsell-card__img admin-cart-upsell-card__img--placeholder"
-                                                        />
-                                                    )}
+                                                    <ProgressiveProductImage
+                                                        source={item.imageUrl}
+                                                        fallbackSrc={fallbackUrl}
+                                                        placeholderSrc={PRODUCT_IMAGE_PLACEHOLDER}
+                                                        alt=""
+                                                        imageClassName="admin-cart-upsell-card__img"
+                                                        placeholderClassName="admin-cart-upsell-card__img--placeholder"
+                                                    />
 													<Button variant="default"
 														type="button"
 														className={`admin-cart-upsell-card__status ${item.active !== false ? "is-on" : ""}`}

@@ -24,15 +24,15 @@ function resolveManualCheckoutPaymentMethod(manualOrder) {
     return pt;
 }
 
-const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-page p-4';
+const sectionCardClass = 'manual-order-step-card rounded-[16px] border border-gc-border bg-gc-page p-4';
 const inputClass =
-    'w-full rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
+    'w-full rounded-[12px] border border-gc-border bg-gc-card px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
 const confirmBtnClass = cn(
     primaryActionButtonClass,
     'manual-order-checkout-actions__confirm w-full flex-1',
 );
 const backBtnClass =
-    'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
+    'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
 
 /**
  * Checkout del paso Pago: método de pago, cupón, desglose y confirmación.
@@ -159,7 +159,7 @@ const PaymentDetails = ({
     };
 
     const paymentBtnClass = (active) => cn(
-        `flex aspect-square flex-col items-center justify-center gap-2 ${tileRadiusClass} p-3 ${textScale.body} font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45`,
+        `flex min-h-[78px] flex-col items-center justify-center gap-2 ${tileRadiusClass} p-3 ${textScale.body} font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45`,
         active
             ? activeStateClass
             : 'bg-gc-muted text-gc-text-muted hover:bg-gc-border/60',
@@ -207,7 +207,7 @@ const PaymentDetails = ({
                 <Button variant="default"
                     type="button"
                     className={cn(
-                        `mt-2.5 inline-flex items-center ${spacing.compact} rounded-[4px] border border-dashed px-3 py-2 ${textScale.micro} font-semibold transition-colors`,
+                        `mt-2.5 inline-flex min-h-[42px] w-full items-center justify-center ${spacing.compact} rounded-[12px] border border-dashed px-3 py-2 ${textScale.micro} font-semibold transition-colors`,
                         isMixed
                             ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
                             : 'border-gc-border bg-transparent text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-accent',

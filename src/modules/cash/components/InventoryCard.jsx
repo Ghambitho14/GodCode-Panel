@@ -3,7 +3,7 @@ import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
-import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+import ProgressiveProductImage from './ProgressiveProductImage';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../constants/productImagePlaceholder';
 import { Button } from "@/components/ui/button";
 
@@ -14,21 +14,8 @@ import { Button } from "@/components/ui/button";
 const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct, viewMode = 'grid', showPhotos = true }) => {
     const { formatMoney } = useBranchMoney();
     const rawImageUrl = product.image_url?.trim() || null;
-    const { url: signedImageUrl } = useSignedImageUrl(rawImageUrl, 'menu');
     const categoryName = product.category_name || product.category?.name || '';
     const { url: fallbackUrl } = useFoodFallbackImage(categoryName, product.id, showPhotos);
-    const [errorStage, setErrorStage] = React.useState(0);
-
-    const imageUrl = signedImageUrl || rawImageUrl;
-
-    React.useEffect(() => { setErrorStage(0); }, [imageUrl]);
-
-    const hasValidImageUrl = /^https?:\/\//i.test(imageUrl || '');
-    const displayedSrc = errorStage === 0
-        ? ((hasValidImageUrl ? imageUrl : null) || fallbackUrl || PRODUCT_IMAGE_PLACEHOLDER)
-        : errorStage === 1
-            ? (fallbackUrl || PRODUCT_IMAGE_PLACEHOLDER)
-            : PRODUCT_IMAGE_PLACEHOLDER;
 
     // Manejadores de eventos limpios para evitar lógica en el JSX
     const handleEditClick = () => {
@@ -44,11 +31,6 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
     const handleDeleteClick = (e) => {
         e.stopPropagation(); // Detener burbujeo crítico
         deleteProduct(product.id);
-    };
-
-    // Manejo seguro de imagen rota: real -> fallback local -> placeholder genérico
-    const handleImageError = () => {
-        setErrorStage((prev) => Math.min(prev + 1, 2));
     };
 
     // Manejo de teclado para accesibilidad (Enter para editar)
@@ -84,11 +66,12 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
         >
             {showPhotos ? (
                 <div className="inv-img-wrapper">
-                    <img
-                        src={displayedSrc}
+                    <ProgressiveProductImage
+                        source={rawImageUrl}
+                        fallbackSrc={fallbackUrl}
+                        placeholderSrc={PRODUCT_IMAGE_PLACEHOLDER}
                         alt={product.name}
-                        onError={handleImageError}
-                        loading="lazy"
+                        placeholderClassName="inv-img-placeholder"
                     />
                     {viewMode === 'grid' ? statusToggleBtn : null}
                 </div>

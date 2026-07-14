@@ -304,8 +304,16 @@ const ManualOrderModal = ({
 						onTouchEnd={onTouchEnd}
 					/>
 
-					<Button variant="default" type="button" onClick={onClose} className="manual-order-floating-close" title="Cerrar (Esc)">
-						<X size={24} />
+					<Button
+						variant="default"
+						type="button"
+						onClick={onClose}
+						className="manual-order-floating-close"
+						title="Cerrar (Esc)"
+						aria-label="Cerrar pedido manual"
+					>
+						<X size={18} strokeWidth={2.2} aria-hidden="true" />
+						<span className="manual-order-floating-close__label">Cerrar</span>
 					</Button>
 
 					<ManualOrderCheckout

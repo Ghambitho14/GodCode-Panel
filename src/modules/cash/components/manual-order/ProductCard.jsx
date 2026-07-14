@@ -2,7 +2,7 @@ import React from 'react';
 import { Minus, Check } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
-import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+import ProgressiveProductImage from '@/modules/cash/components/ProgressiveProductImage';
 
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
@@ -47,28 +47,11 @@ const ProductCard = ({
     const categoryName = product.category_name || product.category?.name || '';
     const initial = String(product.name ?? '').trim().charAt(0).toUpperCase();
 
-    const { url: signedImageUrl } = useSignedImageUrl(rawImageUrl, 'menu');
-    const imageUrl = signedImageUrl || rawImageUrl;
-    const hasValidImageUrl = /^https?:\/\//i.test(imageUrl || '');
-
-    const [imageStage, setImageStage] = React.useState(hasValidImageUrl ? 'real' : 'fallback');
-    React.useEffect(() => { setImageStage(hasValidImageUrl ? 'real' : 'fallback'); }, [hasValidImageUrl]);
-
-    const { url: fallbackImageUrl, failed: fallbackFailed } = useFoodFallbackImage(
+    const { url: fallbackImageUrl } = useFoodFallbackImage(
         categoryName,
         product.id,
         showProductImages,
     );
-
-    React.useEffect(() => {
-        if (!hasValidImageUrl && fallbackFailed) setImageStage('initial');
-    }, [hasValidImageUrl, fallbackFailed]);
-
-    const handleImageError = () => {
-        setImageStage((prev) => (prev === 'real' ? 'fallback' : 'initial'));
-    };
-
-    const isShowingImage = showProductImages && imageStage !== 'initial';
 
     const floatingAction = quantity === 0 ? (
         <Button variant="default"
@@ -106,7 +89,7 @@ const ProductCard = ({
     return (
         <article
             className={cn(
-                'group relative flex h-full cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-4 shadow-xs transition-shadow duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2',
+                'manual-order-product-card group relative flex h-full cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-3 shadow-xs transition-shadow duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2 sm:p-4',
                 cardRadiusClass,
             )}
             onClick={() => addItem(product)}
@@ -114,33 +97,21 @@ const ProductCard = ({
             role="button"
             tabIndex={0}
         >
-            <div className="relative mt-2">
+            <div className="relative mt-1 sm:mt-2">
                 <div className={cn(
-                    'flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gc-muted',
-                    !isShowingImage && 'border border-gc-border/60',
+                    'manual-order-product-media relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gc-muted sm:h-24 sm:w-24',
+                    !showProductImages && 'border border-gc-border/60',
                     inCart && 'ring-2 ring-gc-accent',
                 )}>
-                    {showProductImages && imageStage === 'real' && imageUrl ? (
-                        <img
-                            src={imageUrl}
-                            alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            loading="lazy"
-                            decoding="async"
-                            onError={handleImageError}
-                        />
-                    ) : showProductImages && imageStage === 'fallback' ? (
-                        <img
-                            src={fallbackImageUrl}
-                            alt={product.name}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            loading="lazy"
-                            decoding="async"
-                            onError={handleImageError}
-                        />
-                    ) : (
-                        <span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>
-                    )}
+                    <ProgressiveProductImage
+                        source={rawImageUrl}
+                        fallbackSrc={fallbackImageUrl}
+                        alt={product.name}
+                        enabled={showProductImages}
+                        imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        skeletonClassName="rounded-full"
+                        emptyContent={<span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>}
+                    />
                 </div>
                 {inCart && (
                     <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-gc-accent text-[10px] font-bold text-white shadow-sm">
@@ -149,7 +120,7 @@ const ProductCard = ({
                 )}
             </div>
 
-            <div className={`mt-4 flex w-full flex-1 flex-col items-center ${spacing.compact}`}>
+            <div className={`mt-3 flex w-full flex-1 flex-col items-center ${spacing.compact} sm:mt-4`}>
                 {categoryName && (
                     <span className={`${textScale.micro} truncate text-gc-text-muted`}>{categoryName}</span>
                 )}

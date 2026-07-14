@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef, useDeferredValue, useEffect } from 'react';
-import { Search, ImageOff, Image, PackageX } from 'lucide-react';
+import React, { useState, useMemo, useRef, useDeferredValue, useEffect, useId } from 'react';
+import { Search, ImageOff, Image, PackageX, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,7 @@ const ManualOrderCatalog = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [showProductImages, setShowProductImages] = useState(false);
     const [activeCategory, setActiveCategory] = useState(null);
+    const searchInputId = useId();
 
     const catalogScrollRef = useRef(null);
     const productsSectionRef = useRef(null);
@@ -248,24 +249,24 @@ const ManualOrderCatalog = ({
         if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
 
         return (
-            <section className="mb-10 last:mb-0">
+            <section className="mb-6 sm:mb-8 lg:mb-10 last:mb-0">
                 {catalog.groupedCategories.map((cat) => {
                     const navKey = buildCategoryNavKey(variant, cat.id);
                     return (
                         <div
                             key={`${variant}-${normalizeCategoryId(cat.id)}`}
-                            className="mb-6"
+                            className="mb-4 sm:mb-6"
                             data-category-key={navKey}
                             ref={setCategoryRef(navKey)}
                         >
-                            <h3 className={`mb-3 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text`}>
+                            <h3 className={`mb-2.5 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text sm:mb-3`}>
                                 <span className="h-4 w-0.5 rounded-full bg-gc-accent" aria-hidden />
                                 {cat.name}
                                 <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
                                     {cat.products.length}
                                 </span>
                             </h3>
-                            <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
+                            <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[340px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
                                 {cat.products.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -286,18 +287,18 @@ const ManualOrderCatalog = ({
 
                 {catalog.uncategorized.length > 0 && (
                     <div
-                        className="mb-6"
+                        className="mb-4 sm:mb-6"
                         data-category-key={buildCategoryNavKey(variant, '__uncat__')}
                         ref={setCategoryRef(buildCategoryNavKey(variant, '__uncat__'))}
                     >
-                        <h3 className={`mb-3 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text`}>
+                        <h3 className={`mb-2.5 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text sm:mb-3`}>
                             <span className="h-4 w-0.5 rounded-full bg-gc-text-muted" aria-hidden />
                             Otros
                             <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
                                 {catalog.uncategorized.length}
                             </span>
                         </h3>
-                        <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[400px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
+                        <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[340px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
                             {catalog.uncategorized.map((p) => (
                                 <ProductCard
                                     key={p.id}
@@ -321,41 +322,54 @@ const ManualOrderCatalog = ({
     return (
         <div className="flex h-full flex-col">
             {/* Header */}
-            <div className="mb-4 rounded-[22px] border border-gc-border bg-gc-card p-4 shadow-sm">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                        <h2 className={`${textScale.emphasis} font-bold text-gc-text`}>Productos disponibles</h2>
-                        <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>
-                            {totalItems} {totalItems === 1 ? 'ítem' : 'ítems'} en catálogo
-                        </p>
+            <div className="manual-order-catalog-header mb-3 rounded-[18px] border border-gc-border bg-gc-card p-3.5 shadow-sm sm:mb-4 sm:p-4">
+                <div className="mb-3 min-w-0">
+                    <h2 className={`${textScale.emphasis} font-bold leading-tight text-gc-text`}>Productos disponibles</h2>
+                    <p className={`mt-1 ${textScale.micro} font-medium text-gc-text-muted`} aria-live="polite">
+                        {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
+                        {query ? ' encontrados' : ' en el catálogo'}
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2" role="search">
+                    <div className={`relative flex h-11 min-w-0 items-center ${pillRadiusClass} border border-transparent bg-gc-muted transition-all focus-within:border-gc-accent/30 focus-within:bg-gc-card focus-within:ring-2 focus-within:ring-gc-accent/10`}>
+                        <label htmlFor={searchInputId} className="sr-only">Buscar productos</label>
+                        <Search size={17} className="pointer-events-none absolute left-3.5 text-gc-text-muted" aria-hidden="true" />
+                        <input
+                            id={searchInputId}
+                            type="search"
+                            placeholder="Buscar producto..."
+                            className={`h-full w-full min-w-0 bg-transparent pl-10 pr-10 ${textScale.body} text-gc-text outline-none placeholder:text-gc-text-muted [&::-webkit-search-cancel-button]:hidden`}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                        {searchQuery ? (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-1.5 flex h-8 w-8 items-center justify-center rounded-full text-gc-text-muted transition-colors hover:bg-gc-border/60 hover:text-gc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent/30"
+                                aria-label="Limpiar búsqueda"
+                            >
+                                <X size={15} aria-hidden="true" />
+                            </button>
+                        ) : null}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
-                            <Search size={15} className="pointer-events-none absolute left-3.5 text-gc-text-muted" />
-                            <input
-                                type="text"
-                                placeholder="Buscar producto..."
-                                className={`h-10 w-full min-w-0 ${pillRadiusClass} bg-gc-muted pl-10 pr-4 ${textScale.body} text-gc-text transition-all placeholder:text-gc-text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-gc-accent/15`}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div>
-
-                        <Button variant="default"
-                            type="button"
-                            onClick={() => setShowProductImages((v) => !v)}
-                            className={`flex h-10 shrink-0 items-center gap-1.5 ${pillRadiusClass} border px-3 ${textScale.micro} font-semibold transition-colors ${
-                                showProductImages
-                                    ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
-                                    : 'border-gc-border bg-gc-page text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-text'
-                            }`}
-                            aria-pressed={showProductImages}
-                        >
-                            {showProductImages ? <Image size={15} /> : <ImageOff size={15} />}
-                            Imágenes
-                        </Button>
-                    </div>
+                    <Button variant="default"
+                        type="button"
+                        onClick={() => setShowProductImages((v) => !v)}
+                        className={`flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 ${pillRadiusClass} border px-3.5 ${textScale.body} font-semibold shadow-none transition-colors ${
+                            showProductImages
+                                ? 'border-gc-accent/30 bg-gc-accent/10 text-gc-accent hover:bg-gc-accent/15'
+                                : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-muted hover:text-gc-text'
+                        }`}
+                        aria-pressed={showProductImages}
+                        aria-label={showProductImages ? 'Ocultar imágenes de productos' : 'Mostrar imágenes de productos'}
+                        title={showProductImages ? 'Ocultar imágenes' : 'Mostrar imágenes'}
+                    >
+                        {showProductImages ? <Image size={17} aria-hidden="true" /> : <ImageOff size={17} aria-hidden="true" />}
+                        <span className="hidden min-[390px]:inline">Imágenes</span>
+                    </Button>
                 </div>
             </div>
 

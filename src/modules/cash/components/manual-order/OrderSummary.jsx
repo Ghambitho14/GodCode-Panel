@@ -64,7 +64,7 @@ const OrderSummary = ({
             !summaryHasFewItems && 'flex-1',
         )}>
             <div className="flex items-center justify-between border-b border-gc-border px-4 py-3">
-                <SectionHeader icon={ShoppingBag} tone="accent">Resumen ({totalQty})</SectionHeader>
+                <SectionHeader icon={ShoppingBag} tone="accent" className="mb-0">Resumen ({totalQty})</SectionHeader>
                 {manualOrder.items.length > 0 && (
                     <div className="relative" ref={printMenuRef}>
                         <Button variant="default"

@@ -27,17 +27,18 @@ import { Button } from "@/components/ui/button";
 import { selectedToggleActiveClass, spacing, textScale } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
 
-const sectionCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
+const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 const inputClass =
-    `w-full rounded-[4px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
+    `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const inputReadonlyClass =
     'cursor-not-allowed border-gc-border/50 bg-gc-muted/60 text-gc-text-muted focus:ring-0';
 const toggleBaseClass =
-    `flex min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
+    `flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
 const hintClass =
-    `mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
+    `mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
 const inlineActionClass =
-    `inline-flex items-center gap-1.5 self-start rounded-[4px] border border-gc-border bg-gc-card px-3.5 py-2 ${textScale.body} font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50`;
+    `inline-flex min-h-[42px] items-center gap-1.5 self-start rounded-[12px] border border-gc-border bg-gc-card px-3.5 py-2 ${textScale.body} font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50`;
+const fieldLabelClass = `flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`;
 
 const fulfillmentActiveClass = {
     mesa: 'border-[var(--fulfillment-mesa-border)] bg-[var(--fulfillment-mesa-bg)] text-[var(--fulfillment-mesa-fg)]',
@@ -740,12 +741,18 @@ const ClientForm = ({
             <div className={`grid grid-cols-1 ${spacing.normal} lg:grid-cols-2`}>
             <div className={sectionCardClass}>
                 <SectionHeader icon={User} tone="accent">Datos cliente</SectionHeader>
+                <p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                    Busca un cliente registrado o completa sus datos de contacto.
+                </p>
 
                 <div className="grid gap-3">
+                    <div className={fieldLabelClass}>
+                        <label htmlFor="manual-order-client-name">Nombre completo <span className="text-gc-danger">*</span></label>
                         <div className="relative w-full" ref={clientSearchRef}>
                             <input
+                                id="manual-order-client-name"
                                 type="text"
-                                placeholder="NOMBRE COMPLETO *"
+                                placeholder="Buscar o escribir nombre"
                                 className={inputClass}
                                 value={manualOrder.client_name}
                                 onChange={(e) => handleClientNameChange(e.target.value)}
@@ -761,11 +768,14 @@ const ClientForm = ({
                             {manualOrder.client_name.length >= 3 && validationIcon}
                             {clientSuggestionsList('manual-order-client-suggestions')}
                         </div>
+                    </div>
 
+                    <label className={fieldLabelClass}>
+                        <span>{formStrategy.idName} <span className="text-gc-danger">*</span></span>
                         <div className="relative w-full">
                             <input
                                 type="text"
-                                placeholder={`${formStrategy.idName} *`}
+                                placeholder={`Ingresa ${formStrategy.idName}`}
                                 className={inputClass}
                                 value={manualOrder.client_rut}
                                 onChange={handleRutChange}
@@ -776,7 +786,10 @@ const ClientForm = ({
                             />
                             {rutValid && validationIcon}
                         </div>
+                    </label>
 
+                    <label className={fieldLabelClass}>
+                        <span>Teléfono <span className="text-gc-danger">*</span></span>
                         <div className="relative w-full">
                             <input
                                 type="tel"
@@ -791,11 +804,15 @@ const ClientForm = ({
                             />
                             {phoneValid && validationIcon}
                         </div>
+                    </label>
                     </div>
                 </div>
 
                 <div className={sectionCardClass}>
                     <SectionHeader icon={Truck} tone="accent">Retiro o delivery</SectionHeader>
+                    <p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                        Elige cómo recibirá el cliente este pedido.
+                    </p>
 
                     <div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
                         <Button variant="default"

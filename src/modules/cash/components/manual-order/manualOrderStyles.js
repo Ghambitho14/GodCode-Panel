@@ -6,13 +6,13 @@
 
 /** Botón de acción principal (CTA) usado en Confirmar, Siguiente y Abrir Mesa. */
 export const primaryActionButtonClass =
-	'flex min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-transparent bg-gc-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.35)] transition-all hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0';
+	'flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-transparent bg-gc-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_4px_12px_rgba(79,91,255,0.28)] transition-all hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0';
 
 /** Estado activo/seleccionado compartido por toggles de método de pago, tipo de pedido y categorías. */
 export const selectedToggleActiveClass = 'border-gc-accent bg-gc-accent/10 text-gc-accent';
 
 /** Gap único para el grid de productos del catálogo. */
-export const catalogGridGapClass = 'gap-5 lg:gap-5';
+export const catalogGridGapClass = 'gap-3 sm:gap-4 lg:gap-5';
 
 /** Niveles de espaciado permitidos en el módulo.
  *  - compact: controles densos (filas de ítems, botones +/-, chips, labels con input).

@@ -32,16 +32,16 @@ export const confirmBtnClass = cn(
 export const checkoutColBase =
 	'manual-order-checkout-col flex min-h-0 min-w-0 flex-col overflow-hidden';
 export const checkoutColCard =
-	'rounded-[4px] border border-gc-border bg-gc-card';
-export const openMesaPaymentCardClass = 'rounded-[4px] border border-gc-border bg-gc-card p-5';
+	'rounded-[22px] border border-gc-border bg-gc-card shadow-sm';
+export const openMesaPaymentCardClass = 'manual-order-step-card rounded-[16px] border border-gc-border bg-gc-card p-4';
 export const openMesaToggleClass =
-	`flex min-h-[44px] items-center justify-center rounded-[4px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
+	`flex min-h-[44px] items-center justify-center rounded-[12px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
 export const openMesaHintClass =
-	`mt-3 rounded-[4px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
+	`mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
 export const checkoutActionsClass =
 	`manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col ${spacing.compact} border-t border-gc-border bg-gc-card pt-3`;
 export const checkoutBackBtnClass =
-	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-colors`;
+	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-colors`;
 
 export function useManualOrderCheckoutFlow({
 	manualOrder,
@@ -265,6 +265,7 @@ export default function ManualOrderCheckout({
 	setPayModalOpen,
 }) {
 	const {
+		totalToPay,
 		openMesaFulfillment,
 		openMesaSubmitLabel: getOpenMesaSubmitLabel,
 		isFormValid,
@@ -440,7 +441,40 @@ export default function ManualOrderCheckout({
 		...paymentDetailsProps,
 		goPrevStep: null,
 		hideCheckoutActions: true,
+		embedded: true,
 	};
+	const isClientOnlyStep = isCompactNav && (showClassicPaymentStep || openMesaChargeNow);
+
+	const checkoutOverview = (
+		<div className="manual-order-checkout-overview">
+			<div className="manual-order-checkout-overview__copy">
+				<span className="manual-order-checkout-overview__eyebrow">
+					{isClientOnlyStep ? 'Paso 2 · Cliente' : 'Paso 2 · Finalizar'}
+				</span>
+				<h2>
+					{isClientOnlyStep
+						? 'Datos del cliente y entrega'
+						: effectiveOpenMesaMode
+							? 'Configura la sesión'
+							: 'Completa y confirma el pedido'}
+				</h2>
+				<p>
+					{isClientOnlyStep
+						? 'Completa los datos necesarios antes de elegir el método de pago.'
+						: effectiveOpenMesaMode
+						? 'Define la atención, revisa el consumo y decide cuándo se registra el pago.'
+						: 'Completa los datos del cliente, define la entrega y registra el pago.'}
+				</p>
+			</div>
+			<div className="manual-order-checkout-overview__meta" aria-label="Resumen rápido del pedido">
+				<span>
+					<ShoppingBag size={15} aria-hidden />
+					{cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
+				</span>
+				<strong>{formatMoney(totalToPay)}</strong>
+			</div>
+		</div>
+	);
 
 	const openMesaPaymentChoiceSection = showOpenMesaPaymentChoice ? (
 			<div className={openMesaPaymentCardClass}>
@@ -639,17 +673,18 @@ export default function ManualOrderCheckout({
 					</div>
 				</>
 			) : (
-				<div className={cn(
-					`manual-order-checkout-stage grid w-full max-w-[1280px] flex-1 grid-cols-1 ${spacing.normal} items-start xl:grid-cols-[minmax(260px,1.15fr)_minmax(220px,1fr)_minmax(220px,1fr)]`,
-					effectiveOpenMesaMode && 'manual-order-checkout-stage--open-mesa',
-				)}>
+				<div className="manual-order-checkout-shell">
+					{checkoutOverview}
+					<div className={cn(
+						`manual-order-checkout-stage grid w-full flex-1 grid-cols-1 ${spacing.normal} items-start`,
+						effectiveOpenMesaMode
+							? 'manual-order-checkout-stage--open-mesa'
+							: 'manual-order-checkout-stage--classic',
+					)}>
 					<div className={cn(checkoutColBase, 'manual-order-checkout-col--client')}>
 						<div className={`manual-order-client-stage flex w-full flex-col ${spacing.normal}`}>
 							{clientSection}
 						</div>
-					</div>
-					<div className={cn(checkoutColBase, 'manual-order-checkout-col--summary')}>
-						<OrderSummary {...orderSummaryProps} />
 					</div>
 					{effectiveOpenMesaMode ? (
 						<div className={cn(
@@ -684,9 +719,13 @@ export default function ManualOrderCheckout({
 						</div>
 					) : (
 						<div className={cn(checkoutColBase, checkoutColCard, `manual-order-checkout-col--payment ${spacing.normal} p-5`)}>
-							<PaymentDetails {...paymentDetailsProps} />
+							<PaymentDetails {...paymentDetailsProps} embedded />
 						</div>
 					)}
+					<div className={cn(checkoutColBase, 'manual-order-checkout-col--summary')}>
+						<OrderSummary {...orderSummaryProps} />
+					</div>
+					</div>
 				</div>
 			)}
 		</div>
@@ -694,11 +733,19 @@ export default function ManualOrderCheckout({
 
 	return (
 		<>
-			<div
-				className={`manual-order-steps-progress${isEditMode ? ' manual-order-steps-progress--editable' : ''}`}
-				aria-label={`Paso ${orderStep} de ${wizardStepCount}`}
-			>
-				{stepLabels.map((label, idx) => {
+			<header className="manual-order-wizard-header">
+				<div className="manual-order-wizard-header__identity">
+					<span className="manual-order-wizard-header__icon" aria-hidden="true">
+						<ShoppingBag size={16} strokeWidth={2} />
+					</span>
+					<span>Pedido manual</span>
+				</div>
+
+				<div
+					className={`manual-order-steps-progress${isEditMode ? ' manual-order-steps-progress--editable' : ''}`}
+					aria-label={`Paso ${orderStep} de ${wizardStepCount}`}
+				>
+					{stepLabels.map((label, idx) => {
 					const n = idx + 1;
 					const isActive = orderStep === n;
 					const isDone = orderStep > n;
@@ -730,8 +777,9 @@ export default function ManualOrderCheckout({
 							<span className="manual-order-steps-progress__label">{label}</span>
 						</div>
 					);
-				})}
-			</div>
+					})}
+				</div>
+			</header>
 
 			{isCompactNav ? (
 				<div className="manual-order-mobile-scene">
@@ -742,6 +790,7 @@ export default function ManualOrderCheckout({
 					) : null}
 					{orderStep === 2 ? (
 						<div className={`manual-order-mobile-panel manual-order-mobile-panel--client flex flex-col ${spacing.normal}`}>
+							{checkoutOverview}
 							{effectiveOpenMesaMode ? (
 								<>
 									{clientSection}
@@ -749,9 +798,12 @@ export default function ManualOrderCheckout({
 									{openMesaSessionPaymentSection}
 									<OrderSummary {...orderSummaryProps} />
 								</>
-							) : (
-								clientSection
-							)}
+							) : clientSection}
+							{!isClientStepValid() ? (
+								<p className="manual-order-client-step-hint" role="status">
+									Completa los campos obligatorios para continuar al pago.
+								</p>
+							) : null}
 						</div>
 					) : null}
 					{orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
