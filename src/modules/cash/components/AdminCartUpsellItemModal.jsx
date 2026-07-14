@@ -3,6 +3,8 @@ import { Loader2, Save, Trash2, X, Image as ImageIcon } from "lucide-react";
 import { parseTagList } from "@/lib/inventory-taxonomy";
 import "../styles/AdminMenuCarousel.css";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSignedImageUrl } from "@/shared/hooks/useSignedImageUrl";
 
 const BEVERAGE_CATEGORY_PRESETS = [
 	"Aguas",
@@ -68,6 +70,9 @@ export default function AdminCartUpsellItemModal({
 	const [isDragging, setIsDragging] = useState(false);
 	const [isDirty, setIsDirty] = useState(false);
 	const [errors, setErrors] = useState({});
+	const storedImagePath = localFile ? null : String(formData.imageUrl || "").trim() || null;
+	const { url: signedStoredImageUrl, loading: storedImageLoading } = useSignedImageUrl(storedImagePath, "menu");
+	const resolvedPreviewUrl = localFile ? previewUrl : signedStoredImageUrl;
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -94,8 +99,7 @@ export default function AdminCartUpsellItemModal({
 					? String(Math.max(1, Math.min(999, Math.floor(Number(item.unitsPerSale) || 1))))
 					: "1",
 			});
-			const u = String(item.imageUrl ?? item.image_url ?? "").trim();
-			setPreviewUrl(u);
+			setPreviewUrl("");
 		} else {
 			let id = suggestId();
 			const taken = Array.isArray(existingIds) ? existingIds : [];
@@ -315,10 +319,12 @@ export default function AdminCartUpsellItemModal({
 								className="hidden"
 								style={{ display: "none" }}
 							/>
-							{previewUrl ? (
+							{storedImageLoading ? (
+								<Skeleton className="h-full min-h-[220px] w-full rounded-none" aria-hidden="true" />
+							) : resolvedPreviewUrl ? (
 								<div className="image-preview-container">
 									<img
-										src={previewUrl}
+										src={resolvedPreviewUrl}
 										alt=""
 										className="image-preview"
 										width={400}
@@ -501,23 +507,6 @@ export default function AdminCartUpsellItemModal({
 									Tope para el cliente por ítem. Si hay artículo vinculado, también se respeta el stock.
 								</small>
 							</div>
-						</div>
-
-						<div className="admin-cart-upsell-modal-section admin-cart-upsell-modal-section--compact">
-							<h4 className="admin-cart-upsell-modal-section__title">Más opciones</h4>
-						<div className="form-group">
-							<label>URL de imagen (opcional)</label>
-							<input
-								className="form-input"
-								name="imageUrl"
-								value={formData.imageUrl}
-								onChange={handleChange}
-								placeholder="https://…"
-								disabled={Boolean(localFile)}
-								autoComplete="off"
-							/>
-							<small className="admin-cart-upsell-modal-hint">Solo si no subes archivo arriba.</small>
-						</div>
 						</div>
 
 						<div className="admin-cart-upsell-modal-section">

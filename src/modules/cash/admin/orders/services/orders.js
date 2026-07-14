@@ -1,5 +1,9 @@
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImageToSupabase, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
+import {
+    uploadCompanyImage,
+    deleteCompanyImage,
+    IMAGE_STORAGE_CONTEXTS,
+} from '@/shared/utils/supabaseStorage';
 import {
     computeCouponDiscountAmount,
     fetchActiveCouponByCode,
@@ -179,6 +183,8 @@ export const ordersService = {
      * Crea un pedido completo vinculándolo a un cliente (o creando uno nuevo)
      */
     async createOrder(orderData, receiptFile = null) {
+        let uploadedReceiptPath = null;
+        let orderCreated = false;
         try {
             // 0. VALIDACIÓN DE CAJA (REGLA DE NEGOCIO GLOBAL)
             if (!orderData.branch_id) {
@@ -482,19 +488,25 @@ export const ordersService = {
             });
 
             // 1. Subida de comprobante (si aplica). Si falla, guardamos el pedido igual.
-            let receiptUrl = null;
             let receiptUploadFailed = false;
             if (orderData.payment_type === 'online' && receiptFile) {
                 try {
-                    const folder = companyStorageFolder(orderData.company_id);
-                    receiptUrl = await uploadImageToSupabase(receiptFile, 'receipts', folder);
+                    uploadedReceiptPath = await uploadCompanyImage(
+                        receiptFile,
+                        IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT,
+                        {
+                            companyId: orderData.company_id,
+                            branchId: orderData.branch_id,
+                            entityId: `pending-${crypto.randomUUID()}`,
+                        },
+                    );
                 } catch {
                     receiptUploadFailed = true;
                 }
             }
 
             // 2. Preparar datos para la transacción
-            const paymentRef = receiptUrl
+            const paymentRef = uploadedReceiptPath
                 || orderData.payment_ref
                 || (orderData.payment_type === 'online' ? 'Comprobante pendiente por WhatsApp' : 'Pago Presencial');
 
@@ -543,8 +555,16 @@ export const ordersService = {
                 throwOrderRpcError(orderError);
             }
 
+            orderCreated = true;
             return { order: newOrder, receiptUploadFailed };
         } catch (error) {
+            if (uploadedReceiptPath && !orderCreated && orderData?.company_id) {
+                await deleteCompanyImage(
+                    uploadedReceiptPath,
+                    IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT,
+                    orderData.company_id,
+                );
+            }
             throw error;
         }
     },

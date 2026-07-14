@@ -38,19 +38,15 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
   });
 
   const [localFile, setLocalFile] = useState(null);
-  const rawExistingUrl = product?.image_url || '';
+  const rawExistingUrl = formData.image_url || '';
   const { url: signedExistingUrl } = useSignedImageUrl(rawExistingUrl, 'menu');
-  const resolvePreview = (value) => {
-    const candidate = value || '';
-    return /^https?:\/\//i.test(candidate) ? candidate : '';
-  };
-  const [previewUrl, setPreviewUrl] = useState(() => resolvePreview(signedExistingUrl || rawExistingUrl));
+  const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
     if (!localFile) {
-      setPreviewUrl(resolvePreview(signedExistingUrl || rawExistingUrl));
+      setPreviewUrl(signedExistingUrl || '');
     }
-  }, [localFile, signedExistingUrl, rawExistingUrl]);
+  }, [localFile, signedExistingUrl]);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isDirty, setIsDirty] = useState(false);

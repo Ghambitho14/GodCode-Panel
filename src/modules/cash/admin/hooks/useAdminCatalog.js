@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
+import {
+	uploadCompanyImage,
+	validateImageFile,
+	deleteCompanyImage,
+	IMAGE_STORAGE_CONTEXTS,
+} from '@/shared/utils/supabaseStorage';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
 
@@ -47,37 +52,49 @@ export function useAdminCatalog({
 	const uploadReceiptToOrder = useCallback(async (orderId, file) => {
 		if (!file) return;
 		setUploadingReceipt(true);
+		let uploadedReceiptPath = null;
 		try {
 			const { data: order } = await supabase
 				.from(TABLES.orders)
-				.select('payment_ref')
+				.select('payment_ref, branch_id')
 				.eq('id', orderId)
 				.eq('company_id', companyId)
 				.maybeSingle();
 			const previousRef = order?.payment_ref || null;
-			const receiptUrl = await uploadImageToSupabase(file, 'receipts', companyStorageFolder(companyId));
-			if (previousRef && previousRef !== receiptUrl) {
-				await deleteStorageObject(previousRef, 'receipts');
-			}
+			uploadedReceiptPath = await uploadCompanyImage(
+				file,
+				IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT,
+				{
+					companyId,
+					branchId: order?.branch_id || selectedBranch?.id,
+					entityId: orderId,
+				},
+			);
 			const { error } = await supabase
 				.from(TABLES.orders)
-				.update({ payment_ref: receiptUrl })
+				.update({ payment_ref: uploadedReceiptPath })
 				.eq('id', orderId)
 				.eq('company_id', companyId);
 			if (error) throw error;
-			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
+			if (previousRef && previousRef !== uploadedReceiptPath) {
+				await deleteCompanyImage(previousRef, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, companyId);
+			}
+			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath } : o));
 			if (selectedClient) {
-				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: receiptUrl } : o));
+				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath } : o));
 			}
 			showNotify('Comprobante agregado');
 			setReceiptModalOrder(null);
 			setReceiptPreview(null);
 		} catch (error) {
+			if (uploadedReceiptPath) {
+				await deleteCompanyImage(uploadedReceiptPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, companyId);
+			}
 			showNotify('Error al subir comprobante: ' + error.message, 'error');
 		} finally {
 			setUploadingReceipt(false);
 		}
-	}, [selectedClient, showNotify, companyId, setOrders, setSelectedClientOrders]);
+	}, [selectedClient, selectedBranch?.id, showNotify, companyId, setOrders, setSelectedClientOrders]);
 
 	const handleReceiptFileChange = useCallback((e) => {
 		const file = e.target.files[0];
@@ -102,14 +119,21 @@ export function useAdminCatalog({
 			return;
 		}
 		setRefreshing(true);
+		let uploadedImagePath = null;
+		let imagePersisted = false;
 		try {
 			let finalImageUrl = formData.image_url;
+			const previousImageUrl = editingProduct?.image_url || null;
 			if (localFile) {
-				const previousImageUrl = editingProduct?.image_url || formData.image_url;
-				finalImageUrl = await uploadImageToSupabase(localFile, 'menu', companyStorageFolder(companyId));
-				if (previousImageUrl && previousImageUrl !== finalImageUrl) {
-					await deleteStorageObject(previousImageUrl, 'menu');
-				}
+				uploadedImagePath = await uploadCompanyImage(
+					localFile,
+					IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT,
+					{
+						companyId,
+						entityId: editingProduct?.id || 'drafts',
+					},
+				);
+				finalImageUrl = uploadedImagePath;
 			}
 			const priceStr = String(Number(formData.price) || 0);
 			const discountStr = formData.has_discount
@@ -132,6 +156,10 @@ export function useAdminCatalog({
 			});
 			if (error) throw error;
 			if (!productId) throw new Error('No se pudo guardar el producto');
+			imagePersisted = true;
+			if (previousImageUrl && previousImageUrl !== finalImageUrl) {
+				await deleteCompanyImage(previousImageUrl, IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT, companyId);
+			}
 			const dishKind =
 				typeof formData.dish_kind === 'string' ? formData.dish_kind.trim().slice(0, 64) : '';
 			const { error: dishErr } = await supabase
@@ -174,6 +202,9 @@ export function useAdminCatalog({
 			}
 			await refreshCatalogInner({ force: true });
 		} catch (error) {
+			if (uploadedImagePath && !imagePersisted) {
+				await deleteCompanyImage(uploadedImagePath, IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT, companyId);
+			}
 			showNotify("Error: " + error.message, 'error');
 		} finally {
 			setRefreshing(false);
@@ -187,16 +218,29 @@ export function useAdminCatalog({
 		const id = productToDelete;
 		setProductToDelete(null);
 		try {
+			const { data: product } = await supabase
+				.from(TABLES.products)
+				.select('image_url')
+				.eq('id', id)
+				.eq('company_id', companyId)
+				.maybeSingle();
 			const { error } = await supabase.rpc('admin_delete_product_with_branch', {
 				p_product_id: id
 			});
 			if (error) throw error;
+			if (product?.image_url) {
+				await deleteCompanyImage(
+					product.image_url,
+					IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT,
+					companyId,
+				);
+			}
 			showNotify("Producto eliminado correctamente");
 			await refreshCatalogInner({ force: true });
 		} catch (error) {
 			showNotify("No se pudo eliminar: " + (error.message || 'Error desconocido'), 'error');
 		}
-	}, [productToDelete, showNotify, refreshCatalogInner]);
+	}, [productToDelete, showNotify, refreshCatalogInner, companyId]);
 
 	const toggleProductActive = useCallback((product, e) => {
 		e.stopPropagation();

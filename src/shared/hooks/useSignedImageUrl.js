@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSignedImageUrl } from '@/shared/utils/supabaseStorage';
+import { getSignedImageUrl, isSupabaseStorageUrl } from '@/shared/utils/supabaseStorage';
 
 const BUCKET_REGEX = /\/object\/public\/(menu|receipts|products)\//;
 
@@ -16,8 +16,9 @@ function inferBucket(pathOrUrl) {
 /**
  * Hook para resolver imágenes almacenadas en Supabase Storage.
  *
- * - Si el valor ya es una URL completa (http/https, p.ej. Cloudinary o URL
- *   firmada anterior), la devuelve tal cual.
+ * - Si el valor ya es una URL completa de Supabase Storage (p. ej. una URL
+ *   firmada vigente), la devuelve tal cual.
+ * - Rechaza URLs externas para evitar peticiones a proveedores antiguos.
  * - Si es una ruta relativa de Supabase Storage, genera una URL firmada
  *   (requiere que el bucket sea privado).
  *
@@ -37,9 +38,13 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600) {
 
         const trimmed = String(imageUrlOrPath).trim();
 
-        // URLs completas (Cloudinary, signed URLs previas, etc.) se usan directamente.
+        // Solo las URLs completas de Supabase Storage se usan directamente.
         if (/^https?:\/\//i.test(trimmed)) {
-            setState({ url: trimmed, loading: false, error: null });
+            setState(
+                isSupabaseStorageUrl(trimmed)
+                    ? { url: trimmed, loading: false, error: null }
+                    : { url: null, loading: false, error: 'La imagen no pertenece a Supabase Storage' },
+            );
             return;
         }
 

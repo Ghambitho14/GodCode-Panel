@@ -36,7 +36,8 @@ opencode.json*
 *.njsproj
 *.sln
 *.sw?
-docs
+docs/*
+!docs/storage-buckets.md
 dist
 AGENTS.es.md
 dev-dist/

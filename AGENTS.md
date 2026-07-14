@@ -7,10 +7,11 @@ See the full convention and helper usage in [`docs/storage-buckets.md`](./docs/s
 
 Quick rules when touching image uploads:
 
-- Use `uploadImageToSupabase(file, bucket, folder)` from `src/shared/utils/supabaseStorage.js`.
-- Build the folder with `companyStorageFolder(companyId, subFolder)` so every business has its own directory.
-- Always include `companyId` as the root folder (e.g. `companyStorageFolder(companyId, 'carousel/' + branchId)`).
-- Delete the previous image on replacement with `deleteStorageObject(previousUrl, bucket)`.
+- Use `uploadCompanyImage(file, context, options)` from `src/shared/utils/supabaseStorage.js`.
+- Use an `IMAGE_STORAGE_CONTEXTS` value; components must not choose buckets or construct folders manually.
+- `companyId` is mandatory and is always the root folder.
+- Delete the previous image only after persistence succeeds with `deleteCompanyImage(previousPath, context, companyId)`.
+- Delete a newly uploaded image when persistence fails.
 - Delete the stored image when the entity is removed.
 - Display private images with `useSignedImageUrl(path, bucket)`.
 - Store relative paths in the database, not signed URLs.

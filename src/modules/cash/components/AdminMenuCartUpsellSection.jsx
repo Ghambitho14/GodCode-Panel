@@ -3,7 +3,12 @@ import "../styles/AdminMenuOptions.css";
 import "../styles/AdminMenuCarousel.css";
 import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from "@/shared/utils/supabaseStorage";
+import {
+	uploadCompanyImage,
+	validateImageFile,
+	deleteCompanyImage,
+	IMAGE_STORAGE_CONTEXTS,
+} from "@/shared/utils/supabaseStorage";
 import {
 	CART_UPSELL_MAX_ITEMS,
 	cartUpsellEffectiveMaxPerOrder,
@@ -261,16 +266,16 @@ export default function AdminMenuCartUpsellSection({
 
 	const persistCatalog = useCallback(
 		async (nextItems) => {
-			if (!branchId) return;
+			if (!branchId) return false;
 			if (nextItems.length > CART_UPSELL_MAX_ITEMS) {
 				showNotify(`Máximo ${CART_UPSELL_MAX_ITEMS} ítems en este catálogo.`, "error");
-				return;
+				return false;
 			}
 			const seen = new Set();
 			for (const row of nextItems) {
 				if (seen.has(row.id)) {
 					showNotify("Hay ids duplicados en el catálogo.", "error");
-					return;
+					return false;
 				}
 				seen.add(row.id);
 			}
@@ -321,9 +326,11 @@ export default function AdminMenuCartUpsellSection({
 				if (typeof onSaved === "function") onSaved();
 				setModalOpen(false);
 				setEditingIndex(null);
+				return true;
 			} catch (e) {
 				showNotify(e instanceof Error ? e.message : "Error al guardar", "error");
 				void load();
+				return false;
 			} finally {
 				setSaving(false);
 			}
@@ -461,6 +468,17 @@ export default function AdminMenuCartUpsellSection({
 
 	const handleModalSubmit = async (draft, localFile) => {
 		let imageUrl = String(draft.imageUrl ?? "").trim();
+		const previousImageUrl = modalItem?.imageUrl || "";
+		let uploadedImagePath = null;
+		const price = Number(String(draft.price).replace(",", "."));
+		if (!Number.isFinite(price) || price < 0) {
+			showNotify("Precio inválido.", "error");
+			return;
+		}
+		if (editingIndex === null && items.length >= CART_UPSELL_MAX_ITEMS) {
+			showNotify(`Máximo ${CART_UPSELL_MAX_ITEMS} ítems.`, "error");
+			return;
+		}
 		if (localFile) {
 			const v = validateImageFile(localFile);
 			if (!v.valid) {
@@ -468,21 +486,21 @@ export default function AdminMenuCartUpsellSection({
 				return;
 			}
 			try {
-				const previousImageUrl = modalItem?.imageUrl || "";
-				const folder = companyStorageFolder(effectiveCompanyId, "upsell");
-				imageUrl = await uploadImageToSupabase(localFile, "menu", folder);
-				if (previousImageUrl && previousImageUrl !== imageUrl) {
-					await deleteStorageObject(previousImageUrl, "menu");
-				}
+				uploadedImagePath = await uploadCompanyImage(
+					localFile,
+					IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
+					{
+						companyId: effectiveCompanyId,
+						branchId,
+						variant,
+						entityId: draft.id,
+					},
+				);
+				imageUrl = uploadedImagePath;
 			} catch (err) {
 				showNotify(err instanceof Error ? err.message : "Error al subir imagen", "error");
 				return;
 			}
-		}
-		const price = Number(String(draft.price).replace(",", "."));
-		if (!Number.isFinite(price) || price < 0) {
-			showNotify("Precio inválido.", "error");
-			return;
 		}
 		const inventoryItemId = normInvUuid(draft.inventoryItemId);
 		let maxPerOrder = null;
@@ -517,21 +535,38 @@ export default function AdminMenuCartUpsellSection({
 		if (editingIndex !== null) {
 			next = items.map((x, i) => (i === editingIndex ? newItem : x));
 		} else {
-			if (items.length >= CART_UPSELL_MAX_ITEMS) {
-				showNotify(`Máximo ${CART_UPSELL_MAX_ITEMS} ítems.`, "error");
-				return;
-			}
 			next = [...items, newItem];
 		}
-		await persistCatalog(next);
+		const saved = await persistCatalog(next);
+		if (!saved) {
+			if (uploadedImagePath) {
+				await deleteCompanyImage(
+					uploadedImagePath,
+					IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
+					effectiveCompanyId,
+				);
+			}
+			return;
+		}
+		if (previousImageUrl && previousImageUrl !== imageUrl) {
+			await deleteCompanyImage(
+				previousImageUrl,
+				IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
+				effectiveCompanyId,
+			);
+		}
 	};
 
 	const handleModalDelete = async (item) => {
 		const next = items.filter((i) => i.id !== item.id);
-		if (item?.imageUrl) {
-			await deleteStorageObject(item.imageUrl, "menu");
+		const saved = await persistCatalog(next);
+		if (saved && item?.imageUrl) {
+			await deleteCompanyImage(
+				item.imageUrl,
+				IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
+				effectiveCompanyId,
+			);
 		}
-		await persistCatalog(next);
 	};
 
 	const toggleItemActive = async (e, catalogItem) => {

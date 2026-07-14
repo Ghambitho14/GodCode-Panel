@@ -1,4 +1,5 @@
 import { supabase, TABLES } from '@/integrations/supabase';
+import { extractStoragePath } from '@/shared/utils/supabaseStorage';
 
 /**
  * Servicio del carrusel del menu publico (banners por sucursal + settings por empresa).
@@ -11,8 +12,8 @@ import { supabase, TABLES } from '@/integrations/supabase';
  *
  * En GodCode-panel el front habla directo a Supabase con el JWT del usuario logueado;
  * la autorizacion la aplica RLS (`hero_banners_tenant_access` filtra por company_id
- * del usuario via `current_user_profile()`). Las imagenes siguen subiendo a Cloudinary
- * desde el componente; aca solo viaja la URL ya cargada.
+ * del usuario via `current_user_profile()`). Las imágenes se guardan en el bucket
+ * privado `menu`; en la base de datos solo se persiste la ruta relativa.
  */
 
 /** Fecha lejana para banners "sin caducidad" (la columna expires_at es NOT NULL en BD). */
@@ -37,25 +38,28 @@ const BANNER_SELECT =
 	'id, branch_id, company_id, sort_order, is_active, created_at, image_url, expires_at, promotion_duration_enabled, promotion_duration_days';
 
 /**
- * Valida la URL de imagen antes de persistirla. Las imagenes suben a Cloudinary
- * (https), asi que exigimos `https://` y rechazamos esquemas peligrosos
- * (`javascript:`, `data:`, etc.) que se renderizan luego en `<a href>`/`<img src>`.
- * @param {unknown} rawUrl
+ * Normaliza una ruta del bucket privado `menu` antes de persistirla.
+ * También convierte URLs públicas antiguas de Supabase a su ruta relativa, pero
+ * nunca permite guardar URLs firmadas o externas.
+ * @param {unknown} rawPath
  * @returns {string}
  */
-function sanitizeBannerImageUrl(rawUrl) {
-	const trimmed = String(rawUrl ?? '').trim();
+function sanitizeBannerImagePath(rawPath) {
+	const trimmed = String(rawPath ?? '').trim();
 	if (!trimmed) return '';
-	let parsed;
-	try {
-		parsed = new URL(trimmed);
-	} catch {
-		throw new Error('URL de imagen invalida');
+	const storagePath = extractStoragePath(trimmed, 'menu');
+	if (/^https?:\/\//i.test(storagePath)) {
+		throw new Error('La imagen debe guardarse como ruta relativa del bucket menu');
 	}
-	if (parsed.protocol !== 'https:') {
-		throw new Error('La URL de imagen debe ser https');
+	const segments = storagePath.split('/').filter(Boolean);
+	if (
+		storagePath.startsWith('/') ||
+		segments.length === 0 ||
+		segments.some((segment) => segment === '.' || segment === '..')
+	) {
+		throw new Error('Ruta de imagen inválida');
 	}
-	return parsed.href;
+	return segments.join('/');
 }
 
 /**
@@ -141,14 +145,14 @@ export async function listMenuCarousel({ branchId, companyId } = {}) {
 }
 
 /**
- * Crea un banner nuevo en la sucursal con la URL de Cloudinary ya subida.
+ * Crea un banner nuevo con la ruta relativa ya subida al bucket privado `menu`.
  * Hace defensa basica del lado del panel (max banners y siguiente sort_order)
  * pero la autorizacion final la aplica RLS.
  *
  * @param {{
  *   branchId: string,
  *   companyId: string,
- *   imageUrl: string,
+ *   imagePath: string,
  *   promoEnabled?: boolean,
  *   promoDays?: number,
  * }} args
@@ -157,14 +161,14 @@ export async function listMenuCarousel({ branchId, companyId } = {}) {
 export async function createBanner({
 	branchId,
 	companyId,
-	imageUrl,
+	imagePath,
 	promoEnabled = false,
 	promoDays,
 } = {}) {
 	if (!branchId) throw new Error('Falta branchId');
 	if (!companyId) throw new Error('Falta companyId');
-	const trimmedUrl = sanitizeBannerImageUrl(imageUrl);
-	if (!trimmedUrl) throw new Error('Falta imageUrl');
+	const storagePath = sanitizeBannerImagePath(imagePath);
+	if (!storagePath) throw new Error('Falta la ruta de la imagen');
 
 	const { count, error: countError } = await supabase
 		.from(TABLES.hero_banners)
@@ -202,7 +206,7 @@ export async function createBanner({
 		.insert({
 			branch_id: branchId,
 			company_id: companyId,
-			image_url: trimmedUrl,
+			image_url: storagePath,
 			sort_order: nextOrder,
 			expires_at: expiresAt,
 			is_active: true,
@@ -369,7 +373,7 @@ export async function patchBanner({ bannerId, companyId, patches } = {}) {
 		patch.is_active = patches.is_active;
 	}
 	if (typeof patches.image_url === 'string' && patches.image_url.trim().length > 0) {
-		patch.image_url = sanitizeBannerImageUrl(patches.image_url);
+		patch.image_url = sanitizeBannerImagePath(patches.image_url);
 	}
 
 	const promoFieldsSent =

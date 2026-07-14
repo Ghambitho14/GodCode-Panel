@@ -1,9 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, Star, MoreVertical,
+	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, Star, MoreVertical,
 	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles, WandSparkles,
 } from 'lucide-react';
-import { uploadImageToSupabase, validateImageFile, deleteStorageObject, companyStorageFolder } from '@/shared/utils/supabaseStorage';
+import {
+	uploadCompanyImage,
+	validateImageFile,
+	deleteCompanyImage,
+	IMAGE_STORAGE_CONTEXTS,
+	getSignedImageUrl,
+} from '@/shared/utils/supabaseStorage';
+import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
 	listMenuCarousel,
 	createBanner,
@@ -43,22 +51,72 @@ const shortUrlSnippet = (url) => {
 };
 
 const getImageSource = (url) => {
-	if (typeof url !== 'string') return { label: 'URL externa', accent: false };
-	if (url.includes('res.cloudinary.com')) return { label: 'Cloudinary', accent: false };
-	if (url.includes('.supabase.co/storage/')) return { label: 'Supabase', accent: true };
+	if (typeof url !== 'string' || !url.trim()) return { label: 'Sin imagen', accent: false };
+	if (!/^https?:\/\//i.test(url) || url.includes('/storage/v1/object/')) {
+		return { label: 'Supabase Storage', accent: true };
+	}
 	return { label: 'URL externa', accent: false };
 };
 
 const humanSize = (n) => `${Math.round(n).toLocaleString('es-CL')}px`;
 
 const filenameFromUrl = (url) => {
+	const raw = String(url || '').split('?')[0];
+	const relativeName = raw.split('/').filter(Boolean).pop();
+	if (relativeName) return relativeName;
 	try {
-		const u = new URL(url);
+		const u = new URL(raw);
 		const out = u.pathname.split('/').filter(Boolean).pop();
 		return out || `carousel-${Date.now()}.jpg`;
 	} catch {
 		return `carousel-${Date.now()}.jpg`;
 	}
+};
+
+const CarouselSlideThumbnail = ({ imagePath, index }) => {
+	const { url, loading, error } = useSignedImageUrl(imagePath, 'menu');
+	const [imageFailed, setImageFailed] = useState(false);
+
+	useEffect(() => {
+		setImageFailed(false);
+	}, [url]);
+
+	const available = Boolean(url && !imageFailed && !error);
+
+	return (
+		<a
+			href={available ? url : undefined}
+			target={available ? '_blank' : undefined}
+			rel={available ? 'noopener noreferrer' : undefined}
+			className="menu-carousel-slide-card-thumb"
+			aria-label={available ? `Abrir imagen de la diapositiva ${index + 1} en nueva pestaña` : 'Imagen no disponible'}
+			aria-disabled={!available}
+			onClick={(event) => {
+				if (!available) event.preventDefault();
+			}}
+		>
+			{loading ? <Skeleton className="h-full w-full rounded-none" aria-hidden="true" /> : null}
+			{available ? (
+				<img
+					src={url}
+					alt=""
+					className="menu-carousel-slide-thumb"
+					loading="lazy"
+					decoding="async"
+					onError={() => setImageFailed(true)}
+				/>
+			) : !loading ? (
+				<span className="flex h-full w-full items-center justify-center bg-gc-muted text-gc-text-muted" aria-hidden="true">
+					<ImageOff size={22} />
+				</span>
+			) : null}
+			{available ? (
+				<span className="menu-carousel-thumb-open">
+					<AdminIconSlot Icon={ExternalLink} slotSize="xxs" />
+				</span>
+			) : null}
+		</a>
+	);
 };
 
 export default function AdminMenuCarousel({
@@ -81,7 +139,6 @@ export default function AdminMenuCarousel({
 	const [editing, setEditing] = useState(false);
 
 	const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : null;
-	const storageFolder = companyStorageFolder(companyId, branchId ? `carousel/${branchId}` : 'carousel');
 
 	const load = useCallback(async () => {
 		if (!branchId) {
@@ -249,8 +306,12 @@ export default function AdminMenuCarousel({
 		}
 		setMenuOpenId(null);
 		try {
-			await deleteStorageObject(banner.image_url, 'menu');
 			await deleteBanner({ bannerId: banner.id, companyId });
+			await deleteCompanyImage(
+				banner.image_url,
+				IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+				companyId,
+			);
 			setBanners((prev) => prev.filter((b) => b.id !== banner.id));
 			showNotify('Imagen eliminada.');
 		} catch (e) {
@@ -263,22 +324,52 @@ export default function AdminMenuCarousel({
 		if (!companyId) {
 			throw new Error('Falta identificar la empresa');
 		}
-		const url = await uploadImageToSupabase(fileToUpload, 'menu', storageFolder);
-		const banner = await createBanner({ branchId, companyId, imageUrl: url });
-		if (banner) {
-			setBanners((prev) => [...prev, banner].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+		const imagePath = await uploadCompanyImage(
+			fileToUpload,
+			IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+			{ companyId, branchId },
+		);
+		try {
+			const banner = await createBanner({ branchId, companyId, imagePath });
+			if (banner) {
+				setBanners((prev) => [...prev, banner].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+			}
+		} catch (error) {
+			await deleteCompanyImage(
+				imagePath,
+				IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+				companyId,
+			);
+			throw error;
 		}
 	};
 
 	const uploadAndReplaceBannerImage = async (bannerId, fileToUpload) => {
 		const banner = banners.find((b) => b.id === bannerId);
 		const previousUrl = banner?.image_url || null;
-		const url = await uploadImageToSupabase(fileToUpload, 'menu', storageFolder);
-		if (previousUrl && previousUrl !== url) {
-			await deleteStorageObject(previousUrl, 'menu');
+		const imagePath = await uploadCompanyImage(
+			fileToUpload,
+			IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+			{ companyId, branchId },
+		);
+		try {
+			const updated = await patchBanner(bannerId, { image_url: imagePath });
+			mergeBanner(bannerId, updated);
+			if (previousUrl && previousUrl !== imagePath) {
+				await deleteCompanyImage(
+					previousUrl,
+					IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+					companyId,
+				);
+			}
+		} catch (error) {
+			await deleteCompanyImage(
+				imagePath,
+				IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL,
+				companyId,
+			);
+			throw error;
 		}
-		const updated = await patchBanner(bannerId, { image_url: url });
-		mergeBanner(bannerId, updated);
 	};
 
 	const dismissPendingUpload = () => {
@@ -366,7 +457,9 @@ export default function AdminMenuCarousel({
 		setMenuOpenId(null);
 		setEditing(true);
 		try {
-			const res = await fetch(banner.image_url, { mode: 'cors' });
+			const signedUrl = await getSignedImageUrl(banner.image_url, 'menu');
+			if (!signedUrl) throw new Error('No se encontró la imagen del banner.');
+			const res = await fetch(signedUrl, { mode: 'cors' });
 			if (!res.ok) throw new Error('No se pudo cargar la imagen para editar.');
 			const blob = await res.blob();
 			const fallbackType = blob.type || 'image/jpeg';
@@ -548,18 +641,7 @@ export default function AdminMenuCarousel({
 									key={b.id}
 									className={`menu-carousel-slide-card ${b.is_active ? 'is-active' : 'is-muted'}`}
 								>
-									<a
-										href={b.image_url}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="menu-carousel-slide-card-thumb"
-										aria-label={`Abrir imagen de la diapositiva ${idx + 1} en nueva pestaña`}
-									>
-										<img src={b.image_url} alt="" className="menu-carousel-slide-thumb" loading="lazy" />
-										<span className="menu-carousel-thumb-open">
-											<AdminIconSlot Icon={ExternalLink} slotSize="xxs" />
-										</span>
-									</a>
+									<CarouselSlideThumbnail imagePath={b.image_url} index={idx} />
 									<div className="menu-carousel-slide-card-main">
 										<div className="menu-carousel-slide-card-head">
 											<div className="menu-carousel-slide-titles">
