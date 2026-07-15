@@ -5,6 +5,15 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const SUPABASE_STORAGE_URL_PATTERN = /\/storage\/v1\/(?:object|render\/image)\//i;
 const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
+export function createClientUuid() {
+    const randomUuid = globalThis.crypto?.randomUUID;
+    if (typeof randomUuid === 'function') return randomUuid.call(globalThis.crypto);
+
+    return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (char) => (
+        Number(char) ^ Math.floor(Math.random() * 16) >> Number(char) / 4
+    ).toString(16));
+}
+
 export const STORAGE_BUCKETS = Object.freeze({
     MENU: 'menu',
     RECEIPTS: 'receipts',
@@ -195,7 +204,7 @@ export async function uploadImageToSupabase(file, bucket, folder = '') {
     );
 
     const ext = getFileExtension(file);
-    const fileName = `${normalizedFolder}/${crypto.randomUUID()}.${ext}`;
+    const fileName = `${normalizedFolder}/${createClientUuid()}.${ext}`;
 
     const { data, error } = await supabase.storage
         .from(bucket)

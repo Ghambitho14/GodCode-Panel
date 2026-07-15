@@ -1,18 +1,39 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 
 import {
     IMAGE_STORAGE_CONTEXTS,
     companyStorageFolder,
+    createClientUuid,
     getCompanyImageStorageTarget,
     isCompanyStoragePath,
 } from '@/shared/utils/supabaseStorage';
 
 const COMPANY_ID = '11111111-1111-4111-8111-111111111111';
 const BRANCH_ID = '22222222-2222-4222-8222-222222222222';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+});
 
 describe('Supabase Storage empresarial', () => {
+    it('usa crypto.randomUUID cuando está disponible', () => {
+        const randomUUID = vi.fn(() => '33333333-3333-4333-8333-333333333333');
+
+        vi.stubGlobal('crypto', { randomUUID });
+
+        expect(createClientUuid()).toBe('33333333-3333-4333-8333-333333333333');
+        expect(randomUUID).toHaveBeenCalledOnce();
+    });
+
+    it('genera un UUID de respaldo cuando crypto.randomUUID no existe', () => {
+        vi.stubGlobal('crypto', {});
+
+        expect(createClientUuid()).toMatch(UUID_PATTERN);
+    });
+
     it('exige una raíz de empresa válida', () => {
         expect(() => companyStorageFolder('', 'catalog/products')).toThrow(/companyId/);
         expect(() => companyStorageFolder(COMPANY_ID, '../otro-negocio')).toThrow(/subcarpeta/);

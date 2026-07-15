@@ -3,6 +3,7 @@ import {
     uploadCompanyImage,
     deleteCompanyImage,
     IMAGE_STORAGE_CONTEXTS,
+    createClientUuid,
 } from '@/shared/utils/supabaseStorage';
 import {
     computeCouponDiscountAmount,
@@ -497,7 +498,7 @@ export const ordersService = {
                         {
                             companyId: orderData.company_id,
                             branchId: orderData.branch_id,
-                            entityId: `pending-${crypto.randomUUID()}`,
+                            entityId: `pending-${createClientUuid()}`,
                         },
                     );
                 } catch {
