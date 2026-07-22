@@ -9,13 +9,13 @@ import { mapAddressToFormFields } from '../../services/clientService';
 
 /** Defaults CAJA para documento/teléfono en sesiones locales (mesero o valores iniciales). */
 export const OPEN_MESA_CAJA_DEFAULTS = {
-	client_rut: '1-9',
-	client_phone: '+56 9 0000 0000',
+	client_rut: '',
+	client_phone: '',
 };
 
 /** Estado inicial del formulario de pedido manual / edición. */
 export const MANUAL_ORDER_INITIAL_FORM_STATE = {
-	client_name: 'CAJA',
+	client_name: '',
 	client_rut: OPEN_MESA_CAJA_DEFAULTS.client_rut,
 	client_phone: OPEN_MESA_CAJA_DEFAULTS.client_phone,
 	payment_type: 'tienda',
@@ -37,15 +37,16 @@ export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	saved_addresses: [],
 	selected_address_id: '',
 	charge_now: false,
+	payment_lines: [],
 };
 
-/** Nombres predeterminados al abrir mesa / retiro / delivery (salón). */
+/** Compatibilidad de símbolos legacy: V2 no persiste identidades genéricas. */
 export const OPEN_MESA_DEFAULT_CLIENT_NAMES = {
-	mesa: 'Salón',
+	mesa: '',
 	/** @deprecated use mesa */
-	pickup: 'Salón',
-	retiro: 'Retiro',
-	delivery: 'Delivery',
+	pickup: '',
+	retiro: '',
+	delivery: '',
 };
 
 /** Modos de fulfillment al abrir sesión local en caja. */

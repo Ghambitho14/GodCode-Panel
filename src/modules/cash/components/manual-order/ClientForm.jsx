@@ -13,8 +13,6 @@ import {
 } from '@/lib/delivery-settings';
 import { formatSavedAddressLabel, normalizePhoneForSearch } from '../../services/clientService';
 import {
-    OPEN_MESA_CAJA_DEFAULTS,
-    OPEN_MESA_DEFAULT_CLIENT_NAMES,
     getLocalFulfillmentMode,
     isOpenMesaMeseroMode,
     LOCAL_FULFILLMENT_MODES,
@@ -26,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import { selectedToggleActiveClass, spacing, textScale } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
+import { requirementsFor } from '../../domain/manual-order-settings';
+import { majorToMinor, minorToMajor } from '@/lib/money/minor-units';
 
 const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 const inputClass =
@@ -106,6 +106,7 @@ const ClientForm = ({
     const [detectingZone, setDetectingZone] = useState(false);
     const [calculatingDistance, setCalculatingDistance] = useState(false);
     const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
+	const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
     const clientSearchRef = useRef(null);
 
     const isPickup = manualOrder.order_type !== 'delivery';
@@ -143,15 +144,31 @@ const ClientForm = ({
         return () => document.removeEventListener('mousedown', onDocClick);
     }, []);
 
+	const settingsFulfillments = manualOrder.manualOrderSettings?.enabledFulfillments ?? { table: true, pickup: true, delivery: true };
     const resolvedLocalChannels = useMemo(
-        () => enabledLocalChannels ?? { mesa: true, retiro: true, delivery: true },
-        [
+		() => {
+			const channels = enabledLocalChannels ?? { mesa: true, retiro: true, delivery: true };
+			return {
+				mesa: channels.mesa !== false && settingsFulfillments.table !== false,
+				retiro: channels.retiro !== false && settingsFulfillments.pickup !== false,
+				delivery: channels.delivery !== false && settingsFulfillments.delivery !== false,
+			};
+		},
+		[
             enabledLocalChannels?.mesa,
             enabledLocalChannels?.retiro,
             enabledLocalChannels?.delivery,
+			settingsFulfillments.table,
+			settingsFulfillments.pickup,
+			settingsFulfillments.delivery,
         ],
     );
     const openMesaFulfillmentMode = openMesaMode ? getLocalFulfillmentMode(manualOrder) : null;
+	const contextualFulfillment = isDelivery ? 'delivery' : openMesaFulfillmentMode === 'mesa' ? 'table' : 'pickup';
+	const customerRequirements = requirementsFor(manualOrder.manualOrderSettings, contextualFulfillment);
+	const requiredMark = (required) => required
+		? <span className="text-gc-danger"> *</span>
+		: <span className="font-normal text-gc-text-muted"> (opcional)</span>;
 
     const showNamedZonePicker = Boolean(
         branchDeliveryCfg &&
@@ -243,12 +260,31 @@ const ClientForm = ({
     const handleSelectClient = (client) => {
         applyClientRecord?.(client, clientSelectOpts);
         setClientSuggestionsOpen(false);
+		setActiveSuggestionIndex(-1);
     };
 
     const handleClientNameChange = (value) => {
         updateClientName(sanitizeInputLive(value), { fromClientSelect: false });
         setClientSuggestionsOpen(true);
+		setActiveSuggestionIndex(-1);
     };
+
+	const handleClientComboboxKeyDown = (event) => {
+		if (!showClientSuggestions && event.key === 'ArrowDown') setClientSuggestionsOpen(true);
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			setActiveSuggestionIndex((index) => Math.min(clientSuggestions.length - 1, index + 1));
+		} else if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			setActiveSuggestionIndex((index) => Math.max(0, index - 1));
+		} else if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+			event.preventDefault();
+			handleSelectClient(clientSuggestions[activeSuggestionIndex]);
+		} else if (event.key === 'Escape') {
+			setClientSuggestionsOpen(false);
+			setActiveSuggestionIndex(-1);
+		}
+	};
 
     const handleSavedAddressChange = (e) => {
         const addressId = e.target.value;
@@ -269,6 +305,18 @@ const ClientForm = ({
         updateOrderType(type, branchDeliveryCfg, Number(manualOrder.total) || 0);
     };
 
+	useEffect(() => {
+		if (openMesaMode) {
+			const current = getLocalFulfillmentMode(manualOrder);
+			if (resolvedLocalChannels[current]) return;
+			const fallback = ['mesa', 'retiro', 'delivery'].find((mode) => resolvedLocalChannels[mode]);
+			if (fallback) updateLocalFulfillmentMode?.(fallback);
+			return;
+		}
+		if (isDelivery && settingsFulfillments.delivery === false && settingsFulfillments.pickup !== false) handleOrderTypeChange('pickup');
+		if (!isDelivery && settingsFulfillments.pickup === false && settingsFulfillments.delivery !== false) handleOrderTypeChange('delivery');
+	}, [openMesaMode, manualOrder.local_fulfillment_mode, isDelivery, resolvedLocalChannels, settingsFulfillments.pickup, settingsFulfillments.delivery]);
+
     const validationIcon = (
         <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
             <CheckCircle2 size={18} className="text-gc-accent" aria-hidden />
@@ -281,11 +329,11 @@ const ClientForm = ({
             className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-card py-1 shadow-lg"
             role="listbox"
         >
-            {clientSuggestions.map((client) => (
-                <li key={client.id} role="option">
+            {clientSuggestions.map((client, index) => (
+                <li key={client.id} id={`${suggestionsId}-option-${index}`} role="option" aria-selected={index === activeSuggestionIndex}>
                     <Button variant="outline"
                         type="button"
-                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-gc-muted focus-visible:bg-gc-muted focus-visible:outline-none"
+                        className={cn('flex min-h-[44px] w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-gc-muted focus-visible:bg-gc-muted focus-visible:outline-none', index === activeSuggestionIndex && 'bg-gc-muted')}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelectClient(client)}
                     >
@@ -311,10 +359,14 @@ const ClientForm = ({
                     value={manualOrder.client_name}
                     onChange={(e) => handleClientNameChange(e.target.value)}
                     onFocus={() => setClientSuggestionsOpen(true)}
+					onKeyDown={handleClientComboboxKeyDown}
                     autoComplete="off"
+					role="combobox"
+					aria-autocomplete="list"
                     aria-label="Buscar cliente registrado"
                     aria-expanded={showClientSuggestions}
                     aria-controls={suggestionsId}
+					aria-activedescendant={activeSuggestionIndex >= 0 ? `${suggestionsId}-option-${activeSuggestionIndex}` : undefined}
                     style={{
                         paddingRight:
                             manualOrder.selected_client_id || manualOrder.client_name.length >= 3
@@ -354,7 +406,7 @@ const ClientForm = ({
             <div className="relative w-full">
                 <input
                     type="text"
-                    placeholder={`${formStrategy.idName} *`}
+                    placeholder={`${formStrategy.idName}${customerRequirements.document ? ' *' : ' (opcional)'}`}
                     className={cn(inputClass, lockIdentityFields && inputReadonlyClass)}
                     value={manualOrder.client_rut}
                     onChange={handleRutChange}
@@ -371,7 +423,7 @@ const ClientForm = ({
             <div className="relative w-full">
                 <input
                     type="tel"
-                    placeholder="+56 9..."
+                    placeholder={`${formStrategy.phonePrefix}…${customerRequirements.phone ? ' *' : ''}`}
                     className={cn(inputClass, lockIdentityFields && inputReadonlyClass)}
                     value={manualOrder.client_phone}
                     onChange={handlePhoneChange}
@@ -387,8 +439,7 @@ const ClientForm = ({
 
             {lockIdentityFields ? (
                 <p className={hintClass}>
-                    Documento y teléfono genéricos de caja ({OPEN_MESA_CAJA_DEFAULTS.client_rut},{' '}
-                    {OPEN_MESA_CAJA_DEFAULTS.client_phone}).
+                    La referencia del mesero se guarda separada; no se inventan datos personales del cliente.
                 </p>
             ) : null}
         </div>
@@ -476,7 +527,8 @@ const ClientForm = ({
                                 const subtotal = Number(manualOrder.total) || 0;
                                 const r = computeDeliveryFee(branchDeliveryCfg, 0, subtotal, { namedAreaId: v });
                                 if (r.fee >= 0) {
-                                    updateDeliveryFee(String(Math.round(r.fee * 100) / 100));
+									const currency = manualOrder.currency || 'CLP';
+									updateDeliveryFee(String(minorToMajor(majorToMinor(r.fee, currency, manualOrder.fractionDigits), currency, manualOrder.fractionDigits)));
                                 }
                             }
                         }}
@@ -593,8 +645,6 @@ const ClientForm = ({
         const isMesa = fulfillmentMode === 'mesa';
         const isRetiro = fulfillmentMode === 'retiro';
         const isMesero = isOpenMesaMeseroMode(manualOrder);
-        const retiroDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.retiro;
-        const deliveryDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.delivery;
         const visibleModes = LOCAL_FULFILLMENT_MODES.filter((mode) => channels[mode]);
 
         return (
@@ -704,11 +754,7 @@ const ClientForm = ({
                             allowClientSearch: false,
                         })
                         : openMesaContactFields({
-                            namePlaceholder: isDelivery
-                                ? `BUSCAR CLIENTE O NOMBRE (predeterminado: ${deliveryDefault})`
-                                : isRetiro
-                                  ? `BUSCAR CLIENTE O NOMBRE (predeterminado: ${retiroDefault})`
-                                  : 'BUSCAR CLIENTE O NOMBRE *',
+							namePlaceholder: 'BUSCAR CLIENTE O NOMBRE *',
                             lockIdentityFields: false,
                             allowClientSearch: true,
                         })}
@@ -747,7 +793,7 @@ const ClientForm = ({
 
                 <div className="grid gap-3">
                     <div className={fieldLabelClass}>
-                        <label htmlFor="manual-order-client-name">Nombre completo <span className="text-gc-danger">*</span></label>
+                        <label htmlFor="manual-order-client-name">Nombre completo{requiredMark(customerRequirements.name)}</label>
                         <div className="relative w-full" ref={clientSearchRef}>
                             <input
                                 id="manual-order-client-name"
@@ -757,10 +803,14 @@ const ClientForm = ({
                                 value={manualOrder.client_name}
                                 onChange={(e) => handleClientNameChange(e.target.value)}
                                 onFocus={() => setClientSuggestionsOpen(true)}
+								onKeyDown={handleClientComboboxKeyDown}
                                 autoComplete="off"
+								role="combobox"
+								aria-autocomplete="list"
                                 aria-label="Nombre completo del cliente"
                                 aria-expanded={showClientSuggestions}
                                 aria-controls="manual-order-client-suggestions"
+								aria-activedescendant={activeSuggestionIndex >= 0 ? `manual-order-client-suggestions-option-${activeSuggestionIndex}` : undefined}
                                 style={{
                                     paddingRight: manualOrder.client_name.length >= 3 ? '40px' : undefined,
                                 }}
@@ -771,7 +821,7 @@ const ClientForm = ({
                     </div>
 
                     <label className={fieldLabelClass}>
-                        <span>{formStrategy.idName} <span className="text-gc-danger">*</span></span>
+                        <span>{formStrategy.idName}{requiredMark(customerRequirements.document)}</span>
                         <div className="relative w-full">
                             <input
                                 type="text"
@@ -780,29 +830,29 @@ const ClientForm = ({
                                 value={manualOrder.client_rut}
                                 onChange={handleRutChange}
                                 style={{
-                                    ...getInputStyle(rutValid),
-                                    paddingRight: rutValid ? '40px' : undefined,
+									...(manualOrder.client_rut ? getInputStyle(rutValid) : {}),
+									paddingRight: manualOrder.client_rut && rutValid ? '40px' : undefined,
                                 }}
                             />
-                            {rutValid && validationIcon}
+							{manualOrder.client_rut && rutValid ? validationIcon : null}
                         </div>
                     </label>
 
                     <label className={fieldLabelClass}>
-                        <span>Teléfono <span className="text-gc-danger">*</span></span>
+                        <span>Teléfono{requiredMark(customerRequirements.phone)}</span>
                         <div className="relative w-full">
                             <input
                                 type="tel"
-                                placeholder="+56 9..."
+                                placeholder={`${formStrategy.phonePrefix}…`}
                                 className={inputClass}
                                 value={manualOrder.client_phone}
                                 onChange={handlePhoneChange}
                                 style={{
-                                    ...getInputStyle(phoneValid),
-                                    paddingRight: phoneValid ? '40px' : undefined,
+									...(manualOrder.client_phone ? getInputStyle(phoneValid) : {}),
+									paddingRight: manualOrder.client_phone && phoneValid ? '40px' : undefined,
                                 }}
                             />
-                            {phoneValid && validationIcon}
+							{manualOrder.client_phone && phoneValid ? validationIcon : null}
                         </div>
                     </label>
                     </div>
@@ -815,22 +865,22 @@ const ClientForm = ({
                     </p>
 
                     <div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
-                        <Button variant="default"
+						{settingsFulfillments.pickup !== false ? <Button variant="default"
                             type="button"
                             className={cn(toggleBaseClass, isPickup && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('pickup')}
                         >
                             <Store size={16} />
                             Local / Retiro
-                        </Button>
-                        <Button variant="default"
+						</Button> : null}
+						{settingsFulfillments.delivery !== false ? <Button variant="default"
                             type="button"
                             className={cn(toggleBaseClass, isDelivery && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('delivery')}
                         >
                             <Truck size={16} />
                             Delivery
-                        </Button>
+						</Button> : null}
                     </div>
 
                     {deliveryFields}

@@ -8,6 +8,8 @@ import {
 } from '@/shared/utils/supabaseStorage';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
+import { manualOrderV2Service } from '../../services/manualOrderV2Service';
+import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
 
 /**
  * CRUD de productos/categorías y comprobantes de pago en el panel admin.
@@ -56,11 +58,41 @@ export function useAdminCatalog({
 		try {
 			const { data: order } = await supabase
 				.from(TABLES.orders)
-				.select('payment_ref, branch_id')
+				.select('payment_ref, branch_id, manual_order_mode, payment_evidence_status')
 				.eq('id', orderId)
 				.eq('company_id', companyId)
 				.maybeSingle();
 			const previousRef = order?.payment_ref || null;
+			if (order?.manual_order_mode === 'quick_sale' || order?.manual_order_mode === 'session') {
+				const evidenceRows = await manualOrderV2Service.listEvidence(orderId);
+				if (evidenceRows.length === 0) throw new Error('Este pedido no tiene una línea de pago que admita comprobante.');
+				const targetRows = evidenceRows.some((row) => row.status !== 'uploaded')
+					? evidenceRows.filter((row) => row.status !== 'uploaded')
+					: evidenceRows;
+				const results = [];
+				for (const [index, evidence] of targetRows.entries()) {
+					const queued = await queuePaymentEvidence({
+						evidenceId: evidence.id,
+						companyId,
+						branchId: order?.branch_id || selectedBranch?.id,
+						orderId,
+						file,
+						previousPath: evidence.storage_path || (index === 0 ? previousRef : null),
+					});
+					results.push(await uploadQueuedPaymentEvidence(queued));
+				}
+				const allUploaded = results.every((result) => result.ok);
+				const uploadedPath = results.find((result) => result.ok)?.path ?? previousRef;
+				const patch = allUploaded
+					? { payment_ref: uploadedPath, payment_evidence_status: 'uploaded' }
+					: { payment_ref: uploadedPath, payment_evidence_status: 'failed' };
+				setOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
+				if (selectedClient) setSelectedClientOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
+				showNotify(allUploaded ? 'Comprobante guardado' : 'El comprobante quedó pendiente y se reintentará automáticamente.', allUploaded ? 'success' : 'warning');
+				setReceiptModalOrder(null);
+				setReceiptPreview(null);
+				return;
+			}
 			uploadedReceiptPath = await uploadCompanyImage(
 				file,
 				IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT,

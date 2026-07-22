@@ -1,5 +1,15 @@
 import { safeNumber } from '@/shared/utils/numberSafe';
 import { resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
+import { isoFractionDigits } from '@/lib/money/minor-units';
+
+export {
+	parseMoneyInput,
+	majorToMinor,
+	minorToMajor,
+	sumMinor,
+	formatMinor,
+	minorAmountsEqual,
+} from '@/lib/money/minor-units';
 
 /** @typedef {{ currency?: string | null, country?: string | null }} BranchMoneySource */
 
@@ -10,8 +20,6 @@ const CURRENCY_LOCALE = {
 	VES: 'es-VE',
 	MXN: 'es-MX',
 };
-
-const ZERO_DECIMAL_CURRENCIES = new Set(['CLP', 'ARS']);
 
 /**
  * @param {unknown} raw
@@ -39,8 +47,7 @@ export function localeForCurrency(currency) {
  * @returns {number}
  */
 export function fractionDigitsForCurrency(currency, override) {
-	if (override != null && Number.isFinite(override)) return override;
-	return ZERO_DECIMAL_CURRENCIES.has(normalizeCurrencyCode(currency)) ? 0 : 2;
+	return isoFractionDigits(normalizeCurrencyCode(currency), override);
 }
 
 /**
@@ -106,8 +113,16 @@ export function formatMoneyOrFree(amount, freeLabel = 'GRATIS') {
  */
 export function createMoneyFormatter(branch, company) {
 	const currency = resolveEffectiveCurrency(branch, company);
-	const locale = localeForCurrency(currency);
-	const fractionDigits = fractionDigitsForCurrency(currency);
+	const country = String(branch?.country ?? company?.country ?? '').trim().toUpperCase();
+	const locale = country === 'VE' || country === 'VENEZUELA'
+		? 'es-VE'
+		: country === 'CL' || country === 'CHILE'
+			? 'es-CL'
+			: localeForCurrency(currency);
+	const fractionDigits = fractionDigitsForCurrency(
+		currency,
+		branch?.manual_order_settings?.currencyFractionDigits,
+	);
 
 	return {
 		currency,

@@ -1,6 +1,6 @@
 /** Listado de sucursales del panel — SIN delivery_settings (JSONB pesado). */
 export const BRANCHES_LIST_SELECT =
-	'id, name, company_id, is_active, currency, country, phone, address, slug, ' +
+	'id, name, company_id, is_active, currency, country, manual_order_settings, payment_methods, phone, address, slug, ' +
 	'whatsapp_url, instagram_url, map_url, schedule, ' +
 	'bank_name, account_type, account_number, account_rut, account_email, account_holder';
 

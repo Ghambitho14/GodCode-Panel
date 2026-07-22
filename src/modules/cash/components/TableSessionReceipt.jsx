@@ -78,7 +78,7 @@ export default function TableSessionReceipt({
 						Pedido <strong className="table-session-receipt__order-code">#{orderRef}</strong>
 					</p>
 					<div className="table-session-receipt__meta">
-						<span className="table-session-receipt__meta-item">{order?.client_name || 'Cliente'}</span>
+						<span className="table-session-receipt__meta-item">{order?.display_name || order?.client_name || 'Cliente'}</span>
 						{itemCount > 0 ? (
 							<>
 								<span className="table-session-receipt__meta-sep" aria-hidden>·</span>

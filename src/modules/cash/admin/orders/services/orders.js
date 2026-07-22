@@ -180,6 +180,33 @@ function resolvePaymentBreakdownForRpc(breakdown, total) {
  * clientes (Web) como para administración (Manual).
  */
 export const ordersService = {
+	async replaceOrderReceipt(order, file) {
+		if (!order?.id || !order?.company_id || !order?.branch_id || !file) {
+			throw new Error('Faltan datos para adjuntar el comprobante.');
+		}
+		let newPath = null;
+		try {
+			newPath = await uploadCompanyImage(file, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, {
+				companyId: order.company_id,
+				branchId: order.branch_id,
+				entityId: String(order.id),
+			});
+			const { error } = await supabase
+				.from(TABLES.orders)
+				.update({ payment_ref: newPath })
+				.eq('id', order.id)
+				.eq('company_id', order.company_id);
+			if (error) throw error;
+			if (order.payment_ref && order.payment_ref !== newPath) {
+				await deleteCompanyImage(order.payment_ref, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, order.company_id);
+			}
+			return newPath;
+		} catch (error) {
+			if (newPath) await deleteCompanyImage(newPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, order.company_id);
+			throw error;
+		}
+	},
+
     /**
      * Crea un pedido completo vinculándolo a un cliente (o creando uno nuevo)
      */

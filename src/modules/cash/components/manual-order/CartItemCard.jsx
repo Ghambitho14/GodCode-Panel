@@ -12,8 +12,10 @@ const CartItemCard = ({
     updateItemNote,
     isItemNoteOpen,
     toggleItemNote,
+	formatMoney: formatMoneyOverride,
 }) => {
-    const { formatMoney } = useOrderMoney();
+	const { formatMoney: fallbackFormatMoney } = useOrderMoney();
+	const formatMoney = formatMoneyOverride ?? fallbackFormatMoney;
     const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
     const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
     const subtotal = unit * Number(item.quantity || 1);
@@ -60,7 +62,7 @@ const CartItemCard = ({
                     <Button variant="outline"
                         type="button"
                         onClick={handleMinus}
-                        className="flex h-6 w-6 items-center justify-center rounded-full border-gc-border bg-gc-card p-0 text-gc-text transition-colors hover:bg-gc-muted"
+						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border-gc-border bg-gc-card p-0 text-gc-text transition-colors hover:bg-gc-muted"
                         aria-label="Reducir cantidad"
                     >
                         <Minus size={12} strokeWidth={2.5} />
@@ -71,7 +73,7 @@ const CartItemCard = ({
                     <Button variant="default"
                         type="button"
                         onClick={handlePlus}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-gc-accent p-0 text-sm leading-none text-white transition-colors hover:bg-gc-accent-hover"
+						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gc-accent p-0 text-sm leading-none text-white transition-colors hover:bg-gc-accent-hover"
                         aria-label="Aumentar cantidad"
                     >
                         <Plus size={12} strokeWidth={2.5} />
@@ -83,7 +85,7 @@ const CartItemCard = ({
                         type="button"
                         onClick={(e) => { e.stopPropagation(); toggleItemNote(item.id); }}
                         className={cn(
-                            `flex h-6 w-6 items-center justify-center rounded-full border p-0 transition-colors`,
+							`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border p-0 transition-colors`,
                             (item.note ?? '').length > 0
                                 ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
                                 : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-accent',
@@ -97,7 +99,7 @@ const CartItemCard = ({
                     <Button variant="destructive"
                         type="button"
                         onClick={handleRemove}
-                        className="flex h-6 w-6 items-center justify-center rounded-full border-0 bg-gc-card p-0 text-gc-text-muted transition-colors hover:bg-gc-danger/10 hover:text-gc-danger"
+						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border-0 bg-gc-card p-0 text-gc-text-muted transition-colors hover:bg-gc-danger/10 hover:text-gc-danger"
                         title="Eliminar ítem"
                         aria-label="Eliminar ítem"
                     >

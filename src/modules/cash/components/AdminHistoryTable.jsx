@@ -93,7 +93,7 @@ const AdminHistoryTable = ({
 	const filteredOrders = useMemo(() => {
 		return (orders || []).filter((o) => {
 			const matchesSearch =
-				String(o.client_name || "")
+				String(o.display_name || o.client_name || "")
 					.toLowerCase()
 					.includes(searchTerm.toLowerCase()) ||
 				String(o.client_phone || "").includes(searchTerm) ||
@@ -212,7 +212,7 @@ const AdminHistoryTable = ({
 													<td data-label="Cliente">
 														<div className="admin-history-client-stack">
 															<span className="admin-history-client-name">
-																{o.client_name}
+																{o.display_name || o.client_name}
 															</span>
 															{o.client_phone ? (
 																<span className="admin-history-muted-sm">
@@ -327,18 +327,14 @@ const AdminHistoryTable = ({
 																	</h4>
 																	{o.payment_type === "online" ? (
 																		<div>
-																			{o.payment_ref &&
-																			typeof o.payment_ref === "string" &&
-																			o.payment_ref.startsWith("http") ? (
-																				<div className="admin-history-receipt-actions">
-																					<a
-																						href={o.payment_ref}
-																						target="_blank"
-																						rel="noreferrer"
-																						className="admin-history-receipt-link"
-																					>
-																						<Eye size={16} /> Ver Recibo Guardado
-																					</a>
+													{o.payment_ref ? (
+														<div className="admin-history-receipt-actions">
+															<Button variant="default" type="button"
+																onClick={(e) => { e.stopPropagation(); setReceiptModalOrder?.(o); }}
+																className="admin-history-receipt-link"
+															>
+																<Eye size={16} /> Ver Recibo Guardado
+															</Button>
 																					{setReceiptModalOrder ? (
 																						<Button variant="default"
 																							type="button"

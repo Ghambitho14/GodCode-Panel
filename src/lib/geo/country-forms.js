@@ -1,4 +1,5 @@
 import { isVenezuelaCountry } from '@/lib/geo/tenant-locale';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 /** @typedef {{ idName: string; phonePrefix: string; formatId: (value: string) => string; validateId: (value: string) => boolean; validatePhone: (value: string) => boolean }} FormStrategy */
 
@@ -33,8 +34,7 @@ function validateVeId(value) {
  * @returns {boolean}
  */
 function validateVePhone(value) {
-	const digits = String(value ?? '').replace(/\D/g, '');
-	return digits.length === 12 && digits.startsWith('58');
+	return Boolean(parsePhoneNumberFromString(String(value ?? ''), 'VE')?.isValid());
 }
 
 /**
@@ -87,8 +87,19 @@ function validateClRut(rut) {
  * @returns {boolean}
  */
 function validateClPhone(value) {
-	const digits = String(value ?? '').replace(/\D/g, '');
-	return digits.length >= 9;
+	return Boolean(parsePhoneNumberFromString(String(value ?? ''), 'CL')?.isValid());
+}
+
+function formatGenericDocument(value) {
+	return String(value ?? '').trim().slice(0, 40);
+}
+
+function validateGenericDocument(value) {
+	return String(value ?? '').trim().length <= 40;
+}
+
+function validateGlobalPhone(value) {
+	return Boolean(parsePhoneNumberFromString(String(value ?? ''))?.isValid());
 }
 
 /** @type {Record<string, FormStrategy>} */
@@ -109,7 +120,13 @@ const STRATEGIES = {
 	},
 };
 
-const DEFAULT_STRATEGY = STRATEGIES.CL;
+const GLOBAL_STRATEGY = {
+	idName: 'Documento',
+	phonePrefix: '+',
+	formatId: formatGenericDocument,
+	validateId: validateGenericDocument,
+	validatePhone: validateGlobalPhone,
+};
 
 /**
  * @param {unknown} country
@@ -119,7 +136,7 @@ export function getFormStrategy(country) {
 	if (isVenezuelaCountry(country)) return STRATEGIES.VE;
 	const code = String(country ?? '').trim().toUpperCase();
 	if (code === 'CL' || code === 'CHILE') return STRATEGIES.CL;
-	return DEFAULT_STRATEGY;
+	return GLOBAL_STRATEGY;
 }
 
 /**
@@ -137,7 +154,7 @@ export function resolveCheckoutCountryCode(opts = {}) {
 	if (business != null && String(business).trim()) return String(business).trim();
 	const cart = opts.cartCountry;
 	if (cart != null && String(cart).trim()) return String(cart).trim();
-	return 'CL';
+	return '';
 }
 
 /**

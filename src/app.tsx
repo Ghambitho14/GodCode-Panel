@@ -12,6 +12,12 @@ import "./modules/cash/styles/App.css";
 const AdminApp = lazy(() =>
 	import("./modules/cash/admin/admin-app").then((m) => ({ default: m.AdminApp })),
 );
+const ManualOrderE2EHarness = import.meta.env.VITE_E2E === "1"
+	? lazy(() => import("./modules/cash/e2e/ManualOrderE2EHarness"))
+	: null;
+const ManualOrderCheckoutVisualHarness = import.meta.env.VITE_E2E === "1"
+	? lazy(() => import("./modules/cash/e2e/ManualOrderCheckoutVisualHarness"))
+	: null;
 
 function AdminRouteFallback() {
 	return (
@@ -56,6 +62,8 @@ export function App() {
     <BrowserRouter>
       <AppShell>
         <Routes>
+		  {ManualOrderE2EHarness ? <Route path="/__e2e/manual-order" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderE2EHarness /></Suspense>} /> : null}
+		  {ManualOrderCheckoutVisualHarness ? <Route path="/__e2e/manual-order-ui" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderCheckoutVisualHarness /></Suspense>} /> : null}
           <Route path="/" element={<LoginShell displayName="GodCode Caja" />} />
           <Route
             path="/admin"

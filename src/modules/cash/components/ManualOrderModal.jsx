@@ -17,10 +17,18 @@ import ManualOrderCheckout, {
 	TABLET_WIZARD_STEPS,
 	useManualOrderCheckoutFlow,
 } from './manual-order/ManualOrderCheckout';
+import ManualOrderCloseConfirm from './manual-order/ManualOrderCloseConfirm';
 import useManualOrderBranchConfig from './manual-order/useManualOrderBranchConfig';
 import { isOpenOrderSessionStatus } from '../hooks/manual-order/manualOrderShared';
 import { ADMIN_MOBILE_MQ, ADMIN_TABLET_MQ } from '../constants/responsive';
 import { Button } from "@/components/ui/button";
+import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
+import {
+	loadManualOrderDraft,
+	saveManualOrderDraft,
+	deleteManualOrderDraft,
+} from '../services/manualOrderDrafts';
+import { manualOrderV2Service } from '../services/manualOrderV2Service';
 
 const ManualOrderModal = ({
 	isOpen,
@@ -39,7 +47,8 @@ const ManualOrderModal = ({
 	openMesaMode = false,
 	localOrderChannels = null,
 }) => {
-	const { userRole, markOrderSessionPaid, orders, companyProfile } = useAdmin();
+	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile } = useAdmin();
+	useLockBodyScroll(isOpen);
 	const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
 	const isEditMode = Boolean(editOrder?.id);
 	const liveEditOrder = useMemo(() => {
@@ -51,7 +60,15 @@ const ManualOrderModal = ({
 	const showClassicPaymentStep = !effectiveOpenMesaMode;
 	const showOpenMesaPaymentChoice = openMesaMode && !isEditMode;
 
-	const { branchDeliveryCfg, branchDeliveryCfgLoading, cartUpsellCatalogs } =
+	const {
+		branchDeliveryCfg,
+		branchDeliveryCfgLoading,
+		branchConfigError,
+		manualOrderSettings,
+		paymentMethods,
+		cartUpsellCatalogs,
+		retryBranchConfig,
+	} =
 		useManualOrderBranchConfig(isOpen, branch);
 	const { formatMoney } = useMemo(() => createMoneyFormatter(branch, companyProfile), [branch, companyProfile]);
 
@@ -65,6 +82,9 @@ const ManualOrderModal = ({
 		openMesaMode,
 		localOrderChannels,
 		companyProfile,
+		manualOrderSettings,
+		paymentMethods,
+		branchConfigError,
 	);
 
 	const editHook = useOrderEdit(
@@ -85,6 +105,7 @@ const ManualOrderModal = ({
 		receiptFile, receiptPreview,
 		updateClientName, updateCouponCode, couponPreview, updatePaymentType,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow,
+		updatePaymentLines,
 		handleRutChange,
 		handlePhoneChange, handleFileChange, removeReceipt, addItem, updateQuantity, removeItem,
 		updateItemNote,
@@ -93,7 +114,10 @@ const ManualOrderModal = ({
 		applyClientRecord,
 		applySavedAddress,
 		submitOrder, resetOrder, getInputStyle,
+		restoreOrder, restoreReceipt, draftSnapshot,
+		acknowledgeQuoteRevision,
 	} = hookActions;
+	const effectiveBranchConfigError = branchConfigError || manualOrder?.branchConfigError || null;
 
 	const openMesaChargeNow = showOpenMesaPaymentChoice && Boolean(manualOrder?.charge_now);
 
@@ -110,7 +134,30 @@ const ManualOrderModal = ({
 	const [touchStart, setTouchStart] = useState(null);
 	const [touchEnd, setTouchEnd] = useState(null);
 	const [payModalOpen, setPayModalOpen] = useState(false);
+	const [closePromptOpen, setClosePromptOpen] = useState(false);
+	const [closeAction, setCloseAction] = useState(null);
 	const wasOpenRef = useRef(false);
+	const dialogRef = useRef(null);
+	const closePromptRef = useRef(null);
+	const closeButtonRef = useRef(null);
+	const closePromptContinueRef = useRef(null);
+	const closePromptTriggerRef = useRef(null);
+	const shouldRestorePromptFocusRef = useRef(false);
+	const previouslyFocusedRef = useRef(null);
+	const draftSaveErrorShownRef = useRef(false);
+	const draftIdentity = useMemo(() => ({
+		companyId: branch?.company_id,
+		branchId: branch?.id,
+		userId: userEmail || 'authenticated-user',
+		mode: openMesaMode ? 'session' : 'quick_sale',
+	}), [branch?.company_id, branch?.id, userEmail, openMesaMode]);
+	const isDirty = !isEditMode && Boolean(
+		manualOrder?.items?.length
+		|| String(manualOrder?.client_name ?? '').trim()
+		|| String(manualOrder?.note ?? '').trim()
+		|| String(manualOrder?.coupon_code ?? '').trim()
+		|| receiptFile,
+	);
 
 	const sessionPaymentDeferred = isEditMode && isOrderPaymentDeferred(liveEditOrder);
 	const canMarkPaidSession =
@@ -130,9 +177,33 @@ const ManualOrderModal = ({
 			resetOrder();
 			setOrderStep(1);
 			setPayModalOpen(false);
+			setClosePromptOpen(false);
+			setCloseAction(null);
+			if (!isEditMode && restoreOrder && draftIdentity.companyId && draftIdentity.branchId) {
+				void loadManualOrderDraft(draftIdentity).then((saved) => {
+					if (!saved?.draft || !window.confirm('Encontramos un borrador de pedido de las últimas 24 horas. ¿Quieres restaurarlo?')) return;
+					restoreOrder(saved.draft);
+					restoreReceipt?.(saved.receiptBlob);
+					showNotify?.('Borrador restaurado. Los precios se validarán de nuevo.', 'info');
+				});
+			}
 		}
 		wasOpenRef.current = isOpen;
-	}, [isOpen, resetOrder]);
+	}, [isOpen, resetOrder, restoreOrder, restoreReceipt, draftIdentity, isEditMode, showNotify]);
+
+	useEffect(() => {
+		if (!isOpen || isEditMode || !draftSnapshot || !draftIdentity.companyId || !draftIdentity.branchId) return undefined;
+		const timer = window.setTimeout(() => {
+			if (isDirty) void saveManualOrderDraft(draftIdentity, draftSnapshot, receiptFile).then(() => {
+				draftSaveErrorShownRef.current = false;
+			}).catch(() => {
+				if (!draftSaveErrorShownRef.current) showNotify?.('No se pudo guardar el borrador local. Revisa el espacio disponible del navegador.', 'warning');
+				draftSaveErrorShownRef.current = true;
+			});
+			else void deleteManualOrderDraft(draftIdentity).catch(() => {});
+		}, 500);
+		return () => window.clearTimeout(timer);
+	}, [isOpen, isEditMode, draftIdentity, draftSnapshot, receiptFile, isDirty, showNotify]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -198,13 +269,120 @@ const ManualOrderModal = ({
 		printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
 	};
 
+	const requestClose = React.useCallback(() => {
+		if (loading || closeAction) return;
+		if (isDirty) {
+			const activeElement = document.activeElement;
+			closePromptTriggerRef.current = activeElement instanceof HTMLElement && dialogRef.current?.contains(activeElement)
+				? activeElement
+				: closeButtonRef.current;
+			shouldRestorePromptFocusRef.current = true;
+			setClosePromptOpen(true);
+			return;
+		}
+		onClose?.();
+	}, [loading, closeAction, isDirty, onClose]);
+	const dismissClosePrompt = React.useCallback(() => {
+		if (closeAction) return;
+		shouldRestorePromptFocusRef.current = true;
+		setClosePromptOpen(false);
+	}, [closeAction]);
+	const recordAbandonment = React.useCallback(() => {
+		if (!manualOrder?.v2Enabled) return;
+		const localFulfillment = manualOrder?.order_type === 'delivery'
+			? 'delivery'
+			: (openMesaMode && manualOrder?.local_fulfillment_mode === 'mesa' ? 'table' : 'pickup');
+		void manualOrderV2Service.recordMetric({
+			branchId: branch?.id,
+			eventName: 'abandoned',
+			mode: openMesaMode ? 'session' : 'quick_sale',
+			fulfillment: localFulfillment,
+			step: orderStep,
+		});
+	}, [manualOrder?.v2Enabled, manualOrder?.order_type, manualOrder?.local_fulfillment_mode, openMesaMode, branch?.id, orderStep]);
+	const closeWithDraft = React.useCallback(async () => {
+		if (closeAction) return;
+		setCloseAction('saving');
+		try {
+			await saveManualOrderDraft(draftIdentity, draftSnapshot, receiptFile);
+			recordAbandonment();
+			shouldRestorePromptFocusRef.current = false;
+			setClosePromptOpen(false);
+			onClose?.();
+		} catch {
+			showNotify?.('No se pudo guardar el borrador. El pedido seguirá abierto para evitar perder datos.', 'error');
+		} finally {
+			setCloseAction(null);
+		}
+	}, [closeAction, draftIdentity, draftSnapshot, receiptFile, onClose, showNotify, recordAbandonment]);
+	const discardAndClose = React.useCallback(async () => {
+		if (closeAction) return;
+		setCloseAction('discarding');
+		try {
+			await deleteManualOrderDraft(draftIdentity);
+			recordAbandonment();
+			resetOrder();
+			shouldRestorePromptFocusRef.current = false;
+			setClosePromptOpen(false);
+			onClose?.();
+		} catch {
+			showNotify?.('No se pudo descartar el borrador local. El pedido seguirá abierto.', 'error');
+		} finally {
+			setCloseAction(null);
+		}
+	}, [closeAction, resetOrder, draftIdentity, onClose, showNotify, recordAbandonment]);
+
+	const submitAndClearDraft = React.useCallback(async () => {
+		const savedOrder = await submitOrder?.();
+		if (savedOrder && !isEditMode) await deleteManualOrderDraft(draftIdentity);
+		return savedOrder;
+	}, [submitOrder, isEditMode, draftIdentity]);
+
 	useEffect(() => {
-		const handleKeyDown = (e) => {
-			if (e.key === 'Escape') onClose();
+		if (!isOpen) return undefined;
+		previouslyFocusedRef.current = document.activeElement;
+		const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
+		return () => {
+			window.clearTimeout(focusTimer);
+			previouslyFocusedRef.current?.focus?.();
 		};
-		if (isOpen) window.addEventListener('keydown', handleKeyDown);
+	}, [isOpen]);
+
+	useEffect(() => {
+		if (!isOpen) return undefined;
+		const handleKeyDown = (event) => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				if (closePromptOpen) dismissClosePrompt(); else requestClose();
+				return;
+			}
+			const trapRoot = closePromptOpen ? closePromptRef.current : dialogRef.current;
+			if (event.key !== 'Tab' || !trapRoot) return;
+			const focusable = [...trapRoot.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')]
+				.filter((element) => element.getAttribute('aria-hidden') !== 'true');
+			if (!focusable.length) { event.preventDefault(); trapRoot.focus(); return; }
+			const first = focusable[0];
+			const last = focusable[focusable.length - 1];
+			if (!trapRoot.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+			else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+			else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+		};
+		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [isOpen, onClose]);
+	}, [isOpen, requestClose, closePromptOpen, dismissClosePrompt]);
+
+	useEffect(() => {
+		if (!closePromptOpen) return undefined;
+		const focusTimer = window.setTimeout(() => closePromptContinueRef.current?.focus(), 0);
+		return () => {
+			window.clearTimeout(focusTimer);
+			if (!shouldRestorePromptFocusRef.current) return;
+			const focusTarget = closePromptTriggerRef.current?.isConnected
+				? closePromptTriggerRef.current
+				: closeButtonRef.current;
+			window.setTimeout(() => focusTarget?.focus?.(), 0);
+		};
+	}, [closePromptOpen]);
 
 	const onTouchStart = (e) => {
 		setTouchEnd(null);
@@ -214,7 +392,7 @@ const ManualOrderModal = ({
 	const onTouchEnd = () => {
 		if (!touchStart || !touchEnd) return;
 		const distance = touchStart - touchEnd;
-		if (distance < -50) onClose();
+		if (distance < -50) requestClose();
 	};
 
 	const checkoutFlow = useManualOrderCheckoutFlow({
@@ -222,6 +400,7 @@ const ManualOrderModal = ({
 		couponPreview,
 		branchDeliveryCfg,
 		branchDeliveryCfgLoading,
+		branchConfigError: effectiveBranchConfigError,
 		effectiveOpenMesaMode,
 		openMesaChargeNow,
 		isEditMode,
@@ -291,9 +470,19 @@ const ManualOrderModal = ({
 
 	if (typeof document === 'undefined') return null;
 	return createPortal(
-		<div className="manual-order-portal-scope">
-			<div className="manual-order-overlay" onClick={onClose}>
+		<div className={`manual-order-portal-scope${closePromptOpen ? ' manual-order-portal-scope--confirming' : ''}`}>
+			<div
+				className="manual-order-overlay"
+				onClick={requestClose}
+				aria-hidden={closePromptOpen ? 'true' : undefined}
+				inert={closePromptOpen ? true : undefined}
+			>
 				<div
+					ref={dialogRef}
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="manual-order-dialog-title"
+					tabIndex={-1}
 					className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${isTabletNav ? ' manual-order--tablet' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
 					onClick={e => e.stopPropagation()}
 				>
@@ -305,12 +494,16 @@ const ManualOrderModal = ({
 					/>
 
 					<Button
+						ref={closeButtonRef}
 						variant="default"
 						type="button"
-						onClick={onClose}
+						onClick={requestClose}
 						className="manual-order-floating-close"
 						title="Cerrar (Esc)"
-						aria-label="Cerrar pedido manual"
+						aria-label={loading ? 'Pedido en proceso' : 'Cerrar pedido manual'}
+						disabled={loading || closePromptOpen}
+						aria-hidden={closePromptOpen ? 'true' : undefined}
+						tabIndex={closePromptOpen ? -1 : undefined}
 					>
 						<X size={18} strokeWidth={2.2} aria-hidden="true" />
 						<span className="manual-order-floating-close__label">Cerrar</span>
@@ -334,6 +527,8 @@ const ManualOrderModal = ({
 						branch={branch}
 						branchDeliveryCfg={branchDeliveryCfg}
 						branchDeliveryCfgLoading={branchDeliveryCfgLoading}
+						branchConfigError={effectiveBranchConfigError}
+						retryBranchConfig={retryBranchConfig}
 						localOrderChannels={localOrderChannels}
 						canEditDeliveryFee={canEditDeliveryFee}
 						showNotify={showNotify}
@@ -350,6 +545,8 @@ const ManualOrderModal = ({
 							updateCardAmount,
 							updateCashTendered,
 							updateChargeNow,
+							updatePaymentLines,
+							acknowledgeQuoteRevision,
 							handleRutChange,
 							handlePhoneChange,
 							handleFileChange,
@@ -373,17 +570,28 @@ const ManualOrderModal = ({
 							receiptFile,
 							receiptPreview,
 						}}
-						printManualKitchen={printManualKitchen}
-						printManualCaja={printManualCaja}
-						submitOrder={submitOrder}
+						printManualKitchen={isEditMode ? printManualKitchen : null}
+						printManualCaja={isEditMode ? printManualCaja : null}
+						submitOrder={submitAndClearDraft}
 						canCancelOrder={canCancelOrder}
 						handleCancelOrder={handleCancelOrder}
 						sessionPaymentDeferred={sessionPaymentDeferred}
 						canMarkPaidSession={canMarkPaidSession}
 						setPayModalOpen={setPayModalOpen}
 					/>
+					<span id="manual-order-dialog-title" className="sr-only">{openMesaMode ? 'Abrir sesión' : 'Venta rápida'}</span>
 				</div>
 			</div>
+			{closePromptOpen ? (
+				<ManualOrderCloseConfirm
+					ref={closePromptRef}
+					action={closeAction}
+					continueButtonRef={closePromptContinueRef}
+					onContinue={dismissClosePrompt}
+					onSaveDraft={() => { void closeWithDraft(); }}
+					onDiscard={() => { void discardAndClose(); }}
+				/>
+			) : null}
 			{payModalOpen && liveEditOrder ? (
 				<CloseTableModal
 					isOpen

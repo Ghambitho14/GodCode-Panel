@@ -49,11 +49,29 @@ export const useReceiptUpload = (showNotify) => {
         });
     };
 
+	const restoreReceipt = (blob) => {
+		if (!(blob instanceof Blob)) return;
+		const file = blob instanceof File
+			? blob
+			: new File([blob], 'comprobante-restaurado.jpg', { type: blob.type || 'image/jpeg' });
+		const { valid, error: validationError } = validateImageFile(file);
+		if (!valid) {
+			showNotify?.(validationError || 'El comprobante del borrador ya no es válido.', 'warning');
+			return;
+		}
+		setReceiptFile(file);
+		setReceiptPreview((previous) => {
+			if (previous) URL.revokeObjectURL(previous);
+			return URL.createObjectURL(file);
+		});
+	};
+
     return {
         receiptFile,
         receiptPreview,
         handleFileChange,
         removeReceipt,
-        resetReceipt
+		resetReceipt,
+		restoreReceipt,
     };
 };

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ShoppingBag, Printer, ChefHat, Banknote, Receipt } from 'lucide-react';
-import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import SectionHeader from './SectionHeader';
 import CartItemCard from './CartItemCard';
 import { spacing, textScale } from './manualOrderStyles';
+import { formatMinor, majorToMinor } from '@/lib/money/minor-units';
 
 /**
  * Resumen del carrito de compras con estilos Tailwind.
@@ -19,7 +19,12 @@ const OrderSummary = ({
     printManualCaja,
     showCheckoutTotals = false,
 }) => {
-    const { formatMoney, formatOrderAmount } = useOrderMoney();
+	const accountingCurrency = manualOrder.currency || 'CLP';
+	const accountingDigits = manualOrder.fractionDigits;
+	const formatAccountingMoney = (amount) => formatMinor(
+		majorToMinor(amount, accountingCurrency, accountingDigits),
+		{ currency: accountingCurrency, locale: manualOrder.locale, fractionDigits: accountingDigits },
+	);
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
     const [openNoteIds, setOpenNoteIds] = useState(() => new Set());
     const printMenuRef = useRef(null);
@@ -50,7 +55,7 @@ const OrderSummary = ({
     const checkoutTotal =
         Number.isFinite(Number(manualOrder.checkout_total))
             ? Number(manualOrder.checkout_total)
-            : Math.round((itemsSubtotal + deliveryFeeAmt) * 100) / 100;
+			: itemsSubtotal + deliveryFeeAmt;
     const showTotals =
         showCheckoutTotals &&
         manualOrder.items.length > 0 &&
@@ -132,6 +137,7 @@ const OrderSummary = ({
                                 updateItemNote={updateItemNote}
                                 isItemNoteOpen={isItemNoteOpen}
                                 toggleItemNote={toggleItemNote}
+								formatMoney={formatAccountingMoney}
                             />
                         ))}
                     </div>
@@ -144,29 +150,19 @@ const OrderSummary = ({
                     <div className={`space-y-1.5 ${textScale.micro} text-gc-text-muted`}>
                         <div className="flex justify-between">
                             <span>Subtotal productos</span>
-                            <span className="font-semibold text-gc-text">{formatMoney(itemsSubtotal)}</span>
+							<span className="font-semibold text-gc-text">{formatAccountingMoney(itemsSubtotal)}</span>
                         </div>
                         {deliveryFeeAmt > 0 && (
                             <div className="flex justify-between">
                                 <span>Envío</span>
-                                <span className="font-semibold text-gc-text">{formatMoney(deliveryFeeAmt)}</span>
+								<span className="font-semibold text-gc-text">{formatAccountingMoney(deliveryFeeAmt)}</span>
                             </div>
                         )}
                     </div>
                     <div className="mt-3 flex items-center justify-between pt-1">
                         <span className={`${textScale.micro} font-black uppercase tracking-wider text-gc-text-muted`}>Total</span>
                         <span className={`${textScale.price} font-black text-gc-text`}>
-                            {formatOrderAmount({
-                                amountUsd: checkoutTotal,
-                                paymentMethod: manualOrder.payment_method_specific
-                                    ?? (manualOrder.payment_type === 'tienda'
-                                        ? 'efectivo'
-                                        : manualOrder.payment_type === 'tarjeta'
-                                            ? 'tarjeta'
-                                            : manualOrder.payment_type === 'online'
-                                                ? 'transferencia_bancaria'
-                                                : manualOrder.payment_type),
-                            })}
+							{formatAccountingMoney(checkoutTotal)}
                         </span>
                     </div>
                 </div>

@@ -50,6 +50,8 @@ import {
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { Button } from "@/components/ui/button";
+import { manualOrderV2Service } from '../services/manualOrderV2Service';
+import { parseMoneyInput, formatMinor, isoFractionDigits } from '@/lib/money/minor-units';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -135,7 +137,7 @@ const OrderDetailModal = ({
     setReceiptModalOrder,
     onMarkPaid = null,
 }) => {
-    const { companyProfile } = useAdmin();
+	const { companyProfile, userRole, upsertOrder } = useAdmin();
     const orderMoney = useOrderMoney();
     const fmt = orderMoney.formatMoney;
     const fmtOrder = (amount, orderRow) => orderMoney.formatOrderAmount({
@@ -149,6 +151,9 @@ const OrderDetailModal = ({
     }, [branch, companyProfile]);
     const [liveOrder, setLiveOrder] = useState(order);
     const [refreshingOrder, setRefreshingOrder] = useState(false);
+	const [paymentLedger, setPaymentLedger] = useState([]);
+	const [refundForm, setRefundForm] = useState({ paymentLineId: '', amount: '', reason: '' });
+	const [refunding, setRefunding] = useState(false);
     const showVeRateDisclaimer = useMemo(() => {
         const country = resolveEffectiveCountry(branch, companyProfile);
         if (!isVenezuelaCountry(country)) return false;
@@ -158,8 +163,10 @@ const OrderDetailModal = ({
     const highlightReceipt = useMemo(() => {
         const method = liveOrder?.payment_method_specific;
         return paymentMethodRequiresReceipt(method)
+			|| liveOrder?.payment_lines?.some((line) => line.evidencePolicy === 'required')
+			|| Boolean(liveOrder?.payment_evidence_status)
             || (liveOrder?.payment_type === 'online' && liveOrder?.payment_ref);
-    }, [liveOrder?.payment_method_specific, liveOrder?.payment_type, liveOrder?.payment_ref]);
+	}, [liveOrder?.payment_method_specific, liveOrder?.payment_type, liveOrder?.payment_ref, liveOrder?.payment_lines, liveOrder?.payment_evidence_status]);
 
     useEffect(() => {
         if (!order?.id) {
@@ -193,6 +200,19 @@ const OrderDetailModal = ({
             cancelled = true;
         };
     }, [order?.id]);
+
+	useEffect(() => {
+		if (!order?.id || !liveOrder?.manual_order_mode) { setPaymentLedger([]); return; }
+		let cancelled = false;
+		manualOrderV2Service.listPaymentLedger(order.id)
+			.then((rows) => {
+				if (cancelled) return;
+				setPaymentLedger(rows);
+				setRefundForm((current) => ({ ...current, paymentLineId: current.paymentLineId || rows.find((row) => row.refundableMinor > 0)?.id || '' }));
+			})
+			.catch(() => { if (!cancelled) setPaymentLedger([]); });
+		return () => { cancelled = true; };
+	}, [order?.id, liveOrder?.manual_order_mode]);
 
     useEffect(() => {
         if (!order) return;
@@ -280,6 +300,46 @@ const OrderDetailModal = ({
             onError: (msg) => showNotify?.(msg, 'error'),
         });
     };
+
+	const canRefund = ['ceo', 'owner', 'admin'].includes(String(userRole || '').toLowerCase())
+		&& paymentLedger.some((line) => line.refundableMinor > 0);
+
+	const handleRefund = async () => {
+		const line = paymentLedger.find((row) => row.id === refundForm.paymentLineId);
+		if (!line) { showNotify?.('Selecciona una línea de pago con saldo.', 'warning'); return; }
+		const parsed = parseMoneyInput(refundForm.amount, {
+			currency: liveOrder.currency,
+			fractionDigits: isoFractionDigits(liveOrder.currency),
+		});
+		if (!parsed.valid || parsed.minor <= 0 || parsed.minor > line.refundableMinor) {
+			showNotify?.('El monto debe ser mayor que cero y no superar el saldo de esa línea.', 'warning');
+			return;
+		}
+		if (refundForm.reason.trim().length < 3) { showNotify?.('Indica el motivo de la devolución.', 'warning'); return; }
+		setRefunding(true);
+		try {
+			await manualOrderV2Service.refund(liveOrder.id, {
+				amountMinor: parsed.minor,
+				paymentLineId: line.id,
+				reason: refundForm.reason.trim(),
+			});
+			const [{ data, error }, ledger] = await Promise.all([
+				supabase.from(TABLES.orders).select(ORDERS_PANEL_SELECT).eq('id', liveOrder.id).maybeSingle(),
+				manualOrderV2Service.listPaymentLedger(liveOrder.id),
+			]);
+			if (error) throw error;
+			const refreshed = sanitizeOrder(data);
+			setLiveOrder(refreshed);
+			setPaymentLedger(ledger);
+			upsertOrder?.(refreshed);
+			setRefundForm({ paymentLineId: ledger.find((row) => row.refundableMinor > 0)?.id || '', amount: '', reason: '' });
+			showNotify?.('Devolución registrada en caja.', 'success');
+		} catch (error) {
+			showNotify?.(error?.message || 'No se pudo registrar la devolución.', 'error');
+		} finally {
+			setRefunding(false);
+		}
+	};
 
     const modal = (
         <div className="table-session-modal-portal tenant-theme-vars order-detail-receipt-portal">
@@ -541,7 +601,7 @@ const OrderDetailModal = ({
                                 </div>
                                 {showVeRateDisclaimer ? (
                                     <p className="order-detail-ve-rate-disclaimer order-detail-muted">
-                                        Equivalente en Bs. con tasa actual; el checkout no guarda tasa histórica.
+										{liveOrder.manual_order_mode ? 'La conversión usa la tasa histórica guardada en cada línea de pago.' : 'Equivalente en Bs. con tasa actual; este pedido histórico no guardó la tasa usada.'}
                                     </p>
                                 ) : null}
                             </section>
@@ -553,30 +613,45 @@ const OrderDetailModal = ({
                                 </section>
                             ) : null}
 
-                            {(liveOrder.payment_type === 'online' &&
-                            liveOrder.payment_ref &&
-                            String(liveOrder.payment_ref).startsWith('http')) ||
-                            (highlightReceipt && liveOrder.payment_ref && String(liveOrder.payment_ref).startsWith('http')) ? (
+							{highlightReceipt && liveOrder.payment_ref ? (
                                 <section className={`table-session-receipt__section${highlightReceipt ? ' table-session-receipt__section--receipt-highlight' : ''}`}>
-                                    <a
-                                        href={liveOrder.payment_ref}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+									<Button variant="default" type="button"
+										onClick={() => { setReceiptModalOrder?.(liveOrder); onClose?.(); }}
                                         className="table-session-receipt__link"
                                     >
                                         <ImageIcon size={16} aria-hidden />
                                         {paymentMethodRequiresReceipt(liveOrder.payment_method_specific)
                                             ? 'Ver comprobante de pago (requerido)'
                                             : 'Ver comprobante de pago'}
-                                    </a>
+									</Button>
                                 </section>
-                            ) : highlightReceipt && !liveOrder.payment_ref ? (
+							) : highlightReceipt ? (
                                 <section className="table-session-receipt__section table-session-receipt__section--receipt-highlight">
                                     <p className="order-detail-muted">
-                                        Este método requiere comprobante de pago; aún no hay referencia cargada.
+										{liveOrder.payment_evidence_status === 'failed' ? 'El comprobante falló y está pendiente de reintento.' : 'Este método admite comprobante; aún no está persistido.'}
                                     </p>
                                 </section>
                             ) : null}
+
+							{canRefund ? (
+								<details className="table-session-receipt__section">
+									<summary className="cursor-pointer font-semibold">Registrar devolución autorizada</summary>
+									<div className="mt-3 grid gap-3">
+										<label className="grid gap-1 text-sm">
+											<span>Línea de pago</span>
+											<select className="rounded-lg border border-gc-border bg-gc-card p-2" value={refundForm.paymentLineId}
+												onChange={(event) => setRefundForm((current) => ({ ...current, paymentLineId: event.target.value }))}>
+												{paymentLedger.filter((line) => line.refundableMinor > 0).map((line) => (
+													<option key={line.id} value={line.id}>{line.method_id} · disponible {formatMinor(line.refundableMinor, { currency: liveOrder.currency })}</option>
+												))}
+											</select>
+										</label>
+										<label className="grid gap-1 text-sm"><span>Monto</span><input className="rounded-lg border border-gc-border bg-gc-card p-2" inputMode="decimal" value={refundForm.amount} onChange={(event) => setRefundForm((current) => ({ ...current, amount: event.target.value }))} /></label>
+										<label className="grid gap-1 text-sm"><span>Motivo</span><textarea className="rounded-lg border border-gc-border bg-gc-card p-2" maxLength={300} value={refundForm.reason} onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))} /></label>
+										<Button variant="destructive" type="button" disabled={refunding} onClick={() => void handleRefund()}>{refunding ? 'Registrando…' : 'Confirmar devolución'}</Button>
+									</div>
+								</details>
+							) : null}
                         </div>
 
                         <footer className="table-session-receipt__foot order-detail-receipt__foot">
@@ -630,7 +705,7 @@ const OrderDetailModal = ({
                                         Envío
                                     </Button>
                                 ) : null}
-                                {liveOrder.payment_type === 'online' && setReceiptModalOrder ? (
+								{highlightReceipt && setReceiptModalOrder ? (
                                     <Button variant="default"
                                         type="button"
                                         className="order-detail-receipt-action"

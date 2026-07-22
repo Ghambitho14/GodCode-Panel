@@ -1,478 +1,403 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useManualOrderCart } from './manual-order/useManualOrderCart';
 import { useManualOrderForm } from './manual-order/useManualOrderForm';
 import { useCouponValidation } from './manual-order/useCouponValidation';
 import { useReceiptUpload } from './manual-order/useReceiptUpload';
 import { createManualOrder } from '../admin/orders/services/orders';
-import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
+import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
+import { getCountryProfile, normalizeInternationalPhone, validateProfileDocument } from '@/lib/geo/country-profiles';
+import { localeForCurrency, fractionDigitsForCurrency } from '@/shared/utils/money';
+import { majorToMinor, minorToMajor, sumMinor } from '@/lib/money/minor-units';
 import { buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
-import { normalizeManualPhone } from '../services/clientService';
+import { normalizeManualOrderSettings, requirementsFor } from '../domain/manual-order-settings';
+import { normalizePaymentMethods, validatePaymentLines } from '../domain/payment-methods';
+import { manualOrderV2Service, isManualOrderV2Enabled } from '../services/manualOrderV2Service';
+import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
+import { createClientUuid } from '@/shared/utils/supabaseStorage';
 import {
-    sanitizeManualOrderInput,
-    computeDeliveryFeeForForm,
-    resolveOpenMesaClientName,
-    resolveOpenMesaCheckoutPayment,
-    getLocalFulfillmentMode,
-    isOpenMesaMeseroMode,
-    OPEN_MESA_CAJA_DEFAULTS,
+	sanitizeManualOrderInput,
+	computeDeliveryFeeForForm,
+	resolveOpenMesaClientName,
+	resolveOpenMesaCheckoutPayment,
+	getLocalFulfillmentMode,
+	isOpenMesaMeseroMode,
+	OPEN_MESA_CAJA_DEFAULTS,
 } from './manual-order/manualOrderShared';
 
-/**
- * Hook orquestador principal del pedido manual.
- * Delega lógicas específicas a sub-hooks especializados y expone una API unificada compatible.
- */
-export const useManualOrder = (showNotify, onOrderSaved, onClose, branch, branchDeliveryCfg = null, userRole = null, openMesaMode = false, localOrderChannels = null, companyProfile = null) => {
-    const formCountry = useMemo(
-        () => resolveEffectiveCountry(branch, companyProfile),
-        [branch, companyProfile],
-    );
-    const formStrategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
-    
-    // 1. Sub-hook para el Carrito
-    const {
-        items,
-        total,
-        addItem,
-        updateQuantity,
-        removeItem,
-        updateItemNote,
-        resetCart
-    } = useManualOrderCart();
+function toV2Fulfillment(form, openMesaMode) {
+	if (form.order_type === 'delivery') return 'delivery';
+	if (!openMesaMode) return 'pickup';
+	return getLocalFulfillmentMode(form) === 'mesa' ? 'table' : 'pickup';
+}
 
-    // 2. Sub-hook para el Formulario
-    const {
-        form,
-        rutValid,
-        phoneValid,
-        updateClientName,
-        updateCouponCode,
-        updateNote,
-        updateOrderType,
-        updateLocalFulfillmentMode,
-        updateMesaPartyMode,
-        updateDeliveryAddress,
-        updateDeliveryReference,
-        updateDeliveryKm,
-        updateDeliveryFee,
-        updateDeliveryNamedAreaId,
-        updatePaymentType,
-        updatePaymentMode,
-        updateCashAmount,
-        updateCardAmount,
-        updateCashTendered,
-        updateChargeNow,
-        handleRutChange,
-        handlePhoneChange,
-        applyClientRecord,
-        applySavedAddress,
-        resetForm,
-        resetOpenMesaForm,
-        getInputStyle
-    } = useManualOrderForm(localOrderChannels, formCountry);
+function buildItems(items) {
+	return (items || []).map((item) => ({
+		id: item.id,
+		name: String(item.name ?? ''),
+		quantity: Math.max(1, Number(item.quantity) || 1),
+		price: Number(item.price) || 0,
+		has_discount: Boolean(item.has_discount),
+		discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
+		description: item.description ? String(item.description) : null,
+		note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
+		manual_order_source: item.manual_order_source || null,
+		is_extra: Boolean(item.is_extra),
+	}));
+}
 
-    // 3. Sub-hook para Cupones
-    const {
-        couponPreview,
-        resetCoupon
-    } = useCouponValidation(
-        branch?.company_id,
-        form.coupon_code,
-        total,
-        form.client_phone
-    );
+function deriveV2PaymentLines(form, quote, methods, currency, fractionDigits) {
+	if (Array.isArray(form.payment_lines) && form.payment_lines.length > 0) return form.payment_lines;
+	if (!quote || form.payment_type === 'pendiente') return [];
+	const byRail = (rail) => methods.find((method) => method.rail === rail && method.currency === currency);
+	if (form.payment_mode === 'mixed') {
+		const cashMinor = majorToMinor(form.cash_amount, currency, fractionDigits);
+		const cardMinor = majorToMinor(form.card_amount, currency, fractionDigits);
+		return [
+			...(cashMinor > 0 && byRail('cash') ? [{ id: createClientUuid(), methodId: byRail('cash').id, rail: 'cash', amountMinor: cashMinor, currency, evidencePolicy: byRail('cash').evidencePolicy }] : []),
+			...(cardMinor > 0 && byRail('card') ? [{ id: createClientUuid(), methodId: byRail('card').id, rail: 'card', amountMinor: cardMinor, currency, evidencePolicy: byRail('card').evidencePolicy }] : []),
+		];
+	}
+	const rail = form.payment_type === 'tienda' ? 'cash' : form.payment_type === 'tarjeta' ? 'card' : 'online';
+	const method = byRail(rail) ?? methods.find((candidate) => candidate.rail === rail);
+	if (!method || method.currency !== currency) return [];
+	return [{ id: createClientUuid(), methodId: method.id, rail, amountMinor: Number(quote.totalMinor), currency, evidencePolicy: method.evidencePolicy }];
+}
 
-    // 4. Sub-hook para Comprobante de Transferencia
-    const {
-        receiptFile,
-        receiptPreview,
-        handleFileChange,
-        removeReceipt,
-        resetReceipt
-    } = useReceiptUpload(showNotify);
+/** Orquesta creación manual V2 y conserva el contrato público usado por el modal legacy. */
+export const useManualOrder = (
+	showNotify,
+	onOrderSaved,
+	onClose,
+	branch,
+	branchDeliveryCfg = null,
+	userRole = null,
+	openMesaMode = false,
+	localOrderChannels = null,
+	companyProfile = null,
+	manualSettingsRaw = null,
+	branchPaymentMethods = null,
+	branchConfigError = null,
+) => {
+	const formCountry = useMemo(() => resolveEffectiveCountry(branch, companyProfile), [branch, companyProfile]);
+	const currency = useMemo(() => resolveEffectiveCurrency(branch, companyProfile), [branch, companyProfile]);
+	const manualOrderSettings = useMemo(() => normalizeManualOrderSettings(manualSettingsRaw ?? branch?.manual_order_settings, localOrderChannels), [manualSettingsRaw, branch?.manual_order_settings, localOrderChannels]);
+	const fractionDigits = useMemo(() => fractionDigitsForCurrency(currency, manualOrderSettings.currencyFractionDigits), [currency, manualOrderSettings.currencyFractionDigits]);
+	const formStrategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
+	const countryProfile = useMemo(() => getCountryProfile(formCountry, { currency }), [formCountry, currency]);
+	const locale = useMemo(() => countryProfile.locale || localeForCurrency(currency), [countryProfile.locale, currency]);
+	const v2Enabled = isManualOrderV2Enabled({ ...branch, manual_order_settings: manualOrderSettings });
+	const effectiveBranchConfigError = branchConfigError || (
+		v2Enabled
+		&& countryProfile.countryCode == null
+		&& !/^[A-Z]{3}$/.test(String(branch?.currency ?? companyProfile?.currency ?? '').trim().toUpperCase())
+			? 'La sucursal o empresa debe configurar una moneda ISO para este país.'
+			: null
+	);
+	const paymentMethods = useMemo(
+		() => {
+			const configured = branchPaymentMethods || branch?.payment_methods || [];
+			return normalizePaymentMethods(configured.length ? configured : countryProfile.suggestedPaymentMethods, { accountingCurrency: currency });
+		},
+		[branchPaymentMethods, branch?.payment_methods, countryProfile.suggestedPaymentMethods, currency],
+	);
+	const clientRequestIdRef = useRef(createClientUuid());
+	const submitInFlightRef = useRef(false);
 
-    const [loading, setLoading] = useState(false);
+	const {
+		items, total, totalMinor, addItem, updateQuantity, removeItem, updateItemNote, resetCart, restoreCart,
+	} = useManualOrderCart([], {
+		currency,
+		fractionDigits,
+		onLimitReached: (item) => showNotify?.(`${item.name}: máximo 20 unidades por pedido.`, 'warning'),
+	});
 
-    // Cambiar tipo de pago y limpiar comprobante si no es transferencia
-    const handlePaymentTypeChange = useCallback((type) => {
-        updatePaymentType(type);
-        if (type !== 'online') {
-            resetReceipt();
-        }
-    }, [updatePaymentType, resetReceipt]);
+	const {
+		form, rutValid, phoneValid, updateClientName, updateCouponCode, updateNote, updateOrderType,
+		updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference,
+		updateDeliveryKm, updateDeliveryFee, updateDeliveryNamedAreaId, updatePaymentType, updatePaymentMode,
+		updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
+		handleRutChange, handlePhoneChange, applyClientRecord, applySavedAddress, resetForm, resetOpenMesaForm,
+		getInputStyle, restoreForm,
+	} = useManualOrderForm(localOrderChannels, formCountry, { currency, locale, fractionDigits });
 
-    // Reseteo global de todo el flujo
-    const resetOrder = useCallback(() => {
-        resetCart();
-        if (openMesaMode) {
-            resetOpenMesaForm();
-        } else {
-            resetForm();
-        }
-        resetCoupon();
-        resetReceipt();
-    }, [resetCart, resetForm, resetOpenMesaForm, resetCoupon, resetReceipt, openMesaMode]);
+	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone);
+	const { receiptFile, receiptPreview, handleFileChange, removeReceipt, resetReceipt, restoreReceipt } = useReceiptUpload(showNotify);
+	const [loading, setLoading] = useState(false);
+	const [quote, setQuote] = useState(null);
+	const [quoteLoading, setQuoteLoading] = useState(false);
+	const [quoteError, setQuoteError] = useState(null);
+	const [quoteRevisionPending, setQuoteRevisionPending] = useState(false);
+	const lastQuoteRef = useRef(null);
 
-    const syncDeliveryFeeFromForm = useCallback((formState, itemsSubtotal) => {
-        if (!branchDeliveryCfg || formState.order_type !== 'delivery') return null;
-        return computeDeliveryFeeForForm(branchDeliveryCfg, itemsSubtotal, {
-            orderType: formState.order_type,
-            namedAreaId: formState.delivery_named_area_id,
-            deliveryKm: formState.delivery_km,
-        });
-    }, [branchDeliveryCfg]);
+	const resetOrder = useCallback(() => {
+		resetCart();
+		if (openMesaMode) resetOpenMesaForm(); else resetForm();
+		resetCoupon();
+		resetReceipt();
+		setQuote(null);
+		setQuoteError(null);
+		setQuoteRevisionPending(false);
+		lastQuoteRef.current = null;
+		clientRequestIdRef.current = createClientUuid();
+	}, [resetCart, resetForm, resetOpenMesaForm, resetCoupon, resetReceipt, openMesaMode]);
 
-    useEffect(() => {
-        if (form.order_type !== 'delivery' || !branchDeliveryCfg) return;
-        const nextFee = syncDeliveryFeeFromForm(form, total);
-        if (nextFee == null) return;
-        if (Number(form.delivery_fee) !== nextFee) {
-            updateDeliveryFee(nextFee);
-        }
-    }, [
-        form.order_type,
-        form.delivery_named_area_id,
-        form.delivery_km,
-        form.delivery_fee,
-        total,
-        branchDeliveryCfg,
-        syncDeliveryFeeFromForm,
-        updateDeliveryFee,
-    ]);
+	const handlePaymentTypeChange = useCallback((type) => {
+		updatePaymentType(type);
+		updatePaymentLines([]);
+		if (type !== 'online') resetReceipt();
+	}, [updatePaymentType, updatePaymentLines, resetReceipt]);
 
-    const handleUpdateLocalFulfillmentMode = useCallback((mode) => {
-        updateLocalFulfillmentMode(mode, branchDeliveryCfg, total);
-        if (mode === 'delivery' && branchDeliveryCfg) {
-            const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
-                orderType: 'delivery',
-                namedAreaId: form.delivery_named_area_id,
-                deliveryKm: form.delivery_km,
-            });
-            if (fee != null) updateDeliveryFee(fee);
-        }
-    }, [
-        updateLocalFulfillmentMode,
-        updateDeliveryFee,
-        branchDeliveryCfg,
-        total,
-        form.delivery_named_area_id,
-        form.delivery_km,
-    ]);
+	const syncDeliveryFeeFromForm = useCallback((formState, itemsSubtotal) => {
+		if (!branchDeliveryCfg || formState.order_type !== 'delivery') return null;
+		return computeDeliveryFeeForForm(branchDeliveryCfg, itemsSubtotal, {
+			orderType: formState.order_type,
+			namedAreaId: formState.delivery_named_area_id,
+			deliveryKm: formState.delivery_km,
+		});
+	}, [branchDeliveryCfg]);
 
-    const handleUpdateOrderType = useCallback((val, cfg = branchDeliveryCfg, subtotal = total) => {
-        updateOrderType(val, cfg, subtotal);
-        if (openMesaMode && !String(form.selected_client_id ?? '').trim()) {
-            updateClientName(resolveOpenMesaClientName(val));
-        }
-        if (val === 'delivery' && cfg) {
-            const fee = computeDeliveryFeeForForm(cfg, subtotal, {
-                orderType: 'delivery',
-                namedAreaId: form.delivery_named_area_id,
-                deliveryKm: form.delivery_km,
-            });
-            if (fee != null) updateDeliveryFee(fee);
-        }
-    }, [updateOrderType, updateClientName, updateDeliveryFee, branchDeliveryCfg, total, form.delivery_named_area_id, form.delivery_km, form.selected_client_id, openMesaMode]);
+	useEffect(() => {
+		if (form.order_type !== 'delivery' || !branchDeliveryCfg) return;
+		const nextFee = syncDeliveryFeeFromForm(form, total);
+		if (nextFee != null && Number(form.delivery_fee) !== nextFee) updateDeliveryFee(nextFee);
+	}, [form, total, branchDeliveryCfg, syncDeliveryFeeFromForm, updateDeliveryFee]);
 
-    const handleUpdateDeliveryNamedAreaId = useCallback((val) => {
-        updateDeliveryNamedAreaId(val);
-        if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
-        const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
-            orderType: 'delivery',
-            namedAreaId: val,
-            deliveryKm: form.delivery_km,
-        });
-        updateDeliveryFee(fee != null ? fee : 0);
-    }, [updateDeliveryNamedAreaId, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_km, total]);
+	const handleUpdateLocalFulfillmentMode = useCallback((mode) => {
+		updateLocalFulfillmentMode(mode, branchDeliveryCfg, total);
+		if (mode === 'delivery' && branchDeliveryCfg) {
+			const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, { orderType: 'delivery', namedAreaId: form.delivery_named_area_id, deliveryKm: form.delivery_km });
+			if (fee != null) updateDeliveryFee(fee);
+		}
+	}, [updateLocalFulfillmentMode, updateDeliveryFee, branchDeliveryCfg, total, form.delivery_named_area_id, form.delivery_km]);
 
-    const handleUpdateDeliveryKm = useCallback((val) => {
-        updateDeliveryKm(val);
-        if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
-        if (effectiveDeliveryPricingMode(branchDeliveryCfg) !== 'distance') return;
-        const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
-            orderType: 'delivery',
-            namedAreaId: form.delivery_named_area_id,
-            deliveryKm: val,
-        });
-        if (fee != null) updateDeliveryFee(fee);
-    }, [updateDeliveryKm, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_named_area_id, total]);
+	const handleUpdateOrderType = useCallback((value, config = branchDeliveryCfg, subtotal = total) => {
+		updateOrderType(value, config, subtotal);
+		if (openMesaMode && !String(form.selected_client_id ?? '').trim()) updateClientName(resolveOpenMesaClientName(value));
+	}, [updateOrderType, branchDeliveryCfg, total, openMesaMode, form.selected_client_id, updateClientName]);
 
-    // Modelo de datos unificado compatible con el modal
-    const manualOrder = useMemo(() => {
-        const itemsSubtotal = total;
-        const deliveryFeeAmt = form.order_type === 'delivery' ? (Number(form.delivery_fee) || 0) : 0;
-        const checkoutTotal = Math.round((itemsSubtotal + deliveryFeeAmt) * 100) / 100;
-        return {
-            ...form,
-            items,
-            total: itemsSubtotal,
-            items_subtotal: itemsSubtotal,
-            delivery_fee: deliveryFeeAmt,
-            checkout_total: checkoutTotal,
-        };
-    }, [form, items, total]);
+	const handleUpdateDeliveryNamedAreaId = useCallback((value) => {
+		updateDeliveryNamedAreaId(value);
+		if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
+		const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, { orderType: 'delivery', namedAreaId: value, deliveryKm: form.delivery_km });
+		updateDeliveryFee(fee ?? 0);
+	}, [updateDeliveryNamedAreaId, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_km, total]);
 
-    // Envío del pedido manual
-    const submitOrder = async () => {
-        if (!branch) {
-            showNotify('Error: No hay sucursal seleccionada', 'error');
-            return;
-        }
+	const handleUpdateDeliveryKm = useCallback((value) => {
+		updateDeliveryKm(value);
+		if (!branchDeliveryCfg || form.order_type !== 'delivery' || effectiveDeliveryPricingMode(branchDeliveryCfg) !== 'distance') return;
+		const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, { orderType: 'delivery', namedAreaId: form.delivery_named_area_id, deliveryKm: value });
+		if (fee != null) updateDeliveryFee(fee);
+	}, [updateDeliveryKm, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_named_area_id, total]);
 
-        if (openMesaMode) {
-            if (items.length === 0) {
-                showNotify('Agrega al menos un producto', 'error');
-                return;
-            }
-            const isMesero = isOpenMesaMeseroMode(form);
-            if (isMesero) {
-                const meseroName = String(form.client_name ?? '').trim();
-                if (meseroName.length < 2) {
-                    showNotify('Indica el nombre del mesero', 'error');
-                    return;
-                }
-            } else {
-                const hasClient =
-                    Boolean(String(form.selected_client_id ?? '').trim()) ||
-                    Boolean(String(form.client_name ?? '').trim()) ||
-                    form.order_type === 'delivery';
-                if (!hasClient) {
-                    showNotify('Busca y selecciona un cliente registrado o escribe un nombre', 'error');
-                    return;
-                }
-                if (!form.client_rut || !formStrategy.validateId(form.client_rut) || !formStrategy.validatePhone(form.client_phone || '')) {
-                    showNotify(`Faltan datos de cliente o son incorrectos (${formStrategy.idName} y teléfono)`, 'error');
-                    return;
-                }
-            }
-        } else {
-            if (!form.client_name || form.client_name.trim().length < 3 || !formStrategy.validatePhone(form.client_phone || '') || items.length === 0) {
-                showNotify('Faltan datos obligatorios o son incorrectos', 'error');
-                return;
-            }
-        }
+	const fulfillment = toV2Fulfillment(form, openMesaMode);
+	const deliveryPayload = useMemo(() => ({
+		address: sanitizeManualOrderInput(form.delivery_address),
+		reference: sanitizeManualOrderInput(form.delivery_reference),
+		zoneId: String(form.delivery_named_area_id ?? '').trim() || null,
+		km: form.delivery_km === '' || form.delivery_km == null ? null : Number(String(form.delivery_km).replace(',', '.')),
+	}), [form.delivery_address, form.delivery_reference, form.delivery_named_area_id, form.delivery_km]);
 
-        if (form.order_type === 'delivery' && branchDeliveryCfg) {
-            const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
-            const areaCount = Array.isArray(branchDeliveryCfg.namedAreas) ? branchDeliveryCfg.namedAreas.length : 0;
+	useEffect(() => {
+		if (!v2Enabled || !branch?.id || items.length === 0 || effectiveBranchConfigError) {
+			setQuote(null);
+			return;
+		}
+		if (fulfillment === 'delivery' && deliveryPayload.address.length < 5) {
+			setQuote(null);
+			return;
+		}
+		let cancelled = false;
+		const timer = window.setTimeout(async () => {
+			setQuoteLoading(true);
+			setQuoteError(null);
+			try {
+				const next = await manualOrderV2Service.quote({ branchId: branch.id, items: buildItems(items), fulfillment, delivery: deliveryPayload, couponCode: form.coupon_code, clientPhone: form.client_phone });
+				if (!cancelled) {
+					const previous = lastQuoteRef.current;
+					if (previous?.quoteHash && previous.quoteHash !== next?.quoteHash) {
+						setQuoteRevisionPending(true);
+						void manualOrderV2Service.recordMetric({
+							branchId: branch.id,
+							eventName: 'requote',
+							mode: openMesaMode ? 'session' : 'quick_sale',
+							fulfillment,
+						});
+					}
+					lastQuoteRef.current = next;
+					setQuote(next);
+				}
+			} catch (error) {
+				if (!cancelled) { setQuote(null); setQuoteError(error?.message ?? 'No se pudo cotizar.'); }
+			} finally {
+				if (!cancelled) setQuoteLoading(false);
+			}
+		}, 350);
+		return () => { cancelled = true; window.clearTimeout(timer); };
+	}, [v2Enabled, branch?.id, items, fulfillment, deliveryPayload, form.coupon_code, form.client_phone, form.payment_lines?.length, effectiveBranchConfigError, paymentMethods, branchDeliveryCfg?.exchangeRate, openMesaMode]);
 
-            if (pricing === 'named' && areaCount > 0) {
-                const zid = String(form.delivery_named_area_id ?? '').trim();
-                if (!zid) {
-                    showNotify('Selecciona la zona de entrega', 'error');
-                    return;
-                }
-            } else if (pricing === 'distance') {
-                const addr = String(form.delivery_address ?? '').trim();
-                if (addr.length < 5) {
-                    showNotify('La dirección de despacho es obligatoria para delivery por distancia.', 'error');
-                    return;
-                }
-            } else {
-                const addr = String(form.delivery_address ?? '').trim();
-                const zid = String(form.delivery_named_area_id ?? '').trim();
-                if (addr.length < 5 && !zid) {
-                    showNotify('Indica dirección de entrega u otra información de ubicación.', 'error');
-                    return;
-                }
-            }
-        } else if (
-            form.order_type === 'delivery' &&
-            !branchDeliveryCfg
-        ) {
-            const addr = String(form.delivery_address ?? '').trim();
-            if (addr.length < 5) {
-                showNotify('La dirección de despacho es obligatoria para Delivery', 'error');
-                return;
-            }
-        }
+	const acknowledgeQuoteRevision = useCallback(() => setQuoteRevisionPending(false), []);
 
-        if (!openMesaMode) {
-            if (!form.client_rut || !formStrategy.validateId(form.client_rut)) {
-                showNotify(`El ${formStrategy.idName} ingresado no es válido`, 'error');
-                return;
-            }
-        }
+	const manualOrder = useMemo(() => {
+		const deliveryFee = quote ? minorToMajor(Number(quote.deliveryFeeMinor), currency, fractionDigits) : (form.order_type === 'delivery' ? Number(form.delivery_fee) || 0 : 0);
+		const checkoutTotal = quote ? minorToMajor(Number(quote.totalMinor), currency, fractionDigits) : minorToMajor(totalMinor + majorToMinor(deliveryFee, currency, fractionDigits), currency, fractionDigits);
+		return {
+			...form, items, total, total_minor: totalMinor, items_subtotal: total,
+			delivery_fee: deliveryFee, checkout_total: checkoutTotal, quote, quoteLoading, quoteError, quoteRevisionPending,
+			v2Enabled, paymentMethods, manualOrderSettings, currency, locale, fractionDigits, branchConfigError: effectiveBranchConfigError,
+			cashDenominations: { ...countryProfile.cashDenominations, ...manualOrderSettings.cashDenominations },
+		};
+	}, [form, items, total, totalMinor, quote, currency, locale, fractionDigits, quoteLoading, quoteError, quoteRevisionPending, v2Enabled, paymentMethods, manualOrderSettings, countryProfile.cashDenominations, effectiveBranchConfigError]);
 
-        setLoading(true);
-        try {
-            const openMesaMesero = openMesaMode && isOpenMesaMeseroMode(form);
-            const clientName = openMesaMode
-                ? sanitizeManualOrderInput(
-                    resolveOpenMesaClientName(
-                        form.order_type,
-                        form.client_name,
-                        getLocalFulfillmentMode(form),
-                    ),
-                )
-                : sanitizeManualOrderInput(form.client_name);
-            const sanitizedOrder = {
-                ...form,
-                items,
-                total,
-                client_name: clientName,
-                client_phone: openMesaMode
-                    ? (openMesaMesero
-                        ? OPEN_MESA_CAJA_DEFAULTS.client_phone
-                        : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)))
-                    : normalizeManualPhone(sanitizeManualOrderInput(form.client_phone)),
-                client_rut: openMesaMode
-                    ? (openMesaMesero
-                        ? OPEN_MESA_CAJA_DEFAULTS.client_rut
-                        : sanitizeManualOrderInput(form.client_rut))
-                    : sanitizeManualOrderInput(form.client_rut),
-                local_fulfillment_mode: getLocalFulfillmentMode(form),
-                note: sanitizeManualOrderInput(form.note),
-                branch_id: branch.id,
-                company_id: branch.company_id,
-                branch_name: branch.name,
-                order_type: form.order_type,
-                delivery_address:
-                    form.order_type === 'delivery'
-                        ? sanitizeManualOrderInput(form.delivery_address) || ''
-                        : null,
-                delivery_reference:
-                    form.order_type === 'delivery'
-                        ? sanitizeManualOrderInput(form.delivery_reference) || ''
-                        : '',
-                delivery_km:
-                    form.order_type === 'delivery'
-                        ? form.delivery_km === '' ||
-                          form.delivery_km == null
-                            ? null
-                            : Number(String(form.delivery_km).replace(',', '.'))
-                        : null,
-                delivery_named_area_id:
-                    form.order_type === 'delivery'
-                        ? String(form.delivery_named_area_id ?? '').trim() || null
-                        : null,
-                caller_role: userRole,
-                ...(canOverrideDeliveryFee(userRole) && form.order_type === 'delivery'
-                    ? { manual_delivery_fee: Number(form.delivery_fee) || 0 }
-                    : {}),
-                coupon_code: sanitizeManualOrderInput(form.coupon_code) || '',
-            };
+	const validateContext = useCallback(() => {
+		if (!branch) return 'No hay sucursal seleccionada.';
+		if (effectiveBranchConfigError) return `No se pudo validar la configuración: ${effectiveBranchConfigError}`;
+		if (items.length === 0) return 'Agrega al menos un producto.';
+		if (quoteRevisionPending) return 'La cotización cambió. Revisa el nuevo total y confírmalo antes de continuar.';
+		const requirements = requirementsFor(manualOrderSettings, fulfillment);
+		if (requirements.operatorReference && String(form.client_name ?? '').trim().length < 2) return 'Indica la mesa o referencia del mesero.';
+		if (requirements.name && String(form.client_name ?? '').trim().length < 2) return 'Indica el nombre del cliente.';
+		if (requirements.phone) {
+			const phone = normalizeInternationalPhone(form.client_phone, countryProfile.countryCode);
+			if (!phone.valid) return 'Ingresa un teléfono válido con código de país.';
+		}
+		if ((requirements.document || String(form.client_rut ?? '').trim()) && !validateProfileDocument(form.client_rut, countryProfile, requirements.document)) return `${countryProfile.document.label} inválido.`;
+		if (fulfillment === 'delivery') {
+			if (!branchDeliveryCfg) return 'No se pudo validar la configuración de delivery. Reintenta.';
+			if (deliveryPayload.address.length < 5) return 'La dirección de delivery es obligatoria.';
+			if (requirements.zone && effectiveDeliveryPricingMode(branchDeliveryCfg) === 'named' && !deliveryPayload.zoneId) return 'Selecciona la zona de entrega.';
+		}
+		return null;
+	}, [branch, effectiveBranchConfigError, items.length, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, countryProfile, branchDeliveryCfg, deliveryPayload]);
 
-            const itemsForOrder = (items || []).map((item) => ({
-                id: item.id,
-                name: String(item.name ?? ''),
-                quantity: Number(item.quantity) || 1,
-                price: Number(item.price) || 0,
-                has_discount: Boolean(item.has_discount),
-                discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
-                description: item.description ? String(item.description) : null,
-                note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
-                manual_order_source: item.manual_order_source || null,
-                is_extra: Boolean(item.is_extra)
-            }));
+	const submitOrder = useCallback(async () => {
+		if (submitInFlightRef.current) return;
+		const contextError = validateContext();
+		if (contextError) { showNotify?.(contextError, 'error'); return; }
+		submitInFlightRef.current = true;
+		setLoading(true);
+		try {
+			const itemsForOrder = buildItems(items);
+			let result;
+			let evidencePending = false;
+			if (v2Enabled) {
+				if (!quote?.quoteHash) throw new Error(quoteError || 'Espera una cotización válida antes de confirmar.');
+				const paymentTiming = !openMesaMode || form.charge_now ? 'immediate' : 'deferred';
+				const effectiveTiming = fulfillment === 'table' ? 'deferred' : paymentTiming;
+				const lines = effectiveTiming === 'immediate' ? deriveV2PaymentLines(form, quote, paymentMethods, currency, fractionDigits) : [];
+				if (effectiveTiming === 'immediate') {
+					const validation = validatePaymentLines(lines, quote, paymentMethods);
+					if (!validation.valid) throw new Error('Los métodos de pago deben sumar exactamente el total y usar una tasa válida.');
+				}
+				const phone = form.client_phone ? normalizeInternationalPhone(form.client_phone, countryProfile.countryCode) : { valid: false, e164: '' };
+				result = await manualOrderV2Service.create({
+					branchId: branch.id,
+					clientRequestId: clientRequestIdRef.current,
+					mode: openMesaMode ? 'session' : 'quick_sale',
+					fulfillment,
+					paymentTiming: effectiveTiming,
+					customer: { name: fulfillment === 'table' ? '' : sanitizeManualOrderInput(form.client_name), phone: phone.valid ? phone.e164 : '', document: sanitizeManualOrderInput(form.client_rut), clientId: String(form.selected_client_id ?? '').trim() || null },
+					operatorReference: fulfillment === 'table' ? sanitizeManualOrderInput(form.client_name) : '',
+					delivery: deliveryPayload,
+					items: itemsForOrder,
+					couponCode: sanitizeManualOrderInput(form.coupon_code),
+					note: sanitizeManualOrderInput(form.note),
+					paymentLines: lines,
+					quoteHash: quote.quoteHash,
+				});
+				if (result?.idempotentReplay) {
+					void manualOrderV2Service.recordMetric({ branchId: branch.id, eventName: 'duplicate_prevented', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
+				}
+				evidencePending = result?.payment_evidence_status === 'pending';
+				if (receiptFile) {
+					evidencePending = false;
+					const evidenceRows = await manualOrderV2Service.listEvidence(result.id);
+					const pendingRows = evidenceRows.filter((row) => row.status !== 'uploaded');
+					for (const [index, evidence] of pendingRows.entries()) {
+						const queued = await queuePaymentEvidence({ evidenceId: evidence.id, companyId: branch.company_id, branchId: branch.id, orderId: result.id, file: receiptFile, previousPath: index === 0 ? evidence.storage_path ?? null : null });
+						const upload = await uploadQueuedPaymentEvidence(queued);
+						if (!upload.ok) evidencePending = true;
+					}
+				}
+			} else {
+				const openMesaMesero = openMesaMode && isOpenMesaMeseroMode(form);
+				const clientName = openMesaMode ? sanitizeManualOrderInput(resolveOpenMesaClientName(form.order_type, form.client_name, getLocalFulfillmentMode(form))) : sanitizeManualOrderInput(form.client_name);
+				const totalForOrderMinor = sumMinor(itemsForOrder.map((item) => majorToMinor(item.has_discount && Number(item.discount_price) > 0 ? item.discount_price : item.price, currency, fractionDigits) * item.quantity));
+				const couponMinor = couponPreview?.variant === 'success' ? Math.min(totalForOrderMinor, majorToMinor(couponPreview.discount, currency, fractionDigits)) : 0;
+				const deliveryFee = form.order_type === 'delivery'
+					? (syncDeliveryFeeFromForm(form, minorToMajor(totalForOrderMinor, currency, fractionDigits)) ?? (Number(form.delivery_fee) || 0))
+					: 0;
+				const checkoutMinor = Math.max(0, totalForOrderMinor - couponMinor) + majorToMinor(deliveryFee, currency, fractionDigits);
+				const checkoutTotal = minorToMajor(checkoutMinor, currency, fractionDigits);
+				const sanitizedOrder = {
+					...form, items: itemsForOrder, total: checkoutTotal, client_name: clientName,
+					client_phone: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_phone : (normalizeInternationalPhone(sanitizeManualOrderInput(form.client_phone), countryProfile.countryCode).e164 || sanitizeManualOrderInput(form.client_phone)),
+					client_rut: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_rut : sanitizeManualOrderInput(form.client_rut),
+					local_fulfillment_mode: getLocalFulfillmentMode(form), note: sanitizeManualOrderInput(form.note),
+					branch_id: branch.id, company_id: branch.company_id, branch_name: branch.name, order_type: form.order_type,
+					delivery_address: form.order_type === 'delivery' ? deliveryPayload.address : null,
+					delivery_reference: deliveryPayload.reference, delivery_km: deliveryPayload.km, delivery_named_area_id: deliveryPayload.zoneId,
+					caller_role: userRole, coupon_code: sanitizeManualOrderInput(form.coupon_code), delivery_fee: deliveryFee,
+					...(canOverrideDeliveryFee(userRole) && form.order_type === 'delivery' ? { manual_delivery_fee: deliveryFee } : {}),
+				};
+				if (openMesaMode) Object.assign(sanitizedOrder, resolveOpenMesaCheckoutPayment(form, checkoutTotal));
+				else sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({ ...form, total: checkoutTotal });
+				result = await createManualOrder(sanitizedOrder, openMesaMode && !form.charge_now ? null : receiptFile);
+				evidencePending = Boolean(result?.receiptUploadFailed);
+				result = result?.order ?? result;
+			}
 
-            const totalForOrder = itemsForOrder.reduce((acc, i) => {
-                const unit = i.has_discount && i.discount_price && Number(i.discount_price) > 0 ? Number(i.discount_price) : Number(i.price);
-                return acc + (unit * i.quantity);
-            }, 0);
+			showNotify?.(
+				evidencePending
+					? 'Pedido creado · comprobante pendiente. Puedes reintentar desde el pedido.'
+					: openMesaMode ? ({ mesa: 'Mesa abierta', retiro: 'Retiro abierto', delivery: 'Delivery abierto' }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta') : 'Pedido creado con éxito',
+				evidencePending ? 'warning' : 'success',
+			);
+			if (v2Enabled && evidencePending) {
+				void manualOrderV2Service.recordMetric({ branchId: branch.id, eventName: 'evidence_pending', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
+			}
+			resetOrder();
+			onOrderSaved?.(result);
+			onClose?.();
+			return result;
+		} catch (error) {
+			if (v2Enabled && error?.code === 'quote_changed') {
+				void manualOrderV2Service.recordMetric({ branchId: branch?.id, eventName: 'requote', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
+			}
+			showNotify?.(error?.message || 'Error al crear pedido', 'error');
+			return null;
+		} finally {
+			submitInFlightRef.current = false;
+			setLoading(false);
+		}
+	}, [validateContext, showNotify, items, v2Enabled, quote, quoteError, openMesaMode, form, fulfillment, paymentMethods, currency, fractionDigits, countryProfile.countryCode, branch, deliveryPayload, receiptFile, couponPreview, syncDeliveryFeeFromForm, userRole, resetOrder, onOrderSaved, onClose]);
 
-            sanitizedOrder.items = itemsForOrder;
+	const restoreOrder = useCallback((draft) => {
+		if (!draft || typeof draft !== 'object') return;
+		restoreCart(draft.items);
+		restoreForm(draft.form);
+		if (draft.clientRequestId) clientRequestIdRef.current = draft.clientRequestId;
+		setQuote(null);
+		setQuoteError(null);
+		setQuoteRevisionPending(false);
+		lastQuoteRef.current = draft.quote ?? null;
+	}, [restoreCart, restoreForm]);
 
-            const couponDisc =
-                couponPreview?.variant === 'success' && Number(couponPreview.discount) > 0
-                    ? Math.min(totalForOrder, Number(couponPreview.discount))
-                    : 0;
-            const deliveryFeeAmt =
-                form.order_type === 'delivery'
-                    ? (syncDeliveryFeeFromForm(form, totalForOrder) ?? (Number(form.delivery_fee) || 0))
-                    : 0;
-            const checkoutTotal = Math.round(
-                (Math.max(0, totalForOrder - couponDisc) + deliveryFeeAmt) * 100,
-            ) / 100;
-
-            sanitizedOrder.delivery_fee = deliveryFeeAmt;
-            sanitizedOrder.total = checkoutTotal;
-
-            if (openMesaMode) {
-                const paymentFields = resolveOpenMesaCheckoutPayment(form, checkoutTotal);
-                sanitizedOrder.payment_type = paymentFields.payment_type;
-                sanitizedOrder.payment_breakdown = paymentFields.payment_breakdown;
-            } else {
-                sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({
-                    payment_mode: form.payment_mode,
-                    payment_type: form.payment_type,
-                    cash_amount: form.cash_amount,
-                    card_amount: form.card_amount,
-                    total: checkoutTotal,
-                });
-            }
-
-            const result = await createManualOrder(
-                sanitizedOrder,
-                openMesaMode && !form.charge_now ? null : receiptFile,
-            );
-            const createdOrder = result?.order ?? result;
-
-            showNotify(
-                openMesaMode
-                    ? ({
-                        mesa: 'Mesa abierta',
-                        retiro: 'Retiro abierto',
-                        delivery: 'Delivery abierto',
-                    }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta')
-                    : 'Pedido creado con éxito',
-                'success',
-            );
-            resetOrder();
-            if (onOrderSaved) onOrderSaved(createdOrder);
-            if (onClose) onClose();
-
-        } catch (error) {
-            showNotify(error.message || 'Error al crear pedido', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const isValid = useMemo(() => {
-        return form.client_name && items.length > 0;
-    }, [form.client_name, items]);
-
-    return {
-        manualOrder,
-        loading,
-        rutValid,
-        phoneValid,
-        receiptFile,
-        receiptPreview,
-        updateClientName,
-        updateCouponCode,
-        couponPreview,
-        updateNote,
-        updatePaymentType: handlePaymentTypeChange,
-        updatePaymentMode,
-        updateCashAmount,
-        updateCardAmount,
-        updateCashTendered,
-        updateChargeNow,
-        handleRutChange,
-        handlePhoneChange,
-        applyClientRecord,
-        applySavedAddress,
-        handleFileChange,
-        removeReceipt,
-        addItem,
-        updateQuantity,
-        removeItem,
-        updateItemNote,
-        updateOrderType: handleUpdateOrderType,
-        updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode,
-        updateMesaPartyMode,
-        updateDeliveryAddress,
-        updateDeliveryReference,
-        updateDeliveryKm: handleUpdateDeliveryKm,
-        updateDeliveryFee,
-        updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId,
-        submitOrder,
-        resetOrder,
-        isValid,
-        getInputStyle
-    };
+	return {
+		manualOrder, loading, rutValid, phoneValid, receiptFile, receiptPreview,
+		updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
+		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
+		handleRutChange, handlePhoneChange, applyClientRecord, applySavedAddress, handleFileChange, removeReceipt,
+		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,
+		updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress,
+		updateDeliveryReference, updateDeliveryKm: handleUpdateDeliveryKm, updateDeliveryFee,
+		updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId, submitOrder, resetOrder,
+		isValid: Boolean(items.length && (form.client_name || fulfillment === 'delivery')),
+		getInputStyle, quote, quoteLoading, quoteError, paymentMethods, manualOrderSettings, v2Enabled,
+		restoreOrder, restoreReceipt,
+		acknowledgeQuoteRevision,
+		draftSnapshot: { version: 2, items, form, quote, clientRequestId: clientRequestIdRef.current, savedAt: Date.now() },
+	};
 };

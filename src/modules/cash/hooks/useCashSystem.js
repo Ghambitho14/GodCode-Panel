@@ -304,8 +304,15 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
             }
             return false;
         }
-        try {
-            const totals = getTotals(movements);
+		try {
+			const pendingEvidence = await cashService.getPendingEvidenceCount(activeShift.id);
+			if (pendingEvidence > 0 && showNotify) {
+				showNotify(
+					`Aviso: hay ${pendingEvidence} comprobante(s) pendiente(s). La caja se cerrará igualmente.`,
+					'warning',
+				);
+			}
+			const totals = getTotals(movements);
             const expected = getExpectedByMethod(totals, activeShift);
             await cashService.closeShift(activeShift.id, {
                 cash: Number(payload.cash),
@@ -426,7 +433,7 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
         try {
             const { data: movements } = await supabase
                 .from(TABLES.cash_movements)
-                .select('type, amount, payment_method')
+				.select('type, amount, amount_minor, currency, payment_method')
                 .eq('shift_id', targetShift.id)
                 .eq('order_id', order.id);
 
@@ -457,7 +464,10 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
                     p_payment_method: movement.payment_method,
                     p_order_id: order.id,
                 });
-                if (error) throw error;
+				if (error) throw error;
+				if (data?.id && movement.amount_minor != null) {
+					await supabase.from(TABLES.cash_movements).update({ amount_minor: movement.amount_minor, currency: movement.currency }).eq('id', data.id);
+				}
                 if (data) {
                     const deliveryFee = Number(order.delivery_fee) || 0;
                     createdRows.push(
@@ -489,7 +499,7 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
         try {
             const { data: movements } = await supabase
                 .from(TABLES.cash_movements)
-                .select('type, amount, payment_method')
+				.select('type, amount, amount_minor, currency, payment_method')
                 .eq('shift_id', targetShift.id)
                 .eq('order_id', order.id);
 
@@ -506,7 +516,10 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
                     p_payment_method: movement.payment_method,
                     p_order_id: order.id,
                 });
-                if (error) throw error;
+				if (error) throw error;
+				if (data?.id && movement.amount_minor != null) {
+					await supabase.from(TABLES.cash_movements).update({ amount_minor: movement.amount_minor, currency: movement.currency }).eq('id', data.id);
+				}
                 if (data) createdRows.push(data);
             }
 
@@ -529,7 +542,7 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
         try {
             const { data: movements, error: movErr } = await supabase
                 .from(TABLES.cash_movements)
-                .select('shift_id, type, amount, payment_method')
+				.select('shift_id, type, amount, amount_minor, currency, payment_method')
                 .eq('order_id', order.id);
 
             if (movErr) throw movErr;
@@ -565,7 +578,10 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
                     p_payment_method: movement.payment_method,
                     p_order_id: order.id,
                 });
-                if (error) throw error;
+				if (error) throw error;
+				if (data?.id && movement.amount_minor != null) {
+					await supabase.from(TABLES.cash_movements).update({ amount_minor: movement.amount_minor, currency: movement.currency }).eq('id', data.id);
+				}
                 if (data) createdRows.push(data);
             }
 

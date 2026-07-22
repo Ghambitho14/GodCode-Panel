@@ -41,7 +41,9 @@ docs/*
 dist
 AGENTS.es.md
 dev-dist/
-scripts/
+scripts/*
+!scripts/e2e-server.mjs
+!scripts/run-e2e.mjs
 
 # Test artifacts
 coverage

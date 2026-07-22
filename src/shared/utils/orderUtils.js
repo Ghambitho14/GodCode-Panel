@@ -1,5 +1,5 @@
 /** Etiquetas para método de pago específico (coincide con keys del carrito/SaaS). */
-import { formatMoney, normalizeCurrencyCode } from '@/shared/utils/money';
+import { formatMoney, normalizeCurrencyCode, minorToMajor } from '@/shared/utils/money';
 import { formatOrderAmountForShare, shareIdLabelFromLocale } from '@/lib/money/order-amount';
 
 export const PAYMENT_METHOD_LABELS = {
@@ -104,6 +104,16 @@ export function getOrderPaymentBreakdown(order) {
 
 	if (isMenuOrderAwaitingPayment(order)) {
 		return { cash: 0, card: 0, online: 0 };
+	}
+
+	if (Array.isArray(order.payment_lines) && order.payment_lines.length > 0) {
+		const currency = normalizeCurrencyCode(order.currency);
+		return order.payment_lines.reduce((totals, line) => {
+			const rail = line?.rail;
+			if (!['cash', 'card', 'online'].includes(rail)) return totals;
+			totals[rail] += minorToMajor(Number(line.amountMinor ?? line.amount_minor) || 0, currency);
+			return totals;
+		}, { cash: 0, card: 0, online: 0 });
 	}
 
 	const stored = normalizePaymentBreakdown(order.payment_breakdown);
@@ -222,6 +232,13 @@ export function validateCheckoutPayment({
 export function getPaymentLabel(order) {
 	if (!order) return '—';
 	const currency = normalizeCurrencyCode(order.currency);
+	if (Array.isArray(order.payment_lines) && order.payment_lines.length > 0) {
+		const parts = order.payment_lines.map((line) => {
+			const label = PAYMENT_METHOD_LABELS[line.methodId] ?? line.methodId ?? line.rail;
+			return `${label} ${formatMoney(minorToMajor(Number(line.amountMinor ?? line.amount_minor) || 0, currency), { currency })}`;
+		});
+		return parts.length === 1 ? parts[0] : `Mixto (${parts.join(' + ')})`;
+	}
 
 	if (isMixedPaymentBreakdown(order.payment_breakdown)) {
 		const b = normalizePaymentBreakdown(order.payment_breakdown);
@@ -284,6 +301,7 @@ export function isOnlineOrder(order) {
  */
 export function isMenuOrder(order) {
 	if (!order) return false;
+	if (order.manual_order_mode === 'quick_sale' || order.manual_order_mode === 'session') return false;
 	const spec = String(order.payment_method_specific ?? '').trim();
 	return spec.length > 0;
 }
@@ -891,6 +909,11 @@ export function isMenuOrderAwaitingPayment(order) {
 /** @param {{ payment_type?: string }} order */
 export function isOrderPaymentDeferred(order) {
 	if (!order) return false;
+	if (Number.isSafeInteger(Number(order.payment_balance_minor))) return Number(order.payment_balance_minor) > 0;
+	if (order.payment_status === 'pending' || order.payment_status === 'partial') return true;
+	if (order.payment_status === 'paid') return false;
+	if (order.payment_timing === 'deferred') return true;
+	if (order.payment_timing === 'immediate') return false;
 	if (String(order.payment_type ?? '').trim().toLowerCase() === 'pendiente') return true;
 	return isMenuOrderAwaitingPayment(order);
 }
@@ -1039,6 +1062,8 @@ export function buildSettlementPaymentBreakdown(paymentType, total) {
 
 /** Pedido con pago ya definido y listo para confirmar al cerrar. */
 export function isOrderPaymentSettled(order) {
+	if (Number.isSafeInteger(Number(order?.payment_balance_minor))) return Number(order.payment_balance_minor) === 0;
+	if (order?.payment_status) return order.payment_status === 'paid';
 	if (!order || isOrderPaymentDeferred(order)) return false;
 	const breakdown = getOrderPaymentBreakdown(order);
 	const total = breakdown.cash + breakdown.card + breakdown.online;
@@ -1167,11 +1192,11 @@ export function resolveOrderCouponCode(rawOrder) {
 
 /** Columnas escalares + JSON usadas por kanban, detalle e impresión. */
 const ORDERS_PANEL_COLUMNS =
-	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference';
 
 /** Lista kanban / carga inicial: incluye items JSONB para mostrar productos sin expandir. */
 const ORDERS_LIST_COLUMNS =
-	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note';
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference';
 
 /** Detalle de un pedido (single-row): incluye items JSONB. */
 export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(code)`;
@@ -1184,7 +1209,7 @@ export const ORDERS_SELECT_WITH_COUPON = ORDERS_LIST_SELECT;
 
 /** Analytics: métricas escalares sin items (hasta 5000 filas). */
 export const ORDERS_ANALYTICS_METRICS_SELECT =
-	'id, company_id, branch_id, status, created_at, total, delivery_fee, payment_type, payment_method_specific, payment_breakdown';
+	'id, company_id, branch_id, status, created_at, total, total_minor, currency, delivery_fee, delivery_fee_minor, payment_type, payment_method_specific, payment_breakdown, payment_lines';
 
 /** @deprecated Usar ORDERS_ANALYTICS_METRICS_SELECT */
 export const ORDERS_ANALYTICS_SELECT = ORDERS_ANALYTICS_METRICS_SELECT;
@@ -1195,11 +1220,11 @@ export const ORDERS_EXPORT_SELECT =
 
 /** Join embebido en movimientos de caja. */
 export const ORDERS_MOVEMENT_JOIN_SELECT =
-	'id, payment_type, payment_method_specific, payment_breakdown, client_name, total, status, shift_sequence, channel, delivery_fee';
+	'id, payment_type, payment_method_specific, payment_breakdown, payment_lines, client_name, total, total_minor, currency, status, shift_sequence, channel, delivery_fee, delivery_fee_minor, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status';
 
 /** Relectura tras mover pedido en kanban (registro de venta en caja). */
 export const ORDERS_CASH_REGISTER_SELECT =
-	'id, total, payment_type, payment_breakdown, payment_method_specific, client_name, branch_id, status, delivery_fee';
+	'id, total, total_minor, currency, payment_type, payment_breakdown, payment_lines, payment_method_specific, client_name, branch_id, status, delivery_fee, delivery_fee_minor, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status';
 
 /** Búsqueda fuzzy por número de pedido (scan liviano). */
 export const ORDERS_ID_SCAN_SELECT = 'id';
@@ -1292,6 +1317,8 @@ export function sanitizeOrder(rawOrder) {
 		coupon_code: resolveOrderCouponCode(rawOrder),
 		delivery_fee: Number(rawOrder.delivery_fee) || 0,
 		client_name: rawOrder.client_name || 'Cliente Desconocido',
+		display_name: rawOrder.operator_reference || rawOrder.client_name || (rawOrder.manual_order_mode === 'session' ? 'Sesión sin referencia' : 'Cliente desconocido'),
+		operator_reference: rawOrder.operator_reference ?? null,
 		client_rut: rawOrder.client_rut || 'Sin RUT',
 		client_phone: rawOrder.client_phone || '',
 		status: rawOrder.status || 'pending',
@@ -1301,6 +1328,14 @@ export function sanitizeOrder(rawOrder) {
 		payment_breakdown: rawOrder.payment_breakdown
 			? normalizePaymentBreakdown(rawOrder.payment_breakdown)
 			: null,
+		payment_lines: Array.isArray(rawOrder.payment_lines) ? rawOrder.payment_lines : [],
+		subtotal_minor: Number.isSafeInteger(Number(rawOrder.subtotal_minor)) ? Number(rawOrder.subtotal_minor) : null,
+		discount_total_minor: Number.isSafeInteger(Number(rawOrder.discount_total_minor)) ? Number(rawOrder.discount_total_minor) : null,
+		delivery_fee_minor: Number.isSafeInteger(Number(rawOrder.delivery_fee_minor)) ? Number(rawOrder.delivery_fee_minor) : null,
+		total_minor: Number.isSafeInteger(Number(rawOrder.total_minor)) ? Number(rawOrder.total_minor) : null,
+		payment_balance_minor: Number.isSafeInteger(Number(rawOrder.payment_balance_minor)) ? Number(rawOrder.payment_balance_minor) : null,
+		payment_status: rawOrder.payment_status ?? null,
+		payment_evidence_status: rawOrder.payment_evidence_status ?? null,
 	};
 
 	if (!normalized.channel && isOrderDelivery(normalized)) {

@@ -8,11 +8,12 @@ import { bffDevPlugin } from "./vite/bff-dev-plugin";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => ({
+	define: mode === "e2e" ? { "import.meta.env.VITE_E2E": JSON.stringify("1") } : undefined,
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   plugins: [
     bffDevPlugin(mode),
     react(),
-    VitePWA({
+    mode !== "e2e" ? VitePWA({
       registerType: "autoUpdate",
       devOptions: {
         enabled: true,
@@ -50,7 +51,7 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB to support Fondopublic.png (2.15 MB)
       },
-    }),
+    }) : null,
   ],
   resolve: {
     alias: {

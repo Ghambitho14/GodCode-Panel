@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getEffectiveItemPrice } from './manualOrderShared';
+import { majorToMinor, minorToMajor, sumMinor } from '@/lib/money/minor-units';
 
 /**
  * Hook especializado en gestionar los ítems agregados al pedido manual,
@@ -7,15 +8,19 @@ import { getEffectiveItemPrice } from './manualOrderShared';
  */
 const normalizeItemId = (id) => (id == null ? '' : String(id));
 
-export const useManualOrderCart = (initialItems = []) => {
+export const useManualOrderCart = (initialItems = [], options = {}) => {
     const [items, setItems] = useState(initialItems);
 
     const getPrice = useCallback((product) => getEffectiveItemPrice(product), []);
 
     // Calcular total bruto del carrito
-    const total = useMemo(() => {
-        return Math.round(items.reduce((acc, i) => acc + (getPrice(i) * i.quantity), 0));
-    }, [items, getPrice]);
+	const totalMinor = useMemo(() => sumMinor(items.map((item) => (
+		majorToMinor(getPrice(item), options.currency ?? 'CLP', options.fractionDigits) * item.quantity
+	))), [items, getPrice, options.currency, options.fractionDigits]);
+	const total = useMemo(
+		() => minorToMajor(totalMinor, options.currency ?? 'CLP', options.fractionDigits),
+		[totalMinor, options.currency, options.fractionDigits],
+	);
 
     // Añadir producto al carrito
     const addItem = useCallback((product) => {
@@ -25,7 +30,10 @@ export const useManualOrderCart = (initialItems = []) => {
         setItems(currentItems => {
             const exists = currentItems.find(i => normalizeItemId(i.id) === productId);
             if (exists) {
-                if (exists.quantity >= 20) return currentItems;
+				if (exists.quantity >= 20) {
+					options.onLimitReached?.(exists);
+					return currentItems;
+				}
                 return currentItems.map(i => (
                     normalizeItemId(i.id) === productId ? { ...i, quantity: i.quantity + 1 } : i
                 ));
@@ -45,7 +53,7 @@ export const useManualOrderCart = (initialItems = []) => {
                 }];
             }
         });
-    }, []);
+	}, [options.onLimitReached]);
 
     // Actualizar cantidad (+1 o -1)
     const updateQuantity = useCallback((itemId, change) => {
@@ -53,7 +61,10 @@ export const useManualOrderCart = (initialItems = []) => {
         setItems(currentItems => {
             const item = currentItems.find(i => normalizeItemId(i.id) === key);
             if (!item) return currentItems;
-            if (change > 0 && item.quantity >= 20) return currentItems;
+			if (change > 0 && item.quantity >= 20) {
+				options.onLimitReached?.(item);
+				return currentItems;
+			}
 
             if (item.quantity + change < 1) {
                 return currentItems.map(i => (normalizeItemId(i.id) === key ? { ...i, quantity: 1 } : i));
@@ -63,7 +74,7 @@ export const useManualOrderCart = (initialItems = []) => {
                 ));
             }
         });
-    }, []);
+	}, [options.onLimitReached]);
 
     // Eliminar producto del carrito
     const removeItem = useCallback((itemId) => {
@@ -81,18 +92,24 @@ export const useManualOrderCart = (initialItems = []) => {
     }, []);
 
     // Reiniciar por completo el carrito
-    const resetCart = useCallback(() => {
-        setItems([]);
-    }, []);
+	const resetCart = useCallback(() => {
+		setItems([]);
+	}, []);
+
+	const restoreCart = useCallback((nextItems) => {
+		setItems(Array.isArray(nextItems) ? nextItems : []);
+	}, []);
 
     return {
-        items,
-        total,
+		items,
+		total,
+		totalMinor,
         addItem,
         updateQuantity,
         removeItem,
         updateItemNote,
-        resetCart,
+		resetCart,
+		restoreCart,
         getPrice
     };
 };

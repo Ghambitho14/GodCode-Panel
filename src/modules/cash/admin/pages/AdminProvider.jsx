@@ -25,6 +25,12 @@ import { resolvePanelDataScope } from '../orders/panelDataScopes';
 import { invalidateBranchOrders } from '../../services/panelDataCache';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { OrderMoneyProvider } from '../../context/OrderMoneyContext';
+import { clearManualOrderDraftsForUser } from '../../services/manualOrderDrafts';
+import { installPaymentEvidenceOnlineRetry } from '../../services/paymentEvidenceOutbox';
+import { manualOrderV2Service } from '../../services/manualOrderV2Service';
+import { majorToMinor } from '@/lib/money/minor-units';
+import { fractionDigitsForCurrency, normalizeCurrencyCode } from '@/shared/utils/money';
+import { createClientUuid } from '@/shared/utils/supabaseStorage';
 import {
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
@@ -38,6 +44,34 @@ const EMPTY_DYNAMIC_MODULES = /** @type {any[]} */ ([]);
 const EMPTY_TAB_LABELS = /** @type {Record<string, string>} */ ({});
 
 const PRODUCT_PHOTOS_STORAGE_KEY = 'godcode-admin-products-show-photos';
+
+function settlementLinesFromLegacyPatch(order, patch) {
+	if (Array.isArray(patch?.payment_lines) && patch.payment_lines.length > 0) return patch.payment_lines;
+	const currency = normalizeCurrencyCode(order.currency);
+	const digits = fractionDigitsForCurrency(currency);
+	const totalMinor = Number.isSafeInteger(Number(order.payment_balance_minor)) && Number(order.payment_balance_minor) > 0
+		? Number(order.payment_balance_minor)
+		: Number.isSafeInteger(Number(order.total_minor))
+		? Number(order.total_minor)
+		: majorToMinor(order.total, currency, digits);
+	if (patch?.payment_mode === 'mixed') {
+		const cash = majorToMinor(patch.cash_amount, currency, digits);
+		const card = majorToMinor(patch.card_amount, currency, digits);
+		return [
+			...(cash > 0 ? [{ id: createClientUuid(), methodId: 'cash', rail: 'cash', amountMinor: cash, currency, evidencePolicy: 'none' }] : []),
+			...(card > 0 ? [{ id: createClientUuid(), methodId: 'card', rail: 'card', amountMinor: card, currency, evidencePolicy: 'optional' }] : []),
+		];
+	}
+	const rail = patch?.payment_type === 'tarjeta' ? 'card' : patch?.payment_type === 'online' ? 'online' : 'cash';
+	return [{
+		id: createClientUuid(),
+		methodId: rail === 'cash' ? 'cash' : rail === 'card' ? 'card' : 'bank_transfer',
+		rail,
+		amountMinor: totalMinor,
+		currency,
+		evidencePolicy: rail === 'online' ? 'optional' : 'none',
+	}];
+}
 
 function readShowProductPhotosPreference() {
 	try {
@@ -133,6 +167,7 @@ export const AdminProvider = ({
 	const [historyOrders, setHistoryOrders] = useState([]);
 	const [historyLoading, setHistoryLoading] = useState(false);
 	const [isOpenMesaModal, setIsOpenMesaModal] = useState(false);
+	const [manualOrderMode, setManualOrderMode] = useState('quick_sale');
 	const [mobileTab, setMobileTab] = useState('pending');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filterCategory, setFilterCategory] = useState('all');
@@ -232,6 +267,18 @@ export const AdminProvider = ({
 		onForceReloadAfterLogin,
 	});
 
+	useEffect(() => installPaymentEvidenceOnlineRetry(), []);
+
+	const signOutAndClearDrafts = useCallback(async () => {
+		try {
+			const { data } = await supabase.auth.getUser();
+			const identities = [...new Set([userEmail, data?.user?.id].filter(Boolean))];
+			await Promise.allSettled(identities.map(clearManualOrderDraftsForUser));
+		} finally {
+			await signOut();
+		}
+	}, [signOut, userEmail]);
+
 	const allowedTabs = useMemo(() => {
 		const rawRoleKey = (userRole || '').toLowerCase();
 		const roleKey = rawRoleKey === 'staff' ? 'cashier' : rawRoleKey;
@@ -298,7 +345,7 @@ export const AdminProvider = ({
 					}
 				}
 			}
-		} catch {
+		} catch (error) {
 			/* ignore */
 		}
 		sessionRestoredRef.current = true;
@@ -565,11 +612,14 @@ export const AdminProvider = ({
 		const previousRow = orders.find((o) => o.id === orderId);
 		setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
 		try {
-			const { error } = await supabase
-				.from(TABLES.orders)
-				.update({ status: nextStatus })
-				.eq('id', orderId)
-				.eq('company_id', companyId);
+			const isV2Order = previousRow?.manual_order_mode === 'quick_sale' || previousRow?.manual_order_mode === 'session';
+			if (isV2Order) {
+				const transitioned = await manualOrderV2Service.transition(orderId, nextStatus, previousRow?.updated_at ?? null);
+				setOrders((prev) => prev.map((order) => order.id === orderId ? sanitizeOrder(transitioned) : order));
+				showNotify('Pedido actualizado');
+				return;
+			}
+			const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId).eq('company_id', companyId);
 			if (error) throw error;
 
 			const { data: freshOrder } = await supabase
@@ -613,11 +663,11 @@ export const AdminProvider = ({
 			if (!cashStepFailed) {
 				showNotify('Pedido actualizado');
 			}
-		} catch {
+		} catch (error) {
 			if (previousRow) {
 				setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...previousRow } : o)));
 			}
-			showNotify('Error al actualizar', 'error');
+			showNotify(error?.message || 'Error al actualizar', 'error');
 		} finally {
 			orderMoveInFlightRef.current.delete(orderId);
 		}
@@ -703,6 +753,13 @@ export const AdminProvider = ({
 	const markOrderSessionPaid = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
+			if (order.manual_order_mode === 'session') {
+				if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
+				const settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
+				setOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
+				showNotify('Pago registrado', 'success');
+				return settled;
+			}
 			let nextOrder = order;
 			if (paymentPatch && !isOrderPaymentSettled(order)) {
 				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
@@ -730,6 +787,17 @@ export const AdminProvider = ({
 	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
+			if (order.manual_order_mode === 'session') {
+				let settled = order;
+				if (isOrderPaymentDeferred(order)) {
+					if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
+					settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
+				}
+				const closed = sanitizeOrder(await manualOrderV2Service.transition(order.id, 'picked_up', settled.updated_at ?? null));
+				setOrders((prev) => prev.map((row) => row.id === order.id ? closed : row));
+				showNotify('Sesión cerrada correctamente');
+				return true;
+			}
 			let nextOrder = order;
 			if (paymentPatch && !isOrderPaymentSettled(order)) {
 				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
@@ -833,7 +901,7 @@ export const AdminProvider = ({
 		historyPeriod, setHistoryPeriod,
 		historyOrders, historyLoading, loadHistoryOrders,
 		ordersViewMode, saveOrdersPanelSettings, ordersViewModeSaving, localOrderChannels, ordersPanelSettingsReady,
-		isOpenMesaModal, setIsOpenMesaModal,
+		isOpenMesaModal, setIsOpenMesaModal, manualOrderMode, setManualOrderMode,
 		mobileTab, setMobileTab,
 		searchQuery, setSearchQuery,
 		filterCategory, setFilterCategory,
@@ -856,7 +924,7 @@ export const AdminProvider = ({
 		clientHistoryLoading, setClientHistoryLoading,
 		userRole,
 		showNotify,
-		signOut,
+		signOut: signOutAndClearDrafts,
 		cashSystem,
 		loadData,
 		refreshAllData,
@@ -910,10 +978,10 @@ export const AdminProvider = ({
 		menuCapabilities,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
 		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, showProductPhotos, setShowProductPhotos, sortOrder,
-		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal,
+		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal, manualOrderMode,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
 		receiptModalOrder, receiptPreview, uploadingReceipt,
-		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, signOut, cashSystem,
+		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, signOutAndClearDrafts, cashSystem,
 		loadData, refreshAllData, refreshOrders, upsertOrder, refreshClients, refreshCatalog, refreshCatalogAndInventory, refreshBranches, hydrateOrderItems, handleSelectClient, moveOrder, closeOrderSession, markOrderSessionPaid, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,

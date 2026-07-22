@@ -21,6 +21,8 @@ const ProductCard = ({
     sourceLabel: _sourceLabel = '',
 }) => {
     const { formatMoney } = useBranchMoney();
+    const mediaRef = React.useRef(null);
+    const [imageNearViewport, setImageNearViewport] = React.useState(false);
     const hasDiscount = Boolean(product.has_discount) && product.discount_price != null && Number(product.discount_price) > 0;
     const unitPrice = hasDiscount ? Number(product.discount_price) : Number(product.price);
 
@@ -46,11 +48,35 @@ const ProductCard = ({
     const rawImageUrl = product.image_url?.trim() || null;
     const categoryName = product.category_name || product.category?.name || '';
     const initial = String(product.name ?? '').trim().charAt(0).toUpperCase();
+    const shouldLoadImage = showProductImages && imageNearViewport;
+
+    React.useEffect(() => {
+        if (!showProductImages || imageNearViewport) return undefined;
+        const target = mediaRef.current;
+        if (!target) return undefined;
+        if (typeof IntersectionObserver === 'undefined') {
+            setImageNearViewport(true);
+            return undefined;
+        }
+
+        const scrollRoot = target.closest('.manual-order-categories-scroll');
+        const observer = new IntersectionObserver((entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return;
+            setImageNearViewport(true);
+            observer.disconnect();
+        }, {
+            root: scrollRoot,
+            rootMargin: '180px 0px',
+            threshold: 0.01,
+        });
+        observer.observe(target);
+        return () => observer.disconnect();
+    }, [showProductImages, imageNearViewport, product.id]);
 
     const { url: fallbackImageUrl } = useFoodFallbackImage(
         categoryName,
         product.id,
-        showProductImages,
+        shouldLoadImage,
     );
 
     const floatingAction = quantity === 0 ? (
@@ -98,7 +124,7 @@ const ProductCard = ({
             tabIndex={0}
         >
             <div className="relative mt-1 sm:mt-2">
-                <div className={cn(
+                <div ref={mediaRef} className={cn(
                     'manual-order-product-media relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gc-muted sm:h-24 sm:w-24',
                     !showProductImages && 'border border-gc-border/60',
                     inCart && 'ring-2 ring-gc-accent',
@@ -107,7 +133,7 @@ const ProductCard = ({
                         source={rawImageUrl}
                         fallbackSrc={fallbackImageUrl}
                         alt={product.name}
-                        enabled={showProductImages}
+                        enabled={shouldLoadImage}
                         imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         skeletonClassName="rounded-full"
                         emptyContent={<span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>}

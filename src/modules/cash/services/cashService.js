@@ -22,6 +22,12 @@ import {
  */
 
 export const cashService = {
+	getPendingEvidenceCount: async (shiftId) => {
+		if (!shiftId) return 0;
+		const { data, error } = await supabase.rpc('count_pending_payment_evidence_v2', { p_shift_id: shiftId });
+		if (error) return 0;
+		return Number(data) || 0;
+	},
 	// --- TURNOS ---
 
 	/**

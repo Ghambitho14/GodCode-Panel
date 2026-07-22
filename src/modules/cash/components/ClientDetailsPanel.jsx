@@ -50,19 +50,16 @@ const ClientDetailsPanel = ({
     
     // Renderiza el botón de acción según estado del pago
     const renderPaymentAction = (order) => {
-        if (order.payment_ref && order.payment_ref.startsWith('http')) {
+		if (order.payment_ref) {
             return (
                 <div className="payment-actions" onClick={(e) => e.stopPropagation()}>
-                    <a 
-                        href={order.payment_ref} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        className="btn-link-icon"
-                        title="Ver comprobante"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <ImageIcon size={14} /> <span>Ver</span>
-                    </a>
+					<Button variant="default" type="button"
+						className="btn-link-icon"
+						title="Ver comprobante"
+						onClick={(e) => { e.stopPropagation(); setReceiptModalOrder(order); }}
+					>
+						<ImageIcon size={14} /> <span>Ver</span>
+					</Button>
                     <Button variant="default" 
                         type="button"
                         onClick={(e) => {

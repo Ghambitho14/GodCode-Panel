@@ -1,6 +1,5 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import { Tag, Store, CreditCard, Receipt as ReceiptIcon, Upload, CheckCircle2, FileText, Coins, Split } from 'lucide-react';
-import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import {
     computeChangeDue,
     getCashDueAmount,
@@ -12,17 +11,8 @@ import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { Button } from "@/components/ui/button";
 import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale, tileRadiusClass, activeStateClass } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
-
-const BILL_SHORTCUTS = [1000, 2000, 5000, 10000, 20000];
-
-function resolveManualCheckoutPaymentMethod(manualOrder) {
-    if (manualOrder?.payment_method_specific) return manualOrder.payment_method_specific;
-    const pt = manualOrder?.payment_type;
-    if (pt === 'tienda') return 'efectivo';
-    if (pt === 'tarjeta') return 'tarjeta';
-    if (pt === 'online') return 'transferencia_bancaria';
-    return pt;
-}
+import { parseMoneyInput, majorToMinor, minorToMajor, formatMinor } from '@/lib/money/minor-units';
+import { settlementToAccountingMinor, validatePaymentLines } from '../../domain/payment-methods';
 
 const sectionCardClass = 'manual-order-step-card rounded-[16px] border border-gc-border bg-gc-page p-4';
 const inputClass =
@@ -33,6 +23,127 @@ const confirmBtnClass = cn(
 );
 const backBtnClass =
     'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
+
+function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg }) {
+    const methods = manualOrder.paymentMethods ?? [];
+    const lines = manualOrder.payment_lines ?? [];
+    const quote = manualOrder.quote;
+    const currency = manualOrder.currency;
+    const fractionDigits = manualOrder.fractionDigits;
+    const exchangeRate = String(branchDeliveryCfg?.exchangeRate ?? '');
+    const validation = quote ? validatePaymentLines(lines, quote, methods) : { valid: false, paidMinor: 0, errors: [] };
+    const remainingMinor = quote ? Number(quote.totalMinor) - Number(validation.paidMinor || 0) : 0;
+
+    const toggleMethod = (method) => {
+        const existing = lines.find((line) => line.methodId === method.id);
+        if (existing) {
+            updatePaymentLines(lines.filter((line) => line.id !== existing.id));
+            return;
+        }
+        const sameCurrency = method.currency === currency;
+		const allocatedMinor = sameCurrency ? Math.max(0, remainingMinor) : 0;
+		updatePaymentLines([...lines, {
+			id: crypto.randomUUID(), methodId: method.id, rail: method.rail,
+			amountMinor: allocatedMinor,
+			currency, evidencePolicy: method.evidencePolicy,
+			...(method.rail === 'cash' && sameCurrency ? { tenderedAmountMinor: allocatedMinor, tenderedCurrency: currency } : {}),
+            ...(sameCurrency ? {} : { settlementAmountMinor: 0, settlementCurrency: method.currency, exchangeRate }),
+        }]);
+    };
+
+    const updateLine = (id, patch) => updatePaymentLines(lines.map((line) => line.id === id ? { ...line, ...patch } : line));
+    const updateAccountingAmount = (line, raw) => {
+		const parsed = parseMoneyInput(raw, { currency, fractionDigits, locale: manualOrder.locale });
+		if (parsed.valid) updateLine(line.id, {
+			amountMinor: parsed.minor,
+			...(line.rail === 'cash' && Number(line.tenderedAmountMinor || 0) < parsed.minor ? { tenderedAmountMinor: parsed.minor } : {}),
+		});
+    };
+    const updateSettlementAmount = (line, method, raw) => {
+		const parsed = parseMoneyInput(raw, { currency: method.currency, locale: manualOrder.locale });
+        if (!parsed.valid) return;
+        try {
+			updateLine(line.id, {
+				settlementAmountMinor: parsed.minor,
+                settlementCurrency: method.currency,
+                exchangeRate,
+				amountMinor: settlementToAccountingMinor(parsed.minor, method.currency, currency, exchangeRate),
+				...(line.rail === 'cash' && Number(line.tenderedAmountMinor || 0) < parsed.minor ? { tenderedAmountMinor: parsed.minor, tenderedCurrency: method.currency } : {}),
+            });
+        } catch {
+            updateLine(line.id, { settlementAmountMinor: parsed.minor, amountMinor: 0, exchangeRate: '' });
+		}
+	};
+	const updateTenderedAmount = (line, method, raw) => {
+		const tenderCurrency = method.currency;
+		const parsed = parseMoneyInput(raw, { currency: tenderCurrency, locale: manualOrder.locale });
+		if (parsed.valid) updateLine(line.id, { tenderedAmountMinor: parsed.minor, tenderedCurrency: tenderCurrency });
+	};
+
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {methods.map((method) => {
+                    const active = lines.some((line) => line.methodId === method.id);
+                    const conversionMissing = method.currency !== currency && !exchangeRate;
+                    return (
+                        <Button variant={active ? 'default' : 'outline'} type="button" key={method.id}
+                            className="min-h-[44px] justify-between px-3"
+                            onClick={() => toggleMethod(method)} disabled={conversionMissing || !quote}
+                            title={conversionMissing ? `Configura la tasa ${method.currency}/${currency}` : undefined}
+                            aria-pressed={active}
+                        >
+                            <span>{method.label}</span>
+                            <small>{method.currency}{method.evidencePolicy === 'required' ? ' · comprobante' : ''}</small>
+                        </Button>
+                    );
+                })}
+            </div>
+            {lines.map((line) => {
+                const method = methods.find((candidate) => candidate.id === line.methodId);
+                if (!method) return null;
+                const foreign = method.currency !== currency;
+                return (
+					<div key={line.id} className="block rounded-[12px] border border-gc-border bg-gc-card p-3 text-sm">
+                        <span className="mb-2 flex justify-between font-semibold"><span>{method.label}</span><span>{formatMinor(line.amountMinor || 0, { currency, locale: manualOrder.locale, fractionDigits })}</span></span>
+                        <input className={inputClass} inputMode="decimal" min="0" type="text"
+                            aria-label={`Monto ${method.label}`}
+                            value={foreign ? minorToMajor(line.settlementAmountMinor || 0, method.currency) : minorToMajor(line.amountMinor || 0, currency, fractionDigits)}
+                            onChange={(event) => foreign ? updateSettlementAmount(line, method, event.target.value) : updateAccountingAmount(line, event.target.value)}
+                        />
+						{method.rail === 'cash' ? (
+							<label className="mt-2 block text-xs text-gc-text-muted">
+								<span>Recibido en {method.currency}</span>
+								<input className={inputClass} inputMode="decimal" type="text" aria-label={`Monto recibido ${method.label}`}
+									value={minorToMajor(line.tenderedAmountMinor ?? (foreign ? line.settlementAmountMinor : line.amountMinor) ?? 0, method.currency)}
+									onChange={(event) => updateTenderedAmount(line, method, event.target.value)} />
+							</label>
+						) : null}
+						{method.rail === 'cash' && Array.isArray(manualOrder.cashDenominations?.[foreign ? method.currency : currency]) ? (
+							<div className="mt-2 flex flex-wrap gap-2">
+								{manualOrder.cashDenominations[foreign ? method.currency : currency].map((amount) => (
+									<Button key={amount} variant="outline" type="button" className="min-h-[44px] rounded-full"
+										onClick={() => updateTenderedAmount(line, method, String(amount))}>
+										{formatMinor(majorToMinor(amount, foreign ? method.currency : currency, foreign ? undefined : fractionDigits), { currency: foreign ? method.currency : currency, locale: manualOrder.locale, fractionDigits: foreign ? undefined : fractionDigits })}
+									</Button>
+				))}
+							</div>
+						) : null}
+						{method.rail === 'cash' && Number(line.tenderedAmountMinor || 0) > Number(foreign ? line.settlementAmountMinor : line.amountMinor) ? (
+							<span className="mt-2 block text-sm font-semibold text-gc-success">Vuelto: {formatMinor(Number(line.tenderedAmountMinor) - Number(foreign ? line.settlementAmountMinor : line.amountMinor), { currency: method.currency, locale: manualOrder.locale })}</span>
+						) : null}
+                        {foreign ? <span className="mt-1 block text-xs text-gc-text-muted">Tasa: {exchangeRate || 'no configurada'} {method.currency} por {currency}</span> : null}
+					</div>
+                );
+            })}
+            {quote ? (
+                <p role="status" aria-live="polite" className={cn('text-sm font-semibold', validation.valid ? 'text-gc-success' : 'text-gc-danger')}>
+                    {validation.valid ? 'El pago cuadra exactamente.' : remainingMinor > 0 ? `Falta ${formatMinor(remainingMinor, { currency, locale: manualOrder.locale, fractionDigits })}` : `Sobra ${formatMinor(Math.abs(remainingMinor), { currency, locale: manualOrder.locale, fractionDigits })}`}
+                </p>
+            ) : <p role="status" className="text-sm text-gc-text-muted">Esperando cotización válida…</p>}
+        </div>
+    );
+}
 
 /**
  * Checkout del paso Pago: método de pago, cupón, desglose y confirmación.
@@ -48,6 +159,8 @@ const PaymentDetails = ({
     updateCashAmount,
     updateCardAmount,
     updateCashTendered,
+    updatePaymentLines,
+	acknowledgeQuoteRevision,
     receiptFile,
     receiptPreview,
     handleFileChange,
@@ -62,26 +175,34 @@ const PaymentDetails = ({
     hideCheckoutActions = false,
     hideCouponSection = false,
     hideTotalBreakdown = false,
+	hideEvidenceUpload = false,
     embedded = false,
     variant = 'default',
 }) => {
     const isReceipt = variant === 'receipt';
-    const orderMoney = useOrderMoney();
-    const { formatMoney, formatOrderAmount } = orderMoney;
-    const checkoutPaymentMethod = resolveManualCheckoutPaymentMethod(manualOrder);
-    const formatCheckoutTotal = (amount) => formatOrderAmount({
-        amountUsd: amount,
-        paymentMethod: checkoutPaymentMethod,
-    });
+	const accountingCurrency = manualOrder.currency || 'CLP';
+	const accountingDigits = manualOrder.fractionDigits;
+	const formatAccountingMoney = useCallback((amount) => formatMinor(
+		majorToMinor(amount, accountingCurrency, accountingDigits),
+		{ currency: accountingCurrency, locale: manualOrder.locale, fractionDigits: accountingDigits },
+	), [accountingCurrency, accountingDigits, manualOrder.locale]);
     const deliveryFeeAmt = manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
     const grossItems = manualOrder.total;
     const couponDiscountApplied =
         couponPreview?.variant === 'success' && Number(couponPreview.discount) > 0
             ? Math.min(grossItems, Number(couponPreview.discount))
             : 0;
-    const totalToPay = Math.round(
-        (Math.max(0, grossItems - couponDiscountApplied) + deliveryFeeAmt) * 100,
-    ) / 100;
+	const totalToPay = manualOrder.v2Enabled && manualOrder.quote
+        ? manualOrder.checkout_total
+		: minorToMajor(
+			Math.max(0, majorToMinor(grossItems, accountingCurrency, accountingDigits) - majorToMinor(couponDiscountApplied, accountingCurrency, accountingDigits))
+				+ majorToMinor(deliveryFeeAmt, accountingCurrency, accountingDigits),
+			accountingCurrency,
+			accountingDigits,
+		);
+	const billShortcuts = Array.isArray(manualOrder.cashDenominations?.[accountingCurrency])
+		? manualOrder.cashDenominations[accountingCurrency]
+		: [];
 
     const isMixed = manualOrder.payment_mode === 'mixed';
     const showCashTender =
@@ -171,11 +292,21 @@ const PaymentDetails = ({
             !embedded && 'h-full',
             isReceipt && 'manual-order-checkout--receipt',
         )}>
+			{manualOrder.v2Enabled && manualOrder.quoteRevisionPending ? (
+				<div className="rounded-[12px] border border-gc-warning/40 bg-gc-warning/10 p-3 text-sm text-gc-text" role="alert">
+					<p className="font-semibold">La cotización cambió. Nuevo total: {formatMinor(Number(manualOrder.quote?.totalMinor || 0), { currency: manualOrder.currency, fractionDigits: manualOrder.fractionDigits })}</p>
+					<p className="mt-1 text-gc-text-muted">Revisa también el desglose de pago antes de confirmar.</p>
+					<Button variant="outline" type="button" className="mt-2 min-h-[44px]" onClick={acknowledgeQuoteRevision}>Entendido, revisar total</Button>
+				</div>
+			) : null}
             <div ref={paymentMethodRef} className={cn(sectionCardClass, 'scroll-mt-3')}>
                 <SectionHeader icon={CreditCard} tone="accent">
                     {isReceipt ? 'Seleccionar método de pago' : 'Método de pago'}
                 </SectionHeader>
-                <div className={`grid grid-cols-3 ${spacing.compact}`}>
+                {manualOrder.v2Enabled ? (
+                    <PaymentLinesEditor manualOrder={manualOrder} updatePaymentLines={updatePaymentLines} branchDeliveryCfg={branchDeliveryCfg} />
+                ) : <>
+				<div className={`grid grid-cols-1 ${spacing.compact} min-[430px]:grid-cols-3`}>
                     <Button variant="default"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tienda')}
@@ -183,7 +314,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <Store size={24} />
-                        {isReceipt ? 'Efectivo' : 'Efectivo'}
+						Efectivo {accountingCurrency}
                     </Button>
                     <Button variant="default"
                         type="button"
@@ -192,7 +323,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <CreditCard size={24} />
-                        {isReceipt ? 'Tarjeta' : 'Tarjeta'}
+						Tarjeta {accountingCurrency}
                     </Button>
                     <Button variant="default"
                         type="button"
@@ -201,7 +332,7 @@ const PaymentDetails = ({
                         disabled={paymentMethodsDisabled}
                     >
                         <ReceiptIcon size={24} />
-                        {isReceipt ? 'Transf.' : 'Transferencia'}
+						{isReceipt ? 'Transf.' : 'Transferencia'} {accountingCurrency}
                     </Button>
                 </div>
                 <Button variant="default"
@@ -217,9 +348,15 @@ const PaymentDetails = ({
                     <Split size={16} aria-hidden />
                     {isReceipt ? 'Pago mixto' : 'Pago mixto (efectivo + tarjeta)'}
                 </Button>
+				{String(manualOrder.locale ?? '').toLowerCase().startsWith('es-ve') ? (
+					<p className="mt-2 text-xs leading-relaxed text-gc-text-muted">
+						Moneda contable: <strong>{accountingCurrency}</strong>. Los pagos en VES y su tasa aparecen al activar Pedidos V2 para la sucursal.
+					</p>
+				) : null}
+                </>}
             </div>
 
-            {isMixed ? (
+            {!manualOrder.v2Enabled && isMixed ? (
             <div ref={mixedSplitRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
                 <SectionHeader icon={Split} tone="accent">Desglose del pago</SectionHeader>
                     <div className={`grid grid-cols-2 ${spacing.normal}`}>
@@ -265,14 +402,14 @@ const PaymentDetails = ({
                             {Math.abs(mixedDiff) <= 1
                                 ? 'Cuadra con el total a pagar'
                                 : mixedDiff > 0
-                                  ? `Falta ${formatMoney(mixedDiff)}`
-                                  : `Sobra ${formatMoney(Math.abs(mixedDiff))}`}
+								  ? `Falta ${formatAccountingMoney(mixedDiff)}`
+								  : `Sobra ${formatAccountingMoney(Math.abs(mixedDiff))}`}
                         </p>
                     ) : null}
                 </div>
             ) : null}
 
-            {showCashTender ? (
+            {!manualOrder.v2Enabled && showCashTender ? (
             <div ref={cashTenderRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
                 <SectionHeader icon={Coins} tone="accent">Efectivo recibido</SectionHeader>
                 <input
@@ -283,17 +420,17 @@ const PaymentDetails = ({
                         className={inputClass}
                         value={manualOrder.cash_tendered === '' ? '' : manualOrder.cash_tendered}
                         onChange={(e) => updateCashTendered(e.target.value)}
-                        placeholder={cashDue > 0 ? formatMoney(cashDue) : '0'}
+						placeholder={cashDue > 0 ? formatAccountingMoney(cashDue) : '0'}
                     />
                     <div className={`mt-2 flex flex-wrap ${spacing.compact}`}>
-                        {BILL_SHORTCUTS.map((bill) => (
+						{billShortcuts.map((bill) => (
                             <Button variant="outline"
                                 key={bill}
                                 type="button"
                                 className={`rounded-full border border-gc-border bg-gc-card px-2.5 py-1 ${textScale.micro} font-bold text-gc-text transition-colors hover:border-gc-accent hover:text-gc-accent`}
                                 onClick={() => handleBillShortcut(bill)}
                             >
-                                {formatMoney(bill)}
+								{formatAccountingMoney(bill)}
                             </Button>
                         ))}
                     </div>
@@ -310,8 +447,8 @@ const PaymentDetails = ({
                             <span className={`${textScale.micro} font-semibold text-gc-text-muted`}>Cambio a devolver</span>
                             <span className={`${textScale.emphasis} font-extrabold text-gc-text`}>
                                 {paymentValidation.reason === 'insufficient_tender'
-                                    ? `Faltan ${formatMoney(cashDue - (Number(manualOrder.cash_tendered) || 0))}`
-                                    : formatMoney(changeDue)}
+									? `Faltan ${formatAccountingMoney(cashDue - (Number(manualOrder.cash_tendered) || 0))}`
+									: formatAccountingMoney(changeDue)}
                             </span>
                         </div>
                     ) : null}
@@ -357,35 +494,39 @@ const PaymentDetails = ({
                 <div className="space-y-1.5">
                     <div className={`flex justify-between ${textScale.micro} text-gc-text-muted`}>
                         <span>Artículos</span>
-                        <span className="font-semibold text-gc-text">{formatMoney(grossItems)}</span>
+						<span className="font-semibold text-gc-text">{formatAccountingMoney(grossItems)}</span>
                     </div>
                     {couponDiscountApplied > 0 && (
                         <div className={`flex justify-between ${textScale.micro} text-gc-discount`}>
                             <span>Descuento (cupón)</span>
-                            <span className="font-semibold">−{formatMoney(couponDiscountApplied)}</span>
+							<span className="font-semibold">−{formatAccountingMoney(couponDiscountApplied)}</span>
                         </div>
                     )}
                     {deliveryFeeAmt > 0 && (
                         <div className={`flex justify-between ${textScale.micro} text-gc-text-muted`}>
                             <span>Delivery</span>
-                            <span className="font-semibold text-gc-text">{formatMoney(deliveryFeeAmt)}</span>
+							<span className="font-semibold text-gc-text">{formatAccountingMoney(deliveryFeeAmt)}</span>
                         </div>
                     )}
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
                     <span className={`${textScale.micro} font-extrabold uppercase tracking-wide text-gc-text-muted`}>Total a pagar</span>
-                    <span className={`${textScale.price} font-black text-gc-price`}>{formatCheckoutTotal(totalToPay)}</span>
+					<span className={`${textScale.price} font-black text-gc-price`}>{formatAccountingMoney(totalToPay)}</span>
                 </div>
             </div>
             ) : hideCouponSection ? (
                 <div ref={postPaymentRef} className="h-0 overflow-hidden" aria-hidden />
             ) : null}
 
-            {manualOrder.payment_type === 'online' && !isMixed && (
+			{!hideEvidenceUpload && ((manualOrder.v2Enabled && manualOrder.payment_lines?.some((line) => line.evidencePolicy !== 'none')) || (manualOrder.payment_type === 'online' && !isMixed)) && (
             <div className={cn(sectionCardClass, 'animate-fade-in')}>
-                <SectionHeader icon={Upload} tone="accent">Comprobante (opc.)</SectionHeader>
+				<SectionHeader icon={Upload} tone="accent">
+					{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required') ? 'Comprobante requerido' : 'Comprobante opcional'}
+				</SectionHeader>
                     <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
-                        Podés confirmar el pedido sin imagen. Si querés, subí el comprobante ahora o después desde la tarjeta del pedido.
+						{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required')
+							? 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.'
+							: 'Puedes subir el comprobante ahora o después desde la tarjeta del pedido.'}
                     </p>
                     <label
                         htmlFor="receipt-upload"

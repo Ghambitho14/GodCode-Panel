@@ -1,153 +1,103 @@
-import {
-	getOrderPaymentBreakdown,
-} from '@/shared/utils/orderUtils';
+import { getOrderPaymentBreakdown } from '@/shared/utils/orderUtils';
+import { fractionDigitsForCurrency, normalizeCurrencyCode } from '@/shared/utils/money';
+import { majorToMinor, minorToMajor } from '@/lib/money/minor-units';
 
 const METHODS = ['cash', 'card', 'online'];
-const AMOUNT_TOLERANCE = 5;
+const AMOUNT_TOLERANCE_MINOR = 1;
 
-function roundAmount(value) {
-	return Math.round(Number(value) || 0);
+function orderMoney(order) {
+	const currency = normalizeCurrencyCode(order?.currency);
+	return { currency, digits: fractionDigitsForCurrency(currency) };
 }
 
-function sumByType(movements, type) {
-	return (movements || []).reduce((acc, m) => {
-		if (m?.type !== type) return acc;
-		return acc + roundAmount(m.amount);
-	}, 0);
+function movementMinor(movement, money) {
+	if (Number.isSafeInteger(Number(movement?.amount_minor))) return Number(movement.amount_minor);
+	return majorToMinor(movement?.amount, money.currency, money.digits);
 }
 
-function sumSalesByMethod(movements) {
-	const totals = { cash: 0, card: 0, online: 0 };
-	for (const m of movements || []) {
-		if (m?.type !== 'sale') continue;
-		const method = m.payment_method;
-		if (method === 'cash' || method === 'card' || method === 'online') {
-			totals[method] += roundAmount(m.amount);
+function desiredMinor(order) {
+	const money = orderMoney(order);
+	if (Array.isArray(order?.payment_lines) && order.payment_lines.length > 0) {
+		const totals = { cash: 0, card: 0, online: 0 };
+		for (const line of order.payment_lines) {
+			if (METHODS.includes(line?.rail)) totals[line.rail] += Number(line.amountMinor ?? line.amount_minor) || 0;
 		}
+		return { totals, money };
 	}
-	return totals;
-}
-
-function sumRefundsByMethod(movements) {
-	const totals = { cash: 0, card: 0, online: 0 };
-	for (const m of movements || []) {
-		if (m?.type !== 'expense') continue;
-		const method = m.payment_method;
-		if (method === 'cash' || method === 'card' || method === 'online') {
-			totals[method] += roundAmount(m.amount);
-		}
-	}
-	return totals;
-}
-
-function netByMethod(movements) {
-	const sales = sumSalesByMethod(movements);
-	const refunds = sumRefundsByMethod(movements);
+	const legacy = getOrderPaymentBreakdown(order);
 	return {
-		cash: sales.cash - refunds.cash,
-		card: sales.card - refunds.card,
-		online: sales.online - refunds.online,
+		totals: Object.fromEntries(METHODS.map((method) => [method, majorToMinor(legacy[method], money.currency, money.digits)])),
+		money,
 	};
 }
 
-function totalBreakdown(breakdown) {
-	return breakdown.cash + breakdown.card + breakdown.online;
+function sumByType(movements, type, money) {
+	return (movements || []).reduce((sum, movement) => movement?.type === type ? sum + movementMinor(movement, money) : sum, 0);
 }
 
-function hasRegisteredSale(movements, paymentMethod, expectedAmount) {
-	const sales = (movements || []).filter(
-		(m) => m?.type === 'sale' && m.payment_method === paymentMethod,
-	);
-	if (sales.length === 0) return false;
-	const registered = sales.reduce((acc, m) => acc + roundAmount(m.amount), 0);
-	return Math.abs(registered - expectedAmount) <= AMOUNT_TOLERANCE;
+function sumByMethod(movements, type, money) {
+	const totals = { cash: 0, card: 0, online: 0 };
+	for (const movement of movements || []) {
+		if (movement?.type === type && METHODS.includes(movement.payment_method)) {
+			totals[movement.payment_method] += movementMinor(movement, money);
+		}
+	}
+	return totals;
 }
 
-/**
- * Ventas pendientes de registrar para un pedido según desglose y movimientos existentes.
- * @param {Record<string, unknown>} order
- * @param {Array<{ type?: string; amount?: number; payment_method?: string | null }>} existingMovements
- * @returns {Array<{ type: 'sale'; amount: number; payment_method: 'cash' | 'card' | 'online' }>}
- */
+function toMovement(type, amountMinor, method, money) {
+	return {
+		type,
+		amount_minor: amountMinor,
+		amount: minorToMajor(amountMinor, money.currency, money.digits),
+		currency: money.currency,
+		payment_method: method,
+	};
+}
+
+function hasRegisteredSale(movements, method, expectedMinor, money) {
+	const registered = (movements || [])
+		.filter((movement) => movement?.type === 'sale' && movement.payment_method === method)
+		.reduce((sum, movement) => sum + movementMinor(movement, money), 0);
+	return registered > 0 && Math.abs(registered - expectedMinor) <= AMOUNT_TOLERANCE_MINOR;
+}
+
 export function planSaleMovements(order, existingMovements = []) {
-	const breakdown = getOrderPaymentBreakdown(order);
-	const activeMethods = METHODS.filter((method) => breakdown[method] > 0);
-
-	if (activeMethods.length === 0) return [];
-
-	if (activeMethods.length === 1) {
-		const saleAmount = roundAmount(order?.total);
-		if (saleAmount <= 0) return [];
-
-		const paymentMethod = activeMethods[0];
-		if (hasRegisteredSale(existingMovements, paymentMethod, saleAmount)) {
-			return [];
-		}
-
-		const currentNet = sumByType(existingMovements, 'sale') - sumByType(existingMovements, 'expense');
-		if (Math.abs(currentNet - saleAmount) <= AMOUNT_TOLERANCE) {
-			return [];
-		}
-
-		return [{ type: 'sale', amount: saleAmount, payment_method: paymentMethod }];
+	const { totals, money } = desiredMinor(order);
+	const active = METHODS.filter((method) => totals[method] > 0);
+	if (!active.length) return [];
+	if (active.length === 1) {
+		const method = active[0];
+		const expected = Number.isSafeInteger(Number(order?.total_minor)) ? Number(order.total_minor) : totals[method];
+		if (expected <= 0 || hasRegisteredSale(existingMovements, method, expected, money)) return [];
+		const net = sumByType(existingMovements, 'sale', money) - sumByType(existingMovements, 'expense', money);
+		return Math.abs(net - expected) <= AMOUNT_TOLERANCE_MINOR ? [] : [toMovement('sale', expected, method, money)];
 	}
-
-	return activeMethods
-		.filter((method) => !hasRegisteredSale(existingMovements, method, breakdown[method]))
-		.map((method) => ({
-			type: 'sale',
-			amount: breakdown[method],
-			payment_method: method,
-		}))
-		.filter((movement) => movement.amount > 0);
+	return active
+		.filter((method) => !hasRegisteredSale(existingMovements, method, totals[method], money))
+		.map((method) => toMovement('sale', totals[method], method, money));
 }
 
-/**
- * Devoluciones pendientes por método según ventas ya registradas.
- * @param {Record<string, unknown>} order
- * @param {Array<{ type?: string; amount?: number; payment_method?: string | null }>} existingMovements
- * @returns {Array<{ type: 'expense'; amount: number; payment_method: 'cash' | 'card' | 'online' }>}
- */
-/**
- * Ajustes delta para alinear caja con el pedido editado (método de pago o total).
- * Compara desglose deseado vs neto registrado por método (sale − expense).
- * @param {Record<string, unknown>} order
- * @param {Array<{ type?: string; amount?: number; payment_method?: string | null }>} existingMovements
- * @returns {Array<{ type: 'sale' | 'expense'; amount: number; payment_method: 'cash' | 'card' | 'online' }>}
- */
 export function planSaleResyncMovements(order, existingMovements = []) {
-	const desired = getOrderPaymentBreakdown(order);
-	const current = netByMethod(existingMovements);
-
-	if (totalBreakdown(current) === 0 && totalBreakdown(desired) > 0) {
-		return planSaleMovements(order, existingMovements);
-	}
-
+	const { totals: desired, money } = desiredMinor(order);
+	const sales = sumByMethod(existingMovements, 'sale', money);
+	const refunds = sumByMethod(existingMovements, 'expense', money);
 	const movements = [];
 	for (const method of METHODS) {
-		const delta = desired[method] - current[method];
-		if (delta > AMOUNT_TOLERANCE) {
-			movements.push({ type: 'sale', amount: delta, payment_method: method });
-		} else if (delta < -AMOUNT_TOLERANCE) {
-			movements.push({ type: 'expense', amount: -delta, payment_method: method });
-		}
+		const current = sales[method] - refunds[method];
+		const delta = desired[method] - current;
+		if (delta > AMOUNT_TOLERANCE_MINOR) movements.push(toMovement('sale', delta, method, money));
+		else if (delta < -AMOUNT_TOLERANCE_MINOR) movements.push(toMovement('expense', -delta, method, money));
 	}
-	return movements.filter((movement) => movement.amount > 0);
+	return movements;
 }
 
-export function planRefundMovements(_order, existingMovements = []) {
-	const salesByMethod = sumSalesByMethod(existingMovements);
-	const refundsByMethod = sumRefundsByMethod(existingMovements);
-
-	const pending = METHODS.map((method) => ({
-		payment_method: method,
-		amount: salesByMethod[method] - refundsByMethod[method],
-	}))
-		.filter((row) => row.amount > AMOUNT_TOLERANCE);
-
-	return pending.map((row) => ({
-		type: 'expense',
-		amount: row.amount,
-		payment_method: row.payment_method,
-	}));
+export function planRefundMovements(order, existingMovements = []) {
+	const money = orderMoney(order);
+	const sales = sumByMethod(existingMovements, 'sale', money);
+	const refunds = sumByMethod(existingMovements, 'expense', money);
+	return METHODS
+		.map((method) => ({ method, amountMinor: sales[method] - refunds[method] }))
+		.filter(({ amountMinor }) => amountMinor > AMOUNT_TOLERANCE_MINOR)
+		.map(({ method, amountMinor }) => toMovement('expense', amountMinor, method, money));
 }

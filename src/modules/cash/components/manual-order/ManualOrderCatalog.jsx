@@ -112,7 +112,7 @@ const ManualOrderCatalog = ({
     getQty,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [showProductImages, setShowProductImages] = useState(false);
+    const [showProductImages, setShowProductImages] = useState(true);
     const [activeCategory, setActiveCategory] = useState(null);
     const searchInputId = useId();
 
@@ -245,6 +245,20 @@ const ManualOrderCatalog = ({
         }
     }, [sidebarCategories, activeCategory]);
 
+	useEffect(() => {
+		const root = catalogScrollRef.current;
+		if (!root || typeof IntersectionObserver === 'undefined') return undefined;
+		const observer = new IntersectionObserver((entries) => {
+			const visible = entries
+				.filter((entry) => entry.isIntersecting)
+				.sort((a, b) => b.intersectionRatio - a.intersectionRatio || a.boundingClientRect.top - b.boundingClientRect.top);
+			const key = visible[0]?.target?.dataset?.categoryKey;
+			if (key) setActiveCategory(key);
+		}, { root, rootMargin: '-72px 0px -55% 0px', threshold: [0.05, 0.25, 0.6] });
+		for (const element of categoryRefsRef.current.values()) observer.observe(element);
+		return () => observer.disconnect();
+	}, [sidebarCategories, query]);
+
     const renderCatalogSection = (catalog, variant = 'products') => {
         if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
 
@@ -367,8 +381,8 @@ const ManualOrderCatalog = ({
                         aria-label={showProductImages ? 'Ocultar imágenes de productos' : 'Mostrar imágenes de productos'}
                         title={showProductImages ? 'Ocultar imágenes' : 'Mostrar imágenes'}
                     >
-                        {showProductImages ? <Image size={17} aria-hidden="true" /> : <ImageOff size={17} aria-hidden="true" />}
-                        <span className="hidden min-[390px]:inline">Imágenes</span>
+                        {showProductImages ? <ImageOff size={17} aria-hidden="true" /> : <Image size={17} aria-hidden="true" />}
+                        <span className="hidden min-[390px]:inline">{showProductImages ? 'Ocultar' : 'Mostrar'}</span>
                     </Button>
                 </div>
             </div>

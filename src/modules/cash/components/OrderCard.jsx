@@ -64,6 +64,11 @@ const OrderCard = ({
         () => (orders || []).find((o) => o.id === order.id) ?? order,
         [orders, order],
     );
+	const evidenceState = liveOrder.payment_evidence_status;
+	const supportsEvidence = liveOrder.payment_type === 'online'
+		|| Boolean(liveOrder.payment_ref)
+		|| Boolean(evidenceState)
+		|| liveOrder.payment_lines?.some((line) => line.evidencePolicy && line.evidencePolicy !== 'none');
     const [editWizardOpen, setEditWizardOpen] = useState(false);
     const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
@@ -407,7 +412,7 @@ const OrderCard = ({
                                         </span>
                                     ) : null}
                                     <TypeIcon size={18} className="order-type-icon" aria-label={fulfillmentLabel} />
-                                    <h4 className="card-client-name">{order.client_name}</h4>
+									<h4 className="card-client-name">{order.display_name || order.client_name}</h4>
                                     {isVip ? (
                                         <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
                                             <Star size={14} aria-hidden />
@@ -442,7 +447,7 @@ const OrderCard = ({
                         <div className="card-client">
                             <div className="card-client-name-row">
                                 <TypeIcon size={18} className="order-type-icon order-type-icon--normal" aria-label={fulfillmentLabel} />
-                                <h4 className="card-client-name">{order.client_name}</h4>
+								<h4 className="card-client-name">{order.display_name || order.client_name}</h4>
                                 {isVip ? (
                                     <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
                                         <Star size={14} aria-hidden />
@@ -570,27 +575,12 @@ const OrderCard = ({
                             )}
                         </div>
 
-                        {order.payment_type === 'online' ? (
+						{supportsEvidence ? (
                             <div className="receipt-container receipt-container--kanban">
-                                {order.payment_ref && order.payment_ref.startsWith('http') ? (
-                                    <div className="receipt-container__row">
-                                        <a href={order.payment_ref} target="_blank" rel="noreferrer" className="receipt-link">
-                                            <ImageIcon size={14} aria-hidden /> Ver Comprobante
-                                        </a>
-                                        <Button variant="default" type="button" onClick={() => setReceiptModalOrder(order)} className="order-card-receipt-secondary">
-                                            Cambiar
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <Button variant="default"
-                                        type="button"
-                                        onClick={() => setReceiptModalOrder(order)}
-                                        className="receipt-link receipt-link--optional"
-                                        title="Opcional: subir imagen del comprobante"
-                                    >
-                                        <Upload size={14} aria-hidden /> Comprobante (opcional)
-                                    </Button>
-                                )}
+								<Button variant="default" type="button" onClick={() => setReceiptModalOrder?.(liveOrder)} className="receipt-link receipt-link--optional">
+									{evidenceState === 'failed' ? <AlertTriangle size={14} aria-hidden /> : liveOrder.payment_ref ? <ImageIcon size={14} aria-hidden /> : <Upload size={14} aria-hidden />}
+									{evidenceState === 'failed' ? 'Comprobante fallido · reintentar' : evidenceState === 'uploading' ? 'Subiendo comprobante…' : evidenceState === 'pending' ? 'Comprobante pendiente' : liveOrder.payment_ref ? 'Ver/cambiar comprobante' : 'Adjuntar comprobante'}
+								</Button>
                             </div>
                         ) : null}
                     </>

@@ -26,6 +26,8 @@ import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 
 import TableSessionReceipt from './TableSessionReceipt';
 import { Button } from "@/components/ui/button";
+import { isoFractionDigits, minorToMajor } from '@/lib/money/minor-units';
+import { normalizePaymentMethods, validatePaymentLines } from '../domain/payment-methods';
 
 
 
@@ -40,6 +42,7 @@ const DEFAULT_FORM = {
 	card_amount: 0,
 
 	cash_tendered: 0,
+	payment_lines: [],
 
 };
 
@@ -131,7 +134,14 @@ export default function CloseTableModal({
 
 
 
-	const total = Number(order.total) || 0;
+	const orderTotal = Number(order.total) || 0;
+	const currency = String(order.currency || branch?.currency || 'CLP').toUpperCase();
+	const fractionDigits = isoFractionDigits(currency, branch?.manual_order_settings?.currencyFractionDigits);
+	const isV2Order = order.manual_order_mode === 'session' || order.manual_order_mode === 'quick_sale';
+	const paymentMethods = normalizePaymentMethods(['cash', 'card', ...(branch?.payment_methods || [])], { accountingCurrency: currency });
+	const total = !confirmOnly && Number.isSafeInteger(Number(order.payment_balance_minor))
+		? minorToMajor(Number(order.payment_balance_minor), currency, fractionDigits)
+		: orderTotal;
 
 	const confirmLabel = isPayIntent
 		? 'Registrar pago'
@@ -160,6 +170,13 @@ export default function CloseTableModal({
 		items: order.items,
 
 		coupon_code: order.coupon_code,
+		v2Enabled: isV2Order,
+		currency,
+		fractionDigits,
+		quote: isV2Order ? { totalMinor: Number(order.payment_balance_minor ?? order.total_minor), currency, fractionDigits, quoteHash: 'settlement' } : null,
+		paymentMethods,
+		payment_lines: form.payment_lines,
+		cashDenominations: branch?.manual_order_settings?.cashDenominations || {},
 
 	};
 
@@ -170,6 +187,7 @@ export default function CloseTableModal({
 		if (confirmOnly) return true;
 
 		if (total <= 0) return true;
+		if (isV2Order) return validatePaymentLines(manualOrderShape.payment_lines, manualOrderShape.quote, paymentMethods).valid;
 
 		return validateCheckoutPayment({
 
@@ -311,6 +329,8 @@ export default function CloseTableModal({
 
 										branch={branch}
 
+										branchDeliveryCfg={branch?.delivery_settings || null}
+
 										updateCouponCode={() => {}}
 
 										couponPreview={null}
@@ -324,6 +344,8 @@ export default function CloseTableModal({
 										updateCardAmount={(v) => setForm((f) => ({ ...f, card_amount: v }))}
 
 										updateCashTendered={(v) => setForm((f) => ({ ...f, cash_tendered: v }))}
+
+										updatePaymentLines={(lines) => setForm((f) => ({ ...f, payment_lines: lines }))}
 
 										receiptFile={null}
 
@@ -342,6 +364,8 @@ export default function CloseTableModal({
 										hideCouponSection
 
 										hideTotalBreakdown
+
+										hideEvidenceUpload
 
 										hideCheckoutActions
 

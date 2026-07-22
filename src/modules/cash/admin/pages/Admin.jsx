@@ -46,6 +46,28 @@ import { Toaster } from 'sileo';
 import 'sileo/styles.css';
 import '../../styles/AdminSileo.css';
 import { Button } from "@/components/ui/button";
+import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+
+function CurrentReceiptPreview({ order }) {
+  const { url, loading, error } = useSignedImageUrl(order?.payment_ref, 'receipts');
+  const status = order?.payment_evidence_status;
+  if (loading) return <p role="status">Cargando comprobante…</p>;
+  if (url) return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ marginBottom: 10, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Comprobante actual:</p>
+      <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 15 }}>
+        <img src={url} alt="Comprobante de pago" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--card-border)' }} />
+      </a>
+    </div>
+  );
+	if (status === 'pending' || status === 'uploading' || status === 'failed') return (
+    <p role="status" className="text-sm text-amber-700">
+	  {status === 'failed' ? 'El comprobante falló. Selecciona el archivo para reintentar.' : status === 'uploading' ? 'Subiendo comprobante…' : 'Comprobante pendiente de carga.'}
+    </p>
+  );
+  if (error) return <p role="alert" className="text-sm text-red-700">No se pudo abrir el comprobante privado.</p>;
+  return null;
+}
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
   const {
@@ -64,7 +86,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     localOrderChannels,
     historyPeriod, setHistoryPeriod,
     historyOrders, historyLoading,
-    isOpenMesaModal, setIsOpenMesaModal,
+    isOpenMesaModal, setIsOpenMesaModal, manualOrderMode, setManualOrderMode,
     mobileTab, setMobileTab,
     searchQuery, setSearchQuery,
     filterCategory, setFilterCategory,
@@ -453,12 +475,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </Button>
                 <Button variant="default"
                   type="button"
-                  onClick={() => setIsOpenMesaModal(true)}
+                  onClick={() => { setManualOrderMode('quick_sale'); setIsOpenMesaModal(true); }}
                   className="btn header-action-orders-manual"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <PlusCircle size={18} /> {ordersViewMode === 'mesas' ? 'Abrir mesa' : 'Nuevo pedido'}
+                  <PlusCircle size={18} /> Venta rápida
+                </Button>
+                <Button variant="secondary"
+                  type="button"
+                  onClick={() => { setManualOrderMode('session'); setIsOpenMesaModal(true); }}
+                  className="btn header-action-orders-manual"
+                  disabled={selectedBranch?.id === 'all' || !selectedBranch}
+                  title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+                >
+                  <Store size={18} /> Abrir sesión
                 </Button>
               </div>
             )}
@@ -727,14 +758,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
               <Button variant="default" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></Button>
             </div>
             <div className="admin-side-body">
-              {receiptModalOrder.payment_ref && receiptModalOrder.payment_ref.startsWith('http') && !receiptPreview && (
-                <div style={{ marginBottom: 20 }}>
-                  <p style={{ marginBottom: 10, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Comprobante actual:</p>
-                  <a href={receiptModalOrder.payment_ref} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 15 }}>
-                    <img src={receiptModalOrder.payment_ref} alt="Comprobante" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--card-border)' }} />
-                  </a>
-                </div>
-              )}
+			  {!receiptPreview ? <CurrentReceiptPreview order={receiptModalOrder} /> : null}
 
               <div className="form-group">
                 <label>Subir nuevo comprobante</label>
@@ -803,7 +827,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             branch={selectedBranch}
             logoUrl={logoUrl}
             companyName={companyName}
-            openMesaMode
+            openMesaMode={manualOrderMode === 'session'}
             localOrderChannels={localOrderChannels}
           />
         </React.Suspense>

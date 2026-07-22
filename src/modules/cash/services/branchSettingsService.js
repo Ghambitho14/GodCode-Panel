@@ -171,7 +171,7 @@ async function getBranchCompanyContext(branchId) {
 }
 
 const BRANCH_SETTINGS_BUNDLE_SELECT =
-	'id, company_id, delivery_settings, origin_lat, origin_lng, payment_methods, is_active, currency';
+	'id, company_id, delivery_settings, manual_order_settings, origin_lat, origin_lng, payment_methods, is_active, currency, country';
 
 /** Cache RAM de `companies.integration_settings` (misma empresa, varias sucursales). */
 const companyIntegrationCache = new Map();
@@ -279,6 +279,9 @@ export const branchSettingsService = {
 		return {
 			...settings,
 			paymentMethods: Array.isArray(branch.payment_methods) ? branch.payment_methods : [],
+			manualOrderSettings: branch.manual_order_settings ?? null,
+			currency: branch.currency ?? null,
+			country: branch.country ?? null,
 			isBranchActive: branch.is_active !== false,
 		};
 	},
@@ -363,7 +366,9 @@ export const branchSettingsService = {
 		return {
 			delivery_settings: branch.delivery_settings ?? null,
 			payment_methods: branch.payment_methods ?? null,
+			manual_order_settings: branch.manual_order_settings ?? null,
 			currency: branch.currency ?? null,
+			country: branch.country ?? null,
 		};
 	},
 

@@ -112,7 +112,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 				type="button"
 				className="table-tile__body"
 				onClick={() => onClick(order)}
-				aria-label={`${kindLabel} ${number}, ${statusLabel}, ${order.client_name || 'Cliente'}${showPaidBadge ? ', pagado' : ''}`}
+				aria-label={`${kindLabel} ${number}, ${statusLabel}, ${order.display_name || order.client_name || 'Cliente'}${showPaidBadge ? ', pagado' : ''}`}
 			>
 				<span className="table-tile__kind-icon" aria-hidden>
 					{kind === 'moto' ? (
@@ -123,7 +123,7 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 						<TableRestaurantIcon className="table-tile__kind-svg--mesa" />
 					)}
 				</span>
-				<span className="table-tile__client">{order.client_name || 'Cliente'}</span>
+				<span className="table-tile__client">{order.display_name || order.client_name || 'Cliente'}</span>
 				<span className="table-tile__stats">
 					<span className="table-tile__stat table-tile__stat--time">
 						<Clock size={11} aria-hidden />

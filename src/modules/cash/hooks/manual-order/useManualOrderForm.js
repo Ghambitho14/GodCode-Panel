@@ -12,6 +12,7 @@ import {
     applyLocalFulfillmentMode,
     applyMesaPartyMode,
 } from './manualOrderShared';
+import { parseMoneyInput, minorToMajor } from '@/lib/money/minor-units';
 
 const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
 
@@ -20,7 +21,7 @@ const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
  * nombre del cliente, RUT (formateo y validación), teléfono, notas del pedido, tipo de despacho,
  * dirección de entrega, kilómetros, tarifas y comprobantes de pago.
  */
-export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'CL') => {
+export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'CL', moneyOptions = {}) => {
     const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
     const resolvedChannels = useMemo(
         () => parseLocalOrderChannels(enabledLocalChannels),
@@ -156,26 +157,26 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         }));
     }, []);
 
-    const updateCashAmount = useCallback((val) => {
-        const parsed = val === '' || val == null ? 0 : Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-        setForm(prev => ({ ...prev, cash_amount: parsed, cash_tendered: '' }));
-    }, []);
+	const updateCashAmount = useCallback((val) => {
+		const parsed = parseMoneyInput(val, { currency: moneyOptions.currency ?? 'CLP', locale: moneyOptions.locale, fractionDigits: moneyOptions.fractionDigits });
+		setForm(prev => ({ ...prev, cash_amount: parsed.valid ? minorToMajor(parsed.minor, moneyOptions.currency ?? 'CLP', moneyOptions.fractionDigits) : 0, cash_tendered: '' }));
+	}, [moneyOptions.currency, moneyOptions.locale, moneyOptions.fractionDigits]);
 
-    const updateCardAmount = useCallback((val) => {
-        const parsed = val === '' || val == null ? 0 : Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-        setForm(prev => ({ ...prev, card_amount: parsed }));
-    }, []);
+	const updateCardAmount = useCallback((val) => {
+		const parsed = parseMoneyInput(val, { currency: moneyOptions.currency ?? 'CLP', locale: moneyOptions.locale, fractionDigits: moneyOptions.fractionDigits });
+		setForm(prev => ({ ...prev, card_amount: parsed.valid ? minorToMajor(parsed.minor, moneyOptions.currency ?? 'CLP', moneyOptions.fractionDigits) : 0 }));
+	}, [moneyOptions.currency, moneyOptions.locale, moneyOptions.fractionDigits]);
 
     const updateCashTendered = useCallback((val) => {
         if (val === '' || val == null) {
             setForm(prev => ({ ...prev, cash_tendered: '' }));
             return;
         }
-        const parsed = Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-        setForm(prev => ({ ...prev, cash_tendered: parsed }));
-    }, []);
+		const parsed = parseMoneyInput(val, { currency: moneyOptions.currency ?? 'CLP', locale: moneyOptions.locale, fractionDigits: moneyOptions.fractionDigits });
+		setForm(prev => ({ ...prev, cash_tendered: parsed.valid ? minorToMajor(parsed.minor, moneyOptions.currency ?? 'CLP', moneyOptions.fractionDigits) : '' }));
+	}, [moneyOptions.currency, moneyOptions.locale, moneyOptions.fractionDigits]);
 
-    const updateChargeNow = useCallback((enabled) => {
+	const updateChargeNow = useCallback((enabled) => {
         setForm((prev) => ({
             ...prev,
             charge_now: Boolean(enabled),
@@ -187,7 +188,11 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
             card_amount: 0,
             cash_tendered: '',
         }));
-    }, []);
+	}, []);
+
+	const updatePaymentLines = useCallback((lines) => {
+		setForm((prev) => ({ ...prev, payment_lines: Array.isArray(lines) ? lines : [] }));
+	}, []);
 
     const handleRutChange = useCallback((e) => {
         const rawValue = e.target.value;
@@ -262,11 +267,18 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         setPhoneValid(strategy.validatePhone(phone));
     }, [strategy]);
 
-    const resetForm = useCallback(() => {
+	const resetForm = useCallback(() => {
         setForm({ ...initialFormState });
         setRutValid(true);
         setPhoneValid(true);
-    }, []);
+	}, []);
+
+	const restoreForm = useCallback((nextForm) => {
+		if (!nextForm || typeof nextForm !== 'object') return;
+		setForm({ ...initialFormState, ...nextForm });
+		setRutValid(!nextForm.client_rut || strategy.validateId(nextForm.client_rut));
+		setPhoneValid(!nextForm.client_phone || strategy.validatePhone(nextForm.client_phone));
+	}, [strategy]);
 
     const resetOpenMesaForm = useCallback(() => {
         const defaultMode = firstEnabledLocalChannel(resolvedChannels);
@@ -311,13 +323,15 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         updateCashAmount,
         updateCardAmount,
         updateCashTendered,
-        updateChargeNow,
+		updateChargeNow,
+		updatePaymentLines,
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,
         applySavedAddress,
         resetForm,
-        resetOpenMesaForm,
+		resetOpenMesaForm,
+		restoreForm,
         getInputStyle
     };
 };

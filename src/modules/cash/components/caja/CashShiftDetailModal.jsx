@@ -576,7 +576,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                 {linkedOrder ? (
                                                                     <div className="cash-shift-detail-movement-order">
                                                                         <span className="cash-shift-detail-movement-order__client">
-                                                                            {linkedOrder.client_name || 'Cliente casual'}
+																						{linkedOrder.display_name || linkedOrder.client_name || 'Cliente casual'}
                                                                         </span>
                                                                         {Array.isArray(linkedOrder.items) && linkedOrder.items.length > 0 ? (
                                                                             <span className="cash-shift-detail-movement-order__items">

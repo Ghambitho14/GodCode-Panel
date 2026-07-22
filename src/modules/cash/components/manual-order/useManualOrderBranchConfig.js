@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { branchSettingsService } from '../../services/branchSettingsService';
 import { normalizeDeliverySettings } from '@/lib/delivery-settings';
+import { normalizeManualOrderSettings } from '../../domain/manual-order-settings';
 
 function branchFlag(map, branchId, defaultOn = true) {
 	if (!branchId || !map || typeof map !== 'object') return defaultOn;
@@ -42,6 +43,10 @@ function normalizeCartUpsellCatalog(catalog, kind) {
 export default function useManualOrderBranchConfig(isOpen, branch) {
 	const [branchDeliveryCfg, setBranchDeliveryCfg] = useState(null);
 	const [branchDeliveryCfgLoading, setBranchDeliveryCfgLoading] = useState(false);
+	const [branchConfigError, setBranchConfigError] = useState(null);
+	const [manualOrderSettings, setManualOrderSettings] = useState(() => normalizeManualOrderSettings(null));
+	const [paymentMethods, setPaymentMethods] = useState([]);
+	const [reloadKey, setReloadKey] = useState(0);
 	const [cartUpsellCatalogs, setCartUpsellCatalogs] = useState({
 		beveragesEnabled: false,
 		extrasEnabled: false,
@@ -64,17 +69,24 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 			resetCatalogs();
 			setBranchDeliveryCfg(null);
 			setBranchDeliveryCfgLoading(false);
+			setBranchConfigError(null);
 			return undefined;
 		}
 
 		const loadCatalogs = async () => {
 			setBranchDeliveryCfgLoading(true);
+			setBranchConfigError(null);
+			setBranchDeliveryCfg(null);
+			setManualOrderSettings(normalizeManualOrderSettings(null));
+			setPaymentMethods([]);
+			resetCatalogs();
 			try {
 				const data = await branchSettingsService.getDeliveryConfig(branch.id);
 				if (cancelled) return;
 				if (!data) {
 					resetCatalogs();
 					setBranchDeliveryCfg(null);
+					setBranchConfigError('La sucursal no devolvió una configuración válida.');
 					return;
 				}
 
@@ -83,16 +95,20 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 					originLat: data.originLat ?? null,
 					originLng: data.originLng ?? null,
 				});
+				setManualOrderSettings(normalizeManualOrderSettings(data.manualOrderSettings, data.localOrderChannels));
+				setPaymentMethods(Array.isArray(data.paymentMethods) ? data.paymentMethods : []);
 				setCartUpsellCatalogs({
 					beveragesEnabled: branchFlag(data.beveragesUpsellEnabledByBranch, branch.id, true),
 					extrasEnabled: branchFlag(data.extrasEnabledByBranch, branch.id, true),
 					beverages: normalizeCartUpsellCatalog(data.cartBeveragesCatalog, 'beverages'),
 					extras: normalizeCartUpsellCatalog(data.cartGlobalExtrasCatalog, 'extras'),
 				});
-			} catch {
+			} catch (error) {
 				if (!cancelled) {
 					resetCatalogs();
 					setBranchDeliveryCfg(null);
+					setPaymentMethods([]);
+					setBranchConfigError(error instanceof Error ? error.message : 'No se pudo cargar la configuración de la sucursal.');
 				}
 			} finally {
 				if (!cancelled) setBranchDeliveryCfgLoading(false);
@@ -103,7 +119,15 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 		return () => {
 			cancelled = true;
 		};
-	}, [isOpen, branch?.id]);
+	}, [isOpen, branch?.id, reloadKey]);
 
-	return { branchDeliveryCfg, branchDeliveryCfgLoading, cartUpsellCatalogs };
+	return {
+		branchDeliveryCfg,
+		branchDeliveryCfgLoading,
+		branchConfigError,
+		manualOrderSettings,
+		paymentMethods,
+		cartUpsellCatalogs,
+		retryBranchConfig: () => setReloadKey((value) => value + 1),
+	};
 }

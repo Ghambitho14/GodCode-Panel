@@ -24,7 +24,7 @@ const ProgressiveProductImage = ({
         url: signedUrl,
         loading: signedUrlLoading,
         error: signedUrlError,
-    } = useSignedImageUrl(normalizedSource, 'menu');
+    } = useSignedImageUrl(normalizedSource, 'menu', 3600, enabled);
 
     const [failedStages, setFailedStages] = React.useState({
         real: false,

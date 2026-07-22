@@ -14,19 +14,22 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { validateImageFile } from '@/shared/utils/supabaseStorage';
 import { getFormStrategy } from '@/lib/geo/country-forms';
+import { getCountryProfile, normalizeInternationalPhone } from '@/lib/geo/country-profiles';
+import { majorToMinor, minorToMajor, parseMoneyInput, sumMinor, isoFractionDigits, formatMinor } from '@/lib/money/minor-units';
 import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { ordersService } from '../admin/orders/services/orders';
+import { manualOrderV2Service } from '../services/manualOrderV2Service';
+import { normalizeManualOrderSettings } from '../domain/manual-order-settings';
+import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { buildCouponPreview } from '@/lib/discount-coupon';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import {
-	normalizeManualPhone,
 	fetchClientAddresses,
 } from '../services/clientService';
 import {
 	COUPON_PREVIEW_ERR_MSG,
 	getEffectiveItemPrice,
-	OPEN_MESA_DEFAULT_CLIENT_NAMES,
 	OPEN_MESA_CAJA_DEFAULTS,
 	applyLocalFulfillmentMode,
 	applyMesaPartyMode,
@@ -41,21 +44,19 @@ import {
 } from './manual-order/manualOrderShared';
 
 function hasMesaSessionClientName(manualOrder) {
-	const isDelivery = manualOrder.order_type === 'delivery';
-	const salonDefault = OPEN_MESA_DEFAULT_CLIENT_NAMES.pickup;
-	const isSalonPreset =
-		!isDelivery &&
-		!String(manualOrder.selected_client_id ?? '').trim() &&
-		String(manualOrder.client_name ?? '').trim() === salonDefault;
 	return (
-		isSalonPreset ||
 		Boolean(String(manualOrder.selected_client_id ?? '').trim()) ||
-		Boolean(String(manualOrder.client_name ?? '').trim()) ||
-		isDelivery
+		Boolean(String(manualOrder.client_name ?? '').trim())
 	);
 }
 
-function buildInitialState(initialOrder) {
+function totalItemsMajor(items, currency, fractionDigits) {
+	return minorToMajor(sumMinor((items || []).map((item) => (
+		majorToMinor(getEffectiveItemPrice(item), currency, fractionDigits) * (Number(item.quantity) || 1)
+	))), currency, fractionDigits);
+}
+
+function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoFractionDigits(currency)) {
 	if (!initialOrder || typeof initialOrder !== 'object') {
 		return {
 			client_name: '',
@@ -93,9 +94,7 @@ function buildInitialState(initialOrder) {
 		is_extra: Boolean(it.is_extra),
 	})) : [];
 
-	const computedTotal = Math.round(
-		items.reduce((acc, it) => acc + getEffectiveItemPrice(it) * (Number(it.quantity) || 1), 0),
-	);
+	const computedTotal = totalItemsMajor(items, currency, fractionDigits);
 
 	const orderType = isOrderDelivery(initialOrder)
 		? 'delivery'
@@ -108,7 +107,7 @@ function buildInitialState(initialOrder) {
 		: null;
 
 	return {
-		client_name: String(initialOrder.client_name ?? ''),
+		client_name: String(localFulfillmentMode === 'mesa' ? (initialOrder.operator_reference ?? initialOrder.client_name ?? '') : (initialOrder.client_name ?? '')),
 		client_rut: String(initialOrder.client_rut ?? ''),
 		client_phone: String(initialOrder.client_phone ?? ''),
 		items,
@@ -146,9 +145,13 @@ export const useOrderEdit = (
 	formCountry = 'CL',
 ) => {
 	const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
+	const currency = String(branch?.currency ?? initialOrder?.currency ?? 'CLP').toUpperCase();
+	const fractionDigits = isoFractionDigits(currency, branch?.manual_order_settings?.currencyFractionDigits);
+	const countryProfile = useMemo(() => getCountryProfile(formCountry, { currency }), [formCountry, currency]);
+	const manualOrderSettings = useMemo(() => normalizeManualOrderSettings(branch?.manual_order_settings), [branch?.manual_order_settings]);
 	const initialState = useMemo(
-		() => buildInitialState(initialOrder),
-		[initialOrder],
+		() => buildInitialState(initialOrder, currency, fractionDigits),
+		[initialOrder, currency, fractionDigits],
 	);
 
 	const [manualOrder, setManualOrder] = useState(() => initialState);
@@ -242,7 +245,8 @@ export const useOrderEdit = (
 		const name = String(client.name ?? '').trim();
 		const rutRaw = String(client.rut ?? client.document ?? '').trim();
 		const rut = rutRaw ? strategy.formatId(rutRaw) : '';
-		const phone = normalizeManualPhone(client.phone) || '+56 9 ';
+		const normalizedPhone = normalizeInternationalPhone(client.phone, countryProfile.countryCode);
+		const phone = normalizedPhone.valid ? normalizedPhone.e164 : String(client.phone ?? '').trim();
 		const clientId = client.id != null ? String(client.id) : '';
 
 		let savedAddresses = [];
@@ -274,7 +278,7 @@ export const useOrderEdit = (
 
 		setRutValid(rut ? strategy.validateId(rut) : false);
 		setPhoneValid(strategy.validatePhone(phone));
-	}, []);
+	}, [strategy, countryProfile.countryCode]);
 
 	const updateClientName = (val, opts = {}) =>
 		setManualOrder((prev) => {
@@ -379,13 +383,13 @@ export const useOrderEdit = (
 	};
 
 	const updateCashAmount = (val) => {
-		const parsed = val === '' || val == null ? 0 : Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-		setManualOrder((prev) => ({ ...prev, cash_amount: parsed, cash_tendered: '' }));
+		const parsed = val === '' || val == null ? { valid: true, minor: 0 } : parseMoneyInput(val, { currency, fractionDigits, locale: countryProfile.locale });
+		if (parsed.valid) setManualOrder((prev) => ({ ...prev, cash_amount: minorToMajor(parsed.minor, currency, fractionDigits), cash_tendered: '' }));
 	};
 
 	const updateCardAmount = (val) => {
-		const parsed = val === '' || val == null ? 0 : Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-		setManualOrder((prev) => ({ ...prev, card_amount: parsed }));
+		const parsed = val === '' || val == null ? { valid: true, minor: 0 } : parseMoneyInput(val, { currency, fractionDigits, locale: countryProfile.locale });
+		if (parsed.valid) setManualOrder((prev) => ({ ...prev, card_amount: minorToMajor(parsed.minor, currency, fractionDigits) }));
 	};
 
 	const updateCashTendered = (val) => {
@@ -393,8 +397,8 @@ export const useOrderEdit = (
 			setManualOrder((prev) => ({ ...prev, cash_tendered: '' }));
 			return;
 		}
-		const parsed = Math.max(0, Math.round(Number(String(val).replace(/\D/g, '')) || 0));
-		setManualOrder((prev) => ({ ...prev, cash_tendered: parsed }));
+		const parsed = parseMoneyInput(val, { currency, fractionDigits, locale: countryProfile.locale });
+		if (parsed.valid) setManualOrder((prev) => ({ ...prev, cash_tendered: minorToMajor(parsed.minor, currency, fractionDigits) }));
 	};
 
 	const handleRutChange = (e) => {
@@ -405,11 +409,7 @@ export const useOrderEdit = (
 	};
 
 	const handlePhoneChange = (e) => {
-		let input = e.target.value;
-		if (!input.startsWith('+56 9')) {
-			if (input.length < 6) input = '+56 9 ';
-		}
-		const cleaned = input;
+		const cleaned = e.target.value;
 		setManualOrder((prev) => ({
 			...prev,
 			client_phone: cleaned,
@@ -419,8 +419,7 @@ export const useOrderEdit = (
 				selected_address_id: '',
 			} : {}),
 		}));
-		const digitCount = cleaned.replace(/\D/g, '').length;
-		setPhoneValid(digitCount >= 11);
+		setPhoneValid(normalizeInternationalPhone(cleaned, countryProfile.countryCode).valid);
 	};
 
 	const handleFileChange = (e) => {
@@ -475,13 +474,11 @@ export const useOrderEdit = (
 						},
 					];
 				}
-				const newTotal = Math.round(
-					newItems.reduce((acc, i) => acc + getPrice(i) * i.quantity, 0),
-				);
+				const newTotal = totalItemsMajor(newItems, currency, fractionDigits);
 				return { ...prev, items: newItems, total: newTotal };
 			});
 		},
-		[getPrice],
+		[getPrice, currency, fractionDigits],
 	);
 
 	const updateQuantity = useCallback(
@@ -498,26 +495,22 @@ export const useOrderEdit = (
 						i.id === itemId ? { ...i, quantity: i.quantity + change } : i,
 					);
 				}
-				const newTotal = Math.round(
-					newItems.reduce((acc, i) => acc + getPrice(i) * i.quantity, 0),
-				);
+				const newTotal = totalItemsMajor(newItems, currency, fractionDigits);
 				return { ...prev, items: newItems, total: newTotal };
 			});
 		},
-		[getPrice],
+		[getPrice, currency, fractionDigits],
 	);
 
 	const removeItem = useCallback(
 		(itemId) => {
 			setManualOrder((prev) => {
 				const newItems = prev.items.filter((i) => i.id !== itemId);
-				const newTotal = Math.round(
-					newItems.reduce((acc, i) => acc + getPrice(i) * i.quantity, 0),
-				);
+				const newTotal = totalItemsMajor(newItems, currency, fractionDigits);
 				return { ...prev, items: newItems, total: newTotal };
 			});
 		},
-		[getPrice],
+		[getPrice, currency, fractionDigits],
 	);
 
 	// Comentario por item: nota corta destinada al ticket de cocina.
@@ -539,9 +532,8 @@ export const useOrderEdit = (
 			return null;
 		});
 		setRutValid(strategy.validateId(initialState.client_rut));
-		const digitCount = initialState.client_phone.replace(/\D/g, '').length;
-		setPhoneValid(digitCount >= 11);
-	}, [initialState]);
+		setPhoneValid(normalizeInternationalPhone(initialState.client_phone, countryProfile.countryCode).valid);
+	}, [initialState, strategy, countryProfile.countryCode]);
 
 	useEffect(() => {
 		if (!branch?.company_id) {
@@ -635,9 +627,8 @@ export const useOrderEdit = (
 			return;
 		}
 		const phoneRaw = String(manualOrder.client_phone || '').trim();
-		const phoneDigits = phoneRaw.replace(/\D/g, '').length;
-		if (phoneRaw && phoneDigits > 0 && phoneDigits < 11) {
-			showNotify?.('Telefono incompleto. Borralo o completalo a +56 9 XXXX XXXX.', 'error');
+		if (phoneRaw && !normalizeInternationalPhone(phoneRaw, countryProfile.countryCode).valid) {
+			showNotify?.(`Teléfono inválido. Usa formato internacional ${countryProfile.phonePrefix}… o déjalo vacío si es opcional.`, 'error');
 			return;
 		}
 		const rutRaw = String(manualOrder.client_rut || '').trim();
@@ -692,7 +683,9 @@ export const useOrderEdit = (
 				couponPreview?.variant === 'success' && Number(couponPreview.discount) > 0
 					? Math.min(manualOrder.total, Number(couponPreview.discount))
 					: 0;
-			const checkoutTotal = Math.max(0, manualOrder.total - couponDisc + deliveryFeeAmt);
+			const checkoutMinor = Math.max(0, majorToMinor(manualOrder.total, currency, fractionDigits) - majorToMinor(couponDisc, currency, fractionDigits))
+				+ majorToMinor(deliveryFeeAmt, currency, fractionDigits);
+			const checkoutTotal = minorToMajor(checkoutMinor, currency, fractionDigits);
 
 			const initialBreakdown = isMixedPaymentBreakdown(initialOrder.payment_breakdown)
 				? normalizePaymentBreakdown(initialOrder.payment_breakdown)
@@ -703,8 +696,8 @@ export const useOrderEdit = (
 				client_phone: isLocalSession
 					? (openMesaMesero
 						? OPEN_MESA_CAJA_DEFAULTS.client_phone
-						: normalizeManualPhone(sanitizeManualOrderInput(manualOrder.client_phone)))
-					: normalizeManualPhone(sanitizeManualOrderInput(manualOrder.client_phone)),
+						: (normalizeInternationalPhone(sanitizeManualOrderInput(manualOrder.client_phone), countryProfile.countryCode).e164 || sanitizeManualOrderInput(manualOrder.client_phone)))
+					: (normalizeInternationalPhone(sanitizeManualOrderInput(manualOrder.client_phone), countryProfile.countryCode).e164 || sanitizeManualOrderInput(manualOrder.client_phone)),
 				client_rut: isLocalSession
 					? (openMesaMesero
 						? OPEN_MESA_CAJA_DEFAULTS.client_rut
@@ -750,7 +743,39 @@ export const useOrderEdit = (
 
 			const itemsChanged = JSON.stringify(itemsForOrder) !== initialItemsSnapshot;
 
-			const updated = await ordersService.updateOrder(initialOrder.id, sanitizedPatch, {
+			const isV2Order = initialOrder.manual_order_mode === 'quick_sale' || initialOrder.manual_order_mode === 'session';
+			const v2Fulfillment = sanitizedPatch.order_type === 'delivery' ? 'delivery' : getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'table' : 'pickup';
+			const v2Delivery = sanitizedPatch.order_type === 'delivery' ? {
+				address: sanitizedPatch.delivery_address,
+				reference: sanitizedPatch.delivery_reference,
+				zoneId: sanitizedPatch.delivery_named_area_id,
+				km: sanitizedPatch.delivery_km,
+			} : {};
+			let updated;
+			if (isV2Order) {
+				const editQuote = await manualOrderV2Service.quote({
+					branchId: branch.id,
+					items: itemsForOrder,
+					fulfillment: v2Fulfillment,
+					delivery: v2Delivery,
+					couponCode: sanitizedPatch.coupon_code,
+					clientPhone: sanitizedPatch.client_phone,
+				});
+				const previousTotalMinor = Number(initialOrder.total_minor ?? majorToMinor(initialOrder.total, currency, fractionDigits));
+				if (Number(editQuote.totalMinor) !== previousTotalMinor && !window.confirm(`El nuevo total es ${formatMinor(Number(editQuote.totalMinor), { currency, fractionDigits })}. ¿Confirmas el cambio?`)) return;
+				updated = await manualOrderV2Service.update(initialOrder.id, initialOrder.updated_at, {
+					clientName: sanitizedPatch.client_name,
+					clientPhone: sanitizedPatch.client_phone,
+					clientDocument: sanitizedPatch.client_rut,
+					items: itemsForOrder,
+					note: sanitizedPatch.note,
+					fulfillment: v2Fulfillment,
+					orderType: sanitizedPatch.order_type === 'delivery' ? 'delivery' : getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'salon' : 'pickup',
+					delivery: v2Delivery,
+					couponCode: sanitizedPatch.coupon_code,
+				});
+			} else {
+				updated = await ordersService.updateOrder(initialOrder.id, sanitizedPatch, {
 				itemsChanged,
 				prevTotal: Number(initialOrder.total) || 0,
 				prevStatus: String(initialOrder.status ?? ''),
@@ -761,11 +786,35 @@ export const useOrderEdit = (
 				logoUrl: null,
 				showNotify,
 				callerRole: userRole,
-			});
+				});
+			}
+
+			let evidencePending = false;
+			if (receiptFile) {
+				if (isV2Order) {
+					const evidenceRows = await manualOrderV2Service.listEvidence(initialOrder.id);
+					if (evidenceRows.length === 0) throw new Error('Este método de pago no admite comprobante.');
+					for (const [index, evidence] of evidenceRows.entries()) {
+						const queued = await queuePaymentEvidence({
+							evidenceId: evidence.id,
+							companyId: branch.company_id,
+							branchId: branch.id,
+							orderId: initialOrder.id,
+							file: receiptFile,
+							previousPath: evidence.storage_path ?? (index === 0 ? initialOrder.payment_ref ?? null : null),
+						});
+						const upload = await uploadQueuedPaymentEvidence(queued);
+						if (!upload.ok) evidencePending = true;
+					}
+				} else {
+					const paymentRef = await ordersService.replaceOrderReceipt(initialOrder, receiptFile);
+					updated = { ...updated, payment_ref: paymentRef };
+				}
+			}
 
 			const status = String(updated?.status ?? '').toLowerCase();
 			let cashSynced = false;
-			if (
+			if (!isV2Order &&
 				['active', 'completed', 'picked_up'].includes(status) &&
 				typeof resyncOrderSale === 'function'
 			) {
@@ -782,11 +831,19 @@ export const useOrderEdit = (
 			}
 
 			if (!cashSynced) {
-				showNotify?.('Pedido actualizado.', 'success');
+				showNotify?.(evidencePending ? 'Pedido actualizado · comprobante pendiente.' : 'Pedido actualizado.', evidencePending ? 'warning' : 'success');
 			}
 			if (onSaved) onSaved(updated);
 			if (onClose) onClose();
 		} catch (error) {
+			if (error?.code === 'order_changed') {
+				void manualOrderV2Service.recordMetric({
+					branchId: branch?.id,
+					eventName: 'edit_conflict',
+					mode: initialOrder?.manual_order_mode ?? 'session',
+					fulfillment: initialOrder?.operator_reference ? 'table' : initialOrder?.order_type === 'delivery' ? 'delivery' : 'pickup',
+				});
+			}
 			showNotify?.(error?.message || 'Error al guardar pedido', 'error');
 		} finally {
 			setLoading(false);
@@ -796,6 +853,14 @@ export const useOrderEdit = (
 	const isValid = useMemo(() => {
 		return manualOrder.client_name && manualOrder.items.length > 0;
 	}, [manualOrder]);
+	const manualOrderView = useMemo(() => ({
+		...manualOrder,
+		manualOrderSettings,
+		currency,
+		fractionDigits,
+		locale: countryProfile.locale,
+		cashDenominations: { ...countryProfile.cashDenominations, ...manualOrderSettings.cashDenominations },
+	}), [manualOrder, manualOrderSettings, currency, fractionDigits, countryProfile.locale, countryProfile.cashDenominations]);
 
 	const getInputStyle = (isValid) => {
 		if (isValid === true) return { borderColor: '#4f5bff', boxShadow: '0 0 0 1px #4f5bff' };
@@ -804,7 +869,7 @@ export const useOrderEdit = (
 	};
 
 	return {
-		manualOrder,
+		manualOrder: manualOrderView,
 		loading,
 		rutValid,
 		phoneValid,
