@@ -333,6 +333,7 @@ export const useManualOrder = (
 				const checkoutTotal = minorToMajor(checkoutMinor, currency, fractionDigits);
 				const sanitizedOrder = {
 					...form, items: itemsForOrder, total: checkoutTotal, client_name: clientName,
+					client_request_id: clientRequestIdRef.current,
 					client_phone: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_phone : (normalizeInternationalPhone(sanitizeManualOrderInput(form.client_phone), countryProfile.countryCode).e164 || sanitizeManualOrderInput(form.client_phone)),
 					client_rut: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_rut : sanitizeManualOrderInput(form.client_rut),
 					local_fulfillment_mode: getLocalFulfillmentMode(form), note: sanitizeManualOrderInput(form.note),
@@ -359,7 +360,7 @@ export const useManualOrder = (
 				void manualOrderV2Service.recordMetric({ branchId: branch.id, eventName: 'evidence_pending', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
 			}
 			resetOrder();
-			onOrderSaved?.(result);
+			await onOrderSaved?.(result);
 			onClose?.();
 			return result;
 		} catch (error) {

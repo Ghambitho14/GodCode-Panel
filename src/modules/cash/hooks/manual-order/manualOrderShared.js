@@ -18,7 +18,9 @@ export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	client_name: '',
 	client_rut: OPEN_MESA_CAJA_DEFAULTS.client_rut,
 	client_phone: OPEN_MESA_CAJA_DEFAULTS.client_phone,
-	payment_type: 'tienda',
+	// No asumir efectivo: tanto venta rápida como el cobro de una sesión
+	// requieren que el operador confirme explícitamente el medio de pago.
+	payment_type: '',
 	payment_mode: 'single',
 	cash_amount: 0,
 	card_amount: 0,

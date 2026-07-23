@@ -15,7 +15,7 @@ import {
 import { computeShiftTotals } from '../utils/cashTotals';
 import { getExpectedByMethod } from '../utils/shiftCloseReconciliation';
 import { planSaleMovements, planRefundMovements, planSaleResyncMovements } from '../utils/orderPaymentMovements';
-import { countOpenOrderSessions, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { countOpenOrderSessions, isOrderPaymentDeferred, isOrderPaymentSettled } from '@/shared/utils/orderUtils';
 
 export const useCashSystem = (showNotify, branchId, orders = [], options = {}) => {
     const { enabled = true } = options;
@@ -424,6 +424,10 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
      * Registra una venta automáticamente
      */
     const registerSale = useCallback(async (order) => {
+        if (!isOrderPaymentSettled(order)) {
+            if (showNotify) showNotify('Selecciona y confirma el método de pago antes de registrar la venta', 'warning');
+            return false;
+        }
         const targetShift = await getTargetShift(order.branch_id);
         if (!targetShift) {
             if (showNotify) showNotify('No hay caja abierta para esta sucursal', 'error');

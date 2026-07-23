@@ -35,7 +35,7 @@ const DEFAULT_FORM = {
 
 	payment_mode: 'single',
 
-	payment_type: 'tienda',
+	payment_type: '',
 
 	cash_amount: 0,
 
@@ -99,7 +99,9 @@ export default function CloseTableModal({
 
 			...DEFAULT_FORM,
 
-			payment_type: order.payment_type && order.payment_type !== 'pendiente' ? order.payment_type : 'tienda',
+			// Un pedido pendiente no hereda "efectivo". El cajero debe confirmar
+			// el método real antes de registrar o cerrar el cobro.
+			payment_type: order.payment_type && order.payment_type !== 'pendiente' ? order.payment_type : '',
 
 		});
 

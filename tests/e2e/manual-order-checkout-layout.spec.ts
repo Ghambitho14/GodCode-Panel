@@ -13,7 +13,7 @@ test('checkout real no solapa secciones y mantiene moneda/CTA visibles', async (
 		return;
 	}
 
-	await expect(page.getByRole('heading', { name: 'Completa y confirma el pedido' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Cobra y crea la venta' })).toBeVisible();
 	await expect(page.getByText(/USD\s*20\.980,00/).first()).toBeVisible();
 
 	const client = await page.locator('.manual-order-checkout-col--client').boundingBox();

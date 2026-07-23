@@ -101,12 +101,6 @@ export function useManualOrderCheckoutFlow({
 		);
 	};
 
-	const isOpenMesaContactValid = () => {
-		if (!effectiveOpenMesaMode || isOpenMesaMesero()) return true;
-		const exactRutLength = manualOrder.client_rut?.trim().length || 0;
-		return exactRutLength > 0 && rutValid && phoneValid === true;
-	};
-
 	const isDeliveryValidForOrder = () => {
 		if (manualOrder.order_type !== 'delivery') return true;
 		if (branchConfigError) return false;
@@ -115,10 +109,31 @@ export function useManualOrderCheckoutFlow({
 		if (!branchDeliveryCfg) return addrOk;
 		const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
 		if (pricing === 'named') {
-			return String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+			return addrOk && String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
 		}
 		if (pricing === 'distance') return addrOk;
 		return addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+	};
+
+	const fulfillmentForValidation = () => (
+		manualOrder.order_type === 'delivery'
+			? 'delivery'
+			: effectiveOpenMesaMode && getLocalFulfillmentMode(manualOrder) === 'mesa'
+				? 'table'
+				: 'pickup'
+	);
+
+	const isContextCustomerValid = () => {
+		const requirements = requirementsFor(manualOrder.manualOrderSettings, fulfillmentForValidation());
+		const name = String(manualOrder.client_name ?? '').trim();
+		const phone = String(manualOrder.client_phone ?? '').trim();
+		const document = String(manualOrder.client_rut ?? '').trim();
+		return (
+			(!requirements.name || name.length >= 2)
+			&& (!requirements.operatorReference || name.length >= 2)
+			&& ((!requirements.phone && !phone) || phoneValid === true)
+			&& ((!requirements.document && !document) || rutValid === true)
+		);
 	};
 
 	const isPaymentValid = () => {
@@ -154,62 +169,39 @@ export function useManualOrderCheckoutFlow({
 			: isPaymentValid();
 
 		if (manualOrder.v2Enabled) {
-			const fulfillment = manualOrder.order_type === 'delivery'
-				? 'delivery'
-				: effectiveOpenMesaMode && getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'table' : 'pickup';
-			const requirements = requirementsFor(manualOrder.manualOrderSettings, fulfillment);
-			const nameOk = !requirements.name || String(manualOrder.client_name ?? '').trim().length >= 2;
-			const referenceOk = !requirements.operatorReference || String(manualOrder.client_name ?? '').trim().length >= 2;
-			const phonePresent = Boolean(String(manualOrder.client_phone ?? '').trim());
-			const phoneOk = (!requirements.phone && !phonePresent) || phoneValid === true;
-			const documentPresent = Boolean(String(manualOrder.client_rut ?? '').trim());
-			const documentOk = (!requirements.document && !documentPresent) || rutValid === true;
+			const fulfillment = fulfillmentForValidation();
 			const immediate = !effectiveOpenMesaMode || (fulfillment !== 'table' && openMesaChargeNow);
-			return hasItems && nameOk && referenceOk && phoneOk && documentOk && isDeliveryValidForOrder()
+			return hasItems && isContextCustomerValid() && isDeliveryValidForOrder()
 				&& Boolean(manualOrder.quote?.quoteHash) && (!immediate || isPaymentValid());
 		}
 
 		if (isEditMode) {
 			if (effectiveOpenMesaMode) {
-				return hasItems && hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
+				return hasItems && hasClientName && isContextCustomerValid() && isDeliveryValidForOrder();
 			}
-			return hasItems && hasClientName && hasPaymentType && paymentOk;
+			return hasItems && isContextCustomerValid() && hasPaymentType && paymentOk && isDeliveryValidForOrder();
 		}
 
 		if (effectiveOpenMesaMode) {
-			const base = hasItems && hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
+			const base = hasItems && hasClientName && isContextCustomerValid() && isDeliveryValidForOrder();
 			return openMesaChargeNow ? base && hasPaymentType && paymentOk : base;
 		}
 
-		const exactRutLength = manualOrder.client_rut?.trim().length || 0;
-		const isRutRequiredAndValid = exactRutLength > 0 && rutValid;
-		const isPhoneStrictlyValid = phoneValid === true;
-
-		return hasItems && hasClientName && hasPaymentType && paymentOk && isRutRequiredAndValid && isPhoneStrictlyValid && isDeliveryValidForOrder();
+		return hasItems && isContextCustomerValid() && hasPaymentType && paymentOk && isDeliveryValidForOrder();
 	};
 
 	const isClientStepValid = () => {
 		if (branchDeliveryCfgLoading || branchConfigError) return false;
 		if (manualOrder.v2Enabled) {
-			const fulfillment = manualOrder.order_type === 'delivery'
-				? 'delivery'
-				: effectiveOpenMesaMode && getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'table' : 'pickup';
-			const requirements = requirementsFor(manualOrder.manualOrderSettings, fulfillment);
-			const nameOk = !requirements.name || String(manualOrder.client_name ?? '').trim().length >= 2;
-			const referenceOk = !requirements.operatorReference || String(manualOrder.client_name ?? '').trim().length >= 2;
-			const phonePresent = Boolean(String(manualOrder.client_phone ?? '').trim());
-			const phoneOk = (!requirements.phone && !phonePresent) || phoneValid === true;
-			const documentPresent = Boolean(String(manualOrder.client_rut ?? '').trim());
-			const documentOk = (!requirements.document && !documentPresent) || rutValid === true;
-			return nameOk && referenceOk && phoneOk && documentOk && isDeliveryValidForOrder();
+			return isContextCustomerValid() && isDeliveryValidForOrder();
 		}
 		const hasClientName = effectiveOpenMesaMode
 			? hasOpenMesaClientName()
 			: Boolean(manualOrder.client_name && manualOrder.client_name.trim().length >= 3);
 		if (effectiveOpenMesaMode) {
-			return hasClientName && isOpenMesaContactValid() && isDeliveryValidForOrder();
+			return hasClientName && isContextCustomerValid() && isDeliveryValidForOrder();
 		}
-		return Boolean(hasClientName && isDeliveryValidForOrder());
+		return Boolean(isContextCustomerValid() && isDeliveryValidForOrder());
 	};
 
 	const hasCartItems = (manualOrder.items?.length ?? 0) > 0;
@@ -251,13 +243,13 @@ export function useManualOrderCheckoutFlow({
 
 	const stepLabels = effectiveOpenMesaMode
 		? (isEditMode
-			? (isCompactNav ? ['Productos', 'Mesa'] : ['Productos', 'Editar sesión'])
+			? (isCompactNav ? ['Productos', 'Sesión'] : ['Productos', 'Editar sesión'])
 			: (openMesaChargeNow && isCompactNav
-				? ['Productos', 'Cliente', 'Pago']
-				: (isCompactNav ? ['Productos', 'Pedido'] : ['Productos', 'Pedido'])))
+				? ['Productos', 'Entrega', 'Cobro inicial']
+				: ['Productos', 'Abrir sesión']))
 		: (isCompactNav
-			? ['Productos', 'Cliente', 'Pago']
-			: ['Productos', 'Cliente y pago']);
+			? ['Productos', 'Entrega', 'Cobro']
+			: ['Productos', 'Cobrar venta']);
 
 	return {
 		totalToPay,
@@ -531,21 +523,25 @@ export default function ManualOrderCheckout({
 		<div className="manual-order-checkout-overview">
 			<div className="manual-order-checkout-overview__copy">
 				<span className="manual-order-checkout-overview__eyebrow">
-					{isClientOnlyStep ? 'Paso 2 · Cliente' : 'Paso 2 · Finalizar'}
+					{effectiveOpenMesaMode
+						? (isClientOnlyStep ? 'ABRIR SESIÓN · ENTREGA' : 'ABRIR SESIÓN · CONFIGURACIÓN')
+						: (isClientOnlyStep ? 'VENTA RÁPIDA · ENTREGA' : 'VENTA RÁPIDA · COBRO')}
 				</span>
 				<h2>
 					{isClientOnlyStep
-						? 'Datos del cliente y entrega'
+						? (effectiveOpenMesaMode ? 'Define cómo se atenderá' : 'Cliente y entrega')
 						: effectiveOpenMesaMode
-							? 'Configura la sesión'
-							: 'Completa y confirma el pedido'}
+							? 'Abre un consumo para cobrar después'
+							: 'Cobra y crea la venta'}
 				</h2>
 				<p>
 					{isClientOnlyStep
-						? 'Completa los datos necesarios antes de elegir el método de pago.'
+						? (effectiveOpenMesaMode
+							? 'Elige mesa, retiro o delivery y completa solo los datos requeridos para esa atención.'
+							: 'Elige retiro o delivery y completa los datos necesarios antes del cobro.')
 						: effectiveOpenMesaMode
-						? 'Define la atención, revisa el consumo y decide cuándo se registra el pago.'
-						: 'Completa los datos del cliente, define la entrega y registra el pago.'}
+						? 'La sesión queda pendiente por defecto. Retiro y delivery pueden cobrarse al abrir si lo indicas.'
+						: 'La venta rápida exige un método de pago confirmado y se registra inmediatamente en caja.'}
 				</p>
 			</div>
 			<div className="manual-order-checkout-overview__meta" aria-label="Resumen rápido del pedido">

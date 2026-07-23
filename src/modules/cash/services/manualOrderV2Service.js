@@ -102,6 +102,15 @@ export const manualOrderV2Service = {
 		});
 	},
 
+	settleAndTransition(orderId, paymentLines, status, clientRequestId = crypto.randomUUID()) {
+		return rpc('settle_and_transition_manual_order_v2', {
+			p_order_id: String(orderId),
+			p_client_request_id: clientRequestId,
+			p_payment_lines: paymentLines,
+			p_status: status,
+		});
+	},
+
 	transition(orderId, status, expectedUpdatedAt = null) {
 		return rpc('transition_order_v2', {
 			p_order_id: String(orderId),

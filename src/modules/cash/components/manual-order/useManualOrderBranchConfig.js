@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { branchSettingsService } from '../../services/branchSettingsService';
 import { normalizeDeliverySettings } from '@/lib/delivery-settings';
 import { normalizeManualOrderSettings } from '../../domain/manual-order-settings';
@@ -47,6 +47,7 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 	const [manualOrderSettings, setManualOrderSettings] = useState(() => normalizeManualOrderSettings(null));
 	const [paymentMethods, setPaymentMethods] = useState([]);
 	const [reloadKey, setReloadKey] = useState(0);
+	const loadedBranchIdRef = useRef(null);
 	const [cartUpsellCatalogs, setCartUpsellCatalogs] = useState({
 		beveragesEnabled: false,
 		extrasEnabled: false,
@@ -70,18 +71,26 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 			setBranchDeliveryCfg(null);
 			setBranchDeliveryCfgLoading(false);
 			setBranchConfigError(null);
+			loadedBranchIdRef.current = null;
 			return undefined;
 		}
 
 		const loadCatalogs = async () => {
+			const branchChanged = loadedBranchIdRef.current !== branch.id;
 			setBranchDeliveryCfgLoading(true);
 			setBranchConfigError(null);
-			setBranchDeliveryCfg(null);
-			setManualOrderSettings(normalizeManualOrderSettings(null));
-			setPaymentMethods([]);
-			resetCatalogs();
+			// En un reintento conservamos la última configuración válida mientras
+			// se revalida. Al cambiar de sucursal sí limpiamos para no mezclar datos.
+			if (branchChanged) {
+				setBranchDeliveryCfg(null);
+				setManualOrderSettings(normalizeManualOrderSettings(null));
+				setPaymentMethods([]);
+				resetCatalogs();
+			}
 			try {
-				const data = await branchSettingsService.getDeliveryConfig(branch.id);
+				const data = await branchSettingsService.getDeliveryConfig(branch.id, {
+					force: reloadKey > 0,
+				});
 				if (cancelled) return;
 				if (!data) {
 					resetCatalogs();
@@ -95,6 +104,7 @@ export default function useManualOrderBranchConfig(isOpen, branch) {
 					originLat: data.originLat ?? null,
 					originLng: data.originLng ?? null,
 				});
+				loadedBranchIdRef.current = branch.id;
 				setManualOrderSettings(normalizeManualOrderSettings(data.manualOrderSettings, data.localOrderChannels));
 				setPaymentMethods(Array.isArray(data.paymentMethods) ? data.paymentMethods : []);
 				setCartUpsellCatalogs({

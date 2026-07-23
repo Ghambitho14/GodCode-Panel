@@ -136,9 +136,12 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
     }, []);
 
     const updatePaymentType = useCallback((type) => {
+        const normalizedType = ['tienda', 'tarjeta', 'online', 'pendiente'].includes(type)
+            ? type
+            : '';
         setForm(prev => ({
             ...prev,
-            payment_type: type,
+            payment_type: normalizedType,
             payment_mode: 'single',
             cash_amount: 0,
             card_amount: 0,
@@ -181,7 +184,7 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
             ...prev,
             charge_now: Boolean(enabled),
             payment_type: enabled
-                ? (prev.payment_type === 'pendiente' ? 'tienda' : prev.payment_type)
+                ? (prev.payment_type === 'pendiente' ? '' : prev.payment_type)
                 : 'pendiente',
             payment_mode: 'single',
             cash_amount: 0,

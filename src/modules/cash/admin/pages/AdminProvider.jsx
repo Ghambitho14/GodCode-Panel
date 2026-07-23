@@ -2,10 +2,9 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { useCashSystem } from '../../hooks/useCashSystem';
-import { ORDERS_CASH_REGISTER_SELECT, ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
+import { ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, shouldRegisterPaidOrderAtStatus, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
 import { useLocation as useBranchLocation } from '../../context/useLocation';
 import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
-import { ordersService } from '../orders/services/orders';
 import { getAppScopedPath } from '@/shared/utils/app-route';
 import {
 	ADMIN_PANEL_TAB_IDS,
@@ -28,6 +27,7 @@ import { OrderMoneyProvider } from '../../context/OrderMoneyContext';
 import { clearManualOrderDraftsForUser } from '../../services/manualOrderDrafts';
 import { installPaymentEvidenceOnlineRetry } from '../../services/paymentEvidenceOutbox';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
+import { atomicOrderTransactionService } from '../../services/atomicOrderTransactionService';
 import { majorToMinor } from '@/lib/money/minor-units';
 import { fractionDigitsForCurrency, normalizeCurrencyCode } from '@/shared/utils/money';
 import { createClientUuid } from '@/shared/utils/supabaseStorage';
@@ -71,6 +71,27 @@ function settlementLinesFromLegacyPatch(order, patch) {
 		currency,
 		evidencePolicy: rail === 'online' ? 'optional' : 'none',
 	}];
+}
+
+function legacyAtomicPaymentPatch(order, patch = null) {
+	const source = patch || order || {};
+	const breakdown = patch?.payment_breakdown
+		|| buildPaymentBreakdownForOrder({
+			...order,
+			...source,
+			total: Number(order?.total) || 0,
+		})
+		|| buildSettlementPaymentBreakdown(
+			source.payment_type || order?.payment_type,
+			Number(order?.total) || 0,
+		);
+	return {
+		...source,
+		payment_type: source.payment_type || order?.payment_type,
+		payment_method_specific:
+			source.payment_method_specific || order?.payment_method_specific || source.payment_type,
+		payment_breakdown: breakdown,
+	};
 }
 
 function readShowProductPhotosPreference() {
@@ -607,7 +628,6 @@ export const AdminProvider = ({
 	const moveOrder = useCallback(async (orderId, nextStatus) => {
 		if (orderMoveInFlightRef.current.has(orderId)) return;
 		orderMoveInFlightRef.current.add(orderId);
-		let cashStepFailed = false;
 		invalidateBranchOrders(companyId, selectedBranchId);
 		const previousRow = orders.find((o) => o.id === orderId);
 		setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o)));
@@ -619,50 +639,42 @@ export const AdminProvider = ({
 				showNotify('Pedido actualizado');
 				return;
 			}
+			const targetOrder = previousRow;
+
+			// En legacy la venta y el cambio operativo no son atómicos. Registrar
+			// caja antes evita dejar un pedido entregado sin movimiento contable.
+			if (nextStatus === 'picked_up') {
+				if (targetOrder && !isOrderPaymentSettled(targetOrder)) {
+					throw new Error('Este pedido sigue pendiente de pago. Registra el cobro antes de entregarlo.');
+				}
+			}
+			if (targetOrder && shouldRegisterPaidOrderAtStatus(targetOrder, nextStatus)) {
+				const updated = sanitizeOrder(await atomicOrderTransactionService.settleAndTransition(
+					targetOrder,
+					legacyAtomicPaymentPatch(targetOrder),
+					nextStatus,
+				));
+				setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+				showNotify('Pedido y caja actualizados');
+				return;
+			}
+
 			const { error } = await supabase.from(TABLES.orders).update({ status: nextStatus }).eq('id', orderId).eq('company_id', companyId);
 			if (error) throw error;
 
-			const { data: freshOrder } = await supabase
-				.from(TABLES.orders)
-				.select(ORDERS_CASH_REGISTER_SELECT)
-				.eq('id', orderId)
-				.eq('company_id', companyId)
-				.maybeSingle();
-			const targetOrder = freshOrder ?? previousRow;
-
-			if (nextStatus === 'active') {
-				if (targetOrder && !isOrderPaymentDeferred(targetOrder)) {
-					const ok = await cashSystem.registerSale(targetOrder);
-					if (!ok) {
-						cashStepFailed = true;
-						showNotify('No se pudo registrar la venta en caja', 'error');
-					}
-				}
-			}
-			if (nextStatus === 'picked_up') {
-				if (targetOrder) {
-					const ok = await cashSystem.registerSale(targetOrder);
-					if (!ok) {
-						cashStepFailed = true;
-						showNotify('No se pudo registrar la venta en caja', 'error');
-					}
-				}
-			}
 			if (nextStatus === 'cancelled') {
 				if (targetOrder) {
 					const ok = await cashSystem.registerRefund(targetOrder);
 					if (!ok) {
-						cashStepFailed = true;
 						showNotify(
 							'Pedido cancelado, pero no se pudo registrar la devolución en caja. Revisa el turno y ajusta manualmente.',
 							'error',
 						);
+						return;
 					}
 				}
 			}
-			if (!cashStepFailed) {
-				showNotify('Pedido actualizado');
-			}
+			showNotify('Pedido actualizado');
 		} catch (error) {
 			if (previousRow) {
 				setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...previousRow } : o)));
@@ -710,46 +722,6 @@ export const AdminProvider = ({
 		void loadHistoryOrders();
 	}, [isHistoryView, loadHistoryOrders]);
 
-	const applyOrderSessionPayment = useCallback(async (order, paymentPatch) => {
-		if (!paymentPatch || isOrderPaymentSettled(order)) return order;
-		const items = (order.items || []).map((item) => ({
-			id: item.id,
-			name: String(item.name ?? ''),
-			quantity: Number(item.quantity) || 1,
-			price: Number(item.price) || 0,
-			has_discount: Boolean(item.has_discount),
-			discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
-			description: item.description ? String(item.description) : null,
-			note: item.note ? String(item.note) : null,
-			manual_order_source: item.manual_order_source || null,
-			is_extra: Boolean(item.is_extra),
-		}));
-		const breakdown = buildPaymentBreakdownForOrder({
-			payment_mode: paymentPatch.payment_mode,
-			payment_type: paymentPatch.payment_type,
-			cash_amount: paymentPatch.cash_amount,
-			card_amount: paymentPatch.card_amount,
-			total: Number(order.total) || 0,
-		}) ?? buildSettlementPaymentBreakdown(paymentPatch.payment_type, Number(order.total) || 0);
-		const nextOrder = await ordersService.updateOrder(
-			order.id,
-			{
-				client_name: order.client_name,
-				client_phone: order.client_phone,
-				client_rut: order.client_rut,
-				items,
-				payment_type: paymentPatch.payment_type,
-				payment_breakdown: breakdown,
-				note: order.note,
-				order_type: order.order_type,
-				coupon_code: order.coupon_code,
-			},
-			{ prevStatus: order.status, preserveFulfillment: true },
-		);
-		setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
-		return nextOrder;
-	}, []);
-
 	const markOrderSessionPaid = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
@@ -761,70 +733,61 @@ export const AdminProvider = ({
 				return settled;
 			}
 			let nextOrder = order;
-			if (paymentPatch && !isOrderPaymentSettled(order)) {
-				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
-				if (!isOrderPaymentSettled(nextOrder)) {
-					showNotify('No se pudo registrar el método de pago en el pedido', 'error');
-					return false;
-				}
-			} else if (!isOrderPaymentSettled(order)) {
+			if (!paymentPatch && !isOrderPaymentSettled(order)) {
 				showNotify('Selecciona un método de pago', 'warning');
 				return false;
 			}
-			const saleOk = await cashSystem.registerSale(nextOrder);
-			if (!saleOk) {
-				showNotify('No se pudo registrar la venta en caja', 'error');
-				return false;
-			}
+			nextOrder = sanitizeOrder(await atomicOrderTransactionService.settleAndTransition(
+				order,
+				legacyAtomicPaymentPatch(order, paymentPatch),
+			));
+			setOrders((prev) => prev.map((row) => row.id === order.id ? nextOrder : row));
 			showNotify('Pago registrado', 'success');
 			return nextOrder;
 		} catch (err) {
 			showNotify(err?.message || 'Error al registrar el pago', 'error');
 			return false;
 		}
-	}, [applyOrderSessionPayment, cashSystem, showNotify]);
+	}, [showNotify]);
 
 	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
 			if (order.manual_order_mode === 'session') {
-				let settled = order;
 				if (isOrderPaymentDeferred(order)) {
 					if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
-					settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
+					const closed = sanitizeOrder(await manualOrderV2Service.settleAndTransition(
+						order.id,
+						settlementLinesFromLegacyPatch(order, paymentPatch),
+						'picked_up',
+					));
+					setOrders((prev) => prev.map((row) => row.id === order.id ? closed : row));
+					showNotify('Sesión cerrada correctamente');
+					return true;
 				}
-				const closed = sanitizeOrder(await manualOrderV2Service.transition(order.id, 'picked_up', settled.updated_at ?? null));
+				const closed = sanitizeOrder(await manualOrderV2Service.transition(order.id, 'picked_up', order.updated_at ?? null));
 				setOrders((prev) => prev.map((row) => row.id === order.id ? closed : row));
 				showNotify('Sesión cerrada correctamente');
 				return true;
 			}
 			let nextOrder = order;
-			if (paymentPatch && !isOrderPaymentSettled(order)) {
-				nextOrder = await applyOrderSessionPayment(order, paymentPatch);
-				if (!isOrderPaymentSettled(nextOrder)) {
-					showNotify('No se pudo registrar el método de pago en el pedido', 'error');
-					return false;
-				}
-			}
-			const saleOk = await cashSystem.registerSale(nextOrder);
-			if (!saleOk) {
-				showNotify('No se pudo registrar la venta en caja', 'error');
+			if (!paymentPatch && !isOrderPaymentSettled(order)) {
+				showNotify('Selecciona un método de pago', 'warning');
 				return false;
 			}
-			const { error } = await supabase
-				.from(TABLES.orders)
-				.update({ status: 'picked_up' })
-				.eq('id', order.id)
-				.eq('company_id', companyId);
-			if (error) throw error;
-			setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...nextOrder, status: 'picked_up' } : o)));
+			nextOrder = sanitizeOrder(await atomicOrderTransactionService.settleAndTransition(
+				order,
+				legacyAtomicPaymentPatch(order, paymentPatch),
+				'picked_up',
+			));
+			setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
 			showNotify('Mesa cerrada correctamente');
 			return true;
 		} catch (err) {
 			showNotify(err?.message || 'Error al cerrar la mesa', 'error');
 			return false;
 		}
-	}, [applyOrderSessionPayment, cashSystem, companyId, showNotify]);
+	}, [showNotify]);
 
 	const kanbanColumns = useMemo(() => {
 		const byCreatedAsc = (a, b) =>

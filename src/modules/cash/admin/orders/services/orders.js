@@ -17,8 +17,10 @@ import {
     normalizeDeliverySettings,
     isOrderPaymentAllowedForDelivery,
 } from '@/lib/delivery-settings';
-import { formatMoney, branchCurrencyCode } from '@/shared/utils/money';
-import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isMixedPaymentBreakdown, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { formatMoney, branchCurrencyCode, fractionDigitsForCurrency } from '@/shared/utils/money';
+import { majorToMinor } from '@/lib/money/minor-units';
+import { atomicOrderTransactionService } from '@/modules/cash/services/atomicOrderTransactionService';
+import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
 import { canOverrideDeliveryFee } from '@/modules/cash/utils/deliveryFeePermissions';
 import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -166,8 +168,8 @@ function resolvePaymentBreakdownForRpc(breakdown, total) {
     const normalized = normalizePaymentBreakdown(breakdown);
     const breakdownSum = normalized.cash + normalized.card + normalized.online;
     if (
-        isMixedPaymentBreakdown(normalized)
-        && Math.abs(breakdownSum - Math.round(total)) <= 1
+        breakdownSum > 0
+        && Math.abs(breakdownSum - Number(total)) <= 0.000001
     ) {
         return normalized;
     }
@@ -558,15 +560,26 @@ export const ordersService = {
             // 3. EJECUTAR TRANSACCIÓN ATÓMICA (RPC)
             // Inventario: confirmar en Supabase que esta RPC descuenta product_inventory_recipe.qty_per_sale
             // multiplicado por la cantidad vendida de cada producto; si no, ajustar la función en SQL.
-            const { data: newOrder, error: orderError } = await supabase.rpc('create_order_transaction', {
+            const paymentBreakdown = resolvePaymentBreakdownForRpc(
+                orderData.payment_breakdown,
+                totalForRpc,
+            );
+            const registerPayment = !isOrderPaymentDeferred(orderData);
+            const currencyDigits = fractionDigitsForCurrency(branchCurrency);
+            const transactionResult = await atomicOrderTransactionService.create({
+                p_client_request_id: orderData.client_request_id || createClientUuid(),
                 p_client_name: orderData.client_name,
                 p_client_phone: clientPhone,
                 p_client_rut: clientRut,
                 p_items: normalizedItems,
                 p_total: totalForRpc,
+                p_total_minor: majorToMinor(totalForRpc, branchCurrency, currencyDigits),
+                p_currency: branchCurrency,
                 p_payment_type: orderData.payment_type,
                 p_payment_ref: paymentRef,
                 p_payment_method_specific: orderData.payment_method_specific ?? null,
+                p_payment_breakdown: paymentBreakdown,
+                p_register_payment: registerPayment,
                 p_note: finalNote,
                 p_branch_id: orderData.branch_id,
                 p_company_id: orderData.company_id || null,
@@ -574,17 +587,27 @@ export const ordersService = {
                 p_order_type: resolveRpcOrderType(orderData),
                 p_delivery_address: pDeliveryPayload,
                 p_delivery_fee: deliveryMode ? deliveryFee : 0,
+                p_delivery_fee_minor: majorToMinor(
+                    deliveryMode ? deliveryFee : 0,
+                    branchCurrency,
+                    currencyDigits,
+                ),
                 p_coupon_code: pCouponCode,
-                p_payment_breakdown: resolvePaymentBreakdownForRpc(orderData.payment_breakdown, totalForRpc),
                 p_client_id: selectedClientId,
             });
 
-            if (orderError) {
-                throwOrderRpcError(orderError);
+            const newOrder = transactionResult?.order ?? transactionResult;
+            if (!newOrder?.id) {
+                throw new Error('La transacción no devolvió el pedido confirmado.');
             }
 
             orderCreated = true;
-            return { order: newOrder, receiptUploadFailed };
+            return {
+                order: newOrder,
+                receiptUploadFailed,
+                idempotentReplay: Boolean(transactionResult?.idempotentReplay),
+                cashRegistered: Boolean(transactionResult?.cashRegistered),
+            };
         } catch (error) {
             if (uploadedReceiptPath && !orderCreated && orderData?.company_id) {
                 await deleteCompanyImage(

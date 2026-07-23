@@ -20,6 +20,12 @@ const TRANSFER_SPECIFIC_METHODS = new Set(['pago_movil', 'zelle', 'transferencia
 
 /** @typedef {{ cash: number; card: number; online: number }} PaymentBreakdown */
 
+function normalizeMajorPaymentAmount(value) {
+	const amount = Number(value);
+	if (!Number.isFinite(amount)) return 0;
+	return Math.max(0, Number(amount.toFixed(6)));
+}
+
 /**
  * Normaliza un desglose de pago desde JSONB u objeto parcial.
  * @param {unknown} raw
@@ -31,9 +37,9 @@ export function normalizePaymentBreakdown(raw) {
 	}
 	const o = /** @type {Record<string, unknown>} */ (raw);
 	return {
-		cash: Math.max(0, Math.round(Number(o.cash) || 0)),
-		card: Math.max(0, Math.round(Number(o.card) || 0)),
-		online: Math.max(0, Math.round(Number(o.online) || 0)),
+		cash: normalizeMajorPaymentAmount(o.cash),
+		card: normalizeMajorPaymentAmount(o.card),
+		online: normalizeMajorPaymentAmount(o.online),
 	};
 }
 
@@ -56,38 +62,40 @@ export function isMixedPaymentBreakdown(breakdown) {
 
 /**
  * @param {string | null | undefined} paymentType
- * @returns {'cash' | 'card' | 'online'}
+ * @returns {'cash' | 'card' | 'online' | null}
  */
 export function paymentTypeToBreakdownMethod(paymentType) {
 	const pt = String(paymentType ?? '').toLowerCase();
 	if (pt === 'online' || pt === 'transferencia') return 'online';
 	if (pt === 'tarjeta' || pt === 'card') return 'card';
-	return 'cash';
+	if (pt === 'tienda' || pt === 'cash' || pt === 'efectivo') return 'cash';
+	return null;
 }
 
 /**
  * Infiere bucket de caja (cash | card | online) desde payment_type y payment_method_specific.
  * Alineado con getCashMovementPaymentMethod para pedidos del menú digital.
  * @param {Record<string, unknown> | null | undefined} order
- * @returns {'cash' | 'card' | 'online'}
+ * @returns {'cash' | 'card' | 'online' | null}
  */
 export function inferBreakdownMethodFromOrder(order) {
-	if (!order) return 'cash';
+	if (!order) return null;
 	const specific = String(order.payment_method_specific ?? '').trim().toLowerCase();
 	if (specific.length > 0) {
-		if (specific === 'efectivo') return 'cash';
+		if (['efectivo', 'cash', 'tienda'].includes(specific)) return 'cash';
 		if (['tarjeta', 'stripe', 'mercadopago', 'paypal', 'card'].includes(specific)) {
 			return 'card';
 		}
-		if (['transferencia_bancaria', 'pago_movil', 'zelle'].includes(specific)) {
+		if (['transferencia_bancaria', 'bank_transfer', 'pago_movil', 'zelle', 'online'].includes(specific)) {
 			return 'online';
 		}
-		return 'cash';
+		return null;
 	}
 	const pt = String(order.payment_type ?? '').toLowerCase();
 	if (pt === 'tarjeta' || pt === 'card') return 'card';
 	if (pt === 'online' || pt === 'transferencia') return 'online';
-	return 'cash';
+	if (pt === 'tienda' || pt === 'cash' || pt === 'efectivo') return 'cash';
+	return null;
 }
 
 /**
@@ -121,7 +129,7 @@ export function getOrderPaymentBreakdown(order) {
 		return stored;
 	}
 
-	const total = Math.round(Number(order.total) || 0);
+	const total = normalizeMajorPaymentAmount(order.total);
 	const method = inferBreakdownMethodFromOrder(order);
 	return {
 		cash: method === 'cash' ? total : 0,
@@ -144,17 +152,22 @@ export function buildPaymentBreakdownForOrder({
 }) {
 	if (payment_mode === 'mixed') {
 		const breakdown = {
-			cash: Math.max(0, Math.round(Number(cash_amount) || 0)),
-			card: Math.max(0, Math.round(Number(card_amount) || 0)),
+			cash: normalizeMajorPaymentAmount(cash_amount),
+			card: normalizeMajorPaymentAmount(card_amount),
 			online: 0,
 		};
 		if (isMixedPaymentBreakdown(breakdown)) {
 			return breakdown;
 		}
 	}
-	void payment_type;
-	void total;
-	return null;
+	const amount = normalizeMajorPaymentAmount(total);
+	const method = paymentTypeToBreakdownMethod(payment_type);
+	if (!method || amount <= 0) return null;
+	return {
+		cash: method === 'cash' ? amount : 0,
+		card: method === 'card' ? amount : 0,
+		online: method === 'online' ? amount : 0,
+	};
 }
 
 /**
@@ -164,10 +177,10 @@ export function buildPaymentBreakdownForOrder({
  */
 export function getCashDueAmount({ payment_mode, payment_type, cash_amount, totalToPay }) {
 	if (payment_mode === 'mixed') {
-		return Math.max(0, Math.round(Number(cash_amount) || 0));
+		return normalizeMajorPaymentAmount(cash_amount);
 	}
 	if (payment_type === 'tienda') {
-		return Math.round(Number(totalToPay) || 0);
+		return normalizeMajorPaymentAmount(totalToPay);
 	}
 	return 0;
 }
@@ -178,9 +191,9 @@ export function getCashDueAmount({ payment_mode, payment_type, cash_amount, tota
  * @returns {number}
  */
 export function computeChangeDue(cashTendered, cashDue) {
-	const tendered = Math.round(Number(cashTendered) || 0);
-	const due = Math.round(Number(cashDue) || 0);
-	return Math.max(0, tendered - due);
+	const tendered = normalizeMajorPaymentAmount(cashTendered);
+	const due = normalizeMajorPaymentAmount(cashDue);
+	return normalizeMajorPaymentAmount(tendered - due);
 }
 
 /**
@@ -196,17 +209,17 @@ export function validateCheckoutPayment({
 	cash_tendered,
 	totalToPay,
 }) {
-	const total = Math.round(Number(totalToPay) || 0);
+	const total = normalizeMajorPaymentAmount(totalToPay);
 	if (total <= 0) return { valid: true };
 
 	if (payment_mode === 'mixed') {
-		const cash = Math.max(0, Math.round(Number(cash_amount) || 0));
-		const card = Math.max(0, Math.round(Number(card_amount) || 0));
-		if (Math.abs(cash + card - total) > 1) {
+		const cash = normalizeMajorPaymentAmount(cash_amount);
+		const card = normalizeMajorPaymentAmount(card_amount);
+		if (Math.abs(cash + card - total) > 0.000001) {
 			return { valid: false, reason: 'split_mismatch' };
 		}
 		if (cash > 0) {
-			const tendered = Math.round(Number(cash_tendered) || 0);
+			const tendered = normalizeMajorPaymentAmount(cash_tendered);
 			if (tendered < cash) {
 				return { valid: false, reason: 'insufficient_tender' };
 			}
@@ -214,8 +227,12 @@ export function validateCheckoutPayment({
 		return { valid: true };
 	}
 
+	if (!['tienda', 'tarjeta', 'online'].includes(String(payment_type ?? '').toLowerCase())) {
+		return { valid: false, reason: 'payment_method_required' };
+	}
+
 	if (payment_type === 'tienda') {
-		const tendered = Math.round(Number(cash_tendered) || 0);
+		const tendered = normalizeMajorPaymentAmount(cash_tendered);
 		if (tendered < total) {
 			return { valid: false, reason: 'insufficient_tender' };
 		}
@@ -1050,9 +1067,10 @@ export function getOrderTileKind(order) {
  * @returns {PaymentBreakdown | null}
  */
 export function buildSettlementPaymentBreakdown(paymentType, total) {
-	const amount = Math.round(Number(total) || 0);
+	const amount = normalizeMajorPaymentAmount(total);
 	if (amount <= 0) return null;
 	const method = paymentTypeToBreakdownMethod(paymentType);
+	if (!method) return null;
 	return {
 		cash: method === 'cash' ? amount : 0,
 		card: method === 'card' ? amount : 0,
@@ -1067,7 +1085,16 @@ export function isOrderPaymentSettled(order) {
 	if (!order || isOrderPaymentDeferred(order)) return false;
 	const breakdown = getOrderPaymentBreakdown(order);
 	const total = breakdown.cash + breakdown.card + breakdown.online;
-	return total > 0 || (order.payment_type && order.payment_type !== 'pendiente');
+	return total > 0 || Boolean(order.payment_type && order.payment_type !== 'pendiente');
+}
+
+/**
+ * Compatibilidad legacy: estados operativos en los que una venta ya pagada
+ * debe comprobar que existe en caja. `registerSale` es idempotente por pedido.
+ */
+export function shouldRegisterPaidOrderAtStatus(order, nextStatus) {
+	const status = String(nextStatus ?? '').trim().toLowerCase();
+	return ['active', 'completed', 'picked_up'].includes(status) && isOrderPaymentSettled(order);
 }
 
 /** @param {Array<{ status?: string; branch_id?: string }>} orders @param {string | null | undefined} branchId */

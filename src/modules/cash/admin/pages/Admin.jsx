@@ -107,7 +107,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     selectedClientOrders,
     clientHistoryLoading,
     showNotify,
-    cashSystem,
     loadData,
     refreshAllData,
     refreshOrders,
@@ -166,6 +165,26 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     dynamicModules,
   }), [userRole, panelAccess, menuCapabilities, dynamicModules]);
   const [clientOrderDetail, setClientOrderDetail] = React.useState(null);
+  const [manualOrderOpeningMode, setManualOrderOpeningMode] = React.useState(null);
+
+  const openManualOrder = React.useCallback(async (mode) => {
+    if (manualOrderOpeningMode) return;
+    setManualOrderOpeningMode(mode);
+    try {
+      // Evita montar el modal con un catálogo parcial o todavía vacío.
+      await refreshCatalog();
+      setManualOrderMode(mode);
+      setIsOpenMesaModal(true);
+    } finally {
+      setManualOrderOpeningMode(null);
+    }
+  }, [manualOrderOpeningMode, refreshCatalog, setManualOrderMode, setIsOpenMesaModal]);
+
+  const handleManualOrderSaved = React.useCallback(async (savedOrder) => {
+    upsertOrder(savedOrder);
+    // Pedido, inventario, pago y caja ya fueron confirmados por la misma RPC.
+    return true;
+  }, [upsertOrder]);
 
   React.useEffect(() => {
     if (!selectedClient) setClientOrderDetail(null);
@@ -475,21 +494,27 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                 </Button>
                 <Button variant="default"
                   type="button"
-                  onClick={() => { setManualOrderMode('quick_sale'); setIsOpenMesaModal(true); }}
+                  onClick={() => { void openManualOrder('quick_sale'); }}
                   className="btn header-action-orders-manual"
-                  disabled={selectedBranch?.id === 'all' || !selectedBranch}
+                  disabled={selectedBranch?.id === 'all' || !selectedBranch || Boolean(manualOrderOpeningMode)}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <PlusCircle size={18} /> Venta rápida
+                  {manualOrderOpeningMode === 'quick_sale'
+                    ? <Loader2 size={18} className="animate-spin" />
+                    : <PlusCircle size={18} />}
+                  {manualOrderOpeningMode === 'quick_sale' ? ' Cargando…' : ' Venta rápida'}
                 </Button>
                 <Button variant="secondary"
                   type="button"
-                  onClick={() => { setManualOrderMode('session'); setIsOpenMesaModal(true); }}
+                  onClick={() => { void openManualOrder('session'); }}
                   className="btn header-action-orders-manual"
-                  disabled={selectedBranch?.id === 'all' || !selectedBranch}
+                  disabled={selectedBranch?.id === 'all' || !selectedBranch || Boolean(manualOrderOpeningMode)}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >
-                  <Store size={18} /> Abrir sesión
+                  {manualOrderOpeningMode === 'session'
+                    ? <Loader2 size={18} className="animate-spin" />
+                    : <Store size={18} />}
+                  {manualOrderOpeningMode === 'session' ? ' Cargando…' : ' Abrir sesión'}
                 </Button>
               </div>
             )}
@@ -822,7 +847,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             products={products}
             categories={categories}
             clients={clients}
-            onOrderSaved={upsertOrder}
+            onOrderSaved={handleManualOrderSaved}
             showNotify={showNotify}
             branch={selectedBranch}
             logoUrl={logoUrl}
