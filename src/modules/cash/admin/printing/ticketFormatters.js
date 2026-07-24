@@ -3,6 +3,8 @@ import { formatOrderAmount } from '@/lib/money/order-amount';
 import { escapeHtml } from './thermalUtils';
 import {
 	deliveryAddressLines,
+	getFulfillmentKindLabel,
+	getOrderFulfillmentKind,
 	getPaymentLabel,
 	isMenuOrder,
 	isOrderDelivery,
@@ -109,6 +111,11 @@ export function formatOrderNumberForTicket(order) {
 /** Texto central del ticket cliente: «En el local» vs domicilio (como Oishi). */
 export function whereLabelForClientTicket(order) {
 	return isOrderDelivery(order) ? 'Domicilio' : 'En el local';
+}
+
+/** Fulfillment en ticket cocina: Mesa / Retiro / Delivery (mayúsculas para banda térmica). */
+export function whereLabelForKitchenTicket(order) {
+	return getFulfillmentKindLabel(getOrderFulfillmentKind(order)).toUpperCase();
 }
 
 /** Bloque compacto dirección/envío para tickets térmicos. */

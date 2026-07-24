@@ -41,6 +41,7 @@ import {
 	mergeAddressIntoForm,
 	normalizeManualOrderType,
 	resolveOpenMesaClientName,
+	buildManualDeliveryPayload,
 	sanitizeManualOrderInput,
 } from './manual-order/manualOrderShared';
 
@@ -49,6 +50,23 @@ function hasMesaSessionClientName(manualOrder) {
 		Boolean(String(manualOrder.selected_client_id ?? '').trim()) ||
 		Boolean(String(manualOrder.client_name ?? '').trim())
 	);
+}
+
+/** Mismo mapeo de fulfillment que create V2 (`useManualOrder`). */
+function toV2Fulfillment(form, isLocalSession) {
+	if (form.order_type === 'delivery') return 'delivery';
+	if (!isLocalSession) return 'pickup';
+	return getLocalFulfillmentMode(form) === 'mesa' ? 'table' : 'pickup';
+}
+
+/** Payload de delivery para V3: null al salir de delivery (evitar `{}` ambiguo). */
+function buildV3DeliveryPatch(form, branchDeliveryCfg, fulfillment) {
+	if (fulfillment !== 'delivery') return null;
+	const base = buildManualDeliveryPayload(form, branchDeliveryCfg);
+	return {
+		...base,
+		fee: Number(form.delivery_fee) || 0,
+	};
 }
 
 function totalItemsMajor(items, currency, fractionDigits) {
@@ -302,6 +320,7 @@ export const useOrderEdit = (
 				return {
 					...prev,
 					order_type: val,
+					local_fulfillment_mode: 'retiro',
 					delivery_named_area_id: '',
 					delivery_fee: 0,
 					delivery_address: '',
@@ -311,7 +330,11 @@ export const useOrderEdit = (
 				};
 			}
 
-			const next = { ...prev, order_type: val };
+			const next = {
+				...prev,
+				order_type: val,
+				...(val === 'delivery' ? { local_fulfillment_mode: 'delivery' } : {}),
+			};
 			if (
 				val === 'delivery' &&
 				Array.isArray(prev.saved_addresses) &&
@@ -751,18 +774,38 @@ export const useOrderEdit = (
 			const isV2Order = initialOrder.manual_order_mode === 'quick_sale' || initialOrder.manual_order_mode === 'session';
 			const hasLifecycleLines = itemsForOrder.some((item) => Boolean(item.line_id));
 			const useLifecycleV3 = isV2Order || hasLifecycleLines;
-			const v2Fulfillment = sanitizedPatch.order_type === 'delivery' ? 'delivery' : getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'table' : 'pickup';
-			const v2Delivery = sanitizedPatch.order_type === 'delivery' ? {
-				address: sanitizedPatch.delivery_address,
-				reference: sanitizedPatch.delivery_reference,
-				zoneId: sanitizedPatch.delivery_named_area_id,
-				km: sanitizedPatch.delivery_km,
-				fee: sanitizedPatch.delivery_fee,
-			} : {};
+			const v2Fulfillment = toV2Fulfillment(manualOrder, isLocalSession);
+			const v2Delivery = buildV3DeliveryPatch(manualOrder, branchDeliveryCfg, v2Fulfillment);
 			let updated;
 			if (useLifecycleV3) {
 				const previousTotalMinor = Number(initialOrder.total_minor ?? majorToMinor(initialOrder.total, currency, fractionDigits));
-				if (checkoutMinor !== previousTotalMinor && !window.confirm(`El nuevo total es ${formatMinor(checkoutMinor, { currency, fractionDigits })}. ¿Confirmas el cambio?`)) return;
+				let expectedTotalMinor = checkoutMinor;
+				if (branch?.id) {
+					try {
+						const quote = await manualOrderV2Service.quote({
+							branchId: branch.id,
+							items: itemsForOrder,
+							fulfillment: v2Fulfillment,
+							delivery: v2Delivery,
+							couponCode: sanitizedPatch.coupon_code,
+							clientPhone: sanitizedPatch.client_phone,
+						});
+						const quotedMinor = Number(quote?.totalMinor);
+						if (Number.isFinite(quotedMinor)) {
+							expectedTotalMinor = quotedMinor;
+						}
+					} catch {
+						// Si la cotización falla, seguimos con el total local; el RPC revalida igual.
+					}
+				}
+				if (
+					expectedTotalMinor !== previousTotalMinor
+					&& !window.confirm(
+						`El nuevo total es ${formatMinor(expectedTotalMinor, { currency, fractionDigits })}. ¿Confirmas el cambio?`,
+					)
+				) {
+					return;
+				}
 				const lifecycleResult = await orderLifecycleV3Service.updateOrder({
 					orderId: initialOrder.id,
 					expectedUpdatedAt: initialOrder.updated_at,
@@ -776,7 +819,7 @@ export const useOrderEdit = (
 						operatorReference: v2Fulfillment === 'table' ? sanitizedPatch.client_name : null,
 						delivery: v2Delivery,
 						couponCode: sanitizedPatch.coupon_code,
-						expectedTotalMinor: checkoutMinor,
+						expectedTotalMinor,
 					},
 				});
 				updated = lifecycleResult?.order ?? lifecycleResult;

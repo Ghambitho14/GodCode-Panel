@@ -20,17 +20,37 @@ import { supabase } from '@/integrations/supabase';
 const FN_NAME = 'tenant-tickets';
 
 /**
+ * Extrae el mensaje útil de un fallo de `functions.invoke`.
+ * En non-2xx supabase-js suele poner el body en `error.context` (Response),
+ * no en `data`, y el `error.message` queda genérico ("Edge Function returned…").
+ *
  * @param {{ data: any, error: any }} response
  * @param {string} fallbackMessage
- * @returns {Error}
+ * @returns {Promise<Error>}
  */
-function buildFnError(response, fallbackMessage) {
+async function buildFnError(response, fallbackMessage) {
 	const dataMsg =
 		response?.data && typeof response.data === 'object' && response.data !== null
-			? response.data.error
+			? response.data.error || response.data.message
 			: null;
+
+	let contextMsg = null;
+	const ctx = response?.error?.context;
+	if (ctx && typeof ctx.json === 'function') {
+		try {
+			const body = await ctx.json();
+			if (body && typeof body === 'object') {
+				contextMsg = body.error || body.message || body.msg || null;
+			}
+		} catch {
+			/* body no-JSON */
+		}
+	} else if (ctx && typeof ctx === 'object') {
+		contextMsg = ctx.error || ctx.message || ctx.msg || null;
+	}
+
 	const ctxMsg = response?.error?.message;
-	return new Error(String(dataMsg || ctxMsg || fallbackMessage));
+	return new Error(String(dataMsg || contextMsg || ctxMsg || fallbackMessage));
 }
 
 async function callFn(action, payload, fallback) {
@@ -38,7 +58,7 @@ async function callFn(action, payload, fallback) {
 		body: { action, ...(payload || {}) },
 	});
 	if (response.error) {
-		throw buildFnError(response, fallback);
+		throw await buildFnError(response, fallback);
 	}
 	return response.data ?? {};
 }

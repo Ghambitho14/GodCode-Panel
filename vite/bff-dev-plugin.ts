@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { request, type IncomingMessage, type ServerResponse } from "node:http";
+import { request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { loadEnv, type Plugin, type ViteDevServer } from "vite";
 
 /**
@@ -81,14 +82,16 @@ function proxyToSupabaseDev(req: IncomingMessage, res: ServerResponse) {
     "http://127.0.0.1:54321";
   const target = new URL(targetUrl);
   const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
-  const proxyReq = request(
+  const isHttps = target.protocol === "https:";
+  const port = target.port || (isHttps ? "443" : "80");
+  const transport = isHttps ? httpsRequest : httpRequest;
+  const proxyReq = transport(
     {
-      protocol: target.protocol,
       hostname: target.hostname,
-      port: target.port,
+      port,
       path: targetPath,
       method: req.method,
-      headers: { ...req.headers, host: `${target.hostname}:${target.port}` },
+      headers: { ...req.headers, host: target.hostname },
     },
     (proxyRes) => {
       res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);

@@ -15,6 +15,7 @@ import {
 	summarizeAmounts,
 	ticketPaymentStatusLabel,
 	whereLabelForClientTicket,
+	whereLabelForKitchenTicket,
 } from './ticketFormatters';
 
 /**
@@ -57,11 +58,10 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 	const safeLogoUrl = variant === 'cashier' ? resolveSafeLogoUrl(logoUrl) : '';
 
 	if (variant === 'kitchen') {
-		// El ticket de cocina siempre lleva "COCINA" como destino del trabajo.
-		// La info de fulfillment (Domicilio / En el local) ya no se muestra:
-		// no es util para preparar el pedido y desordena la lectura rapida.
+		// Banda: #n - COCINA - MESA|RETIRO|DELIVERY - WEB|PDV
+		const fulfillmentEsc = escapeHtml(whereLabelForKitchenTicket(order));
 		const channelEsc = escapeHtml(orderChannelForTicket(order, printOptions.orderChannel));
-		const orderBandLine = `#${safeOrderId} - COCINA - ${channelEsc}`;
+		const orderBandLine = `#${safeOrderId} - COCINA - ${fulfillmentEsc} - ${channelEsc}`;
 		const refLineHtml = clientReferenceLineHtml(order);
 		const dateDash = escapeHtml(formatTicketDateTimeDash(order));
 		const safeKitchenNote = isLegacyGlobalKitchenNote(order) && order.note

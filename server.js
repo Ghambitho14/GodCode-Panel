@@ -1,6 +1,7 @@
 import { createReadStream, existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { extname, join, normalize, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
@@ -266,19 +267,21 @@ async function proxyToSupabase(req, res) {
   const targetUrl = resolveServerConfig().url;
   const target = new URL(targetUrl);
   const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
+  const isHttps = target.protocol === "https:";
+  const port = target.port || (isHttps ? "443" : "80");
   const options = {
-    protocol: target.protocol,
     hostname: target.hostname,
-    port: target.port,
+    port,
     path: targetPath,
     method: req.method,
     headers: { ...req.headers },
   };
-  options.headers.host = `${target.hostname}:${target.port}`;
+  options.headers.host = target.hostname;
   delete options.headers.connection;
   delete options.headers["proxy-connection"];
 
-  const proxyReq = http.request(options, (proxyRes) => {
+  const transport = isHttps ? httpsRequest : httpRequest;
+  const proxyReq = transport(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res);
   });
