@@ -23,6 +23,9 @@ function evidenceCopy(status) {
     if (status === 'pending') return 'Carga pendiente';
     if (status === 'failed') return 'Falló la carga';
     if (status === 'uploaded') return 'Comprobante guardado';
+    if (status === 'pending_verification') return 'Pendiente de verificación';
+    if (status === 'verified') return 'Pago verificado';
+    if (status === 'rejected') return 'Comprobante rechazado';
     return 'Sin comprobante';
 }
 

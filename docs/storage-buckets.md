@@ -18,7 +18,10 @@ menu/
     │       ├── beverages/{itemId}/
     │       └── extras/{itemId}/
     └── storefront/
-        └── carousel/{branchId}/
+        ├── carousel/{branchId}/
+        └── branding/
+            ├── logo/
+            └── background/
 
 receipts/
 └── {companyId}/
@@ -45,6 +48,7 @@ Contextos disponibles:
 - `CATALOG_PRODUCT`
 - `CART_UPSELL`
 - `MENU_CAROUSEL`
+- `STOREFRONT_BRANDING`
 - `ORDER_RECEIPT`
 
 Ejemplo:

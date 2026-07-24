@@ -1,19 +1,19 @@
 import { isoFractionDigits, sumMinor } from '@/lib/money/minor-units';
 
 export const PAYMENT_METHOD_REGISTRY = Object.freeze({
-	cash: { id: 'cash', label: 'Efectivo', rail: 'cash', currencyMode: 'accounting', evidencePolicy: 'none' },
-	tienda: { id: 'cash', label: 'Efectivo', rail: 'cash', currencyMode: 'accounting', evidencePolicy: 'none' },
-	cash_usd: { id: 'cash_usd', label: 'Efectivo USD', rail: 'cash', currency: 'USD', evidencePolicy: 'none' },
-	cash_ves: { id: 'cash_ves', label: 'Efectivo VES', rail: 'cash', currency: 'VES', evidencePolicy: 'none' },
-	card: { id: 'card', label: 'Tarjeta', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional' },
-	tarjeta: { id: 'card', label: 'Tarjeta', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional' },
-	bank_transfer: { id: 'bank_transfer', label: 'Transferencia bancaria', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'optional' },
-	transferencia_bancaria: { id: 'bank_transfer', label: 'Transferencia bancaria', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'optional' },
-	online: { id: 'bank_transfer', label: 'Transferencia', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'optional' },
-	pago_movil: { id: 'pago_movil', label: 'Pago móvil', rail: 'online', currency: 'VES', evidencePolicy: 'required' },
-	zelle: { id: 'zelle', label: 'Zelle', rail: 'online', currency: 'USD', evidencePolicy: 'required' },
-	paypal: { id: 'paypal', label: 'PayPal', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required' },
-	stripe: { id: 'stripe', label: 'Stripe', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional' },
+	cash: { id: 'cash', label: 'Efectivo', rail: 'cash', currencyMode: 'accounting', evidencePolicy: 'none', settlementTrigger: 'cash_confirmation' },
+	tienda: { id: 'cash', label: 'Efectivo', rail: 'cash', currencyMode: 'accounting', evidencePolicy: 'none', settlementTrigger: 'cash_confirmation' },
+	cash_usd: { id: 'cash_usd', label: 'Efectivo USD', rail: 'cash', currency: 'USD', evidencePolicy: 'none', settlementTrigger: 'cash_confirmation' },
+	cash_ves: { id: 'cash_ves', label: 'Efectivo VES', rail: 'cash', currency: 'VES', evidencePolicy: 'none', settlementTrigger: 'cash_confirmation' },
+	card: { id: 'card', label: 'Tarjeta', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional', settlementTrigger: 'pos_confirmation' },
+	tarjeta: { id: 'card', label: 'Tarjeta', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional', settlementTrigger: 'pos_confirmation' },
+	bank_transfer: { id: 'bank_transfer', label: 'Transferencia bancaria', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	transferencia_bancaria: { id: 'bank_transfer', label: 'Transferencia bancaria', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	online: { id: 'bank_transfer', label: 'Transferencia', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	pago_movil: { id: 'pago_movil', label: 'Pago móvil', rail: 'online', currency: 'VES', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	zelle: { id: 'zelle', label: 'Zelle', rail: 'online', currency: 'USD', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	paypal: { id: 'paypal', label: 'PayPal', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
+	stripe: { id: 'stripe', label: 'Stripe', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional', settlementTrigger: 'gateway_webhook' },
 });
 
 function normalizeRawDefinition(raw, accountingCurrency) {
@@ -28,6 +28,14 @@ function normalizeRawDefinition(raw, accountingCurrency) {
 		label: String(source.label ?? base.label),
 		currency,
 		evidencePolicy: ['none', 'optional', 'required'].includes(source.evidencePolicy) ? source.evidencePolicy : base.evidencePolicy,
+		settlementTrigger: [
+			'cash_confirmation',
+			'pos_confirmation',
+			'evidence_uploaded',
+			'manual_verification',
+			'gateway_webhook',
+		].includes(source.settlementTrigger) ? source.settlementTrigger : base.settlementTrigger,
+		allowMixedPayment: source.allowMixedPayment !== false,
 		enabled: source.enabled !== false && source.active !== false,
 	};
 }
@@ -70,6 +78,15 @@ export function validatePaymentLines(lines, quote, methods) {
 	const errors = [];
 	const allowed = new Map((methods || []).map((method) => [method.id, method]));
 	const normalized = [];
+	const selectedMethodIds = new Set((lines || []).map((line) => String(line?.methodId ?? '')));
+	if (selectedMethodIds.size > 1) {
+		for (const methodId of selectedMethodIds) {
+			const method = allowed.get(methodId);
+			if (method?.allowMixedPayment === false) {
+				errors.push({ methodId, code: 'mixed_payment_not_allowed' });
+			}
+		}
+	}
 	for (const raw of lines || []) {
 		const method = allowed.get(String(raw?.methodId ?? ''));
 		if (!method) {
@@ -88,6 +105,7 @@ export function validatePaymentLines(lines, quote, methods) {
 			amountMinor,
 			currency: String(quote.currency),
 			evidencePolicy: method.evidencePolicy,
+			settlementTrigger: method.settlementTrigger,
 		};
 		if (method.currency !== quote.currency) {
 			if (!raw.exchangeRate || !Number.isSafeInteger(Number(raw.settlementAmountMinor))) {

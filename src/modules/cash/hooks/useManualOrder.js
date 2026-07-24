@@ -58,14 +58,14 @@ function deriveV2PaymentLines(form, quote, methods, currency, fractionDigits) {
 		const cashMinor = majorToMinor(form.cash_amount, currency, fractionDigits);
 		const cardMinor = majorToMinor(form.card_amount, currency, fractionDigits);
 		return [
-			...(cashMinor > 0 && byRail('cash') ? [{ id: createClientUuid(), methodId: byRail('cash').id, rail: 'cash', amountMinor: cashMinor, currency, evidencePolicy: byRail('cash').evidencePolicy }] : []),
-			...(cardMinor > 0 && byRail('card') ? [{ id: createClientUuid(), methodId: byRail('card').id, rail: 'card', amountMinor: cardMinor, currency, evidencePolicy: byRail('card').evidencePolicy }] : []),
+			...(cashMinor > 0 && byRail('cash') ? [{ id: createClientUuid(), methodId: byRail('cash').id, rail: 'cash', amountMinor: cashMinor, currency, evidencePolicy: byRail('cash').evidencePolicy, settlementTrigger: byRail('cash').settlementTrigger }] : []),
+			...(cardMinor > 0 && byRail('card') ? [{ id: createClientUuid(), methodId: byRail('card').id, rail: 'card', amountMinor: cardMinor, currency, evidencePolicy: byRail('card').evidencePolicy, settlementTrigger: byRail('card').settlementTrigger }] : []),
 		];
 	}
 	const rail = form.payment_type === 'tienda' ? 'cash' : form.payment_type === 'tarjeta' ? 'card' : 'online';
 	const method = byRail(rail) ?? methods.find((candidate) => candidate.rail === rail);
 	if (!method || method.currency !== currency) return [];
-	return [{ id: createClientUuid(), methodId: method.id, rail, amountMinor: Number(quote.totalMinor), currency, evidencePolicy: method.evidencePolicy }];
+	return [{ id: createClientUuid(), methodId: method.id, rail, amountMinor: Number(quote.totalMinor), currency, evidencePolicy: method.evidencePolicy, settlementTrigger: method.settlementTrigger }];
 }
 
 /** Orquesta creación manual V2 y conserva el contrato público usado por el modal legacy. */
@@ -298,11 +298,17 @@ export const useManualOrder = (
 			if (v2Enabled) {
 				if (!quote?.quoteHash) throw new Error(quoteError || 'Espera una cotización válida antes de confirmar.');
 				const paymentTiming = form.charge_now ? 'immediate' : 'deferred';
-				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled: true });
+				const candidateLines = deriveV2PaymentLines(form, quote, paymentMethods, currency, fractionDigits);
+				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({
+					...form,
+					payment_lines: candidateLines,
+					receiptFile,
+					v2Enabled: true,
+				});
 				const effectiveTiming = fulfillment === 'table'
 					? 'deferred'
 					: (openMesaMode ? paymentTiming : quickSaleHasPayment ? 'immediate' : 'deferred');
-				const lines = effectiveTiming === 'immediate' ? deriveV2PaymentLines(form, quote, paymentMethods, currency, fractionDigits) : [];
+				const lines = effectiveTiming === 'immediate' ? candidateLines : [];
 				if (effectiveTiming === 'immediate') {
 					const validation = validatePaymentLines(lines, quote, paymentMethods);
 					if (!validation.valid) throw new Error('Los métodos de pago deben sumar exactamente el total y usar una tasa válida.');
@@ -350,6 +356,7 @@ export const useManualOrder = (
 				const sanitizedOrder = {
 					...form, items: itemsForOrder, total: checkoutTotal, client_name: clientName,
 					client_request_id: clientRequestIdRef.current,
+					manual_order_mode: openMesaMode ? 'session' : 'quick_sale',
 					client_phone: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_phone : (normalizeInternationalPhone(sanitizeManualOrderInput(form.client_phone), countryProfile.countryCode).e164 || sanitizeManualOrderInput(form.client_phone)),
 					client_rut: openMesaMesero ? OPEN_MESA_CAJA_DEFAULTS.client_rut : sanitizeManualOrderInput(form.client_rut),
 					local_fulfillment_mode: getLocalFulfillmentMode(form), note: sanitizeManualOrderInput(form.note),
@@ -359,7 +366,11 @@ export const useManualOrder = (
 					caller_role: userRole, coupon_code: sanitizeManualOrderInput(form.coupon_code), delivery_fee: deliveryFee,
 					...(canOverrideDeliveryFee(userRole) && form.order_type === 'delivery' ? { manual_delivery_fee: deliveryFee } : {}),
 				};
-				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled: false });
+				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({
+					...form,
+					receiptFile,
+					v2Enabled: false,
+				});
 				const shouldSettleImmediately = openMesaMode ? form.charge_now : quickSaleHasPayment;
 				if (shouldSettleImmediately) {
 					sanitizedOrder.payment_timing = 'immediate';
@@ -380,7 +391,7 @@ export const useManualOrder = (
 					? 'Pedido creado · comprobante pendiente. Puedes reintentar desde el pedido.'
 					: openMesaMode
 						? ({ mesa: 'Mesa abierta', retiro: 'Retiro abierto', delivery: 'Delivery abierto' }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta')
-						: (!openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled }))
+						: (!openMesaMode && hasManualOrderPaymentIntent({ ...form, receiptFile, v2Enabled }))
 							|| (openMesaMode && form.charge_now)
 							? 'Pedido cobrado y creado'
 							: 'Pedido creado pendiente de pago',

@@ -31,12 +31,22 @@ const RPC_ERRORS = {
 	insufficient_tender: 'El efectivo recibido no alcanza para cubrir el importe.',
 	exchange_rate_required: 'La tasa de cambio no está configurada o cambió; vuelve a cotizar.',
 	payment_conversion_mismatch: 'La conversión del pago no coincide con la tasa vigente.',
+	payment_evidence_required: 'Este método requiere un comprobante guardado antes de registrar el pago.',
+	mixed_payment_not_allowed: 'Uno de los métodos seleccionados no admite pago mixto.',
+	duplicate_payment_method: 'Cada método de pago solo puede aparecer una vez.',
+	payment_confirmation_required: 'Este método debe confirmarse mediante su proveedor de pago.',
+	cash_confirmation_required: 'Confirma el monto de efectivo recibido.',
+	cash_change_mismatch: 'El vuelto no coincide con el efectivo recibido.',
 	immediate_session_payment_disabled: 'El cobro inmediato está deshabilitado para este tipo de sesión.',
 	cash_shift_required: 'Debes abrir la caja de esta sucursal antes de confirmar.',
 	order_changed: 'El pedido cambió en otro dispositivo. Recarga la versión actual.',
 	order_changed_or_not_allowed: 'El pedido cambió o ya no tienes acceso a él.',
 	refund_required: 'La reducción requiere una devolución autorizada.',
 	refund_reason_required: 'Indica el motivo de la devolución.',
+	refund_not_allowed: 'Solo un administrador autorizado puede registrar devoluciones.',
+	invalid_refund_amount: 'El monto de la devolución no es válido.',
+	refund_amount_exceeds_payment: 'La devolución supera el saldo disponible de esa línea.',
+	payment_line_not_found: 'La línea de pago ya no existe.',
 	order_already_settled: 'El pedido ya está pagado.',
 	order_payment_required: 'Este pedido sigue pendiente de pago. Registra el cobro antes de cerrarlo.',
 	invalid_company_storage_path: 'El comprobante no pertenece al almacenamiento privado de esta empresa.',
@@ -95,12 +105,14 @@ export const manualOrderV2Service = {
 		});
 	},
 
-	settle(orderId, paymentLines, clientRequestId = crypto.randomUUID()) {
-		return rpc('settle_order_v2', {
+	async settle(orderId, paymentLines, clientRequestId = crypto.randomUUID()) {
+		const result = await rpc('settle_order_payment_v3', {
 			p_order_id: String(orderId),
 			p_client_request_id: clientRequestId,
 			p_payment_lines: paymentLines,
+			p_source: 'operator',
 		});
+		return result?.order ?? result;
 	},
 
 	settleAndTransition(orderId, paymentLines, status, clientRequestId = crypto.randomUUID()) {

@@ -42,4 +42,26 @@ describe('manual order payment lines', () => {
 		expect(result.valid).toBe(true);
 		expect(result.lines[0]).toMatchObject({ tenderedAmountMinor: 2000, changeAmountMinor: 950, tenderedCurrency: 'USD' });
 	});
+
+	it('preserves settlement policy and rejects a method excluded from mixed payments', () => {
+		const methods = normalizePaymentMethods([
+			{ id: 'cash', allowMixedPayment: true },
+			{ id: 'zelle', allowMixedPayment: false },
+		], { accountingCurrency: 'USD' });
+		expect(methods[1]).toMatchObject({
+			id: 'zelle',
+			evidencePolicy: 'required',
+			settlementTrigger: 'evidence_uploaded',
+			allowMixedPayment: false,
+		});
+		const result = validatePaymentLines([
+			{ id: 'cash', methodId: 'cash', amountMinor: 500, currency: 'USD' },
+			{ id: 'zelle', methodId: 'zelle', amountMinor: 500, currency: 'USD' },
+		], { totalMinor: 1000, currency: 'USD' }, methods);
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContainEqual({
+			methodId: 'zelle',
+			code: 'mixed_payment_not_allowed',
+		});
+	});
 });

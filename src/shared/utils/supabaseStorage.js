@@ -24,6 +24,7 @@ export const IMAGE_STORAGE_CONTEXTS = Object.freeze({
     CATALOG_PRODUCT: 'catalog-product',
     CART_UPSELL: 'cart-upsell',
     MENU_CAROUSEL: 'menu-carousel',
+    STOREFRONT_BRANDING: 'storefront-branding',
     ORDER_RECEIPT: 'order-receipt',
 });
 
@@ -31,6 +32,7 @@ const STORAGE_CONTEXT_BUCKETS = Object.freeze({
     [IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.CART_UPSELL]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL]: STORAGE_BUCKETS.MENU,
+    [IMAGE_STORAGE_CONTEXTS.STOREFRONT_BRANDING]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT]: STORAGE_BUCKETS.RECEIPTS,
 });
 
@@ -127,6 +129,17 @@ export function getCompanyImageStorageTarget(context, options = {}) {
         return {
             bucket,
             folder: companyStorageFolder(companyId, 'storefront/carousel', branchId),
+        };
+    }
+
+    if (context === IMAGE_STORAGE_CONTEXTS.STOREFRONT_BRANDING) {
+        const variant = requiredPathSegment(options.variant, 'variant');
+        if (!['logo', 'background'].includes(variant)) {
+            throw new Error('Variant de identidad visual no soportada');
+        }
+        return {
+            bucket,
+            folder: companyStorageFolder(companyId, 'storefront/branding', variant),
         };
     }
 

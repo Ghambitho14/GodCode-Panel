@@ -283,6 +283,10 @@ export function getPaymentLabel(order) {
  */
 export function getOrderPaymentDisplayLabel(order) {
 	if (!order) return '—';
+	if (order.payment_status === 'pending_verification') return 'Pago por verificar';
+	if (order.payment_status === 'partial') return 'Pago parcial';
+	if (order.payment_status === 'partially_refunded') return 'Pago parcialmente devuelto';
+	if (order.payment_status === 'refunded') return 'Pago devuelto';
 	if (isOrderPaymentDeferred(order)) return 'Pago pendiente';
 	return getPaymentLabel(order);
 }
@@ -927,7 +931,7 @@ export function isMenuOrderAwaitingPayment(order) {
 export function isOrderPaymentDeferred(order) {
 	if (!order) return false;
 	if (Number.isSafeInteger(Number(order.payment_balance_minor))) return Number(order.payment_balance_minor) > 0;
-	if (order.payment_status === 'pending' || order.payment_status === 'partial') return true;
+	if (['pending', 'pending_verification', 'partial'].includes(order.payment_status)) return true;
 	if (order.payment_status === 'paid') return false;
 	if (order.payment_timing === 'deferred') return true;
 	if (order.payment_timing === 'immediate') return false;

@@ -45,8 +45,10 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 		updatePaymentLines([...lines, {
 			id: crypto.randomUUID(), methodId: method.id, rail: method.rail,
 			amountMinor: allocatedMinor,
-			currency, evidencePolicy: method.evidencePolicy,
-			...(method.rail === 'cash' && sameCurrency ? { tenderedAmountMinor: allocatedMinor, tenderedCurrency: currency } : {}),
+			currency,
+			evidencePolicy: method.evidencePolicy,
+			settlementTrigger: method.settlementTrigger,
+			...(method.rail === 'cash' && sameCurrency ? { tenderedCurrency: currency } : {}),
             ...(sameCurrency ? {} : { settlementAmountMinor: 0, settlementCurrency: method.currency, exchangeRate }),
         }]);
     };
@@ -115,7 +117,8 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 							<label className="mt-2 block text-xs text-gc-text-muted">
 								<span>Recibido en {method.currency}</span>
 								<input className={inputClass} inputMode="decimal" type="text" aria-label={`Monto recibido ${method.label}`}
-									value={minorToMajor(line.tenderedAmountMinor ?? (foreign ? line.settlementAmountMinor : line.amountMinor) ?? 0, method.currency)}
+									value={line.tenderedAmountMinor == null ? '' : minorToMajor(line.tenderedAmountMinor, method.currency)}
+									placeholder="Confirma el monto recibido"
 									onChange={(event) => updateTenderedAmount(line, method, event.target.value)} />
 							</label>
 						) : null}

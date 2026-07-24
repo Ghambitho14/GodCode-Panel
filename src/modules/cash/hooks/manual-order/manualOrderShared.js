@@ -60,12 +60,38 @@ export const LOCAL_FULFILLMENT_MODES = ['mesa', 'retiro', 'delivery'];
  */
 export function hasManualOrderPaymentIntent(form) {
 	if (form?.v2Enabled) {
-		return Array.isArray(form.payment_lines) && form.payment_lines.length > 0;
+		const lines = Array.isArray(form.payment_lines) ? form.payment_lines : [];
+		if (lines.length === 0) return false;
+		return lines.every((line) => {
+			const trigger = String(line?.settlementTrigger ?? '').toLowerCase();
+			if (line?.rail === 'cash' || trigger === 'cash_confirmation') {
+				return Number(line?.tenderedAmountMinor ?? form?.cash_tendered) > 0
+					|| form?.charge_now === true;
+			}
+			if (trigger === 'evidence_uploaded') {
+				return Boolean(form?.receiptFile || form?.payment_ref);
+			}
+			if (trigger === 'manual_verification' || trigger === 'gateway_webhook') {
+				return false;
+			}
+			return trigger === 'pos_confirmation' || line?.rail === 'card';
+		});
 	}
-	return (
-		form?.payment_mode === 'mixed'
-		|| ['tienda', 'tarjeta', 'online'].includes(String(form?.payment_type ?? '').toLowerCase())
-	);
+	const type = String(form?.payment_type ?? '').toLowerCase();
+	if (form?.payment_mode === 'mixed') {
+		const cashDue = Number(form?.cash_amount) || 0;
+		const cashConfirmed = cashDue <= 0
+			|| Number(form?.cash_tendered) >= cashDue
+			|| form?.charge_now === true;
+		return cashConfirmed && ((Number(form?.card_amount) || 0) > 0 || cashDue > 0);
+	}
+	if (type === 'tienda') {
+		return Number(form?.cash_tendered) > 0 || form?.charge_now === true;
+	}
+	if (type === 'online') {
+		return Boolean(form?.receiptFile || form?.payment_ref);
+	}
+	return type === 'tarjeta';
 }
 
 /** Resuelve el modo local desde el formulario de pedido manual. */

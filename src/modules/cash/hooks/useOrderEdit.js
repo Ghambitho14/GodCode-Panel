@@ -19,6 +19,7 @@ import { majorToMinor, minorToMajor, parseMoneyInput, sumMinor, isoFractionDigit
 import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
 import { ordersService } from '../admin/orders/services/orders';
 import { manualOrderV2Service } from '../services/manualOrderV2Service';
+import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
 import { normalizeManualOrderSettings } from '../domain/manual-order-settings';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -79,7 +80,9 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 		};
 	}
 	const items = Array.isArray(initialOrder.items) ? initialOrder.items.map((it) => ({
+		...it,
 		id: String(it.id ?? ''),
+		line_id: it.line_id ?? it.lineId ?? null,
 		name: String(it.name ?? ''),
 		price: Number(it.price) || 0,
 		has_discount: Boolean(it.has_discount),
@@ -660,7 +663,9 @@ export const useOrderEdit = (
 				)
 				: sanitizeManualOrderInput(manualOrder.client_name);
 			const itemsForOrder = (manualOrder.items || []).map((item) => ({
+				...item,
 				id: item.id,
+				line_id: item.line_id ?? item.lineId ?? null,
 				name: String(item.name ?? ''),
 				quantity: Number(item.quantity) || 1,
 				price: Number(item.price) || 0,
@@ -744,36 +749,37 @@ export const useOrderEdit = (
 			const itemsChanged = JSON.stringify(itemsForOrder) !== initialItemsSnapshot;
 
 			const isV2Order = initialOrder.manual_order_mode === 'quick_sale' || initialOrder.manual_order_mode === 'session';
+			const hasLifecycleLines = itemsForOrder.some((item) => Boolean(item.line_id));
+			const useLifecycleV3 = isV2Order || hasLifecycleLines;
 			const v2Fulfillment = sanitizedPatch.order_type === 'delivery' ? 'delivery' : getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'table' : 'pickup';
 			const v2Delivery = sanitizedPatch.order_type === 'delivery' ? {
 				address: sanitizedPatch.delivery_address,
 				reference: sanitizedPatch.delivery_reference,
 				zoneId: sanitizedPatch.delivery_named_area_id,
 				km: sanitizedPatch.delivery_km,
+				fee: sanitizedPatch.delivery_fee,
 			} : {};
 			let updated;
-			if (isV2Order) {
-				const editQuote = await manualOrderV2Service.quote({
-					branchId: branch.id,
-					items: itemsForOrder,
-					fulfillment: v2Fulfillment,
-					delivery: v2Delivery,
-					couponCode: sanitizedPatch.coupon_code,
-					clientPhone: sanitizedPatch.client_phone,
-				});
+			if (useLifecycleV3) {
 				const previousTotalMinor = Number(initialOrder.total_minor ?? majorToMinor(initialOrder.total, currency, fractionDigits));
-				if (Number(editQuote.totalMinor) !== previousTotalMinor && !window.confirm(`El nuevo total es ${formatMinor(Number(editQuote.totalMinor), { currency, fractionDigits })}. ¿Confirmas el cambio?`)) return;
-				updated = await manualOrderV2Service.update(initialOrder.id, initialOrder.updated_at, {
-					clientName: sanitizedPatch.client_name,
-					clientPhone: sanitizedPatch.client_phone,
-					clientDocument: sanitizedPatch.client_rut,
-					items: itemsForOrder,
-					note: sanitizedPatch.note,
-					fulfillment: v2Fulfillment,
-					orderType: sanitizedPatch.order_type === 'delivery' ? 'delivery' : getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'salon' : 'pickup',
-					delivery: v2Delivery,
-					couponCode: sanitizedPatch.coupon_code,
+				if (checkoutMinor !== previousTotalMinor && !window.confirm(`El nuevo total es ${formatMinor(checkoutMinor, { currency, fractionDigits })}. ¿Confirmas el cambio?`)) return;
+				const lifecycleResult = await orderLifecycleV3Service.updateOrder({
+					orderId: initialOrder.id,
+					expectedUpdatedAt: initialOrder.updated_at,
+					patch: {
+						clientName: sanitizedPatch.client_name,
+						clientPhone: sanitizedPatch.client_phone,
+						clientDocument: sanitizedPatch.client_rut,
+						items: itemsForOrder,
+						note: sanitizedPatch.note,
+						fulfillment: v2Fulfillment,
+						operatorReference: v2Fulfillment === 'table' ? sanitizedPatch.client_name : null,
+						delivery: v2Delivery,
+						couponCode: sanitizedPatch.coupon_code,
+						expectedTotalMinor: checkoutMinor,
+					},
 				});
+				updated = lifecycleResult?.order ?? lifecycleResult;
 			} else {
 				updated = await ordersService.updateOrder(initialOrder.id, sanitizedPatch, {
 				itemsChanged,
@@ -793,22 +799,36 @@ export const useOrderEdit = (
 			if (receiptFile) {
 				if (isV2Order) {
 					const evidenceRows = await manualOrderV2Service.listEvidence(initialOrder.id);
-					if (evidenceRows.length === 0) throw new Error('Este método de pago no admite comprobante.');
-					for (const [index, evidence] of evidenceRows.entries()) {
-						const queued = await queuePaymentEvidence({
-							evidenceId: evidence.id,
-							companyId: branch.company_id,
-							branchId: branch.id,
-							orderId: initialOrder.id,
-							file: receiptFile,
-							previousPath: evidence.storage_path ?? (index === 0 ? initialOrder.payment_ref ?? null : null),
-						});
-						const upload = await uploadQueuedPaymentEvidence(queued);
-						if (!upload.ok) evidencePending = true;
+					if (evidenceRows.length === 0) {
+						const receipt = await ordersService.replaceOrderReceipt(initialOrder, receiptFile);
+						updated = {
+							...updated,
+							payment_ref: receipt.path,
+							payment_evidence_status: receipt.attachment?.status ?? 'uploaded',
+							payment_status: receipt.attachment?.paymentStatus ?? updated.payment_status,
+						};
+					} else {
+						for (const [index, evidence] of evidenceRows.entries()) {
+							const queued = await queuePaymentEvidence({
+								evidenceId: evidence.id,
+								companyId: branch.company_id,
+								branchId: branch.id,
+								orderId: initialOrder.id,
+								file: receiptFile,
+								previousPath: evidence.storage_path ?? (index === 0 ? initialOrder.payment_ref ?? null : null),
+							});
+							const upload = await uploadQueuedPaymentEvidence(queued);
+							if (!upload.ok) evidencePending = true;
+						}
 					}
 				} else {
-					const paymentRef = await ordersService.replaceOrderReceipt(initialOrder, receiptFile);
-					updated = { ...updated, payment_ref: paymentRef };
+					const receipt = await ordersService.replaceOrderReceipt(initialOrder, receiptFile);
+					updated = {
+						...updated,
+						payment_ref: receipt.path,
+						payment_evidence_status: receipt.attachment?.status ?? 'uploaded',
+						payment_status: receipt.attachment?.paymentStatus ?? updated.payment_status,
+					};
 				}
 			}
 

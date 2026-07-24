@@ -57,19 +57,42 @@ function settlementLinesFromLegacyPatch(order, patch) {
 	if (patch?.payment_mode === 'mixed') {
 		const cash = majorToMinor(patch.cash_amount, currency, digits);
 		const card = majorToMinor(patch.card_amount, currency, digits);
+		const tendered = patch.cash_tendered === '' || patch.cash_tendered == null
+			? null
+			: majorToMinor(patch.cash_tendered, currency, digits);
 		return [
-			...(cash > 0 ? [{ id: createClientUuid(), methodId: 'cash', rail: 'cash', amountMinor: cash, currency, evidencePolicy: 'none' }] : []),
+			...(cash > 0 ? [{
+				id: createClientUuid(),
+				methodId: 'cash',
+				rail: 'cash',
+				amountMinor: cash,
+				currency,
+				evidencePolicy: 'none',
+				...(tendered != null ? {
+					tenderedAmountMinor: tendered,
+					tenderedCurrency: currency,
+					changeAmountMinor: Math.max(0, tendered - cash),
+				} : {}),
+			}] : []),
 			...(card > 0 ? [{ id: createClientUuid(), methodId: 'card', rail: 'card', amountMinor: card, currency, evidencePolicy: 'optional' }] : []),
 		];
 	}
 	const rail = patch?.payment_type === 'tarjeta' ? 'card' : patch?.payment_type === 'online' ? 'online' : 'cash';
+	const tendered = patch?.cash_tendered === '' || patch?.cash_tendered == null
+		? null
+		: majorToMinor(patch.cash_tendered, currency, digits);
 	return [{
 		id: createClientUuid(),
 		methodId: rail === 'cash' ? 'cash' : rail === 'card' ? 'card' : 'bank_transfer',
 		rail,
 		amountMinor: totalMinor,
 		currency,
-		evidencePolicy: rail === 'online' ? 'optional' : 'none',
+		evidencePolicy: rail === 'online' ? 'required' : 'none',
+		...(rail === 'cash' && tendered != null ? {
+			tenderedAmountMinor: tendered,
+			tenderedCurrency: currency,
+			changeAmountMinor: Math.max(0, tendered - totalMinor),
+		} : {}),
 	}];
 }
 

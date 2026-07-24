@@ -4,6 +4,12 @@ export type Fulfillment = 'table' | 'pickup' | 'delivery';
 export type PaymentTiming = 'immediate' | 'deferred';
 export type PaymentRail = 'cash' | 'card' | 'online';
 export type EvidencePolicy = 'none' | 'optional' | 'required';
+export type SettlementTrigger =
+	| 'cash_confirmation'
+	| 'pos_confirmation'
+	| 'evidence_uploaded'
+	| 'manual_verification'
+	| 'gateway_webhook';
 
 export type CustomerRequirementSet = {
 	name: boolean;
@@ -29,6 +35,9 @@ export type PaymentMethodDefinition = {
 	rail: PaymentRail;
 	currency: string;
 	evidencePolicy: EvidencePolicy;
+	settlementTrigger: SettlementTrigger;
+	settlementCurrency?: string;
+	allowMixedPayment?: boolean;
 	enabled: boolean;
 };
 
@@ -42,9 +51,17 @@ export type PaymentLine = {
 	settlementCurrency?: string;
 	exchangeRate?: string;
 	evidencePolicy: EvidencePolicy;
+	settlementTrigger?: SettlementTrigger;
 	tenderedAmountMinor?: MinorAmount;
 	tenderedCurrency?: string;
 	changeAmountMinor?: MinorAmount;
 };
 
-export type PaymentEvidenceStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
+export type PaymentEvidenceStatus =
+	| 'pending'
+	| 'uploading'
+	| 'uploaded'
+	| 'pending_verification'
+	| 'verified'
+	| 'rejected'
+	| 'failed';

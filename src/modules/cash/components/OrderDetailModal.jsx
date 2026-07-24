@@ -51,6 +51,7 @@ import {
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { Button } from "@/components/ui/button";
 import { manualOrderV2Service } from '../services/manualOrderV2Service';
+import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
 import { parseMoneyInput, formatMinor, isoFractionDigits } from '@/lib/money/minor-units';
 
 const STATUS_LABELS = {
@@ -154,6 +155,8 @@ const OrderDetailModal = ({
 	const [paymentLedger, setPaymentLedger] = useState([]);
 	const [refundForm, setRefundForm] = useState({ paymentLineId: '', amount: '', reason: '' });
 	const [refunding, setRefunding] = useState(false);
+    const [orderLines, setOrderLines] = useState([]);
+    const [transitioningLineId, setTransitioningLineId] = useState(null);
     const showVeRateDisclaimer = useMemo(() => {
         const country = resolveEffectiveCountry(branch, companyProfile);
         if (!isVenezuelaCountry(country)) return false;
@@ -216,6 +219,24 @@ const OrderDetailModal = ({
 	}, [order?.id, liveOrder?.manual_order_mode]);
 
     useEffect(() => {
+        if (!order?.id) {
+            setOrderLines([]);
+            return;
+        }
+        let cancelled = false;
+        orderLifecycleV3Service.listLines(order.id)
+            .then((rows) => {
+                if (!cancelled) setOrderLines(rows);
+            })
+            .catch(() => {
+                if (!cancelled) setOrderLines([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [order?.id, liveOrder?.updated_at]);
+
+    useEffect(() => {
         if (!order) return;
         const onEsc = (e) => {
             if (e.key === 'Escape') onClose?.();
@@ -227,6 +248,9 @@ const OrderDetailModal = ({
     if (!order || typeof document === 'undefined') return null;
 
     const items = parseItems(liveOrder?.items);
+    const orderLineById = new Map(
+        orderLines.map((line) => [String(line.id), line]),
+    );
     const itemCount = items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
     const isDelivery = isOrderDelivery(liveOrder);
     const addrLines = deliveryAddressLines(liveOrder.delivery_address);
@@ -284,6 +308,47 @@ const OrderDetailModal = ({
         company: companyProfile,
         exchangeRate: orderMoney.exchangeRate,
     }), [branch, companyProfile, orderMoney.exchangeRate]);
+
+    const transitionOrderLine = async (line, targetStatus) => {
+        if (!line?.id || transitioningLineId) return;
+        setTransitioningLineId(line.id);
+        try {
+            const result = await orderLifecycleV3Service.transitionLine({
+                orderId: liveOrder.id,
+                lineId: line.id,
+                targetStatus,
+                quantity: 1,
+                expectedVersion: line.version,
+            });
+            if (result?.line) {
+                setOrderLines((current) =>
+                    current.map((row) => (row.id === result.line.id ? result.line : row)),
+                );
+            }
+            if (result?.order) {
+                const nextOrder = sanitizeOrder(result.order);
+                setLiveOrder(nextOrder);
+                upsertOrder?.(nextOrder);
+            }
+            showNotify?.(
+                targetStatus === 'preparing'
+                    ? 'Producto enviado a preparación.'
+                    : targetStatus === 'ready'
+                        ? 'Producto marcado como listo.'
+                        : 'Producto marcado como servido.',
+                'success',
+            );
+        } catch (error) {
+            showNotify?.(error?.message || 'No se pudo actualizar el producto.', 'error');
+            try {
+                setOrderLines(await orderLifecycleV3Service.listLines(liveOrder.id));
+            } catch {
+                // Se conserva el último estado visible.
+            }
+        } finally {
+            setTransitioningLineId(null);
+        }
+    };
 
     const handleCopyShare = async () => {
         const text = buildOrderWhatsAppShareText(liveOrder, branch?.name, shareLocale);
@@ -553,6 +618,17 @@ const OrderDetailModal = ({
                                     <ul className="table-session-receipt__items">
                                         {items.map((item, idx) => {
                                             const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
+                                            const lifecycleLine = orderLineById.get(String(item.line_id ?? item.lineId ?? ''));
+                                            const pendingQuantity = lifecycleLine
+                                                ? Math.max(
+                                                    0,
+                                                    Number(lifecycleLine.quantity_ordered)
+                                                        - Number(lifecycleLine.quantity_preparing)
+                                                        - Number(lifecycleLine.quantity_prepared)
+                                                        - Number(lifecycleLine.quantity_served),
+                                                )
+                                                : 0;
+                                            const lineBusy = transitioningLineId === lifecycleLine?.id;
                                             return (
                                                 <li key={`${item.id ?? idx}-${idx}`} className="table-session-receipt__item">
                                                     <div className="table-session-receipt__item-main">
@@ -561,6 +637,67 @@ const OrderDetailModal = ({
                                                         </span>
                                                         {itemNote ? (
                                                             <span className="table-session-receipt__item-note">{itemNote}</span>
+                                                        ) : null}
+                                                        {lifecycleLine ? (
+                                                            <div className="order-line-lifecycle" aria-label={`Preparación de ${item.name}`}>
+                                                                <span className={`order-line-lifecycle__status is-${lifecycleLine.status}`}>
+                                                                    {lifecycleLine.status === 'preparing'
+                                                                        ? 'Preparando'
+                                                                        : lifecycleLine.status === 'ready'
+                                                                            ? 'Listo'
+                                                                            : lifecycleLine.status === 'served'
+                                                                                ? 'Servido'
+                                                                                : lifecycleLine.status === 'voided'
+                                                                                    ? 'Anulado'
+                                                                                    : lifecycleLine.status === 'legacy_unknown'
+                                                                                        ? 'Estado heredado'
+                                                                                        : 'Pendiente'}
+                                                                </span>
+                                                                <span className="order-line-lifecycle__counts">
+                                                                    Pte. {pendingQuantity}
+                                                                    {' · '}Prep. {Number(lifecycleLine.quantity_preparing) || 0}
+                                                                    {' · '}Listo {Number(lifecycleLine.quantity_prepared) || 0}
+                                                                    {' · '}Servido {Number(lifecycleLine.quantity_served) || 0}
+                                                                </span>
+                                                                <div className="order-line-lifecycle__actions">
+                                                                    {pendingQuantity > 0 ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            disabled={lineBusy}
+                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'preparing')}
+                                                                        >
+                                                                            {lineBusy ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />}
+                                                                            Preparar 1
+                                                                        </Button>
+                                                                    ) : null}
+                                                                    {Number(lifecycleLine.quantity_preparing) > 0 ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            disabled={lineBusy}
+                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'ready')}
+                                                                        >
+                                                                            <CheckCircle2 size={14} />
+                                                                            Marcar 1 listo
+                                                                        </Button>
+                                                                    ) : null}
+                                                                    {Number(lifecycleLine.quantity_prepared) > 0 ? (
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            disabled={lineBusy}
+                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'served')}
+                                                                        >
+                                                                            <UtensilsCrossed size={14} />
+                                                                            Servir 1
+                                                                        </Button>
+                                                                    ) : null}
+                                                                </div>
+                                                            </div>
                                                         ) : null}
                                                     </div>
                                                     <span className="table-session-receipt__item-price">

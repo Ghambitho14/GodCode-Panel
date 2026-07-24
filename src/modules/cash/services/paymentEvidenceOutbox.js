@@ -55,6 +55,33 @@ export async function listPaymentEvidenceOutbox() {
 
 export async function uploadQueuedPaymentEvidence(entry) {
 	let newPath = null;
+	if (entry.uploadedPath) {
+		try {
+			const attachment = await manualOrderV2Service.attachEvidence(
+				entry.evidenceId,
+				entry.uploadedPath,
+				null,
+			);
+			await removePaymentEvidenceFromOutbox(entry.evidenceId);
+			if (entry.previousPath && entry.previousPath !== entry.uploadedPath) {
+				await deleteCompanyImage(entry.previousPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, entry.companyId);
+			}
+			return {
+				ok: true,
+				path: entry.uploadedPath,
+				evidenceStatus: attachment?.status ?? 'uploaded',
+				paymentStatus: attachment?.paymentStatus ?? null,
+				recoveredAfterAmbiguousResponse: true,
+			};
+		} catch (error) {
+			await queuePaymentEvidence({
+				...entry,
+				attempts: Number(entry.attempts) + 1,
+				lastError: error?.message ?? 'attach_retry_failed',
+			});
+			return { ok: false, error };
+		}
+	}
 	try {
 		await manualOrderV2Service.markEvidenceUploading(entry.evidenceId);
 		newPath = await uploadCompanyImage(entry.file, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, {
@@ -62,14 +89,51 @@ export async function uploadQueuedPaymentEvidence(entry) {
 			branchId: entry.branchId,
 			entityId: String(entry.orderId),
 		});
-		await manualOrderV2Service.attachEvidence(entry.evidenceId, newPath, null);
+		const attachment = await manualOrderV2Service.attachEvidence(entry.evidenceId, newPath, null);
 		await removePaymentEvidenceFromOutbox(entry.evidenceId);
 		if (entry.previousPath && entry.previousPath !== newPath) {
 			await deleteCompanyImage(entry.previousPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, entry.companyId);
 		}
-		return { ok: true, path: newPath };
+		return {
+			ok: true,
+			path: newPath,
+			evidenceStatus: attachment?.status ?? 'uploaded',
+			paymentStatus: attachment?.paymentStatus ?? null,
+			pendingReason: attachment?.pendingReason ?? null,
+		};
 	} catch (error) {
-		if (newPath) await deleteCompanyImage(newPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, entry.companyId);
+		if (newPath) {
+			try {
+				const evidenceRows = await manualOrderV2Service.listEvidence(entry.orderId);
+				const persisted = evidenceRows.find((row) =>
+					row.id === entry.evidenceId && row.storage_path === newPath,
+				);
+				if (persisted) {
+					await removePaymentEvidenceFromOutbox(entry.evidenceId);
+					if (entry.previousPath && entry.previousPath !== newPath) {
+						await deleteCompanyImage(entry.previousPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, entry.companyId);
+					}
+					return {
+						ok: true,
+						path: newPath,
+						evidenceStatus: persisted.status,
+						paymentStatus: null,
+						recoveredAfterAmbiguousResponse: true,
+					};
+				}
+			} catch {
+				// If verification is also unavailable, preserve the new object.
+				// The outbox will reconcile it on the next retry.
+				await queuePaymentEvidence({
+					...entry,
+					attempts: Number(entry.attempts) + 1,
+					lastError: error?.message ?? 'verification_unavailable',
+					uploadedPath: newPath,
+				});
+				return { ok: false, error };
+			}
+			await deleteCompanyImage(newPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, entry.companyId);
+		}
 		try { await manualOrderV2Service.attachEvidence(entry.evidenceId, null, error?.message ?? 'upload_failed'); } catch { /* keeps local retry authoritative */ }
 		await queuePaymentEvidence({ ...entry, attempts: Number(entry.attempts) + 1, lastError: error?.message ?? 'upload_failed' });
 		return { ok: false, error };

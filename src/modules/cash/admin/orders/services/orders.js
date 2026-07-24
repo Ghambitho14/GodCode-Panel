@@ -27,6 +27,7 @@ import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { normalizeManualPhone } from '@/modules/cash/services/clientService';
 import { branchSettingsService } from '@/modules/cash/services/branchSettingsService';
+import { orderLifecycleV3Service } from '@/modules/cash/services/orderLifecycleV3Service';
 
 function isFiniteLatLng(lat, lng) {
     const a = Number(lat);
@@ -194,18 +195,36 @@ export const ordersService = {
 				branchId: order.branch_id,
 				entityId: String(order.id),
 			});
-			const { error } = await supabase
-				.from(TABLES.orders)
-				.update({ payment_ref: newPath })
-				.eq('id', order.id)
-				.eq('company_id', order.company_id);
-			if (error) throw error;
+			const attachment = await orderLifecycleV3Service.attachReceipt({
+				orderId: order.id,
+				methodId: order.payment_method_specific || order.payment_type,
+				storagePath: newPath,
+			});
 			if (order.payment_ref && order.payment_ref !== newPath) {
 				await deleteCompanyImage(order.payment_ref, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, order.company_id);
 			}
-			return newPath;
+			return { path: newPath, attachment };
 		} catch (error) {
-			if (newPath) await deleteCompanyImage(newPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, order.company_id);
+			if (newPath) {
+				const { data: persisted, error: verificationError } = await supabase
+					.from(TABLES.orders)
+					.select('payment_ref, payment_status, payment_evidence_status')
+					.eq('id', order.id)
+					.eq('company_id', order.company_id)
+					.maybeSingle();
+				if (persisted?.payment_ref === newPath) {
+					return {
+						path: newPath,
+						attachment: {
+							status: persisted.payment_evidence_status,
+							paymentStatus: persisted.payment_status,
+							recoveredAfterAmbiguousResponse: true,
+						},
+					};
+				}
+				if (verificationError) throw error;
+				await deleteCompanyImage(newPath, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, order.company_id);
+			}
 			throw error;
 		}
 	},
@@ -566,7 +585,14 @@ export const ordersService = {
                 orderData.payment_breakdown,
                 totalForRpc,
             );
-            const registerPayment = !isOrderPaymentDeferred(orderData);
+            // Selecting an online method is not proof of settlement. If the
+            // private receipt could not be persisted, create the order safely
+            // as pending so it can be paid/retried later.
+            const registerPayment = !isOrderPaymentDeferred(orderData)
+                && (
+                    String(orderData.payment_type || '').toLowerCase() !== 'online'
+                    || Boolean(paymentRef)
+                );
             const currencyDigits = fractionDigitsForCurrency(branchCurrency);
             const transactionResult = await atomicOrderTransactionService.create({
                 p_client_request_id: orderData.client_request_id || createClientUuid(),
@@ -596,6 +622,8 @@ export const ordersService = {
                 ),
                 p_coupon_code: pCouponCode,
                 p_client_id: selectedClientId,
+                p_manual_order_mode: orderData.manual_order_mode || 'quick_sale',
+                p_payment_timing: orderData.payment_timing || (registerPayment ? 'immediate' : 'deferred'),
             });
 
             const newOrder = transactionResult?.order ?? transactionResult;
@@ -612,6 +640,24 @@ export const ordersService = {
             };
         } catch (error) {
             if (uploadedReceiptPath && !orderCreated && orderData?.company_id) {
+                const requestId = orderData.client_request_id;
+                if (requestId) {
+                    const { data: persisted, error: verificationError } = await supabase
+                        .from(TABLES.orders)
+                        .select('*')
+                        .eq('company_id', orderData.company_id)
+                        .eq('client_request_id', requestId)
+                        .maybeSingle();
+                    if (persisted?.payment_ref === uploadedReceiptPath) {
+                        return {
+                            order: sanitizeOrder(persisted),
+                            receiptUploadFailed: false,
+                            idempotentReplay: true,
+                            cashRegistered: persisted.payment_status === 'paid',
+                        };
+                    }
+                    if (verificationError) throwOrderRpcError(error);
+                }
                 await deleteCompanyImage(
                     uploadedReceiptPath,
                     IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT,

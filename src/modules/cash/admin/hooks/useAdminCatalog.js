@@ -9,6 +9,7 @@ import {
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
+import { orderLifecycleV3Service } from '../../services/orderLifecycleV3Service';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
 
 /**
@@ -58,7 +59,7 @@ export function useAdminCatalog({
 		try {
 			const { data: order } = await supabase
 				.from(TABLES.orders)
-				.select('payment_ref, branch_id, manual_order_mode, payment_evidence_status')
+				.select('payment_ref, payment_type, payment_method_specific, branch_id, manual_order_mode, payment_evidence_status')
 				.eq('id', orderId)
 				.eq('company_id', companyId)
 				.maybeSingle();
@@ -83,12 +84,33 @@ export function useAdminCatalog({
 					}
 					const allUploaded = results.every((result) => result.ok);
 					const uploadedPath = results.find((result) => result.ok)?.path ?? previousRef;
+					const evidenceStatus = !allUploaded
+						? 'failed'
+						: results.some((result) => result.evidenceStatus === 'pending_verification')
+							? 'pending_verification'
+							: results.every((result) => result.evidenceStatus === 'verified')
+								? 'verified'
+								: 'uploaded';
+					const settledPaymentStatus = results.find((result) => result.paymentStatus)?.paymentStatus;
 					const patch = allUploaded
-						? { payment_ref: uploadedPath, payment_evidence_status: 'uploaded' }
+						? {
+							payment_ref: uploadedPath,
+							payment_evidence_status: evidenceStatus,
+							...(settledPaymentStatus ? { payment_status: settledPaymentStatus } : {}),
+						}
 						: { payment_ref: uploadedPath, payment_evidence_status: 'failed' };
 					setOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
 					if (selectedClient) setSelectedClientOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
-					showNotify(allUploaded ? 'Comprobante guardado' : 'El comprobante quedó pendiente y se reintentará automáticamente.', allUploaded ? 'success' : 'warning');
+					showNotify(
+						!allUploaded
+							? 'El comprobante quedó pendiente y se reintentará automáticamente.'
+							: evidenceStatus === 'pending_verification'
+								? 'Comprobante guardado y pendiente de verificación.'
+								: evidenceStatus === 'verified'
+									? 'Comprobante guardado y pago verificado.'
+									: 'Comprobante guardado.',
+						allUploaded && evidenceStatus !== 'pending_verification' ? 'success' : 'warning',
+					);
 					setReceiptModalOrder(null);
 					setReceiptPreview(null);
 					return;
@@ -103,20 +125,31 @@ export function useAdminCatalog({
 					entityId: orderId,
 				},
 			);
-			const { error } = await supabase
-				.from(TABLES.orders)
-				.update({ payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' })
-				.eq('id', orderId)
-				.eq('company_id', companyId);
-			if (error) throw error;
+			const attachment = await orderLifecycleV3Service.attachReceipt({
+				orderId,
+				methodId: order?.payment_method_specific || order?.payment_type,
+				storagePath: uploadedReceiptPath,
+			});
 			if (previousRef && previousRef !== uploadedReceiptPath) {
 				await deleteCompanyImage(previousRef, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, companyId);
 			}
-			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' } : o));
+			const patch = {
+				payment_ref: uploadedReceiptPath,
+				payment_evidence_status: attachment?.status || 'uploaded',
+				...(attachment?.paymentStatus ? { payment_status: attachment.paymentStatus } : {}),
+			};
+			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...patch } : o));
 			if (selectedClient) {
-				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' } : o));
+				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...patch } : o));
 			}
-			showNotify('Comprobante agregado');
+			showNotify(
+				attachment?.paymentStatus === 'paid'
+					? 'Comprobante agregado y pago registrado.'
+					: attachment?.status === 'pending_verification'
+						? 'Comprobante agregado; requiere verificación.'
+						: 'Comprobante agregado.',
+				attachment?.status === 'pending_verification' ? 'warning' : 'success',
+			);
 			setReceiptModalOrder(null);
 			setReceiptPreview(null);
 		} catch (error) {

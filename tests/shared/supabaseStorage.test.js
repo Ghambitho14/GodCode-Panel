@@ -104,6 +104,23 @@ describe('Supabase Storage empresarial', () => {
         )).toBe(false);
     });
 
+    it('organiza logo y fondo de la tienda por negocio', () => {
+        expect(getCompanyImageStorageTarget(
+            IMAGE_STORAGE_CONTEXTS.STOREFRONT_BRANDING,
+            { companyId: COMPANY_ID, variant: 'logo' },
+        )).toEqual({
+            bucket: 'menu',
+            folder: `${COMPANY_ID}/storefront/branding/logo`,
+        });
+        expect(getCompanyImageStorageTarget(
+            IMAGE_STORAGE_CONTEXTS.STOREFRONT_BRANDING,
+            { companyId: COMPANY_ID, variant: 'background' },
+        )).toEqual({
+            bucket: 'menu',
+            folder: `${COMPANY_ID}/storefront/branding/background`,
+        });
+    });
+
     it('no confunde una referencia de pago textual con un comprobante', () => {
         expect(isStorageObjectReference('Pago Presencial', 'receipts')).toBe(false);
         expect(isStorageObjectReference('Transferencia', 'receipts')).toBe(false);

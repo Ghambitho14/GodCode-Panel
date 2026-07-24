@@ -6,14 +6,47 @@ describe('detección automática de pago en pedido manual', () => {
 		expect(hasManualOrderPaymentIntent({ v2Enabled: true, payment_lines: [] })).toBe(false);
 	});
 
-	it('marca intención de pago V2 al agregar una línea', () => {
+	it('no marca efectivo como pagado solo por seleccionar el método', () => {
 		expect(hasManualOrderPaymentIntent({
 			v2Enabled: true,
-			payment_lines: [{ id: 'line-1', methodId: 'cash' }],
+			payment_lines: [{
+				id: 'line-1',
+				methodId: 'cash',
+				rail: 'cash',
+				settlementTrigger: 'cash_confirmation',
+			}],
+		})).toBe(false);
+	});
+
+	it('marca efectivo como pago cuando se confirma lo recibido', () => {
+		expect(hasManualOrderPaymentIntent({
+			v2Enabled: true,
+			payment_lines: [{
+				id: 'line-1',
+				methodId: 'cash',
+				rail: 'cash',
+				settlementTrigger: 'cash_confirmation',
+				tenderedAmountMinor: 1000,
+			}],
 		})).toBe(true);
 	});
 
-	it('detecta métodos legacy sin depender de charge_now', () => {
+	it('exige comprobante para pagos que se liquidan al subir evidencia', () => {
+		const payment_lines = [{
+			id: 'line-1',
+			methodId: 'pago_movil',
+			rail: 'online',
+			settlementTrigger: 'evidence_uploaded',
+		}];
+		expect(hasManualOrderPaymentIntent({ v2Enabled: true, payment_lines })).toBe(false);
+		expect(hasManualOrderPaymentIntent({
+			v2Enabled: true,
+			payment_lines,
+			receiptFile: new File(['proof'], 'proof.png', { type: 'image/png' }),
+		})).toBe(true);
+	});
+
+	it('detecta métodos legacy sin depender solo de charge_now', () => {
 		expect(hasManualOrderPaymentIntent({
 			v2Enabled: false,
 			charge_now: false,
