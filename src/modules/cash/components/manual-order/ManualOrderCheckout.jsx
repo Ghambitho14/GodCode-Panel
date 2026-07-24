@@ -1,7 +1,11 @@
 import React from 'react';
 import { CheckCircle2, ShoppingBag, Banknote } from 'lucide-react';
-import { effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
-import { getLocalFulfillmentMode, isOpenMesaMeseroMode } from '../../hooks/manual-order/manualOrderShared';
+import {
+	getLocalFulfillmentMode,
+	hasManualOrderPaymentIntent,
+	isOpenMesaMeseroMode,
+	validateManualDeliveryDetails,
+} from '../../hooks/manual-order/manualOrderShared';
 import {
 	validateCheckoutPayment,
 	isLocalOpenSessionOrder,
@@ -105,14 +109,7 @@ export function useManualOrderCheckoutFlow({
 		if (manualOrder.order_type !== 'delivery') return true;
 		if (branchConfigError) return false;
 		if (branchDeliveryCfgLoading) return false;
-		const addrOk = Boolean(manualOrder.delivery_address && manualOrder.delivery_address.trim().length >= 5);
-		if (!branchDeliveryCfg) return addrOk;
-		const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
-		if (pricing === 'named') {
-			return addrOk && String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
-		}
-		if (pricing === 'distance') return addrOk;
-		return addrOk || String(manualOrder.delivery_named_area_id ?? '').trim().length > 0;
+		return validateManualDeliveryDetails(manualOrder, branchDeliveryCfg) == null;
 	};
 
 	const fulfillmentForValidation = () => (
@@ -156,6 +153,7 @@ export function useManualOrderCheckoutFlow({
 			totalToPay,
 		}).valid;
 	};
+	const hasPaymentIntent = () => hasManualOrderPaymentIntent(manualOrder);
 
 	const isFormValid = () => {
 		if (branchDeliveryCfgLoading || branchConfigError) return false;
@@ -170,7 +168,9 @@ export function useManualOrderCheckoutFlow({
 
 		if (manualOrder.v2Enabled) {
 			const fulfillment = fulfillmentForValidation();
-			const immediate = !effectiveOpenMesaMode || (fulfillment !== 'table' && openMesaChargeNow);
+			const immediate = fulfillment !== 'table' && (
+				effectiveOpenMesaMode ? Boolean(manualOrder.charge_now) : hasPaymentIntent()
+			);
 			return hasItems && isContextCustomerValid() && isDeliveryValidForOrder()
 				&& Boolean(manualOrder.quote?.quoteHash) && (!immediate || isPaymentValid());
 		}
@@ -187,7 +187,8 @@ export function useManualOrderCheckoutFlow({
 			return openMesaChargeNow ? base && hasPaymentType && paymentOk : base;
 		}
 
-		return hasItems && isContextCustomerValid() && hasPaymentType && paymentOk && isDeliveryValidForOrder();
+		const base = hasItems && isContextCustomerValid() && isDeliveryValidForOrder();
+		return hasPaymentIntent() ? base && hasPaymentType && paymentOk : base;
 	};
 
 	const isClientStepValid = () => {
@@ -221,7 +222,11 @@ export function useManualOrderCheckoutFlow({
 
 		if (isCompactNav && orderStep === 2 && showClassicPaymentStep) {
 			if (!isClientStepValid()) {
-				showNotify?.('Completa el nombre del cliente y los datos de entrega.', 'warning');
+				const deliveryError = validateManualDeliveryDetails(manualOrder, branchDeliveryCfg);
+				showNotify?.(
+					deliveryError || 'Completa el nombre del cliente y los datos requeridos.',
+					'warning',
+				);
 				return;
 			}
 			setOrderStep(3);
@@ -230,7 +235,8 @@ export function useManualOrderCheckoutFlow({
 
 		if (isCompactNav && orderStep === 2 && openMesaChargeNow) {
 			if (!isClientStepValid()) {
-				showNotify?.('Completa los datos del cliente.', 'warning');
+				const deliveryError = validateManualDeliveryDetails(manualOrder, branchDeliveryCfg);
+				showNotify?.(deliveryError || 'Completa los datos del cliente.', 'warning');
 				return;
 			}
 			setOrderStep(3);
@@ -248,8 +254,8 @@ export function useManualOrderCheckoutFlow({
 				? ['Productos', 'Entrega', 'Cobro inicial']
 				: ['Productos', 'Abrir sesión']))
 		: (isCompactNav
-			? ['Productos', 'Entrega', 'Cobro']
-			: ['Productos', 'Cobrar venta']);
+			? ['Productos', 'Entrega', 'Pago opcional']
+			: ['Productos', 'Completar pedido']);
 
 	return {
 		totalToPay,
@@ -328,8 +334,14 @@ export default function ManualOrderCheckout({
 		isEditMode,
 		openMesaFulfillment,
 	});
+	const submitLabel = isEditMode
+		? 'GUARDAR CAMBIOS'
+		: effectiveOpenMesaMode
+			? openMesaSubmitLabel
+			: 'CREAR PEDIDO';
+	const quickSaleHasPayment = !effectiveOpenMesaMode && hasManualOrderPaymentIntent(manualOrder);
 	const tableMustDeferPayment = effectiveOpenMesaMode && openMesaFulfillment === 'mesa';
-	const immediateSessionAllowed = tableMustDeferPayment ? false
+	const immediateSessionAllowed = !effectiveOpenMesaMode ? true : tableMustDeferPayment ? false
 		: manualOrder.manualOrderSettings?.allowImmediateSessionPayment?.[
 			openMesaFulfillment === 'delivery' ? 'delivery' : 'pickup'
 		] !== false;
@@ -503,12 +515,11 @@ export default function ManualOrderCheckout({
 		loading,
 		isFormValid,
 		goPrevStep,
-		confirmLabel: openMesaChargeNow
-			? openMesaSubmitLabel
-			: (isEditMode ? 'GUARDAR CAMBIOS' : (effectiveOpenMesaMode ? openMesaSubmitLabel : 'COBRAR Y CREAR')),
+		confirmLabel: submitLabel,
 		onCancelOrder: canCancelOrder ? handleCancelOrder : null,
 		isEditMode,
 		hideCheckoutActions: false,
+		paymentOptional: !effectiveOpenMesaMode && !isEditMode,
 	};
 
 	const paymentDetailsMobileProps = {
@@ -517,7 +528,7 @@ export default function ManualOrderCheckout({
 		hideCheckoutActions: true,
 		embedded: true,
 	};
-	const isClientOnlyStep = isCompactNav && (showClassicPaymentStep || openMesaChargeNow);
+	const isClientOnlyStep = isCompactNav && orderStep === 2;
 
 	const checkoutOverview = (
 		<div className="manual-order-checkout-overview">
@@ -528,20 +539,20 @@ export default function ManualOrderCheckout({
 						: (isClientOnlyStep ? 'VENTA RÁPIDA · ENTREGA' : 'VENTA RÁPIDA · COBRO')}
 				</span>
 				<h2>
-					{isClientOnlyStep
-						? (effectiveOpenMesaMode ? 'Define cómo se atenderá' : 'Cliente y entrega')
-						: effectiveOpenMesaMode
-							? 'Abre un consumo para cobrar después'
-							: 'Cobra y crea la venta'}
+						{isClientOnlyStep
+							? (effectiveOpenMesaMode ? 'Define cómo se atenderá' : 'Cliente y entrega')
+							: effectiveOpenMesaMode
+								? 'Abre un consumo para cobrar después'
+								: 'Crea el pedido'}
 				</h2>
 				<p>
 					{isClientOnlyStep
 						? (effectiveOpenMesaMode
 							? 'Elige mesa, retiro o delivery y completa solo los datos requeridos para esa atención.'
 							: 'Elige retiro o delivery y completa los datos necesarios antes del cobro.')
-						: effectiveOpenMesaMode
-						? 'La sesión queda pendiente por defecto. Retiro y delivery pueden cobrarse al abrir si lo indicas.'
-						: 'La venta rápida exige un método de pago confirmado y se registra inmediatamente en caja.'}
+							: effectiveOpenMesaMode
+							? 'La sesión queda pendiente por defecto. Retiro y delivery pueden cobrarse al abrir si lo indicas.'
+							: 'Si completas un método, se registrará pagado en caja. Si no, quedará pendiente para cobrar después.'}
 				</p>
 			</div>
 			<div className="manual-order-checkout-overview__meta" aria-label="Resumen rápido del pedido">
@@ -566,7 +577,7 @@ export default function ManualOrderCheckout({
 					)}
 					onClick={() => updateChargeNow?.(false)}
 				>
-					Pago pendiente
+					Crear pendiente
 				</Button>
 				<Button variant="default"
 					type="button"
@@ -578,15 +589,19 @@ export default function ManualOrderCheckout({
 					disabled={!immediateSessionAllowed}
 					title={!immediateSessionAllowed ? 'El cobro inmediato está deshabilitado para este tipo de sesión.' : undefined}
 				>
-					Ya pagado
+					Cobrar ahora
 				</Button>
 			</div>
 			<p className={openMesaHintClass}>
 				{tableMustDeferPayment
 					? 'Las mesas siempre se abren pendientes; el cobro se registra al cerrar.'
 					: manualOrder.charge_now
-					? 'Registra el método de pago al abrir la sesión.'
-					: 'El cobro se registra al cerrar la mesa, retiro o delivery.'}
+					? effectiveOpenMesaMode
+						? 'Registra el método de pago al abrir la sesión.'
+						: 'Confirma el método de pago y registra la venta en caja ahora.'
+					: effectiveOpenMesaMode
+						? 'El cobro puede registrarse en cualquier momento antes de cerrar la mesa, retiro o delivery.'
+						: 'No se requiere un método ahora. El pedido no podrá entregarse hasta registrar el pago.'}
 			</p>
 		</div>
 	) : null;
@@ -672,14 +687,23 @@ export default function ManualOrderCheckout({
 					>
 						ATRÁS
 					</Button>
-					{effectiveOpenMesaMode && !openMesaChargeNow ? (
+					{showClassicPaymentStep ? (
+						<Button variant="default"
+							type="button"
+							className={stepNavNextClass}
+							onClick={goNextStep}
+							disabled={!isClientStepValid()}
+						>
+							Siguiente
+						</Button>
+					) : !openMesaChargeNow ? (
 						<Button variant="default"
 							type="button"
 							className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
 							onClick={submitOrder}
 							disabled={loading || !isFormValid()}
 						>
-							{openMesaSubmitLabel}
+							{submitLabel}
 						</Button>
 					) : effectiveOpenMesaMode && openMesaChargeNow ? (
 						<Button variant="default"
@@ -730,7 +754,7 @@ export default function ManualOrderCheckout({
 						onClick={submitOrder}
 						disabled={loading || !isFormValid()}
 					>
-						{loading ? 'PROCESANDO...' : (openMesaChargeNow ? openMesaSubmitLabel : (isEditMode ? 'GUARDAR' : effectiveOpenMesaMode ? openMesaSubmitLabel : 'COBRAR Y CREAR'))}
+						{loading ? 'PROCESANDO...' : submitLabel}
 					</Button>
 				</div>
 			) : null}
@@ -740,7 +764,7 @@ export default function ManualOrderCheckout({
 	const classicCheckoutRailActions = !effectiveOpenMesaMode ? (
 		<div className="manual-order-checkout-rail-actions" role="group" aria-label="Confirmación del pedido">
 			<div className="manual-order-checkout-rail-actions__total">
-				<span>Total a cobrar</span>
+					<span>{quickSaleHasPayment ? 'Total a cobrar' : 'Total del pedido'}</span>
 				<strong>{formatAccountingMoney(totalToPay)}</strong>
 			</div>
 			<p
@@ -751,9 +775,13 @@ export default function ManualOrderCheckout({
 				role="status"
 				aria-live="polite"
 			>
-				{canSubmitOrder
-					? 'Pedido listo para cobrar y crear.'
-					: 'Completa los campos y el pago indicados en la columna principal.'}
+					{canSubmitOrder
+						? quickSaleHasPayment
+							? 'El pago está completo; el pedido se creará pagado.'
+							: 'Sin método de pago; el pedido se creará pendiente.'
+						: quickSaleHasPayment
+							? 'Completa correctamente la información del pago.'
+							: 'Completa los datos obligatorios del cliente y la entrega.'}
 			</p>
 			<div className="manual-order-checkout-rail-actions__buttons">
 				<Button variant="outline" type="button" className={checkoutBackBtnClass} onClick={goPrevStep} disabled={loading}>
@@ -767,7 +795,7 @@ export default function ManualOrderCheckout({
 					disabled={loading || !canSubmitOrder}
 				>
 					<CheckCircle2 size={19} aria-hidden />
-					{loading ? 'PROCESANDO…' : (isEditMode ? 'GUARDAR CAMBIOS' : 'COBRAR Y CREAR')}
+					{loading ? 'PROCESANDO…' : submitLabel}
 				</Button>
 			</div>
 			{canCancelOrder ? (
@@ -849,11 +877,11 @@ export default function ManualOrderCheckout({
 						</>
 					) : (
 						<>
-							<div className="manual-order-checkout-main">
-								{checkoutClientColumn}
-								<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
-									<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
-								</div>
+								<div className="manual-order-checkout-main">
+									{checkoutClientColumn}
+									<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
+										<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
+									</div>
 							</div>
 							{checkoutSummaryColumn}
 						</>
@@ -939,10 +967,15 @@ export default function ManualOrderCheckout({
 									{openMesaSessionPaymentSection}
 									<OrderSummary {...orderSummaryProps} />
 								</>
-							) : clientSection}
+							) : (
+								<>
+									{clientSection}
+									{openMesaPaymentChoiceSection}
+								</>
+							)}
 							{!isClientStepValid() ? (
 								<p className="manual-order-client-step-hint" role="status">
-									Completa los campos obligatorios para continuar al pago.
+									Completa los campos obligatorios para continuar.
 								</p>
 							) : null}
 						</div>

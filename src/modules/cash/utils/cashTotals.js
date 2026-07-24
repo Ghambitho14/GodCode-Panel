@@ -36,6 +36,7 @@ export const EMPTY_SHIFT_TOTALS = {
 	deliveryCollected: 0,
 	deliveryRefunded: 0,
 	deliveryPaidToCourier: 0,
+	cashBalanceDelta: 0,
 };
 
 function applyPaymentMethodDelta(acc, paymentMethod, delta) {
@@ -59,6 +60,7 @@ export function computeShiftTotals(movementsData = []) {
 
 		if (m.type === 'expense') {
 			acc.expenses += amount;
+			if (m.payment_method === 'cash') acc.cashBalanceDelta -= amount;
 			if (isManualLocalExpense(m)) {
 				acc.manualExpenses += amount;
 				acc.manualExpenseCount += 1;
@@ -91,6 +93,7 @@ export function computeShiftTotals(movementsData = []) {
 			if (m.type === 'sale') {
 				applyPaymentMethodDelta(acc, m.payment_method, amount);
 			}
+			if (m.payment_method === 'cash') acc.cashBalanceDelta += amount;
 			acc.income += amount;
 
 			if (m.type === 'sale' && deliveryFee > 0) {

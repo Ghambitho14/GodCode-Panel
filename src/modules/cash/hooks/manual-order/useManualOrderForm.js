@@ -146,6 +146,7 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
             cash_amount: 0,
             card_amount: 0,
             cash_tendered: '',
+            payment_lines: [],
         }));
     }, []);
 

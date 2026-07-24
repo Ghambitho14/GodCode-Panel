@@ -57,8 +57,9 @@ const ManualOrderModal = ({
 	}, [editOrder, orders]);
 	const isLocalSessionEdit = isEditMode && isLocalOpenSessionOrder(liveEditOrder);
 	const effectiveOpenMesaMode = openMesaMode || isLocalSessionEdit;
-	const showClassicPaymentStep = !effectiveOpenMesaMode;
-	const showOpenMesaPaymentChoice = openMesaMode && !isEditMode;
+	// En venta rápida el método elegido determina automáticamente si se paga.
+	// El selector explícito se conserva solo para las sesiones.
+	const showOpenMesaPaymentChoice = !isEditMode && effectiveOpenMesaMode;
 
 	const {
 		branchDeliveryCfg,
@@ -120,6 +121,7 @@ const ManualOrderModal = ({
 	const effectiveBranchConfigError = branchConfigError || manualOrder?.branchConfigError || null;
 
 	const openMesaChargeNow = showOpenMesaPaymentChoice && Boolean(manualOrder?.charge_now);
+	const showClassicPaymentStep = !effectiveOpenMesaMode && !isEditMode;
 
 	const [orderStep, setOrderStep] = useState(1);
 	const [isCompactNav, setIsCompactNav] = useState(() => {

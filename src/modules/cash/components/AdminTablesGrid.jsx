@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
-import { ChefHat, CheckCircle2 } from 'lucide-react';
+import { Banknote, ChefHat, CheckCircle2 } from 'lucide-react';
 
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
@@ -11,6 +11,8 @@ import {
 	getOrderTileKind,
 
 	filterOpenOrderSessions,
+
+	isOrderPaymentDeferred,
 
 } from '@/shared/utils/orderUtils';
 
@@ -58,6 +60,8 @@ function TableSessionModal({
 	onMarkReady,
 
 	onCloseTable,
+
+	onMarkPaid,
 
 	onOpenDetail,
 
@@ -208,6 +212,18 @@ function TableSessionModal({
 								<>
 
 									{primaryAction}
+
+									{isOrderPaymentDeferred(order) ? (
+										<Button
+											variant="secondary"
+											type="button"
+											className="table-session-receipt__link"
+											onClick={() => onMarkPaid?.(order)}
+										>
+											<Banknote size={17} aria-hidden />
+											Cobrar ahora
+										</Button>
+									) : null}
 
 									<Button variant="default"
 
@@ -402,6 +418,8 @@ export default function AdminTablesGrid({
 					}}
 
 					onCloseTable={() => setCloseOpen(true)}
+
+					onMarkPaid={() => setPayOpen(true)}
 
 					onOpenDetail={() => setDetailOpen(true)}
 

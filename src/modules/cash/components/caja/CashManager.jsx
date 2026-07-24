@@ -104,6 +104,9 @@ const CashManager = ({
     useEffect(() => { loadHistory(); }, [loadHistory, activeShift]);
 
     const totals = useMemo(() => getTotals(movements), [movements, getTotals]);
+    const expectedCashBalance =
+        (Number(activeShift?.opening_balance) || 0)
+        + (Number(totals.cashBalanceDelta) || 0);
     const deliveryNet = Math.max(
         0,
         (Number(totals.deliveryCollected) || 0) - (Number(totals.deliveryRefunded) || 0)
@@ -240,7 +243,7 @@ const CashManager = ({
                                 />
                                 <span>Balance Esperado</span>
                             </div>
-                            <div className="cash-kpi-value">{fmt(activeShift.expected_balance ?? activeShift.opening_balance ?? 0)}</div>
+                            <div className="cash-kpi-value">{fmt(expectedCashBalance)}</div>
                             <div className="cash-kpi-sub">Base: {fmt(activeShift.opening_balance || 0)}</div>
                         </div>
 

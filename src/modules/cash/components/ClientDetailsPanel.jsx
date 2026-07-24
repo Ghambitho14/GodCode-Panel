@@ -3,6 +3,7 @@ import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, 
 import { getOrderPaymentDisplayLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { Button } from "@/components/ui/button";
+import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
 
 const ClientDetailsPanel = ({
     selectedClient,
@@ -50,7 +51,7 @@ const ClientDetailsPanel = ({
     
     // Renderiza el botón de acción según estado del pago
     const renderPaymentAction = (order) => {
-		if (order.payment_ref) {
+		if (isStorageObjectReference(order.payment_ref, 'receipts') || order.payment_evidence_status === 'uploaded') {
             return (
                 <div className="payment-actions" onClick={(e) => e.stopPropagation()}>
 					<Button variant="default" type="button"

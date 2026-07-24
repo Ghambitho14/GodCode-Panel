@@ -38,6 +38,7 @@ const RPC_ERRORS = {
 	refund_required: 'La reducción requiere una devolución autorizada.',
 	refund_reason_required: 'Indica el motivo de la devolución.',
 	order_already_settled: 'El pedido ya está pagado.',
+	order_payment_required: 'Este pedido sigue pendiente de pago. Registra el cobro antes de cerrarlo.',
 	invalid_company_storage_path: 'El comprobante no pertenece al almacenamiento privado de esta empresa.',
 };
 

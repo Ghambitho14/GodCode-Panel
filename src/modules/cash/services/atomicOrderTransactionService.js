@@ -8,6 +8,9 @@ const FRIENDLY_ERRORS = {
 	payment_method_required: 'Selecciona y confirma el método de pago.',
 	deferred_payment_has_amount: 'Un pedido pendiente no puede contener un cobro.',
 	order_not_found_or_not_allowed: 'El pedido no existe o no tienes acceso.',
+	invalid_delivery_area: 'La zona de delivery seleccionada ya no está disponible.',
+	delivery_minimum_subtotal: 'El subtotal no alcanza el mínimo configurado para delivery.',
+	invalid_item_price: 'El total del pedido no coincide con el catálogo y la tarifa de delivery configurada. Vuelve a cotizar.',
 };
 
 function normalizeRpcError(error) {

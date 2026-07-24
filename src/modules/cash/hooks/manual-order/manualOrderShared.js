@@ -54,6 +54,20 @@ export const OPEN_MESA_DEFAULT_CLIENT_NAMES = {
 /** Modos de fulfillment al abrir sesión local en caja. */
 export const LOCAL_FULFILLMENT_MODES = ['mesa', 'retiro', 'delivery'];
 
+/**
+ * Detecta una intención de pago explícita sin asumir efectivo por defecto.
+ * En V2 la fuente de verdad son las líneas; en legacy, el método seleccionado.
+ */
+export function hasManualOrderPaymentIntent(form) {
+	if (form?.v2Enabled) {
+		return Array.isArray(form.payment_lines) && form.payment_lines.length > 0;
+	}
+	return (
+		form?.payment_mode === 'mixed'
+		|| ['tienda', 'tarjeta', 'online'].includes(String(form?.payment_type ?? '').toLowerCase())
+	);
+}
+
 /** Resuelve el modo local desde el formulario de pedido manual. */
 export function getLocalFulfillmentMode(form) {
 	const explicit = String(form?.local_fulfillment_mode ?? '').trim().toLowerCase();
@@ -254,6 +268,84 @@ export function computeDeliveryFeeForForm(branchDeliveryCfg, subtotal, {
 	const safeKm = Number.isFinite(kmRaw) && kmRaw >= 0 ? kmRaw : 0;
 	const r = computeDeliveryFee(branchDeliveryCfg, safeKm, safeSubtotal);
 	return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
+}
+
+/** La zona se elige explícitamente y representa el destino tarifario completo. */
+export function isManualNamedDeliveryMode(branchDeliveryCfg) {
+	return Boolean(
+		branchDeliveryCfg
+		&& effectiveDeliveryPricingMode(branchDeliveryCfg) === 'named'
+		&& (branchDeliveryCfg.namedAreas?.length ?? 0) > 0
+		&& String(branchDeliveryCfg.namedAreaResolution ?? 'manual_select').toLowerCase() !== 'address_matched',
+	);
+}
+
+/** Busca únicamente zonas habilitadas por la configuración actual de la sucursal. */
+export function resolveSelectedNamedArea(branchDeliveryCfg, namedAreaId) {
+	const zoneId = String(namedAreaId ?? '').trim();
+	if (!zoneId || !Array.isArray(branchDeliveryCfg?.namedAreas)) return null;
+	return branchDeliveryCfg.namedAreas.find((area) => String(area?.id ?? '').trim() === zoneId) ?? null;
+}
+
+/**
+ * Construye el contrato de delivery para cotización y persistencia.
+ * En selección manual no inventamos una segunda dirección: zona + referencia
+ * forman una dirección canónica compatible con RPC, caja y tickets.
+ */
+export function buildManualDeliveryPayload(form, branchDeliveryCfg) {
+	const zoneId = String(form?.delivery_named_area_id ?? '').trim();
+	const reference = sanitizeManualOrderInput(form?.delivery_reference);
+	const selectedArea = resolveSelectedNamedArea(branchDeliveryCfg, zoneId);
+	const manualNamed = isManualNamedDeliveryMode(branchDeliveryCfg);
+	let address = sanitizeManualOrderInput(form?.delivery_address);
+
+	if (manualNamed) {
+		const zoneLabel = sanitizeManualOrderInput(selectedArea?.name);
+		address = zoneLabel
+			? [`Zona: ${zoneLabel}`, reference ? `Ref: ${reference}` : ''].filter(Boolean).join(' · ')
+			: '';
+	}
+
+	return {
+		address,
+		reference,
+		zoneId: zoneId || null,
+		km:
+			form?.delivery_km === '' || form?.delivery_km == null
+				? null
+				: Number(String(form.delivery_km).replace(',', '.')),
+	};
+}
+
+/** Error específico y accionable para el bloque de entrega. */
+export function validateManualDeliveryDetails(form, branchDeliveryCfg) {
+	if (String(form?.order_type ?? '').toLowerCase() !== 'delivery') return null;
+	if (!branchDeliveryCfg) {
+		return 'No se pudo validar la configuración de delivery. Reintenta.';
+	}
+
+	const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
+	const zoneId = String(form?.delivery_named_area_id ?? '').trim();
+	const address = sanitizeManualOrderInput(form?.delivery_address);
+	const reference = sanitizeManualOrderInput(form?.delivery_reference);
+
+	if (pricing === 'named') {
+		if (!zoneId) return 'Selecciona la zona de entrega.';
+		if (!resolveSelectedNamedArea(branchDeliveryCfg, zoneId)) {
+			return 'La zona seleccionada ya no está disponible. Elige otra zona.';
+		}
+		if (isManualNamedDeliveryMode(branchDeliveryCfg)) {
+			if (reference.length < 3) {
+				return 'Indica una referencia dentro de la zona: calle, número, casa o punto de referencia.';
+			}
+			return null;
+		}
+		if (address.length < 5) return 'La dirección de delivery es obligatoria.';
+		return null;
+	}
+
+	if (address.length < 5) return 'La dirección de delivery es obligatoria.';
+	return null;
 }
 
 export function mergeAddressIntoForm(prev, addressRow, branchDeliveryCfg, subtotal) {

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
-import { getSignedImageUrl, isSupabaseStorageUrl } from '@/shared/utils/supabaseStorage';
+import {
+    extractStoragePath,
+    getSignedImageUrl,
+    isSupabaseStorageUrl,
+} from '@/shared/utils/supabaseStorage';
 
-const BUCKET_REGEX = /\/object\/public\/(menu|receipts|products)\//;
+const BUCKET_REGEX = /\/(?:object|render\/image)\/(?:public|sign|authenticated)\/(menu|receipts|products)\//;
 const SIGNED_URL_CACHE_LIMIT = 500;
 const signedUrlCache = new Map();
 const pendingSignedUrls = new Map();
@@ -52,6 +56,14 @@ function resolveSignedUrl(path, bucket, expiresIn) {
     return request;
 }
 
+export function invalidateSignedImageUrl(pathOrUrl, bucket) {
+    if (!pathOrUrl || !bucket) return;
+    const path = extractStoragePath(pathOrUrl, bucket);
+    const key = buildCacheKey(bucket, path);
+    signedUrlCache.delete(key);
+    pendingSignedUrls.delete(key);
+}
+
 function inferBucket(pathOrUrl) {
     if (!pathOrUrl) return null;
     const p = String(pathOrUrl);
@@ -77,7 +89,7 @@ function inferBucket(pathOrUrl) {
  * @param {boolean} [enabled=true] - Si es false, no genera URL ni inicia descargas.
  * @returns {{ url: string | null, loading: boolean, error: string | null }}
  */
-export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enabled = true) {
+export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enabled = true, refreshKey = 0) {
     const [state, setState] = useState({ url: null, loading: false, error: null });
 
     useEffect(() => {
@@ -88,13 +100,8 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
 
         const trimmed = String(imageUrlOrPath).trim();
 
-        // Solo las URLs completas de Supabase Storage se usan directamente.
-        if (/^https?:\/\//i.test(trimmed)) {
-            setState(
-                isSupabaseStorageUrl(trimmed)
-                    ? { url: trimmed, loading: false, error: null }
-                    : { url: null, loading: false, error: 'La imagen no pertenece a Supabase Storage' },
-            );
+        if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
+            setState({ url: null, loading: false, error: 'La imagen no pertenece a Supabase Storage' });
             return;
         }
 
@@ -104,7 +111,8 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
             return;
         }
 
-        const cacheKey = buildCacheKey(resolvedBucket, trimmed);
+        const storagePath = extractStoragePath(trimmed, resolvedBucket);
+        const cacheKey = buildCacheKey(resolvedBucket, storagePath);
         const cachedUrl = getCachedSignedUrl(cacheKey);
         if (cachedUrl) {
             setState({ url: cachedUrl, loading: false, error: null });
@@ -114,7 +122,7 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
         let cancelled = false;
         setState((prev) => ({ ...prev, loading: true, error: null }));
 
-        resolveSignedUrl(trimmed, resolvedBucket, expiresIn)
+        resolveSignedUrl(storagePath, resolvedBucket, expiresIn)
             .then((url) => {
                 if (!cancelled) setState({ url, loading: false, error: null });
             })
@@ -131,7 +139,7 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
         return () => {
             cancelled = true;
         };
-    }, [imageUrlOrPath, bucket, expiresIn, enabled]);
+    }, [imageUrlOrPath, bucket, expiresIn, enabled, refreshKey]);
 
     return state;
 }

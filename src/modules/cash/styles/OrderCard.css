@@ -471,6 +471,18 @@
 	margin-left: 0;
 }
 
+.admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action--pay-now) {
+	grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 34px;
+}
+
+.admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action--pay-now) .btn-action--pay-now {
+	grid-column: 3;
+}
+
+.admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action--pay-now) .btn-icon-action:not(.cancel) {
+	grid-column: 4;
+}
+
 .admin-layout .kanban-card--expanded {
     min-height: unset;
     height: auto;
@@ -1507,10 +1519,26 @@
     align-items: center;
 }
 
+.admin-layout .card-actions:has(.btn-action--pay-now) {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 40px;
+}
+
+.admin-layout .card-actions:has(.btn-action--pay-now) .btn-action--pay-now {
+    grid-column: 3;
+}
+
+.admin-layout .card-actions:has(.btn-action--pay-now) .btn-icon-action:not(.cancel) {
+    grid-column: 4;
+}
+
 /* Para órdenes en pantallas angostas */
 @media (max-width: 480px) {
     .admin-layout .card-actions {
         grid-template-columns: 40px 1fr 40px;
+    }
+
+    .admin-layout .card-actions:has(.btn-action--pay-now) {
+        grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 40px;
     }
 
     .admin-layout .btn-icon-action {

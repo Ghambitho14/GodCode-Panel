@@ -4,6 +4,7 @@ import {
     deleteCompanyImage,
     IMAGE_STORAGE_CONTEXTS,
     createClientUuid,
+    isStorageObjectReference,
 } from '@/shared/utils/supabaseStorage';
 import {
     computeCouponDiscountAmount,
@@ -537,8 +538,9 @@ export const ordersService = {
 
             // 2. Preparar datos para la transacción
             const paymentRef = uploadedReceiptPath
-                || orderData.payment_ref
-                || (orderData.payment_type === 'online' ? 'Comprobante pendiente por WhatsApp' : 'Pago Presencial');
+                || (isStorageObjectReference(orderData.payment_ref, 'receipts')
+                    ? String(orderData.payment_ref).trim()
+                    : null);
 
             // Agregar info de sucursal a la nota para que el admin sepa
             let finalNote = orderData.note || '';
@@ -616,7 +618,7 @@ export const ordersService = {
                     orderData.company_id,
                 );
             }
-            throw error;
+            throwOrderRpcError(error);
         }
     },
 

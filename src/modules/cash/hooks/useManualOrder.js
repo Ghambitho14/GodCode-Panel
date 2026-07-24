@@ -19,11 +19,13 @@ import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/p
 import { createClientUuid } from '@/shared/utils/supabaseStorage';
 import {
 	sanitizeManualOrderInput,
+	buildManualDeliveryPayload,
 	computeDeliveryFeeForForm,
 	resolveOpenMesaClientName,
-	resolveOpenMesaCheckoutPayment,
 	getLocalFulfillmentMode,
+	hasManualOrderPaymentIntent,
 	isOpenMesaMeseroMode,
+	validateManualDeliveryDetails,
 	OPEN_MESA_CAJA_DEFAULTS,
 } from './manual-order/manualOrderShared';
 
@@ -150,6 +152,11 @@ export const useManualOrder = (
 		if (type !== 'online') resetReceipt();
 	}, [updatePaymentType, updatePaymentLines, resetReceipt]);
 
+	const handleChargeNowChange = useCallback((enabled) => {
+		updateChargeNow(enabled);
+		if (!enabled) resetReceipt();
+	}, [updateChargeNow, resetReceipt]);
+
 	const syncDeliveryFeeFromForm = useCallback((formState, itemsSubtotal) => {
 		if (!branchDeliveryCfg || formState.order_type !== 'delivery') return null;
 		return computeDeliveryFeeForForm(branchDeliveryCfg, itemsSubtotal, {
@@ -193,19 +200,26 @@ export const useManualOrder = (
 	}, [updateDeliveryKm, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_named_area_id, total]);
 
 	const fulfillment = toV2Fulfillment(form, openMesaMode);
-	const deliveryPayload = useMemo(() => ({
-		address: sanitizeManualOrderInput(form.delivery_address),
-		reference: sanitizeManualOrderInput(form.delivery_reference),
-		zoneId: String(form.delivery_named_area_id ?? '').trim() || null,
-		km: form.delivery_km === '' || form.delivery_km == null ? null : Number(String(form.delivery_km).replace(',', '.')),
-	}), [form.delivery_address, form.delivery_reference, form.delivery_named_area_id, form.delivery_km]);
+	const deliveryPayload = useMemo(
+		() => buildManualDeliveryPayload(form, branchDeliveryCfg),
+		[
+			form.delivery_address,
+			form.delivery_reference,
+			form.delivery_named_area_id,
+			form.delivery_km,
+			branchDeliveryCfg,
+		],
+	);
 
 	useEffect(() => {
 		if (!v2Enabled || !branch?.id || items.length === 0 || effectiveBranchConfigError) {
 			setQuote(null);
 			return;
 		}
-		if (fulfillment === 'delivery' && deliveryPayload.address.length < 5) {
+		if (
+			fulfillment === 'delivery'
+			&& validateManualDeliveryDetails(form, branchDeliveryCfg)
+		) {
 			setQuote(null);
 			return;
 		}
@@ -236,7 +250,7 @@ export const useManualOrder = (
 			}
 		}, 350);
 		return () => { cancelled = true; window.clearTimeout(timer); };
-	}, [v2Enabled, branch?.id, items, fulfillment, deliveryPayload, form.coupon_code, form.client_phone, form.payment_lines?.length, effectiveBranchConfigError, paymentMethods, branchDeliveryCfg?.exchangeRate, openMesaMode]);
+	}, [v2Enabled, branch?.id, items, fulfillment, deliveryPayload, form, form.coupon_code, form.client_phone, form.payment_lines?.length, effectiveBranchConfigError, paymentMethods, branchDeliveryCfg, openMesaMode]);
 
 	const acknowledgeQuoteRevision = useCallback(() => setQuoteRevisionPending(false), []);
 
@@ -265,9 +279,8 @@ export const useManualOrder = (
 		}
 		if ((requirements.document || String(form.client_rut ?? '').trim()) && !validateProfileDocument(form.client_rut, countryProfile, requirements.document)) return `${countryProfile.document.label} inválido.`;
 		if (fulfillment === 'delivery') {
-			if (!branchDeliveryCfg) return 'No se pudo validar la configuración de delivery. Reintenta.';
-			if (deliveryPayload.address.length < 5) return 'La dirección de delivery es obligatoria.';
-			if (requirements.zone && effectiveDeliveryPricingMode(branchDeliveryCfg) === 'named' && !deliveryPayload.zoneId) return 'Selecciona la zona de entrega.';
+			const deliveryError = validateManualDeliveryDetails(form, branchDeliveryCfg);
+			if (deliveryError) return deliveryError;
 		}
 		return null;
 	}, [branch, effectiveBranchConfigError, items.length, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, countryProfile, branchDeliveryCfg, deliveryPayload]);
@@ -284,8 +297,11 @@ export const useManualOrder = (
 			let evidencePending = false;
 			if (v2Enabled) {
 				if (!quote?.quoteHash) throw new Error(quoteError || 'Espera una cotización válida antes de confirmar.');
-				const paymentTiming = !openMesaMode || form.charge_now ? 'immediate' : 'deferred';
-				const effectiveTiming = fulfillment === 'table' ? 'deferred' : paymentTiming;
+				const paymentTiming = form.charge_now ? 'immediate' : 'deferred';
+				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled: true });
+				const effectiveTiming = fulfillment === 'table'
+					? 'deferred'
+					: (openMesaMode ? paymentTiming : quickSaleHasPayment ? 'immediate' : 'deferred');
 				const lines = effectiveTiming === 'immediate' ? deriveV2PaymentLines(form, quote, paymentMethods, currency, fractionDigits) : [];
 				if (effectiveTiming === 'immediate') {
 					const validation = validatePaymentLines(lines, quote, paymentMethods);
@@ -311,7 +327,7 @@ export const useManualOrder = (
 					void manualOrderV2Service.recordMetric({ branchId: branch.id, eventName: 'duplicate_prevented', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
 				}
 				evidencePending = result?.payment_evidence_status === 'pending';
-				if (receiptFile) {
+				if (effectiveTiming === 'immediate' && receiptFile) {
 					evidencePending = false;
 					const evidenceRows = await manualOrderV2Service.listEvidence(result.id);
 					const pendingRows = evidenceRows.filter((row) => row.status !== 'uploaded');
@@ -343,9 +359,18 @@ export const useManualOrder = (
 					caller_role: userRole, coupon_code: sanitizeManualOrderInput(form.coupon_code), delivery_fee: deliveryFee,
 					...(canOverrideDeliveryFee(userRole) && form.order_type === 'delivery' ? { manual_delivery_fee: deliveryFee } : {}),
 				};
-				if (openMesaMode) Object.assign(sanitizedOrder, resolveOpenMesaCheckoutPayment(form, checkoutTotal));
-				else sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({ ...form, total: checkoutTotal });
-				result = await createManualOrder(sanitizedOrder, openMesaMode && !form.charge_now ? null : receiptFile);
+				const quickSaleHasPayment = !openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled: false });
+				const shouldSettleImmediately = openMesaMode ? form.charge_now : quickSaleHasPayment;
+				if (shouldSettleImmediately) {
+					sanitizedOrder.payment_timing = 'immediate';
+					sanitizedOrder.payment_breakdown = buildPaymentBreakdownForOrder({ ...form, total: checkoutTotal });
+				} else {
+					sanitizedOrder.payment_timing = 'deferred';
+					sanitizedOrder.payment_type = 'pendiente';
+					sanitizedOrder.payment_method_specific = null;
+					sanitizedOrder.payment_breakdown = null;
+				}
+				result = await createManualOrder(sanitizedOrder, shouldSettleImmediately ? receiptFile : null);
 				evidencePending = Boolean(result?.receiptUploadFailed);
 				result = result?.order ?? result;
 			}
@@ -353,7 +378,12 @@ export const useManualOrder = (
 			showNotify?.(
 				evidencePending
 					? 'Pedido creado · comprobante pendiente. Puedes reintentar desde el pedido.'
-					: openMesaMode ? ({ mesa: 'Mesa abierta', retiro: 'Retiro abierto', delivery: 'Delivery abierto' }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta') : 'Pedido creado con éxito',
+					: openMesaMode
+						? ({ mesa: 'Mesa abierta', retiro: 'Retiro abierto', delivery: 'Delivery abierto' }[getLocalFulfillmentMode(form)] ?? 'Sesión abierta')
+						: (!openMesaMode && hasManualOrderPaymentIntent({ ...form, v2Enabled }))
+							|| (openMesaMode && form.charge_now)
+							? 'Pedido cobrado y creado'
+							: 'Pedido creado pendiente de pago',
 				evidencePending ? 'warning' : 'success',
 			);
 			if (v2Enabled && evidencePending) {
@@ -389,7 +419,7 @@ export const useManualOrder = (
 	return {
 		manualOrder, loading, rutValid, phoneValid, receiptFile, receiptPreview,
 		updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
-		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
+		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow: handleChargeNowChange, updatePaymentLines,
 		handleRutChange, handlePhoneChange, applyClientRecord, applySavedAddress, handleFileChange, removeReceipt,
 		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,
 		updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress,

@@ -65,33 +65,34 @@ export function useAdminCatalog({
 			const previousRef = order?.payment_ref || null;
 			if (order?.manual_order_mode === 'quick_sale' || order?.manual_order_mode === 'session') {
 				const evidenceRows = await manualOrderV2Service.listEvidence(orderId);
-				if (evidenceRows.length === 0) throw new Error('Este pedido no tiene una línea de pago que admita comprobante.');
-				const targetRows = evidenceRows.some((row) => row.status !== 'uploaded')
-					? evidenceRows.filter((row) => row.status !== 'uploaded')
-					: evidenceRows;
-				const results = [];
-				for (const [index, evidence] of targetRows.entries()) {
-					const queued = await queuePaymentEvidence({
-						evidenceId: evidence.id,
-						companyId,
-						branchId: order?.branch_id || selectedBranch?.id,
-						orderId,
-						file,
-						previousPath: evidence.storage_path || (index === 0 ? previousRef : null),
-					});
-					results.push(await uploadQueuedPaymentEvidence(queued));
+				if (evidenceRows.length > 0) {
+					const targetRows = evidenceRows.some((row) => row.status !== 'uploaded')
+						? evidenceRows.filter((row) => row.status !== 'uploaded')
+						: evidenceRows;
+					const results = [];
+					for (const [index, evidence] of targetRows.entries()) {
+						const queued = await queuePaymentEvidence({
+							evidenceId: evidence.id,
+							companyId,
+							branchId: order?.branch_id || selectedBranch?.id,
+							orderId,
+							file,
+							previousPath: evidence.storage_path || (index === 0 ? previousRef : null),
+						});
+						results.push(await uploadQueuedPaymentEvidence(queued));
+					}
+					const allUploaded = results.every((result) => result.ok);
+					const uploadedPath = results.find((result) => result.ok)?.path ?? previousRef;
+					const patch = allUploaded
+						? { payment_ref: uploadedPath, payment_evidence_status: 'uploaded' }
+						: { payment_ref: uploadedPath, payment_evidence_status: 'failed' };
+					setOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
+					if (selectedClient) setSelectedClientOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
+					showNotify(allUploaded ? 'Comprobante guardado' : 'El comprobante quedó pendiente y se reintentará automáticamente.', allUploaded ? 'success' : 'warning');
+					setReceiptModalOrder(null);
+					setReceiptPreview(null);
+					return;
 				}
-				const allUploaded = results.every((result) => result.ok);
-				const uploadedPath = results.find((result) => result.ok)?.path ?? previousRef;
-				const patch = allUploaded
-					? { payment_ref: uploadedPath, payment_evidence_status: 'uploaded' }
-					: { payment_ref: uploadedPath, payment_evidence_status: 'failed' };
-				setOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
-				if (selectedClient) setSelectedClientOrders((prev) => prev.map((row) => row.id === orderId ? { ...row, ...patch } : row));
-				showNotify(allUploaded ? 'Comprobante guardado' : 'El comprobante quedó pendiente y se reintentará automáticamente.', allUploaded ? 'success' : 'warning');
-				setReceiptModalOrder(null);
-				setReceiptPreview(null);
-				return;
 			}
 			uploadedReceiptPath = await uploadCompanyImage(
 				file,
@@ -104,16 +105,16 @@ export function useAdminCatalog({
 			);
 			const { error } = await supabase
 				.from(TABLES.orders)
-				.update({ payment_ref: uploadedReceiptPath })
+				.update({ payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' })
 				.eq('id', orderId)
 				.eq('company_id', companyId);
 			if (error) throw error;
 			if (previousRef && previousRef !== uploadedReceiptPath) {
 				await deleteCompanyImage(previousRef, IMAGE_STORAGE_CONTEXTS.ORDER_RECEIPT, companyId);
 			}
-			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath } : o));
+			setOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' } : o));
 			if (selectedClient) {
-				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath } : o));
+				setSelectedClientOrders(prev => prev.map(o => o.id === orderId ? { ...o, payment_ref: uploadedReceiptPath, payment_evidence_status: 'uploaded' } : o));
 			}
 			showNotify('Comprobante agregado');
 			setReceiptModalOrder(null);

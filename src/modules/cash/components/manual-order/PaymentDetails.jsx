@@ -24,7 +24,7 @@ const confirmBtnClass = cn(
 const backBtnClass =
     'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
 
-function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg }) {
+function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg, paymentOptional = false }) {
     const methods = manualOrder.paymentMethods ?? [];
     const lines = manualOrder.payment_lines ?? [];
     const quote = manualOrder.quote;
@@ -137,8 +137,19 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
                 );
             })}
             {quote ? (
-                <p role="status" aria-live="polite" className={cn('text-sm font-semibold', validation.valid ? 'text-gc-success' : 'text-gc-danger')}>
-                    {validation.valid ? 'El pago cuadra exactamente.' : remainingMinor > 0 ? `Falta ${formatMinor(remainingMinor, { currency, locale: manualOrder.locale, fractionDigits })}` : `Sobra ${formatMinor(Math.abs(remainingMinor), { currency, locale: manualOrder.locale, fractionDigits })}`}
+                <p role="status" aria-live="polite" className={cn(
+					'text-sm font-semibold',
+					paymentOptional && lines.length === 0
+						? 'text-gc-text-muted'
+						: validation.valid ? 'text-gc-success' : 'text-gc-danger',
+				)}>
+                    {paymentOptional && lines.length === 0
+						? 'Sin método seleccionado: el pedido quedará pendiente.'
+						: validation.valid
+							? 'El pago cuadra exactamente.'
+							: remainingMinor > 0
+								? `Falta ${formatMinor(remainingMinor, { currency, locale: manualOrder.locale, fractionDigits })}`
+								: `Sobra ${formatMinor(Math.abs(remainingMinor), { currency, locale: manualOrder.locale, fractionDigits })}`}
                 </p>
             ) : <p role="status" className="text-sm text-gc-text-muted">Esperando cotización válida…</p>}
         </div>
@@ -176,6 +187,7 @@ const PaymentDetails = ({
     hideCouponSection = false,
     hideTotalBreakdown = false,
 	hideEvidenceUpload = false,
+	paymentOptional = false,
     embedded = false,
     variant = 'default',
 }) => {
@@ -304,7 +316,12 @@ const PaymentDetails = ({
                     {isReceipt ? 'Seleccionar método de pago' : 'Método de pago'}
                 </SectionHeader>
                 {manualOrder.v2Enabled ? (
-                    <PaymentLinesEditor manualOrder={manualOrder} updatePaymentLines={updatePaymentLines} branchDeliveryCfg={branchDeliveryCfg} />
+	                    <PaymentLinesEditor
+							manualOrder={manualOrder}
+							updatePaymentLines={updatePaymentLines}
+							branchDeliveryCfg={branchDeliveryCfg}
+							paymentOptional={paymentOptional}
+						/>
                 ) : <>
 				<div className={`grid grid-cols-1 ${spacing.compact} min-[430px]:grid-cols-3`}>
                     <Button variant="default"
@@ -353,8 +370,59 @@ const PaymentDetails = ({
 						Moneda contable: <strong>{accountingCurrency}</strong>. Los pagos en VES y su tasa aparecen al activar Pedidos V2 para la sucursal.
 					</p>
 				) : null}
-                </>}
-            </div>
+	                </>}
+					{paymentOptional && !manualOrder.v2Enabled
+						&& !['tienda', 'tarjeta', 'online'].includes(manualOrder.payment_type)
+						&& manualOrder.payment_mode !== 'mixed' ? (
+						<p className="mt-2 text-sm text-gc-text-muted" role="status">
+							Sin método seleccionado: el pedido quedará pendiente.
+						</p>
+					) : null}
+	            </div>
+
+				{!hideEvidenceUpload && ((manualOrder.v2Enabled && manualOrder.payment_lines?.some((line) => line.evidencePolicy !== 'none')) || (manualOrder.payment_type === 'online' && !isMixed)) && (
+	            <div className={cn(sectionCardClass, 'animate-fade-in')}>
+					<SectionHeader icon={Upload} tone="accent">
+						{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required') ? 'Comprobante requerido' : 'Comprobante opcional'}
+					</SectionHeader>
+	                    <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+							{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required')
+								? 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.'
+								: 'Puedes subir el comprobante ahora o después desde la tarjeta del pedido.'}
+	                    </p>
+	                    <label
+	                        htmlFor="receipt-upload"
+	                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[4px] border border-dashed border-gc-border bg-gc-muted/50 p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
+	                    >
+	                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
+	                        <span className={`${textScale.body} font-medium text-gc-text-muted`}>
+	                            {receiptFile ? receiptFile.name : 'Click para subir imagen'}
+	                        </span>
+	                    </label>
+	                    <input
+	                        id="receipt-upload"
+	                        type="file"
+	                        accept="image/*"
+	                        onChange={handleFileChange}
+	                        className="hidden"
+	                    />
+	                    {receiptPreview && (
+	                        <div className="relative mt-2.5 overflow-hidden rounded-[4px] border border-gc-border">
+	                            <img src={receiptPreview} alt="Preview comprobante" className="block max-h-[150px] w-full object-cover" />
+	                            <Button variant="destructive"
+	                                type="button"
+	                                className={`absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 ${textScale.micro} font-bold text-white`}
+	                                onClick={(e) => {
+	                                    e.preventDefault();
+	                                    removeReceipt();
+	                                }}
+	                            >
+	                                QUITAR
+	                            </Button>
+	                        </div>
+	                    )}
+	                </div>
+	            )}
 
             {!manualOrder.v2Enabled && isMixed ? (
             <div ref={mixedSplitRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
@@ -517,50 +585,6 @@ const PaymentDetails = ({
             ) : hideCouponSection ? (
                 <div ref={postPaymentRef} className="h-0 overflow-hidden" aria-hidden />
             ) : null}
-
-			{!hideEvidenceUpload && ((manualOrder.v2Enabled && manualOrder.payment_lines?.some((line) => line.evidencePolicy !== 'none')) || (manualOrder.payment_type === 'online' && !isMixed)) && (
-            <div className={cn(sectionCardClass, 'animate-fade-in')}>
-				<SectionHeader icon={Upload} tone="accent">
-					{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required') ? 'Comprobante requerido' : 'Comprobante opcional'}
-				</SectionHeader>
-                    <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
-						{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required')
-							? 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.'
-							: 'Puedes subir el comprobante ahora o después desde la tarjeta del pedido.'}
-                    </p>
-                    <label
-                        htmlFor="receipt-upload"
-                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[4px] border border-dashed border-gc-border bg-gc-muted/50 p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
-                    >
-                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
-                        <span className={`${textScale.body} font-medium text-gc-text-muted`}>
-                            {receiptFile ? receiptFile.name : 'Click para subir imagen'}
-                        </span>
-                    </label>
-                    <input
-                        id="receipt-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
-                    {receiptPreview && (
-                        <div className="relative mt-2.5 overflow-hidden rounded-[4px] border border-gc-border">
-                            <img src={receiptPreview} alt="Preview comprobante" className="block max-h-[150px] w-full object-cover" />
-                            <Button variant="destructive"
-                                type="button"
-                                className={`absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 ${textScale.micro} font-bold text-white`}
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    removeReceipt();
-                                }}
-                            >
-                                QUITAR
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {!isFormValid() && !loading ? (
                 <p className="text-center text-[11px] leading-snug text-gc-text-muted" role="status">

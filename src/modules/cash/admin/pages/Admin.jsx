@@ -20,6 +20,7 @@ import AdminBranchSelector from '../../components/AdminBranchSelector';
 import AdminHeaderClock from '../../components/AdminHeaderClock';
 import OrderIntakePauseControl from '../../components/OrderIntakePauseControl';
 import OrderNotificationSoundControl from '../../components/OrderNotificationSoundControl';
+import PaymentReceiptPanel from '../../components/PaymentReceiptPanel';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { listBroadcasts, acknowledgeBroadcast as acknowledgeBroadcastService } from '../../services/broadcastsService';
@@ -46,28 +47,6 @@ import { Toaster } from 'sileo';
 import 'sileo/styles.css';
 import '../../styles/AdminSileo.css';
 import { Button } from "@/components/ui/button";
-import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
-
-function CurrentReceiptPreview({ order }) {
-  const { url, loading, error } = useSignedImageUrl(order?.payment_ref, 'receipts');
-  const status = order?.payment_evidence_status;
-  if (loading) return <p role="status">Cargando comprobante…</p>;
-  if (url) return (
-    <div style={{ marginBottom: 20 }}>
-      <p style={{ marginBottom: 10, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Comprobante actual:</p>
-      <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 15 }}>
-        <img src={url} alt="Comprobante de pago" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--card-border)' }} />
-      </a>
-    </div>
-  );
-	if (status === 'pending' || status === 'uploading' || status === 'failed') return (
-    <p role="status" className="text-sm text-amber-700">
-	  {status === 'failed' ? 'El comprobante falló. Selecciona el archivo para reintentar.' : status === 'uploading' ? 'Subiendo comprobante…' : 'Comprobante pendiente de carga.'}
-    </p>
-  );
-  if (error) return <p role="alert" className="text-sm text-red-700">No se pudo abrir el comprobante privado.</p>;
-  return null;
-}
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
   const {
@@ -774,68 +753,24 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
 
 
-      {/* MODAL COMPROBANTE (EXISTENTE) */}
+      {/* VISOR Y CARGA DE COMPROBANTES */}
       {receiptModalOrder && (
-        <div className="admin-panel-overlay" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }}>
-          <div className="admin-side-panel admin-receipt-side-panel glass animate-slide-in" onClick={e => e.stopPropagation()}>
-            <div className="admin-side-header">
-              <h3>Comprobante de Pago</h3>
-              <Button variant="default" onClick={() => { if (receiptPreview) URL.revokeObjectURL(receiptPreview); setReceiptModalOrder(null); setReceiptPreview(null); }} className="btn-close-sidepanel"><X size={24} /></Button>
-            </div>
-            <div className="admin-side-body">
-			  {!receiptPreview ? <CurrentReceiptPreview order={receiptModalOrder} /> : null}
-
-              <div className="form-group">
-                <label>Subir nuevo comprobante</label>
-                <div className="upload-box" onClick={() => document.getElementById('receipt-upload-modal').click()} style={{ borderColor: receiptPreview ? '#25d366' : 'var(--card-border)' }}>
-                  <input type="file" id="receipt-upload-modal" accept="image/*" hidden onChange={handleReceiptFileChange} />
-                  {receiptPreview ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 15, justifyContent: 'center', position: 'relative' }}>
-                      <img src={receiptPreview} alt="Preview" style={{ width: 80, height: 80, borderRadius: 8, objectFit: 'cover', border: '1px solid white' }} />
-                      <div style={{ textAlign: 'left' }}>
-                        <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'white' }}>Imagen Seleccionada</span>
-                        <span style={{ fontSize: '0.75rem', color: '#25d366' }}>Click para cambiar</span>
-                        <Button variant="default" 
-                          type="button" 
-                          className="btn-text" 
-                          style={{ color: '#ff4444', fontSize: '0.75rem', padding: 0, marginTop: 4 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReceiptPreview(null);
-                            document.getElementById('receipt-upload-modal').value = '';
-                          }}
-                        >
-                          Quitar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="upload-placeholder">
-                      <Upload size={24} />
-                      <span>Subir imagen</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="admin-side-footer">
-              <Button variant="default"
-                className="btn-block"
-                onClick={() => {
-                  const fileInput = document.getElementById('receipt-upload-modal');
-                  if (fileInput?.files[0]) {
-                    uploadReceiptToOrder(receiptModalOrder.id, fileInput.files[0]);
-                  } else {
-                    showNotify('Selecciona una imagen', 'error');
-                  }
-                }}
-                disabled={uploadingReceipt || !receiptPreview}
-              >
-                {uploadingReceipt ? 'Subiendo...' : 'Guardar Comprobante'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <PaymentReceiptPanel
+          order={receiptModalOrder}
+          preview={receiptPreview}
+          uploading={uploadingReceipt}
+          onFileChange={handleReceiptFileChange}
+          onClearPreview={() => {
+            if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+            setReceiptPreview(null);
+          }}
+          onSave={(file) => uploadReceiptToOrder(receiptModalOrder.id, file)}
+          onClose={() => {
+            if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+            setReceiptModalOrder(null);
+            setReceiptPreview(null);
+          }}
+        />
       )}
 
 

@@ -12,6 +12,7 @@ import {
 	Upload,
 	Eye,
 	Loader2,
+	Banknote,
 } from "lucide-react";
 import { getOrderPaymentDisplayLabel, getOrderPaymentPreferenceHint, isOrderPaymentDeferred, getOrderTileKind, resolveItemKitchenNote, isLegacyGlobalKitchenNote } from "@/shared/utils/orderUtils";
 import { useOrderMoney } from "@/modules/cash/hooks/useOrderMoney";
@@ -20,6 +21,8 @@ import ReportPeriodSelect from "./ReportPeriodSelect";
 import { ymdLocal } from "../utils/reportPeriodRange";
 import DeliveryMotoIcon from "./DeliveryMotoIcon";
 import { Button } from "@/components/ui/button";
+import { isStorageObjectReference } from "@/shared/utils/supabaseStorage";
+import CloseTableModal from "./CloseTableModal";
 
 function formatDayHeading(ymd) {
 	const d = new Date(`${ymd}T12:00:00`);
@@ -56,11 +59,12 @@ const AdminHistoryTable = ({
 	setReceiptModalOrder,
 }) => {
 	const { formatMoney, formatOrderAmount } = useOrderMoney();
-	const { hydrateOrderItems, showNotify } = useAdmin();
+	const { hydrateOrderItems, showNotify, markOrderSessionPaid, selectedBranch } = useAdmin();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [filterStatus, setFilterStatus] = useState("all");
 	const [expandedRows, setExpandedRows] = useState(new Set());
 	const [hydratingOrderIds, setHydratingOrderIds] = useState(new Set());
+	const [paymentOrder, setPaymentOrder] = useState(null);
 
 	const toggleRow = useCallback(async (order) => {
 		const id = order.id;
@@ -327,7 +331,7 @@ const AdminHistoryTable = ({
 																	</h4>
 																	{o.payment_type === "online" ? (
 																		<div>
-													{o.payment_ref ? (
+													{isStorageObjectReference(o.payment_ref, 'receipts') || o.payment_evidence_status === 'uploaded' ? (
 														<div className="admin-history-receipt-actions">
 															<Button variant="default" type="button"
 																onClick={(e) => { e.stopPropagation(); setReceiptModalOrder?.(o); }}
@@ -370,11 +374,26 @@ const AdminHistoryTable = ({
 																		</div>
 																	) : isOrderPaymentDeferred(o) ? (
 																		<div className="admin-history-receipt-info">
-																			Pago pendiente de cobro en caja
-																			{getOrderPaymentPreferenceHint(o)
-																				? ` (${getOrderPaymentPreferenceHint(o)})`
-																				: ""}
-																			.
+																			<span>
+																				Pago pendiente de cobro en caja
+																				{getOrderPaymentPreferenceHint(o)
+																					? ` (${getOrderPaymentPreferenceHint(o)})`
+																					: ""}
+																				.
+																			</span>
+																			{o.status !== 'cancelled' ? (
+																				<Button
+																					variant="default"
+																					type="button"
+																					onClick={(event) => {
+																						event.stopPropagation();
+																						setPaymentOrder(o);
+																					}}
+																				>
+																					<Banknote size={14} aria-hidden />
+																					Registrar pago
+																				</Button>
+																			) : null}
 																		</div>
 																	) : (
 																		<div className="admin-history-receipt-info">
@@ -396,6 +415,21 @@ const AdminHistoryTable = ({
 					))
 				)}
 			</div>
+			{paymentOrder ? (
+				<CloseTableModal
+					isOpen
+					intent="pay"
+					order={paymentOrder}
+					branch={selectedBranch}
+					showNotify={showNotify}
+					onClose={() => setPaymentOrder(null)}
+					onConfirm={async (order, paymentPatch) => {
+						const result = await markOrderSessionPaid(order, paymentPatch);
+						if (result) setPaymentOrder(null);
+						return Boolean(result);
+					}}
+				/>
+			) : null}
 		</div>
 	);
 };

@@ -634,6 +634,9 @@ export const AdminProvider = ({
 		try {
 			const isV2Order = previousRow?.manual_order_mode === 'quick_sale' || previousRow?.manual_order_mode === 'session';
 			if (isV2Order) {
+				if (nextStatus === 'picked_up' && !isOrderPaymentSettled(previousRow)) {
+					throw new Error('Este pedido sigue pendiente de pago. Registra el cobro antes de cerrarlo.');
+				}
 				const transitioned = await manualOrderV2Service.transition(orderId, nextStatus, previousRow?.updated_at ?? null);
 				setOrders((prev) => prev.map((order) => order.id === orderId ? sanitizeOrder(transitioned) : order));
 				showNotify('Pedido actualizado');
@@ -725,10 +728,12 @@ export const AdminProvider = ({
 	const markOrderSessionPaid = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
-			if (order.manual_order_mode === 'session') {
+			const isV2Order = order.manual_order_mode === 'quick_sale' || order.manual_order_mode === 'session';
+			if (isV2Order) {
 				if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
 				const settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
 				setOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
+				setHistoryOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
 				showNotify('Pago registrado', 'success');
 				return settled;
 			}
@@ -742,6 +747,7 @@ export const AdminProvider = ({
 				legacyAtomicPaymentPatch(order, paymentPatch),
 			));
 			setOrders((prev) => prev.map((row) => row.id === order.id ? nextOrder : row));
+			setHistoryOrders((prev) => prev.map((row) => row.id === order.id ? nextOrder : row));
 			showNotify('Pago registrado', 'success');
 			return nextOrder;
 		} catch (err) {
@@ -753,7 +759,8 @@ export const AdminProvider = ({
 	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
 		try {
-			if (order.manual_order_mode === 'session') {
+			const isV2Order = order.manual_order_mode === 'quick_sale' || order.manual_order_mode === 'session';
+			if (isV2Order) {
 				if (isOrderPaymentDeferred(order)) {
 					if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
 					const closed = sanitizeOrder(await manualOrderV2Service.settleAndTransition(

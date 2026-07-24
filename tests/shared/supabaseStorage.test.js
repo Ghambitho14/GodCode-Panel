@@ -6,8 +6,10 @@ import {
     IMAGE_STORAGE_CONTEXTS,
     companyStorageFolder,
     createClientUuid,
+    extractStoragePath,
     getCompanyImageStorageTarget,
     isCompanyStoragePath,
+    isStorageObjectReference,
 } from '@/shared/utils/supabaseStorage';
 
 const COMPANY_ID = '11111111-1111-4111-8111-111111111111';
@@ -100,5 +102,30 @@ describe('Supabase Storage empresarial', () => {
             'menu',
             COMPANY_ID,
         )).toBe(false);
+    });
+
+    it('no confunde una referencia de pago textual con un comprobante', () => {
+        expect(isStorageObjectReference('Pago Presencial', 'receipts')).toBe(false);
+        expect(isStorageObjectReference('Transferencia', 'receipts')).toBe(false);
+        expect(isStorageObjectReference(
+            `${COMPANY_ID}/orders/${BRANCH_ID}/receipts/2026/07/order-123/file.webp`,
+            'receipts',
+        )).toBe(true);
+        expect(isStorageObjectReference(
+            `https://example.supabase.co/storage/v1/object/sign/menu/${COMPANY_ID}/file.webp?token=x`,
+            'receipts',
+        )).toBe(false);
+    });
+
+    it('recupera la ruta relativa desde URLs privadas y firmadas', () => {
+        const path = `${COMPANY_ID}/orders/${BRANCH_ID}/receipts/2026/07/order-123/file.webp`;
+        expect(extractStoragePath(
+            `https://example.supabase.co/storage/v1/object/sign/receipts/${path}?token=expired`,
+            'receipts',
+        )).toBe(path);
+        expect(extractStoragePath(
+            `https://example.supabase.co/storage/v1/render/image/authenticated/receipts/${path}`,
+            'receipts',
+        )).toBe(path);
     });
 });

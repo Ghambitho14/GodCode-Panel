@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const storageMocks = vi.hoisted(() => ({
 	getSignedImageUrl: vi.fn(),
 	isSupabaseStorageUrl: vi.fn(() => true),
+	extractStoragePath: vi.fn((value, bucket) => String(value).startsWith(`${bucket}/`)
+		? String(value).slice(bucket.length + 1)
+		: value),
 }));
 
 vi.mock('@/shared/utils/supabaseStorage', () => storageMocks);

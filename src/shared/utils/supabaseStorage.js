@@ -233,14 +233,17 @@ export async function uploadImageToSupabase(file, bucket, folder = '') {
 export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
     if (!pathOrUrl) return null;
     const trimmed = String(pathOrUrl).trim();
-    if (/^https?:\/\//i.test(trimmed)) {
-        if (isSupabaseStorageUrl(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
         throw new Error('La imagen no pertenece a Supabase Storage');
+    }
+    const storagePath = extractStoragePath(trimmed, bucket);
+    if (!storagePath || /^https?:\/\//i.test(storagePath)) {
+        throw new Error('La ruta del archivo no es válida');
     }
 
     const { data, error } = await supabase.storage
         .from(bucket)
-        .createSignedUrl(trimmed, expiresIn);
+        .createSignedUrl(storagePath, expiresIn);
 
     if (error) {
         throw new Error(error.message || 'Error al generar URL firmada');
@@ -261,11 +264,37 @@ export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
 export function extractStoragePath(urlOrPath, bucket) {
     if (!urlOrPath) return urlOrPath;
     const trimmed = String(urlOrPath).trim();
-    if (!/^https?:\/\//i.test(trimmed)) return trimmed;
-    const marker = `/object/public/${bucket}/`;
-    const idx = trimmed.indexOf(marker);
-    if (idx === -1) return trimmed;
-    return trimmed.slice(idx + marker.length);
+    if (!/^https?:\/\//i.test(trimmed)) {
+        return trimmed.startsWith(`${bucket}/`) ? trimmed.slice(bucket.length + 1) : trimmed;
+    }
+    if (!isSupabaseStorageUrl(trimmed)) return trimmed;
+
+    let pathname;
+    try {
+        pathname = decodeURIComponent(new URL(trimmed).pathname);
+    } catch {
+        return trimmed;
+    }
+    const markers = [
+        `/storage/v1/object/public/${bucket}/`,
+        `/storage/v1/object/sign/${bucket}/`,
+        `/storage/v1/object/authenticated/${bucket}/`,
+        `/storage/v1/render/image/public/${bucket}/`,
+        `/storage/v1/render/image/sign/${bucket}/`,
+        `/storage/v1/render/image/authenticated/${bucket}/`,
+    ];
+    const marker = markers.find((candidate) => pathname.includes(candidate));
+    return marker ? pathname.slice(pathname.indexOf(marker) + marker.length) : trimmed;
+}
+
+/** Distingue una ruta real de Storage de textos legacy como "Pago Presencial". */
+export function isStorageObjectReference(value, bucket) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return false;
+    if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) return false;
+    const path = extractStoragePath(trimmed, bucket);
+    if (!path || /^https?:\/\//i.test(path) || !path.includes('/')) return false;
+    return /\.(?:jpe?g|png|webp|gif)$/i.test(path);
 }
 
 /**

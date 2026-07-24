@@ -36,7 +36,11 @@ export function getClosedShiftReconciliation(shift, totalsFromMovements) {
  * @param {{ expected_balance?: number; opening_balance?: number } | null} activeShift
  */
 export function getExpectedByMethod(totals, activeShift) {
-    const cash = Number(activeShift?.expected_balance ?? activeShift?.opening_balance ?? 0);
+    const opening = Number(activeShift?.opening_balance) || 0;
+    const ledgerDelta = Number(totals?.cashBalanceDelta);
+    const cash = Number.isFinite(ledgerDelta)
+        ? opening + ledgerDelta
+        : Number(activeShift?.expected_balance ?? opening);
     return {
         cash: Number.isFinite(cash) ? cash : 0,
         card: Number(totals?.card) || 0,

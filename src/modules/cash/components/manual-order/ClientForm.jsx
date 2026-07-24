@@ -14,6 +14,7 @@ import {
 import { formatSavedAddressLabel, normalizePhoneForSearch } from '../../services/clientService';
 import {
     getLocalFulfillmentMode,
+    isManualNamedDeliveryMode,
     isOpenMesaMeseroMode,
     LOCAL_FULFILLMENT_MODES,
 } from '../../hooks/manual-order/manualOrderShared';
@@ -179,6 +180,7 @@ const ClientForm = ({
 
     const namedAreaAutoMode = showNamedZonePicker &&
         String(branchDeliveryCfg?.namedAreaResolution ?? '').toLowerCase() === 'address_matched';
+    const manualNamedAreaMode = isDelivery && isManualNamedDeliveryMode(branchDeliveryCfg);
 
     const showDistancePricing = Boolean(
         branchDeliveryCfg &&
@@ -548,10 +550,16 @@ const ClientForm = ({
                     <MapPin size={14} className="opacity-70" aria-hidden />,
                     <input
                         type="text"
-                        placeholder="REFERENCIA: CALLE, NÚMERO U OBSERVACIÓN (OPC.)"
+                        aria-label={manualNamedAreaMode ? 'Referencia dentro de la zona' : 'Referencia de entrega'}
+                        placeholder={
+                            manualNamedAreaMode
+                                ? 'CALLE, NÚMERO, CASA O PUNTO DE REFERENCIA *'
+                                : 'REFERENCIA DE ENTREGA (OPC.)'
+                        }
                         className={cn(inputClass, 'pl-10')}
                         value={manualOrder.delivery_reference}
                         onChange={(e) => updateDeliveryReference(e.target.value)}
+                        aria-required={manualNamedAreaMode}
                     />,
                     true,
                 )

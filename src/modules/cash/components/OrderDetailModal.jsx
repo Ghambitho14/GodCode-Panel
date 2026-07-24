@@ -24,6 +24,7 @@ import { isVenezuelaCountry, resolveEffectiveCountry } from '@/lib/geo/tenant-lo
 import { paymentMethodUsesBolivaresInVenezuela } from '@/lib/money/venezuela-payment-copy';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
+import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
 import {
     isOrderDelivery,
     deliveryAddressLines,
@@ -47,7 +48,6 @@ import {
     ORDERS_PANEL_SELECT,
     sanitizeOrder,
 } from '@/shared/utils/orderUtils';
-import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { Button } from "@/components/ui/button";
 import { manualOrderV2Service } from '../services/manualOrderV2Service';
@@ -160,13 +160,14 @@ const OrderDetailModal = ({
         if (orderMoney.exchangeRate == null) return false;
         return paymentMethodUsesBolivaresInVenezuela(liveOrder?.payment_method_specific);
     }, [branch, companyProfile, orderMoney.exchangeRate, liveOrder?.payment_method_specific]);
+    const hasReceiptFile = isStorageObjectReference(liveOrder?.payment_ref, 'receipts');
     const highlightReceipt = useMemo(() => {
         const method = liveOrder?.payment_method_specific;
         return paymentMethodRequiresReceipt(method)
 			|| liveOrder?.payment_lines?.some((line) => line.evidencePolicy === 'required')
 			|| Boolean(liveOrder?.payment_evidence_status)
-            || (liveOrder?.payment_type === 'online' && liveOrder?.payment_ref);
-	}, [liveOrder?.payment_method_specific, liveOrder?.payment_type, liveOrder?.payment_ref, liveOrder?.payment_lines, liveOrder?.payment_evidence_status]);
+            || (liveOrder?.payment_type === 'online' && hasReceiptFile);
+	}, [liveOrder?.payment_method_specific, liveOrder?.payment_type, liveOrder?.payment_lines, liveOrder?.payment_evidence_status, hasReceiptFile]);
 
     useEffect(() => {
         if (!order?.id) {
@@ -257,7 +258,7 @@ const OrderDetailModal = ({
     const canMarkPaid =
         Boolean(onMarkPaid) &&
         paymentDeferred &&
-        isOpenOrderSessionStatus(liveOrder.status);
+        String(liveOrder.status || '').toLowerCase() !== 'cancelled';
     const statusLabel = STATUS_LABELS[liveOrder.status] || liveOrder.status || '—';
     const couponCode = resolveOrderCouponCode(liveOrder);
     const createdAt = new Date(liveOrder.created_at);
@@ -613,7 +614,7 @@ const OrderDetailModal = ({
                                 </section>
                             ) : null}
 
-							{highlightReceipt && liveOrder.payment_ref ? (
+							{highlightReceipt && (hasReceiptFile || liveOrder.payment_evidence_status === 'uploaded') ? (
                                 <section className={`table-session-receipt__section${highlightReceipt ? ' table-session-receipt__section--receipt-highlight' : ''}`}>
 									<Button variant="default" type="button"
 										onClick={() => { setReceiptModalOrder?.(liveOrder); onClose?.(); }}

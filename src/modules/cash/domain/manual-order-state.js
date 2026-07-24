@@ -13,7 +13,7 @@ export function createManualOrderState(options = {}) {
 		mode,
 		phase: 'config',
 		fulfillment: mode === 'session' ? 'table' : 'pickup',
-		paymentTiming: mode === 'session' ? 'deferred' : 'immediate',
+		paymentTiming: 'deferred',
 		items: [],
 		customer: { name: '', phone: '', document: '', clientId: null },
 		operatorReference: '',
@@ -47,18 +47,18 @@ export function manualOrderReducer(state, action) {
 			return dirty(state, {
 				mode,
 				fulfillment: mode === 'session' ? 'table' : (state.fulfillment === 'table' ? 'pickup' : state.fulfillment),
-				paymentTiming: mode === 'session' ? 'deferred' : 'immediate',
+				paymentTiming: 'deferred',
 				quote: null,
 				paymentLines: [],
 			});
 		}
 		case 'SET_FULFILLMENT': {
 			const fulfillment = action.fulfillment;
-			const paymentTiming = state.mode === 'quick_sale' || fulfillment === 'table' ? (fulfillment === 'table' ? 'deferred' : 'immediate') : state.paymentTiming;
+			const paymentTiming = fulfillment === 'table' ? 'deferred' : state.paymentTiming;
 			return dirty(state, { fulfillment, paymentTiming, quote: null, paymentLines: [] });
 		}
 		case 'SET_PAYMENT_TIMING':
-			if (state.mode === 'quick_sale' || state.fulfillment === 'table') return state;
+			if (state.fulfillment === 'table') return state;
 			return dirty(state, { paymentTiming: action.timing === 'immediate' ? 'immediate' : 'deferred', paymentLines: [] });
 		case 'SET_ITEMS':
 			return dirty(state, { items: action.items ?? [], quote: null, paymentLines: [] });

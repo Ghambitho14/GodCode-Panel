@@ -33,6 +33,7 @@ import ManualOrderModal from './ManualOrderModal';
 import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { Button } from "@/components/ui/button";
+import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
 
 const OrderCard = ({
     order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients,
@@ -65,8 +66,9 @@ const OrderCard = ({
         [orders, order],
     );
 	const evidenceState = liveOrder.payment_evidence_status;
+	const hasReceiptFile = isStorageObjectReference(liveOrder.payment_ref, 'receipts');
 	const supportsEvidence = liveOrder.payment_type === 'online'
-		|| Boolean(liveOrder.payment_ref)
+		|| hasReceiptFile
 		|| Boolean(evidenceState)
 		|| liveOrder.payment_lines?.some((line) => line.evidencePolicy && line.evidencePolicy !== 'none');
     const [editWizardOpen, setEditWizardOpen] = useState(false);
@@ -578,8 +580,8 @@ const OrderCard = ({
 						{supportsEvidence ? (
                             <div className="receipt-container receipt-container--kanban">
 								<Button variant="default" type="button" onClick={() => setReceiptModalOrder?.(liveOrder)} className="receipt-link receipt-link--optional">
-									{evidenceState === 'failed' ? <AlertTriangle size={14} aria-hidden /> : liveOrder.payment_ref ? <ImageIcon size={14} aria-hidden /> : <Upload size={14} aria-hidden />}
-									{evidenceState === 'failed' ? 'Comprobante fallido · reintentar' : evidenceState === 'uploading' ? 'Subiendo comprobante…' : evidenceState === 'pending' ? 'Comprobante pendiente' : liveOrder.payment_ref ? 'Ver/cambiar comprobante' : 'Adjuntar comprobante'}
+									{evidenceState === 'failed' ? <AlertTriangle size={14} aria-hidden /> : hasReceiptFile ? <ImageIcon size={14} aria-hidden /> : <Upload size={14} aria-hidden />}
+									{evidenceState === 'failed' ? 'Comprobante fallido · reintentar' : evidenceState === 'uploading' ? 'Subiendo comprobante…' : evidenceState === 'pending' ? 'Comprobante pendiente' : hasReceiptFile ? 'Ver/cambiar comprobante' : 'Adjuntar comprobante'}
 								</Button>
                             </div>
                         ) : null}
@@ -640,6 +642,18 @@ const OrderCard = ({
                                 {paymentDeferred ? 'Cobrar y entregar' : 'Entregado al Cliente'}
                             </Button>
                         </>
+                    ) : null}
+                    {canMarkPaid ? (
+                        <Button
+                            variant="default"
+                            type="button"
+                            onClick={openMarkPaidModal}
+                            className="btn-action btn-action--pay-now"
+                            title="Registrar el pago sin cerrar el pedido"
+                        >
+                            <Banknote size={16} aria-hidden />
+                            Cobrar
+                        </Button>
                     ) : null}
                     <Button variant="default"
                         type="button"
