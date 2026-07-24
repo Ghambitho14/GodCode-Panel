@@ -75,7 +75,9 @@ export function LoginForm() {
             placeholder="••••••••"
             required
           />
-          <Button variant="default"
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             className="login-password-toggle"
             onClick={() => setShowPassword((value) => !value)}
@@ -86,7 +88,7 @@ export function LoginForm() {
         </div>
       </div>
 
-      <Button variant="default" type="submit" className="login-submit-button" disabled={loading}>
+      <Button variant="default" type="submit" className="login-submit-button btn-primary" disabled={loading}>
         {loading ? (
           <>
             <Loader2 size={20} className="animate-spin" />

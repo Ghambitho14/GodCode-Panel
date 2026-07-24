@@ -425,6 +425,10 @@
     font-weight: 600;
     letter-spacing: 0.01em;
     line-height: 1.35;
+    min-height: 52px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .login-form .form-input::placeholder,
@@ -452,26 +456,34 @@
 
 .input-icon {
     position: absolute;
-    left: 14px;
-    top: 14px;
-    color: var(--text-muted);
-}
-
-.input-with-icon input {
-    padding-left: 44px;
-    padding-right: 40px;
-}
-
-.login-password-toggle {
-    position: absolute;
-    right: 10px;
+    left: 16px;
     top: 50%;
     transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.input-with-icon input,
+.login-form .input-with-icon .form-input {
+    width: 100%;
+    padding-left: 54px;
+    padding-right: 48px;
+}
+
+.login-form .login-password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
     border: none;
     border-radius: 999px;
-    background: transparent;
+    background: transparent !important;
+    box-shadow: none !important;
     color: var(--text-muted);
     display: inline-flex;
     align-items: center;
@@ -479,16 +491,16 @@
     cursor: pointer;
 }
 
-.login-password-toggle:hover {
-    background: #2a303a;
+.login-form .login-password-toggle:hover {
+    background: #2a303a !important;
     color: #fff;
 }
 
 .login-submit-button {
     width: 100%;
-    margin-top: 10px;
+    margin-top: 16px;
     justify-content: center;
-    min-height: 46px;
+    min-height: 52px;
 }
 
 .login-submit-button.btn-primary {
@@ -746,10 +758,6 @@
         border-radius: 11px;
         background: #12223a;
         border-color: #355174;
-    }
-
-    .input-icon {
-        top: 11px;
     }
 
     .login-submit-button {
@@ -1081,7 +1089,7 @@
 }
 
 .login-slide-card[data-mode="caja"] .login-slide-subtitle {
-    color: var(--text-secondary);
+    color: #a8b3c4;
 }
 
 .login-admin-external-wrap {
@@ -1110,7 +1118,7 @@
 }
 
 .login-slide-card[data-mode="caja"] .login-slide-help {
-    color: var(--text-muted);
+    color: #8b96a8;
 }
 
 .login-sliding-panel {
@@ -1260,11 +1268,19 @@
 }
 
 .login-slide-card .login-form .form-group {
-    margin-bottom: 14px;
+    margin-bottom: 18px;
+}
+
+.login-slide-card .login-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
 }
 
 .login-slide-card .login-form .form-input {
     border-radius: var(--login-control-radius);
+    min-height: 52px;
+    padding-top: 14px;
+    padding-bottom: 14px;
 }
 
 .login-slide-card .login-submit-button,
@@ -1360,11 +1376,15 @@
 }
 
 .login-slide-card[data-mode="caja"] .input-icon {
-    color: var(--text-muted);
+    color: #9aa5b5;
+}
+
+.login-slide-card[data-mode="caja"] .login-password-toggle {
+    color: #9aa5b5;
 }
 
 .login-slide-card[data-mode="caja"] .login-password-toggle:hover {
-    background: #2a303a;
+    background: #2a303a !important;
     color: #fff;
 }
 

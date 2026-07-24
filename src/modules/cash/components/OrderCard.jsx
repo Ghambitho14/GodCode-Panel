@@ -82,6 +82,7 @@ const OrderCard = ({
     const [localItems, setLocalItems] = useState(null);
     const [itemsHydrated, setItemsHydrated] = useState(false);
     const ticketMenuRef = useRef(null);
+    const prevUpdatedAtRef = useRef(undefined);
     const isDelivery = isOrderDelivery(order);
     const deliverySubtitle = isDelivery ? orderDeliveryKanbanSubtitle(order) : '';
 
@@ -187,6 +188,7 @@ const OrderCard = ({
     }, [hydrateOrderItems, showNotify]);
 
     useEffect(() => {
+        prevUpdatedAtRef.current = undefined;
         setLocalItems(null);
         setPreparedItemIds(new Set());
         setShowAllItems(false);
@@ -198,6 +200,24 @@ const OrderCard = ({
         setItemsHydrated(true);
         loadOrderItems(liveOrder.id);
     }, [liveOrder.id, itemsHydrated, loadOrderItems]);
+
+    // Keep card items in sync when the order is edited (upsert/realtime updates total
+    // via liveOrder but localItems would otherwise stay on the pre-edit hydrate).
+    useEffect(() => {
+        if (!liveOrder.id) return;
+        if (prevUpdatedAtRef.current === undefined) {
+            prevUpdatedAtRef.current = liveOrder.updated_at;
+            return;
+        }
+        if (prevUpdatedAtRef.current === liveOrder.updated_at) return;
+        prevUpdatedAtRef.current = liveOrder.updated_at;
+        if (Array.isArray(liveOrder.items) && liveOrder.items.length > 0) {
+            setLocalItems(liveOrder.items);
+            return;
+        }
+        setLocalItems(null);
+        setItemsHydrated(false);
+    }, [liveOrder.id, liveOrder.updated_at, liveOrder.items]);
 
     useEffect(() => {
         if (liveOrder.status === 'completed' && Array.isArray(displayItems) && displayItems.length > 0) {
@@ -707,6 +727,13 @@ const OrderCard = ({
                     companyName={companyName}
                     showNotify={showNotify}
                     onOrderSaved={(saved) => {
+                        if (Array.isArray(saved?.items)) {
+                            setLocalItems(saved.items);
+                            if (saved.updated_at) prevUpdatedAtRef.current = saved.updated_at;
+                        } else {
+                            setLocalItems(null);
+                            setItemsHydrated(false);
+                        }
                         onOrderSaved?.(saved);
                         setEditWizardOpen(false);
                     }}

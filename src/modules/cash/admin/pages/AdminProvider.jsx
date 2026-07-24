@@ -662,6 +662,9 @@ export const AdminProvider = ({
 				}
 				const transitioned = await manualOrderV2Service.transition(orderId, nextStatus, previousRow?.updated_at ?? null);
 				setOrders((prev) => prev.map((order) => order.id === orderId ? sanitizeOrder(transitioned) : order));
+				if (nextStatus === 'cancelled') {
+					void cashSystem.refresh?.();
+				}
 				showNotify('Pedido actualizado');
 				return;
 			}
