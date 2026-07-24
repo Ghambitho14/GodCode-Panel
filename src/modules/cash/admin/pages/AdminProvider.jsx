@@ -681,6 +681,7 @@ export const AdminProvider = ({
 					nextStatus,
 				));
 				setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+				void cashSystem.refresh?.();
 				showNotify('Pedido y caja actualizados');
 				return;
 			}
@@ -757,6 +758,7 @@ export const AdminProvider = ({
 				const settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
 				setOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
 				setHistoryOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
+				void cashSystem.refresh?.();
 				showNotify('Pago registrado', 'success');
 				return settled;
 			}
@@ -771,13 +773,14 @@ export const AdminProvider = ({
 			));
 			setOrders((prev) => prev.map((row) => row.id === order.id ? nextOrder : row));
 			setHistoryOrders((prev) => prev.map((row) => row.id === order.id ? nextOrder : row));
+			void cashSystem.refresh?.();
 			showNotify('Pago registrado', 'success');
 			return nextOrder;
 		} catch (err) {
 			showNotify(err?.message || 'Error al registrar el pago', 'error');
 			return false;
 		}
-	}, [showNotify]);
+	}, [cashSystem, showNotify]);
 
 	const closeOrderSession = useCallback(async (order, paymentPatch = null) => {
 		if (!order?.id) return false;
@@ -792,6 +795,7 @@ export const AdminProvider = ({
 						'picked_up',
 					));
 					setOrders((prev) => prev.map((row) => row.id === order.id ? closed : row));
+					void cashSystem.refresh?.();
 					showNotify('Sesión cerrada correctamente');
 					return true;
 				}
@@ -811,13 +815,14 @@ export const AdminProvider = ({
 				'picked_up',
 			));
 			setOrders((prev) => prev.map((o) => (o.id === order.id ? nextOrder : o)));
+			void cashSystem.refresh?.();
 			showNotify('Mesa cerrada correctamente');
 			return true;
 		} catch (err) {
 			showNotify(err?.message || 'Error al cerrar la mesa', 'error');
 			return false;
 		}
-	}, [showNotify]);
+	}, [cashSystem, showNotify]);
 
 	const kanbanColumns = useMemo(() => {
 		const byCreatedAsc = (a, b) =>

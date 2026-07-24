@@ -244,7 +244,9 @@ const CashManager = ({
                                 <span>Balance Esperado</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(expectedCashBalance)}</div>
-                            <div className="cash-kpi-sub">Base: {fmt(activeShift.opening_balance || 0)}</div>
+                            <div className="cash-kpi-sub">
+                                Base: {fmt(activeShift.opening_balance || 0)} · solo efectivo
+                            </div>
                         </div>
 
                         <div className="cash-kpi income">

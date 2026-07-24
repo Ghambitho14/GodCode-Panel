@@ -10,6 +10,7 @@ import {
     getCompanyImageStorageTarget,
     isCompanyStoragePath,
     isStorageObjectReference,
+    normalizeStorageAssetUrl,
 } from '@/shared/utils/supabaseStorage';
 
 const COMPANY_ID = '11111111-1111-4111-8111-111111111111';
@@ -144,5 +145,20 @@ describe('Supabase Storage empresarial', () => {
             `https://example.supabase.co/storage/v1/render/image/authenticated/receipts/${path}`,
             'receipts',
         )).toBe(path);
+    });
+
+    it('reescribe hosts de Storage al base del cliente cuando aplica', () => {
+        const previous = import.meta.env.VITE_SUPABASE_URL;
+        import.meta.env.VITE_SUPABASE_URL = 'https://app.example.com/api/supabase';
+        try {
+            expect(normalizeStorageAssetUrl(
+                'http://supabase:54321/storage/v1/object/public/menu/company/a.png',
+            )).toBe('https://app.example.com/api/supabase/storage/v1/object/public/menu/company/a.png');
+            expect(normalizeStorageAssetUrl(
+                '/storage/v1/object/sign/receipts/company/b.png?token=abc',
+            )).toBe('https://app.example.com/api/supabase/storage/v1/object/sign/receipts/company/b.png?token=abc');
+        } finally {
+            import.meta.env.VITE_SUPABASE_URL = previous;
+        }
     });
 });

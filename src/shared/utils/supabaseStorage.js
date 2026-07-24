@@ -235,13 +235,60 @@ export async function uploadImageToSupabase(file, bucket, folder = '') {
 }
 
 /**
- * Devuelve una URL firmada para un archivo privado de Supabase Storage.
- * Si el valor ya es una URL completa de Supabase Storage, la devuelve tal cual.
+ * Reescribe URLs de Storage al base URL del cliente (incluye proxy BFF `/api/supabase`).
+ * Evita hosts internos de Docker / IP privadas que el navegador no puede abrir.
+ *
+ * @param {string | null | undefined} assetUrl
+ * @returns {string | null}
+ */
+export function normalizeStorageAssetUrl(assetUrl) {
+    if (!assetUrl) return null;
+    const trimmed = String(assetUrl).trim();
+    if (!trimmed) return null;
+
+    let clientBase = '';
+    try {
+        const raw = String(
+            import.meta.env.VITE_SUPABASE_URL
+            ?? import.meta.env.NEXT_PUBLIC_SUPABASE_URL
+            ?? '',
+        ).trim();
+        if (raw.startsWith('/')) {
+            if (typeof window !== 'undefined' && window.location?.origin) {
+                clientBase = `${window.location.origin}${raw}`.replace(/\/$/, '');
+            }
+        } else if (raw) {
+            clientBase = raw.replace(/\/$/, '');
+        }
+    } catch {
+        clientBase = '';
+    }
+    if (!clientBase) return trimmed;
+
+    try {
+        if (trimmed.startsWith('/storage/v1/')) {
+            return `${clientBase}${trimmed}`;
+        }
+        if (trimmed.startsWith('/object/') || trimmed.startsWith('/render/')) {
+            return `${clientBase}/storage/v1${trimmed}`;
+        }
+        const parsed = new URL(trimmed);
+        const marker = parsed.pathname.indexOf('/storage/v1/');
+        if (marker === -1) return trimmed;
+        return `${clientBase}${parsed.pathname.slice(marker)}${parsed.search}`;
+    } catch {
+        return trimmed;
+    }
+}
+
+/**
+ * Devuelve una URL firmada (o pública) para un archivo de Supabase Storage.
+ * Si el valor ya es una URL completa de Supabase Storage, la normaliza al base del cliente.
  *
  * @param {string | null | undefined} pathOrUrl - Ruta relativa del archivo o URL completa.
  * @param {'menu' | 'receipts' | 'products'} bucket - Bucket.
  * @param {number} [expiresIn=3600] - Segundos de validez de la URL firmada.
- * @returns {Promise<string | null>} URL firmada o URL completa de Supabase Storage.
+ * @returns {Promise<string | null>} URL usable en <img src>.
  */
 export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
     if (!pathOrUrl) return null;
@@ -254,6 +301,14 @@ export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
         throw new Error('La ruta del archivo no es válida');
     }
 
+    // `menu` es público en este proyecto: la URL pública evita fallos de sign/RLS
+    // y sigue pasando por el mismo host/proxy del cliente.
+    if (bucket === STORAGE_BUCKETS.MENU) {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+        const publicUrl = normalizeStorageAssetUrl(data?.publicUrl);
+        if (publicUrl) return publicUrl;
+    }
+
     const { data, error } = await supabase.storage
         .from(bucket)
         .createSignedUrl(storagePath, expiresIn);
@@ -262,7 +317,7 @@ export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
         throw new Error(error.message || 'Error al generar URL firmada');
     }
 
-    return data.signedUrl;
+    return normalizeStorageAssetUrl(data?.signedUrl);
 }
 
 /**

@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useState } from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { formatMoney } from '@/shared/utils/money';
 
 const PAYMENT_COLORS = {
@@ -19,23 +19,6 @@ function buildDonutData(data) {
 
 function donutDataKey(data) {
 	return (data || []).map((d) => `${d?.label ?? ''}:${d?.value ?? 0}`).join('|');
-}
-
-function ActiveSector(props) {
-	const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-	const base = typeof outerRadius === 'number' ? outerRadius : Number(String(outerRadius).replace('%', '')) * 0.01 * Math.min(cx, cy) * 2;
-	return (
-		<Sector
-			cx={cx}
-			cy={cy}
-			innerRadius={innerRadius}
-			outerRadius={base + 4}
-			startAngle={startAngle}
-			endAngle={endAngle}
-			fill={fill}
-			stroke="none"
-		/>
-	);
 }
 
 function ReportPaymentDonut({ data = [], currency = 'CLP' }) {
@@ -89,13 +72,16 @@ function ReportPaymentDonut({ data = [], currency = 'CLP' }) {
 							paddingAngle={0}
 							animationDuration={500}
 							animationEasing="ease-out"
-							activeIndex={activeIndex}
-							activeShape={ActiveSector}
 							onMouseEnter={(_, index) => setActiveIndex(index)}
 							onMouseLeave={() => setActiveIndex(null)}
 						>
-							{chartData.map((entry) => (
-								<Cell key={entry.label} fill={entry.color} stroke="none" />
+							{chartData.map((entry, index) => (
+								<Cell
+									key={entry.label}
+									fill={entry.color}
+									stroke="none"
+									opacity={activeIndex == null || activeIndex === index ? 1 : 0.55}
+								/>
 							))}
 						</Pie>
 					</PieChart>

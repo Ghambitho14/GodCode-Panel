@@ -151,22 +151,20 @@ export function resolveReportPeriodRange(periodValue, now = new Date()) {
 	}
 
 	if (isRolling) {
-		const cutoff = new Date(now);
-		cutoff.setDate(now.getDate() - rollingDays);
-		const prevCutoff = new Date(cutoff);
-		prevCutoff.setDate(cutoff.getDate() - rollingDays);
+		// Mismos límites calendario para KPIs, RPC y eje del gráfico (N días locales).
 		const chartStart = addLocalDays(startOfLocalDay(now), -(rollingDays - 1));
 		const chartEnd = addLocalDays(startOfLocalDay(now), 1);
+		const prevStart = addLocalDays(chartStart, -rollingDays);
 		return {
-			start: cutoff,
-			end: null,
-			prevStart: prevCutoff,
-			prevEnd: cutoff,
+			start: chartStart,
+			end: chartEnd,
+			prevStart,
+			prevEnd: chartStart,
 			chartDateKeys: chartKeysBetween(chartStart, chartEnd),
 			dayCount: rollingDays,
 			displayLabel: formatReportPeriodLabel(periodValue),
-			fetchStartIso: cutoff.toISOString(),
-			fetchEndIso: null,
+			fetchStartIso: chartStart.toISOString(),
+			fetchEndIso: chartEnd.toISOString(),
 			hasComparison: true,
 		};
 	}

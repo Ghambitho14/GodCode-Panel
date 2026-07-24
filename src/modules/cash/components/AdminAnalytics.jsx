@@ -5,7 +5,6 @@ import {
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
     BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink, LineChart
 } from 'lucide-react';
-import { PieChart, Pie, Cell, Sector, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
 import { expenseBucketKey, expenseBucketKeysForRange, labelForExpenseBucket } from '../utils/cashExpenseBuckets';
@@ -109,7 +108,7 @@ function buildHourlySalesPoints(orders, range) {
         sales: 0,
         expenses: 0,
     }));
-    orders.forEach((o) => {
+    (orders || []).forEach((o) => {
         if (!o) return;
         const d = new Date(o.created_at);
         if (!isInReportRange(d, range)) return;
@@ -121,17 +120,22 @@ function buildHourlySalesPoints(orders, range) {
 
 function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary) {
     const chartDateKeys = [...range.chartDateKeys];
-    if (analyticsSource === 'rpc' && analyticsSummary?.current) {
-        return chartDateKeys.map((k) => ({
-            key: k,
-            label: formatSalesChartLabel(k, range.dayCount),
-            sales: Number(analyticsSummary.current.byDay[k]) || 0,
-            expenses: 0,
-        }));
+    if (analyticsSource === 'rpc' && analyticsSummary?.current?.byDay) {
+        const byDay = analyticsSummary.current.byDay;
+        const hasAny = chartDateKeys.some((k) => Number(byDay[k]) > 0)
+            || Object.keys(byDay).length > 0;
+        if (hasAny) {
+            return chartDateKeys.map((k) => ({
+                key: k,
+                label: formatSalesChartLabel(k, range.dayCount),
+                sales: Number(byDay[k]) || 0,
+                expenses: 0,
+            }));
+        }
     }
     const salesByDate = {};
     chartDateKeys.forEach((key) => { salesByDate[key] = 0; });
-    orders.forEach((o) => {
+    (orders || []).forEach((o) => {
         if (!o) return;
         const localDate = new Date(o.created_at).toLocaleDateString('en-CA');
         if (salesByDate[localDate] !== undefined) {
@@ -144,23 +148,6 @@ function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary)
         sales: salesByDate[k] || 0,
         expenses: 0,
     }));
-}
-
-function ActiveClientSector(props) {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-    const base = typeof outerRadius === 'number' ? outerRadius : Number(String(outerRadius).replace('%', '')) * 0.01 * Math.min(cx, cy) * 2;
-    return (
-        <Sector
-            cx={cx}
-            cy={cy}
-            innerRadius={innerRadius}
-            outerRadius={base + 4}
-            startAngle={startAngle}
-            endAngle={endAngle}
-            fill={fill}
-            stroke="none"
-        />
-    );
 }
 
 const EXPENSE_AGG_OPTIONS = [
@@ -277,10 +264,41 @@ function formatKpiValue(metaKey, value, fmt) {
 }
 
 function formatSparklineValue(metaKey, value, fmt) {
-    if (metaKey === 'count' || metaKey === 'clients' || metaKey === 'deliveryCount') {
+    if (metaKey === 'count' || metaKey === 'deliveryCount') {
         return `${Math.round(Number(value) || 0).toLocaleString('es-CL')} pedidos`;
     }
+    if (metaKey === 'clients') {
+        return `${Math.round(Number(value) || 0).toLocaleString('es-CL')} clientes`;
+    }
     return fmt(value);
+}
+
+function formatPeakHourLabel(hour) {
+    const h = Number(hour);
+    if (!Number.isFinite(h)) return '—';
+    const start = `${String(h).padStart(2, '0')}:00`;
+    const end = `${String((h + 1) % 24).padStart(2, '0')}:00`;
+    return `${start} – ${end}`;
+}
+
+function buildHourCountsFromAnalytics({ analyticsSource, analyticsSummary, ordersForAnalytics, reportRange }) {
+    const hourCounts = {};
+    if (analyticsSource === 'rpc' && analyticsSummary?.current?.byHour) {
+        Object.entries(analyticsSummary.current.byHour).forEach(([h, count]) => {
+            const hour = Number(h);
+            if (!Number.isFinite(hour)) return;
+            hourCounts[hour] = Number(count) || 0;
+        });
+        return hourCounts;
+    }
+    for (const o of ordersForAnalytics || []) {
+        if (!o || o.status === 'cancelled') continue;
+        const d = new Date(o.created_at);
+        if (!isInReportRange(d, reportRange)) continue;
+        const h = d.getHours();
+        hourCounts[h] = (hourCounts[h] || 0) + 1;
+    }
+    return hourCounts;
 }
 
 function resolveKpiTrendKey(metaKey) {
@@ -452,7 +470,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
     const [expensePreviewState, setExpensePreviewState] = useState(null);
     const [expenseKindFilter, setExpenseKindFilter] = useState('all');
-    const [activeClientIndex, setActiveClientIndex] = useState(null);
 
     const [reportAnchorDate] = useState(() => new Date());
     const reportRange = useMemo(
@@ -1211,6 +1228,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.online],
     );
 
+    const paymentMethodsTotal = useMemo(
+        () => PAYMENT_META.reduce((sum, m) => sum + (Number(paymentBreakdown[m.key]) || 0), 0),
+        [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.online],
+    );
+
     const newClientsInfo = useMemo(() => {
         if (!clients) return { count: 0, trend: 0, total: 0 };
         const range = reportRange;
@@ -1232,14 +1254,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [clients, reportRange]);
 
     const topProducts = topProductsFromRpc;
-
-    const clientsDonutData = useMemo(
-        () => [
-            { name: 'Nuevos', value: newClientsInfo.count, color: '#16a34a' },
-            { name: 'Registrados', value: Math.max(0, newClientsInfo.total - newClientsInfo.count), color: '#ededf0' },
-        ],
-        [newClientsInfo.count, newClientsInfo.total],
-    );
 
     const kpiSparklines = useMemo(() => {
         const isHourly = reportRange.dayCount === 1;
@@ -1308,58 +1322,81 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     }, [reportRange, salesChartPoints, ordersForAnalytics, clients, chartTab]);
 
     const peakHour = useMemo(() => {
-        if (analyticsSource === 'rpc' && analyticsSummary) {
-            const hourCounts = analyticsSummary.current.byHour || {};
-            const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a);
-            if (sorted.length === 0) return null;
-            const h = parseInt(sorted[0][0], 10);
-            return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
-        }
-
-        if (!ordersForAnalytics || ordersForAnalytics.length === 0) return null;
-        const hourCounts = {};
-        ordersForAnalytics
-            .filter((o) => o && o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
-            .forEach(o => {
-                if (!o) return;
-                const h = new Date(o.created_at).getHours();
-                hourCounts[h] = (hourCounts[h] || 0) + 1;
-            });
-
-        const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a);
+        const hourCounts = buildHourCountsFromAnalytics({
+            analyticsSource,
+            analyticsSummary,
+            ordersForAnalytics,
+            reportRange,
+        });
+        const sorted = Object.entries(hourCounts)
+            .map(([h, count]) => ({ hour: Number(h), count: Number(count) || 0 }))
+            .filter((row) => row.count > 0)
+            .sort((a, b) => b.count - a.count || a.hour - b.hour);
         if (sorted.length === 0) return null;
-        const h = parseInt(sorted[0][0]);
-        return { hour: `${h}:00 - ${h + 1}:00`, count: sorted[0][1] };
+        const top = sorted[0];
+        return {
+            hour: formatPeakHourLabel(top.hour),
+            count: top.count,
+        };
     }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
 
     const peakHourDistribution = useMemo(() => {
-        const buckets = [
-            { label: 'Madrugada', hours: [0, 1, 2, 3, 4, 5], count: 0 },
-            { label: 'Mañana', hours: [6, 7, 8, 9, 10, 11], count: 0 },
-            { label: 'Tarde', hours: [12, 13, 14, 15, 16, 17], count: 0 },
-            { label: 'Noche', hours: [18, 19, 20, 21, 22, 23], count: 0 },
-        ];
-        const hourCounts = {};
-        if (analyticsSource === 'rpc' && analyticsSummary) {
-            const currentByHour = analyticsSummary.current.byHour || {};
-            Object.entries(currentByHour).forEach(([h, count]) => {
-                hourCounts[Number(h)] = Number(count) || 0;
-            });
-        } else if (ordersForAnalytics?.length) {
-            ordersForAnalytics
-                .filter((o) => o && o.status !== 'cancelled' && isInReportRange(new Date(o.created_at), reportRange))
-                .forEach((o) => {
-                    if (!o) return;
-                    const h = new Date(o.created_at).getHours();
-                    hourCounts[h] = (hourCounts[h] || 0) + 1;
-                });
-        }
-        buckets.forEach((b) => {
-            b.count = b.hours.reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+        const hourCounts = buildHourCountsFromAnalytics({
+            analyticsSource,
+            analyticsSummary,
+            ordersForAnalytics,
+            reportRange,
         });
-        const max = Math.max(...buckets.map((b) => b.count), 1);
-        return buckets.map((b) => ({ ...b, pct: Math.round((b.count / max) * 100) }));
+        const total = Object.values(hourCounts).reduce((sum, n) => sum + (Number(n) || 0), 0);
+        if (total <= 0) return [];
+
+        const bands = [
+            { label: 'Madrugada', hours: [0, 1, 2, 3, 4, 5] },
+            { label: 'Mañana', hours: [6, 7, 8, 9, 10, 11] },
+            { label: 'Tarde', hours: [12, 13, 14, 15, 16, 17] },
+            { label: 'Noche', hours: [18, 19, 20, 21, 22, 23] },
+        ].map((b) => {
+            const count = b.hours.reduce((sum, h) => sum + (hourCounts[h] || 0), 0);
+            return {
+                label: b.label,
+                count,
+                pctOfTotal: Math.round((count / total) * 100),
+            };
+        });
+
+        const max = Math.max(...bands.map((b) => b.count), 1);
+        return bands.map((b) => ({
+            ...b,
+            pct: Math.round((b.count / max) * 100),
+        }));
     }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
+
+    const topPeakHours = useMemo(() => {
+        const hourCounts = buildHourCountsFromAnalytics({
+            analyticsSource,
+            analyticsSummary,
+            ordersForAnalytics,
+            reportRange,
+        });
+        const rows = Object.entries(hourCounts)
+            .map(([h, count]) => ({ hour: Number(h), count: Number(count) || 0 }))
+            .filter((row) => row.count > 0)
+            .sort((a, b) => b.count - a.count || a.hour - b.hour)
+            .slice(0, 5);
+        const max = Math.max(...rows.map((r) => r.count), 1);
+        return rows.map((row) => ({
+            ...row,
+            label: formatPeakHourLabel(row.hour),
+            pct: Math.round((row.count / max) * 100),
+        }));
+    }, [analyticsSource, analyticsSummary, ordersForAnalytics, reportRange]);
+
+    const hasSalesChartData = useMemo(
+        () => (salesChartPoints || []).some((p) => Number(p.sales) > 0),
+        [salesChartPoints],
+    );
+
+    const salesChartTitle = reportRange.dayCount === 1 ? 'Ventas por hora' : 'Ventas por día';
 
     const activeChartKind =
         chartKind === 'bar-gradient'
@@ -1886,7 +1923,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="flex min-w-0 flex-col gap-5">
                     <Card className="flex h-fit min-w-0 flex-col">
                         <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                            <CardTitle className="text-base font-semibold text-[#14161a]">Ventas por día</CardTitle>
+                            <CardTitle className="text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                                 <div className="rpt-chart-kind">
                                     {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
@@ -1913,7 +1950,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             </div>
                         </CardHeader>
                         <CardContent className="p-4 pt-2">
-                            {salesChartPoints.length ? (
+                            {hasSalesChartData ? (
                                 <ReportSalesChart
                                     points={salesChartPoints}
                                     kind={activeChartKind}
@@ -1944,20 +1981,44 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     <p className="text-2xl font-bold text-[#14161a]">{peakHour.hour}</p>
                                     <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
                                 </div>
-                                <div className="space-y-2">
-                                    {peakHourDistribution.map((b, idx) => (
-                                        <div key={`${b.label}-${b.pct}`} className="flex items-center gap-3">
-                                            <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
-                                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
-                                                <div
-                                                    className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
-                                                    style={{ '--rpt-bar-width': `${b.pct}%`, opacity: 0.25 + (b.pct / 100) * 0.75, animationDelay: `${idx * 60}ms` }}
-                                                />
+                                {topPeakHours.length > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Top horarios</p>
+                                        {topPeakHours.map((row, idx) => (
+                                            <div key={`${row.label}-${row.count}`} className="flex items-center gap-3">
+                                                <span className="w-[4.5rem] shrink-0 text-xs font-medium text-[#6b7280]">{row.label}</span>
+                                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                    <div
+                                                        className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
+                                                        style={{
+                                                            '--rpt-bar-width': `${row.pct}%`,
+                                                            opacity: 0.3 + (row.pct / 100) * 0.7,
+                                                            animationDelay: `${idx * 60}ms`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{row.count}</span>
                                             </div>
-                                            <span className="w-8 text-right text-xs font-semibold text-[#14161a]">{b.count}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                ) : null}
+                                {peakHourDistribution.length > 0 ? (
+                                    <div className="space-y-2 border-t border-[#ededf0] pt-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Por franja</p>
+                                        {peakHourDistribution.map((b, idx) => (
+                                            <div key={`${b.label}-${b.pct}`} className="flex items-center gap-3">
+                                                <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
+                                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
+                                                    <div
+                                                        className="h-full rounded-full bg-[#93c5fd] rpt-animate-bar"
+                                                        style={{ '--rpt-bar-width': `${b.pct}%`, animationDelay: `${idx * 60}ms` }}
+                                                    />
+                                                </div>
+                                                <span className="w-10 text-right text-xs font-semibold text-[#14161a]">{b.pctOfTotal}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : null}
                             </CardContent>
                         </Card>
                     )}
@@ -1981,7 +2042,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         const pct = Math.round((p.qty / maxQty) * 100);
                                         const opacity = Math.max(0.25, pct / 100);
                                         return (
-                                            <div key={`${p.name}-${pct}`} className="flex items-center gap-4">
+                                            <div key={`${p.name}-${i}`} className="flex items-center gap-4">
                                                 <span className="w-7 text-sm font-black text-[#2563eb]">#{i + 1}</span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
@@ -2021,7 +2082,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             <div className="space-y-2.5">
                                 {PAYMENT_META.map((pm, idx) => {
                                     const value = paymentBreakdown[pm.key] || 0;
-                                    const pct = kpis.total > 0 ? Math.round((value / kpis.total) * 100) : 0;
+                                    const pct = paymentMethodsTotal > 0
+                                        ? Math.round((value / paymentMethodsTotal) * 100)
+                                        : 0;
                                     const Icon = pm.Icon;
                                     return (
                                         <div key={`${pm.key}-${pct}`} className="space-y-1.5">
@@ -2052,64 +2115,45 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                <Users size={18} className="text-[#2563eb]" />
-                                Clientes
+                            <CardTitle className="flex items-center justify-between gap-2 text-base font-semibold text-[#14161a]">
+                                <span className="inline-flex items-center gap-2">
+                                    <Users size={18} className="text-[#2563eb]" />
+                                    Clientes nuevos
+                                </span>
+                                {reportRange.hasComparison ? (
+                                    <TrendBadge
+                                        value={newClientsInfo.trend}
+                                        isSignificant
+                                    />
+                                ) : null}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex flex-col items-center gap-4">
-                                <div className="relative h-44 w-44 shrink-0 overflow-visible sm:h-48 sm:w-48">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <RechartsTooltip
-                                                content={({ active, payload }) => {
-                                                    if (!active || !payload?.length) return null;
-                                                    const row = payload[0]?.payload;
-                                                    if (!row) return null;
-                                                    const pct = newClientsInfo.total > 0 ? Math.round((row.value / newClientsInfo.total) * 100) : 0;
-                                                    return (
-                                                        <div className="rounded-lg bg-[#1a1a1a] px-3 py-2 text-xs shadow-lg">
-                                                            <p className="mb-1 font-semibold text-white">{row.name}</p>
-                                                            <p className="font-bold text-white">{row.value} clientes ({pct}%)</p>
-                                                        </div>
-                                                    );
-                                                }}
-                                            />
-                                            <Pie
-                                                data={clientsDonutData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius="58%"
-                                                outerRadius="82%"
-                                                dataKey="value"
-                                                stroke="none"
-                                                paddingAngle={0}
-                                                animationDuration={500}
-                                                animationEasing="ease-out"
-                                                activeIndex={activeClientIndex}
-                                                activeShape={ActiveClientSector}
-                                                onMouseEnter={(_, index) => setActiveClientIndex(index)}
-                                                onMouseLeave={() => setActiveClientIndex(null)}
-                                            >
-                                                {clientsDonutData.map((entry) => (
-                                                    <Cell key={entry.name} fill={entry.color} stroke="none" />
-                                                ))}
-                                            </Pie>
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                        <span className="text-lg font-bold text-[#14161a]">
-                                            {newClientsInfo.total > 0 ? Math.round((newClientsInfo.count / newClientsInfo.total) * 100) : 0}%
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="text-center text-sm">
-                                    <p className="font-bold text-[#14161a]">{newClientsInfo.total} total registrados</p>
-                                    <p className="font-medium text-[#6b7280]">
-                                        <strong className="text-[#14161a]">{newClientsInfo.count}</strong> nuevos en {reportRange.displayLabel}
-                                    </p>
-                                </div>
+                            <div>
+                                <p className="text-[28px] font-bold leading-none tracking-tight text-[#14161a]">
+                                    {newClientsInfo.count.toLocaleString('es-CL')}
+                                </p>
+                                <p className="mt-1 text-xs font-medium text-[#6b7280]">
+                                    altas en {reportRange.displayLabel}
+                                </p>
+                            </div>
+                            <div className="h-16 w-full">
+                                <ReportSparkline
+                                    values={kpiSparklines.clients}
+                                    trend={newClientsInfo.trend}
+                                    showTrend={reportRange.hasComparison}
+                                    height={64}
+                                    color="#16a34a"
+                                    valueFormatter={(v) => `${Math.round(Number(v) || 0).toLocaleString('es-CL')} clientes`}
+                                />
+                            </div>
+                            <div className="border-t border-[#ededf0] pt-3 text-sm">
+                                <p className="font-bold text-[#14161a]">
+                                    {newClientsInfo.total.toLocaleString('es-CL')} registrados en total
+                                </p>
+                                <p className="text-xs font-medium text-[#6b7280]">
+                                    Base acumulada de clientes (no es % del periodo)
+                                </p>
                             </div>
                         </CardContent>
                     </Card>

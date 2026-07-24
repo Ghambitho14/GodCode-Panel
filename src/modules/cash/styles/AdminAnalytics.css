@@ -2391,13 +2391,20 @@
 
 /* Barras de Hora pico / Top productos */
 .admin-layout .rpt-animate-bar {
-    width: 0;
-    animation: rpt-bar-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    width: var(--rpt-bar-width, 0%);
+    transform-origin: left center;
+    animation: rpt-bar-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes rpt-bar-grow {
-    from { width: 0; }
-    to { width: var(--rpt-bar-width, 0%); }
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-layout .rpt-animate-bar {
+        animation: none;
+    }
 }
 
 /* Evitar outline de focus-visible en charts de Recharts */

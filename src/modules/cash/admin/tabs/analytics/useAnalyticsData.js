@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { ORDERS_ANALYTICS_METRICS_SELECT } from '@/shared/utils/orderUtils';
-import { fetchAnalyticsSummary } from '../../../services/analyticsService';
+import { fetchAnalyticsSummary, hasAnalyticsChartBuckets } from '../../../services/analyticsService';
 import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 
 /**
@@ -132,7 +132,7 @@ export function useAnalyticsData({
 				if (cancelled) return;
 
 				setAnalyticsOrders(data);
-				if (rpcSummary && !rpcError && !rpcNotGranted) {
+				if (rpcSummary && !rpcError && !rpcNotGranted && hasAnalyticsChartBuckets(rpcSummary)) {
 					setAnalyticsSummary(rpcSummary);
 					setAnalyticsSource('rpc');
 				} else {
@@ -143,7 +143,7 @@ export function useAnalyticsData({
 				console.error('Error fetching analytics orders:', e);
 				if (!cancelled) {
 					setAnalyticsOrders([]);
-					if (rpcSummary && !rpcError && !rpcNotGranted) {
+					if (rpcSummary && !rpcError && !rpcNotGranted && hasAnalyticsChartBuckets(rpcSummary)) {
 						setAnalyticsSummary(rpcSummary);
 						setAnalyticsSource('rpc');
 					} else {

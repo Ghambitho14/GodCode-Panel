@@ -187,12 +187,15 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
     }, [loadActiveShift, enabled]);
 
     /**
-     * Listener Realtime para actualizar movimientos cuando se agreguen nuevos
+     * Listener Realtime para actualizar movimientos cuando se agreguen nuevos.
+     * Depende solo de shiftId para no re-suscribirse cada vez que cambia expected_balance.
      */
-    useEffect(() => {
-        if (!enabled || !activeShift) return;
+    const activeShiftId = activeShift?.id ?? null;
 
-        const shiftId = activeShift.id;
+    useEffect(() => {
+        if (!enabled || !activeShiftId) return;
+
+        const shiftId = activeShiftId;
 
         // Subscribe a cambios en cash_movements para este shift
         const channel = subscribeMonitored(
@@ -210,12 +213,15 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
                     if (payload.eventType === 'INSERT') {
                         const newRow = payload.new;
                         if (newRow && consumeLocalRealtimeInsert(newRow.id)) return;
-                        if (newRow && isCompleteCashMovementRow(newRow)) {
+                        // Sin payment_method el balance esperado (efectivo) quedaría mal:
+                        // recargar el listado completo en lugar de prepend parcial.
+                        if (newRow && isCompleteCashMovementRow(newRow) && newRow.payment_method) {
                             prependMovement(newRow);
                             void refreshShiftMeta(shiftId);
                             return;
                         }
                         debouncedLoadMovements(shiftId);
+                        void refreshShiftMeta(shiftId);
                     } else if (payload.eventType === 'DELETE') {
                         const deletedId = payload.old?.id;
                         if (deletedId != null) {
@@ -248,7 +254,7 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
             markMonitoredChannelClosing(channel);
             channel.unsubscribe();
         };
-    }, [activeShift, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta, prependMovement]);
+    }, [enabled, activeShiftId, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta, prependMovement]);
 
     /**
      * Abre un nuevo turno

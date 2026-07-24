@@ -58,8 +58,9 @@ function normalizeNumericMap(raw) {
 export function normalizeAnalyticsPeriodSummary(raw) {
 	const row = raw && typeof raw === 'object' && !Array.isArray(raw) ? /** @type {Record<string, unknown>} */ (raw) : {};
 	const byBranchRaw = Array.isArray(row.by_branch) ? row.by_branch : [];
+	const orderCount = Number(row.order_count ?? row.orders) || 0;
 	return {
-		orderCount: Number(row.order_count) || 0,
+		orderCount,
 		totalSales: Number(row.total_sales) || 0,
 		deliveryTotal: Number(row.delivery_total) || 0,
 		deliveryCount: Number(row.delivery_count) || 0,
@@ -77,6 +78,17 @@ export function normalizeAnalyticsPeriodSummary(raw) {
 	};
 }
 
+/** True when the RPC payload has usable chart buckets (or a legitimately empty period). */
+export function hasAnalyticsChartBuckets(summary) {
+	if (!summary?.current) return false;
+	const cur = summary.current;
+	const hasActivity = Number(cur.orderCount) > 0 || Number(cur.totalSales) > 0;
+	if (!hasActivity) return true;
+	const byDayKeys = Object.keys(cur.byDay || {});
+	const byHourKeys = Object.keys(cur.byHour || {});
+	return byDayKeys.length > 0 || byHourKeys.length > 0;
+}
+
 /**
  * @param {unknown} raw
  * @returns {AnalyticsSummary | null}
@@ -88,6 +100,24 @@ export function normalizeAnalyticsSummary(raw) {
 		current: normalizeAnalyticsPeriodSummary(row.current),
 		prev: normalizeAnalyticsPeriodSummary(row.prev),
 	};
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {Array<{ name: string; qty: number; revenue: number }>}
+ */
+export function normalizeTopProducts(raw) {
+	const list = Array.isArray(raw) ? raw : [];
+	return list
+		.map((row) => {
+			const item = row && typeof row === 'object' ? /** @type {Record<string, unknown>} */ (row) : {};
+			return {
+				name: String(item.name ?? item.product_name ?? 'Desconocido'),
+				qty: Number(item.qty ?? item.total_quantity) || 0,
+				revenue: Number(item.revenue ?? item.total_revenue) || 0,
+			};
+		})
+		.filter((row) => row.qty > 0 || row.revenue > 0);
 }
 
 /**
@@ -123,12 +153,7 @@ export async function fetchTopProducts({
 		return [];
 	}
 
-	const rows = Array.isArray(data) ? data : [];
-	return rows.map((row) => ({
-		name: String(row?.name ?? 'Desconocido'),
-		qty: Number(row?.qty) || 0,
-		revenue: Number(row?.revenue) || 0,
-	}));
+	return normalizeTopProducts(data);
 }
 
 /**
@@ -158,6 +183,7 @@ export async function fetchAnalyticsSummary({
 		return { summary: null, error: null, notGranted: false };
 	}
 
+	const channelParam = channel && channel !== 'all' ? channel : null;
 	const { data, error, notGranted } = await callGuardedRpc(
 		'admin_analytics_summary',
 		{
@@ -167,7 +193,7 @@ export async function fetchAnalyticsSummary({
 			p_end: endIso ?? null,
 			p_prev_start: prevStartIso ?? null,
 			p_prev_end: prevEndIso ?? null,
-			p_channel: channel,
+			p_channel: channelParam,
 		},
 		{ showNotify, label: 'Resumen de analytics' },
 	);
