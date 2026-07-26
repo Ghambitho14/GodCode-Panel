@@ -1,6 +1,16 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const MAX_SIZE_MB = 5;
+/** Límite por defecto (comprobantes / genérico). */
+export const IMAGE_MAX_SIZE_MB = 5;
+/** Catálogo, carrusel y upsell: alineado con el copy de la UI. */
+export const MENU_IMAGE_MAX_SIZE_MB = 20;
+
+const MAX_SIZE_BY_BUCKET = Object.freeze({
+    menu: MENU_IMAGE_MAX_SIZE_MB,
+    products: MENU_IMAGE_MAX_SIZE_MB,
+    receipts: IMAGE_MAX_SIZE_MB,
+});
+
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const SUPABASE_STORAGE_URL_PATTERN = /\/storage\/v1\/(?:object|render\/image)\//i;
 const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
@@ -214,13 +224,20 @@ export async function uploadCompanyImage(file, context, options) {
     return uploadImageToSupabase(file, target.bucket, target.folder);
 }
 
-export function validateImageFile(file) {
+/**
+ * @param {File | null | undefined} file
+ * @param {{ maxSizeMb?: number }} [options]
+ */
+export function validateImageFile(file, options = {}) {
     if (!file) return { valid: false, error: 'No se seleccionó ningún archivo.' };
     if (!ALLOWED_TYPES.includes(file.type)) {
         return { valid: false, error: 'Formato no soportado. Usá JPG, PNG, WebP o GIF.' };
     }
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        return { valid: false, error: `El archivo supera los ${MAX_SIZE_MB} MB.` };
+    const maxSizeMb = Number(options.maxSizeMb) > 0
+        ? Number(options.maxSizeMb)
+        : IMAGE_MAX_SIZE_MB;
+    if (file.size > maxSizeMb * 1024 * 1024) {
+        return { valid: false, error: `El archivo supera los ${maxSizeMb} MB.` };
     }
     return { valid: true, error: null };
 }
@@ -246,7 +263,8 @@ function getFileExtension(file) {
  * @returns {Promise<string>} Ruta relativa del archivo dentro del bucket (p.ej. "menu/uuid.png").
  */
 export async function uploadImageToSupabase(file, bucket, folder = '') {
-    const validation = validateImageFile(file);
+    const maxSizeMb = MAX_SIZE_BY_BUCKET[bucket] ?? IMAGE_MAX_SIZE_MB;
+    const validation = validateImageFile(file, { maxSizeMb });
     if (!validation.valid) throw new Error(validation.error);
 
     if (!Object.values(STORAGE_BUCKETS).includes(bucket)) {

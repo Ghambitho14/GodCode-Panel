@@ -8,6 +8,7 @@ import {
 	validateImageFile,
 	deleteCompanyImage,
 	IMAGE_STORAGE_CONTEXTS,
+	MENU_IMAGE_MAX_SIZE_MB,
 	getSignedImageUrl,
 } from '@/shared/utils/supabaseStorage';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
@@ -505,7 +506,7 @@ export default function AdminMenuCarousel({
 		if (!file || !branchId) return;
 		setUploading(true);
 		try {
-			const validation = validateImageFile(file);
+			const validation = validateImageFile(file, { maxSizeMb: MENU_IMAGE_MAX_SIZE_MB });
 			if (!validation.valid) throw new Error(validation.error);
 			const fitted = await autoFitCarouselImage(file);
 			await uploadAndCreateBanner(fitted);

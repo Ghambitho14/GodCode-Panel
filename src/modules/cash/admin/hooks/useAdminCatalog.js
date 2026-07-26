@@ -5,6 +5,7 @@ import {
 	validateImageFile,
 	deleteCompanyImage,
 	IMAGE_STORAGE_CONTEXTS,
+	MENU_IMAGE_MAX_SIZE_MB,
 } from '@/shared/utils/supabaseStorage';
 import { callGuardedRpc } from '../utils/rpcGuard';
 import { invalidateBranchInventory } from '../../services/panelDataCache';
