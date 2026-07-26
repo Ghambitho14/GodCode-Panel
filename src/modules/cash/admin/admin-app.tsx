@@ -266,9 +266,9 @@ export function AdminApp({
 		3600,
 		Boolean(rawLogoUrl),
 		0,
-		"productThumb",
+		null, // sin transform: branding debe usar object/public (imgproxy a menudo no está en self-hosted)
 	);
-	// Storage path relativa → URL pública; Cloudinary/https → passthrough; evita <img src="uuid/..."> roto.
+	// Storage path relativa → URL pública; Cloudinary/https → passthrough.
 	const effectiveLogoUrl =
 		signedLogoUrl
 		|| (rawLogoUrl && /^https?:\/\//i.test(rawLogoUrl) ? rawLogoUrl : null);

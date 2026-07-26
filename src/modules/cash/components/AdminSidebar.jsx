@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag, Wallet } from 'lucide-react';
-import { getSafeFaviconUrl } from '@/shared/utils/documentFavicon';
+import { getSafeLogoImageSrc } from '@/shared/utils/documentFavicon';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { resolveSidebarRestrictedHint } from '../admin/utils/tabAccessMessages';
 
@@ -11,10 +11,13 @@ const SidebarIcon = ({ Icon, size }) => (
     </span>
 );
 
+const SIDEBAR_LOGO_PLACEHOLDER = '/Gcode-logo.svg';
+
 const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, onStorefrontMissing, userEmail, branchName, logoUrl, canAccessTab, getTabDeniedMessage, onDeniedAccess, tabAccessContext, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
     // Estado para evitar SSR mismatch en logo y brand-info
         // SSR mismatch guard removed: logo and brand-info always rendered
     const { pathname } = useLocation();
+    const [logoFailed, setLogoFailed] = useState(false);
     const pendingCount = kanbanColumns?.pending?.length || 0;
     const isTabAllowed = useCallback((tabId) => (typeof canAccessTab === 'function' ? canAccessTab(tabId) : true), [canAccessTab]);
 
@@ -25,6 +28,12 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         }
         return 'Necesitás un rol diferente para acceder.';
     }, [getTabDeniedMessage]);
+
+    useEffect(() => {
+        setLogoFailed(false);
+    }, [logoUrl]);
+
+    const logoSrc = logoFailed ? SIDEBAR_LOGO_PLACEHOLDER : getSafeLogoImageSrc(logoUrl);
 
     // Estado mounted eliminado, usar isMobile directamente
     const renderMobile = isMobile;
@@ -186,7 +195,11 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         <aside className="admin-sidebar">
             <div className="sidebar-top">
                 <div className="logo-circle">
-                    <img src={getSafeFaviconUrl(logoUrl) || '/tenant/logo-placeholder.svg'} alt="Logo" />
+                    <img
+                        src={logoSrc}
+                        alt="Logo"
+                        onError={() => setLogoFailed(true)}
+                    />
                 </div>
                 <div className="brand-info">
                     <h3 className="brand-title">Admin del local</h3>

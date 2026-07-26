@@ -2,18 +2,39 @@
 export const DEFAULT_FAVICON_HREF = "/Gcode-logo.svg";
 
 /**
- * URLs remotas permitidas para favicon (alineado a `resolveSafeLogoUrl` en tickets).
+ * URL lista para <img> / favicon.
+ * - https (y http en DEV): se aceptan
+ * - rutas absolutas de la app (`/…`): se aceptan
+ * - paths relativos de Storage (`uuid/storefront/…`): se rechazan (no son del origin)
  */
 export function getSafeFaviconUrl(logoUrl: string | null | undefined): string | null {
 	if (logoUrl == null || !String(logoUrl).trim()) return null;
+	const trimmed = String(logoUrl).trim();
+
+	// Evita `new URL('uuid/…', origin)` → `https://panel/uuid/…` (roto).
+	if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("/")) {
+		return null;
+	}
+
 	try {
-		const parsed = new URL(logoUrl, window.location.origin);
+		const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.origin : "http://localhost");
 		if (parsed.protocol === "https:") return parsed.href;
 		if (import.meta.env.DEV && parsed.protocol === "http:") return parsed.href;
 		return null;
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Src para el logo del sidebar / branding en UI.
+ * Acepta solo URLs http(s) ya resueltas (Storage público, Cloudinary, etc.).
+ */
+export function getSafeLogoImageSrc(logoUrl: string | null | undefined): string {
+	const trimmed = String(logoUrl ?? "").trim();
+	if (/^https?:\/\//i.test(trimmed)) return trimmed;
+	const safe = getSafeFaviconUrl(trimmed);
+	return safe || DEFAULT_FAVICON_HREF;
 }
 
 function faviconMimeType(href: string): string {

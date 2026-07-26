@@ -16,8 +16,11 @@ export function escapeHtml(value) {
 
 export function resolveSafeLogoUrl(logoUrl) {
 	if (!logoUrl) return '';
+	const trimmed = String(logoUrl).trim();
+	// Paths relativos de Storage no son URLs del panel.
+	if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) return '';
 	try {
-		const parsed = new URL(logoUrl, window.location.origin);
+		const parsed = new URL(trimmed, window.location.origin);
 		if (parsed.protocol === 'https:') return parsed.href;
 		if (import.meta.env.DEV && parsed.protocol === 'http:') return parsed.href;
 		return '';

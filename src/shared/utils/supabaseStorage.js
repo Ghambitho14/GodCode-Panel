@@ -332,9 +332,14 @@ export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600, tra
     }
 
     const transformOptions = resolveImageTransform(transform);
-    const transformArg = transformOptions ? { transform: transformOptions } : undefined;
+    // Self-hosted actual: `/storage/v1/render/image/...` responde 404 (sin imgproxy).
+    // Solo aplicar transforms si se fuerza explícitamente con VITE_STORAGE_IMAGE_TRANSFORMS=1.
+    const transformsEnabled = String(import.meta.env.VITE_STORAGE_IMAGE_TRANSFORMS || '').trim() === '1';
+    const transformArg = transformsEnabled && transformOptions
+        ? { transform: transformOptions }
+        : undefined;
 
-    // `menu` es público: URL pública (+ transform) evita fallos de sign/RLS.
+    // `menu` es público: URL pública evita fallos de sign/RLS.
     if (bucket === STORAGE_BUCKETS.MENU) {
         const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath, transformArg);
         const publicUrl = normalizeStorageAssetUrl(data?.publicUrl);
