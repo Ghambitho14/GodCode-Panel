@@ -20,6 +20,33 @@ export const STORAGE_BUCKETS = Object.freeze({
     PRODUCTS: 'products',
 });
 
+/**
+ * Presets de Image Transformation (`/storage/v1/render/image/...`).
+ * Evitan servir originales de varios MB en thumbs de ~80–480px.
+ */
+export const IMAGE_DISPLAY_PRESETS = Object.freeze({
+    productThumb: Object.freeze({ width: 256, quality: 70, resize: 'cover' }),
+    catalogCard: Object.freeze({ width: 480, quality: 75, resize: 'cover' }),
+    carouselThumb: Object.freeze({ width: 216, quality: 70, resize: 'cover' }),
+    modalPreview: Object.freeze({ width: 640, quality: 80, resize: 'contain' }),
+    receiptViewer: Object.freeze({ width: 1200, quality: 80, resize: 'contain' }),
+    full: null,
+});
+
+/**
+ * @param {keyof typeof IMAGE_DISPLAY_PRESETS | { width?: number, height?: number, quality?: number, resize?: string } | null | undefined} presetOrTransform
+ * @returns {{ width?: number, height?: number, quality?: number, resize?: string } | null}
+ */
+export function resolveImageTransform(presetOrTransform) {
+    if (presetOrTransform == null || presetOrTransform === false) return null;
+    if (typeof presetOrTransform === 'string') {
+        if (!(presetOrTransform in IMAGE_DISPLAY_PRESETS)) return null;
+        return IMAGE_DISPLAY_PRESETS[presetOrTransform];
+    }
+    if (typeof presetOrTransform === 'object') return presetOrTransform;
+    return null;
+}
+
 export const IMAGE_STORAGE_CONTEXTS = Object.freeze({
     CATALOG_PRODUCT: 'catalog-product',
     CART_UPSELL: 'cart-upsell',
@@ -282,42 +309,58 @@ export function normalizeStorageAssetUrl(assetUrl) {
 }
 
 /**
- * Devuelve una URL firmada (o pública) para un archivo de Supabase Storage.
- * Si el valor ya es una URL completa de Supabase Storage, la normaliza al base del cliente.
+ * Devuelve una URL usable en <img src> para Storage (pública/firmada) o URLs externas legacy.
  *
- * @param {string | null | undefined} pathOrUrl - Ruta relativa del archivo o URL completa.
- * @param {'menu' | 'receipts' | 'products'} bucket - Bucket.
- * @param {number} [expiresIn=3600] - Segundos de validez de la URL firmada.
- * @returns {Promise<string | null>} URL usable en <img src>.
+ * @param {string | null | undefined} pathOrUrl
+ * @param {'menu' | 'receipts' | 'products'} bucket
+ * @param {number} [expiresIn=3600]
+ * @param {keyof typeof IMAGE_DISPLAY_PRESETS | object | null} [transform]
+ * @returns {Promise<string | null>}
  */
-export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600) {
+export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600, transform = null) {
     if (!pathOrUrl) return null;
     const trimmed = String(pathOrUrl).trim();
+
+    // Cloudinary u otros hosts legacy: pasar tal cual (no hay transform de Storage).
     if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
-        throw new Error('La imagen no pertenece a Supabase Storage');
+        return trimmed;
     }
+
     const storagePath = extractStoragePath(trimmed, bucket);
     if (!storagePath || /^https?:\/\//i.test(storagePath)) {
         throw new Error('La ruta del archivo no es válida');
     }
 
-    // `menu` es público en este proyecto: la URL pública evita fallos de sign/RLS
-    // y sigue pasando por el mismo host/proxy del cliente.
+    const transformOptions = resolveImageTransform(transform);
+    const transformArg = transformOptions ? { transform: transformOptions } : undefined;
+
+    // `menu` es público: URL pública (+ transform) evita fallos de sign/RLS.
     if (bucket === STORAGE_BUCKETS.MENU) {
-        const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+        const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath, transformArg);
         const publicUrl = normalizeStorageAssetUrl(data?.publicUrl);
         if (publicUrl) return publicUrl;
     }
 
-    const { data, error } = await supabase.storage
+    const signed = await supabase.storage
         .from(bucket)
-        .createSignedUrl(storagePath, expiresIn);
+        .createSignedUrl(storagePath, expiresIn, transformArg);
 
-    if (error) {
-        throw new Error(error.message || 'Error al generar URL firmada');
+    if (!signed.error) {
+        return normalizeStorageAssetUrl(signed.data?.signedUrl);
     }
 
-    return normalizeStorageAssetUrl(data?.signedUrl);
+    // Si Image Transformations no está disponible, degradar a original.
+    if (transformArg) {
+        const fallback = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(storagePath, expiresIn);
+        if (!fallback.error) {
+            return normalizeStorageAssetUrl(fallback.data?.signedUrl);
+        }
+        throw new Error(fallback.error.message || signed.error.message || 'Error al generar URL firmada');
+    }
+
+    throw new Error(signed.error.message || 'Error al generar URL firmada');
 }
 
 /**

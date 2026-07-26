@@ -11,6 +11,7 @@ import {
     isCompanyStoragePath,
     isStorageObjectReference,
     normalizeStorageAssetUrl,
+    resolveImageTransform,
 } from '@/shared/utils/supabaseStorage';
 
 const COMPANY_ID = '11111111-1111-4111-8111-111111111111';
@@ -160,5 +161,19 @@ describe('Supabase Storage empresarial', () => {
         } finally {
             import.meta.env.VITE_SUPABASE_URL = previous;
         }
+    });
+
+    it('resuelve presets de Image Transformation', () => {
+        expect(resolveImageTransform('catalogCard')).toEqual({
+            width: 480,
+            quality: 75,
+            resize: 'cover',
+        });
+        expect(resolveImageTransform('full')).toBeNull();
+        expect(resolveImageTransform({ width: 100, quality: 50 })).toEqual({
+            width: 100,
+            quality: 50,
+        });
+        expect(resolveImageTransform('no-existe')).toBeNull();
     });
 });

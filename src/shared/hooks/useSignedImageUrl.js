@@ -3,6 +3,7 @@ import {
     extractStoragePath,
     getSignedImageUrl,
     isSupabaseStorageUrl,
+    resolveImageTransform,
 } from '@/shared/utils/supabaseStorage';
 
 const BUCKET_REGEX = /\/(?:object|render\/image)\/(?:public|sign|authenticated)\/(menu|receipts|products)\//;
@@ -10,8 +11,18 @@ const SIGNED_URL_CACHE_LIMIT = 500;
 const signedUrlCache = new Map();
 const pendingSignedUrls = new Map();
 
-function buildCacheKey(bucket, path) {
-    return `${bucket}:${path}`;
+function transformCacheSuffix(transform) {
+    const resolved = resolveImageTransform(transform);
+    if (!resolved) return '';
+    const width = resolved.width ?? '';
+    const height = resolved.height ?? '';
+    const quality = resolved.quality ?? '';
+    const resize = resolved.resize ?? '';
+    return `::t:${width}x${height}:q${quality}:r${resize}`;
+}
+
+function buildCacheKey(bucket, path, transform = null) {
+    return `${bucket}:${path}${transformCacheSuffix(transform)}`;
 }
 
 function getCachedSignedUrl(key) {
@@ -21,7 +32,6 @@ function getCachedSignedUrl(key) {
         signedUrlCache.delete(key);
         return null;
     }
-    // Reinsertar conserva un LRU sencillo y evita que catálogos extensos crezcan sin límite.
     signedUrlCache.delete(key);
     signedUrlCache.set(key, cached);
     return cached.url;
@@ -40,13 +50,13 @@ function setCachedSignedUrl(key, url, expiresIn) {
     }
 }
 
-function resolveSignedUrl(path, bucket, expiresIn) {
-    const key = buildCacheKey(bucket, path);
+function resolveSignedUrl(path, bucket, expiresIn, transform) {
+    const key = buildCacheKey(bucket, path, transform);
     const cachedUrl = getCachedSignedUrl(key);
     if (cachedUrl) return Promise.resolve(cachedUrl);
     if (pendingSignedUrls.has(key)) return pendingSignedUrls.get(key);
 
-    const request = getSignedImageUrl(path, bucket, expiresIn)
+    const request = getSignedImageUrl(path, bucket, expiresIn, transform)
         .then((url) => {
             setCachedSignedUrl(key, url, expiresIn);
             return url;
@@ -56,12 +66,25 @@ function resolveSignedUrl(path, bucket, expiresIn) {
     return request;
 }
 
-export function invalidateSignedImageUrl(pathOrUrl, bucket) {
+/**
+ * Invalida la URL cacheada. Sin `transform`, limpia todas las variantes.
+ */
+export function invalidateSignedImageUrl(pathOrUrl, bucket, transform = undefined) {
     if (!pathOrUrl || !bucket) return;
     const path = extractStoragePath(pathOrUrl, bucket);
-    const key = buildCacheKey(bucket, path);
-    signedUrlCache.delete(key);
-    pendingSignedUrls.delete(key);
+    if (transform !== undefined) {
+        const key = buildCacheKey(bucket, path, transform);
+        signedUrlCache.delete(key);
+        pendingSignedUrls.delete(key);
+        return;
+    }
+    const prefix = `${bucket}:${path}`;
+    for (const key of [...signedUrlCache.keys()]) {
+        if (key === prefix || key.startsWith(`${prefix}::`)) signedUrlCache.delete(key);
+    }
+    for (const key of [...pendingSignedUrls.keys()]) {
+        if (key === prefix || key.startsWith(`${prefix}::`)) pendingSignedUrls.delete(key);
+    }
 }
 
 function inferBucket(pathOrUrl) {
@@ -75,22 +98,23 @@ function inferBucket(pathOrUrl) {
 }
 
 /**
- * Hook para resolver imágenes almacenadas en Supabase Storage.
- *
- * - Si el valor ya es una URL completa de Supabase Storage (p. ej. una URL
- *   firmada vigente), la devuelve tal cual.
- * - Rechaza URLs externas para evitar peticiones a proveedores antiguos.
- * - Si es una ruta relativa de Supabase Storage, genera una URL firmada
- *   (requiere que el bucket sea privado).
- *
- * @param {string | null | undefined} imageUrlOrPath - URL completa o ruta relativa.
- * @param {'menu' | 'receipts' | 'products'} [bucket] - Bucket explícito.
- * @param {number} [expiresIn=3600] - Segundos de validez de la URL firmada.
- * @param {boolean} [enabled=true] - Si es false, no genera URL ni inicia descargas.
- * @returns {{ url: string | null, loading: boolean, error: string | null }}
+ * @param {string | null | undefined} imageUrlOrPath
+ * @param {'menu' | 'receipts' | 'products'} [bucket]
+ * @param {number} [expiresIn=3600]
+ * @param {boolean} [enabled=true]
+ * @param {number} [refreshKey=0]
+ * @param {string | object | null} [transform=null]
  */
-export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enabled = true, refreshKey = 0) {
+export function useSignedImageUrl(
+    imageUrlOrPath,
+    bucket,
+    expiresIn = 3600,
+    enabled = true,
+    refreshKey = 0,
+    transform = null,
+) {
     const [state, setState] = useState({ url: null, loading: false, error: null });
+    const transformKey = transformCacheSuffix(transform);
 
     useEffect(() => {
         if (!enabled || !imageUrlOrPath) {
@@ -100,8 +124,9 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
 
         const trimmed = String(imageUrlOrPath).trim();
 
+        // URLs externas (Cloudinary, etc.): usar directo, sin firmar.
         if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
-            setState({ url: null, loading: false, error: 'La imagen no pertenece a Supabase Storage' });
+            setState({ url: trimmed, loading: false, error: null });
             return;
         }
 
@@ -112,7 +137,7 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
         }
 
         const storagePath = extractStoragePath(trimmed, resolvedBucket);
-        const cacheKey = buildCacheKey(resolvedBucket, storagePath);
+        const cacheKey = buildCacheKey(resolvedBucket, storagePath, transform);
         const cachedUrl = getCachedSignedUrl(cacheKey);
         if (cachedUrl) {
             setState({ url: cachedUrl, loading: false, error: null });
@@ -122,7 +147,7 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
         let cancelled = false;
         setState((prev) => ({ ...prev, loading: true, error: null }));
 
-        resolveSignedUrl(storagePath, resolvedBucket, expiresIn)
+        resolveSignedUrl(storagePath, resolvedBucket, expiresIn, transform)
             .then((url) => {
                 if (!cancelled) setState({ url, loading: false, error: null });
             })
@@ -139,7 +164,7 @@ export function useSignedImageUrl(imageUrlOrPath, bucket, expiresIn = 3600, enab
         return () => {
             cancelled = true;
         };
-    }, [imageUrlOrPath, bucket, expiresIn, enabled, refreshKey]);
+    }, [imageUrlOrPath, bucket, expiresIn, enabled, refreshKey, transformKey, transform]);
 
     return state;
 }

@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 
 /**
- * Imagen de producto con estados consistentes para buckets privados:
- * skeleton -> imagen firmada -> fallback -> placeholder/empty.
+ * Imagen de producto: skeleton -> Storage (opcional transform) -> original -> fallback -> empty.
  */
 const ProgressiveProductImage = ({
     source,
@@ -18,13 +17,18 @@ const ProgressiveProductImage = ({
     emptyContent = null,
     enabled = true,
     loading = 'lazy',
+    /** @type {string | object | null} */
+    preset = 'catalogCard',
 }) => {
     const normalizedSource = String(source || '').trim() || null;
+    const [useFullSize, setUseFullSize] = React.useState(false);
+    const effectivePreset = useFullSize ? null : preset;
+
     const {
         url: signedUrl,
         loading: signedUrlLoading,
         error: signedUrlError,
-    } = useSignedImageUrl(normalizedSource, 'menu', 3600, enabled);
+    } = useSignedImageUrl(normalizedSource, 'menu', 3600, enabled, 0, effectivePreset);
 
     const [failedStages, setFailedStages] = React.useState({
         real: false,
@@ -34,9 +38,10 @@ const ProgressiveProductImage = ({
     const [loadedUrl, setLoadedUrl] = React.useState(null);
 
     React.useEffect(() => {
+        setUseFullSize(false);
         setFailedStages({ real: false, fallback: false, placeholder: false });
         setLoadedUrl(null);
-    }, [normalizedSource, fallbackSrc, placeholderSrc, enabled]);
+    }, [normalizedSource, fallbackSrc, placeholderSrc, enabled, preset]);
 
     const canUseRealImage = Boolean(
         enabled && normalizedSource && !signedUrlError && !failedStages.real
@@ -63,6 +68,10 @@ const ProgressiveProductImage = ({
 
     const handleError = () => {
         setLoadedUrl(null);
+        if (stage === 'real' && !useFullSize && preset) {
+            setUseFullSize(true);
+            return;
+        }
         if (stage) {
             setFailedStages((current) => ({ ...current, [stage]: true }));
         }

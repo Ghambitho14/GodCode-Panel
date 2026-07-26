@@ -9,6 +9,7 @@ import {
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
 } from "@/lib/tenant/menu-settings";
+import { useSignedImageUrl } from "@/shared/hooks/useSignedImageUrl";
 import "../styles/AdminContextualHelp.css";
 import "../styles/AdminLayout.css";
 import "../styles/index.css";
@@ -258,7 +259,19 @@ export function AdminApp({
 			? resolvedThemeConfig.logoUrl.trim()
 			: null;
 	}, [resolvedThemeConfig]);
-	const effectiveLogoUrl = logoUrlProp ?? themeLogoUrl;
+	const rawLogoUrl = logoUrlProp ?? themeLogoUrl;
+	const { url: signedLogoUrl } = useSignedImageUrl(
+		rawLogoUrl,
+		"menu",
+		3600,
+		Boolean(rawLogoUrl),
+		0,
+		"productThumb",
+	);
+	// Storage path relativa → URL pública; Cloudinary/https → passthrough; evita <img src="uuid/..."> roto.
+	const effectiveLogoUrl =
+		signedLogoUrl
+		|| (rawLogoUrl && /^https?:\/\//i.test(rawLogoUrl) ? rawLogoUrl : null);
 	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
 	const effectivePanelAccess = panelAccessProp ?? resolvedPanelAccess;
 	const effectiveTabLabels = Object.keys(tabLabelsFromProp).length

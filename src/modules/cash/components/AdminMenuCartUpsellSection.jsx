@@ -787,6 +787,7 @@ export default function AdminMenuCartUpsellSection({
                                                         fallbackSrc={fallbackUrl}
                                                         placeholderSrc={PRODUCT_IMAGE_PLACEHOLDER}
                                                         alt=""
+                                                        preset="catalogCard"
                                                         imageClassName="admin-cart-upsell-card__img"
                                                         placeholderClassName="admin-cart-upsell-card__img--placeholder"
                                                     />
