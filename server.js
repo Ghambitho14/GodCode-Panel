@@ -292,6 +292,70 @@ async function proxyToSupabase(req, res) {
   req.pipe(proxyReq);
 }
 
+/** Proxy WebSocket (Realtime) bajo `/api/supabase/*`. */
+function proxyToSupabaseUpgrade(req, socket, head) {
+  const url = new URL(req.url || "/", "http://localhost");
+  if (!url.pathname.startsWith("/api/supabase/")) {
+    socket.destroy();
+    return;
+  }
+
+  const targetUrl = resolveServerConfig().url;
+  const target = new URL(targetUrl);
+  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
+  const isHttps = target.protocol === "https:";
+  const port = target.port || (isHttps ? "443" : "80");
+  const headers = { ...req.headers, host: target.hostname };
+  delete headers["proxy-connection"];
+
+  const transport = isHttps ? httpsRequest : httpRequest;
+  const proxyReq = transport({
+    hostname: target.hostname,
+    port,
+    path: targetPath,
+    method: "GET",
+    headers,
+  });
+
+  proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {
+    let response = `HTTP/1.1 101 Switching Protocols\r\n`;
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (value == null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) response += `${key}: ${item}\r\n`;
+      } else {
+        response += `${key}: ${value}\r\n`;
+      }
+    }
+    response += "\r\n";
+    socket.write(response);
+    if (proxyHead?.length) socket.write(proxyHead);
+
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+
+    proxySocket.on("error", () => socket.destroy());
+    socket.on("error", () => proxySocket.destroy());
+  });
+
+  proxyReq.on("response", (proxyRes) => {
+    console.error(
+      "[proxy/supabase-ws] upgrade rechazado:",
+      proxyRes.statusCode,
+      proxyRes.statusMessage,
+    );
+    socket.destroy();
+  });
+
+  proxyReq.on("error", (error) => {
+    console.error("[proxy/supabase-ws] error:", error);
+    socket.destroy();
+  });
+
+  if (head?.length) proxyReq.write(head);
+  proxyReq.end();
+}
+
 function serveFile(res, filePath) {
   const ext = extname(filePath);
   res.writeHead(200, {
@@ -329,11 +393,22 @@ async function handleRequest(req, res) {
   return serveStatic(req, res);
 }
 
-createServer((req, res) => {
+const server = createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
     console.error("[server] error inesperado:", error);
     json(res, 500, { error: "Error de servidor." });
   });
-}).listen(PORT, "0.0.0.0", () => {
+});
+
+server.on("upgrade", (req, socket, head) => {
+  try {
+    proxyToSupabaseUpgrade(req, socket, head);
+  } catch (error) {
+    console.error("[proxy/supabase-ws] error inesperado:", error);
+    socket.destroy();
+  }
+});
+
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`[GodCode] servidor listo en puerto ${PORT}`);
 });
