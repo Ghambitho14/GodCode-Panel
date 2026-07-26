@@ -4,7 +4,9 @@ import { cn } from '@/lib/utils';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 
 /**
- * Imagen de producto: skeleton -> Storage (opcional transform) -> original -> fallback -> empty.
+ * Imagen de producto: skeleton -> Storage -> original -> fallback -> empty.
+ * El estado "cargada" se amarra al `src` actual (sin reset async) para no dejar
+ * el skeleton colgado cuando la imagen sale de caché antes del effect.
  */
 const ProgressiveProductImage = ({
     source,
@@ -35,12 +37,14 @@ const ProgressiveProductImage = ({
         fallback: false,
         placeholder: false,
     });
-    const [loadedUrl, setLoadedUrl] = React.useState(null);
+    const [loadedSrc, setLoadedSrc] = React.useState(null);
+    const imgRef = React.useRef(null);
 
+    // Solo resetear stages/full-size al cambiar fuente; no tocar loadedSrc
+    // (si el src cambia, loadedSrc !== src ya muestra skeleton).
     React.useEffect(() => {
         setUseFullSize(false);
         setFailedStages({ real: false, fallback: false, placeholder: false });
-        setLoadedUrl(null);
     }, [normalizedSource, fallbackSrc, placeholderSrc, enabled, preset]);
 
     const canUseRealImage = Boolean(
@@ -63,11 +67,19 @@ const ProgressiveProductImage = ({
         src = placeholderSrc;
     }
 
-    const isLoading = Boolean(enabled && (resolvingSignedUrl || (src && loadedUrl !== src)));
-    const isVisible = Boolean(src && loadedUrl === src);
+    const isLoaded = Boolean(src && loadedSrc === src);
+    const isLoading = Boolean(enabled && (resolvingSignedUrl || (src && !isLoaded)));
+
+    // Caché del navegador: a veces onLoad no vuelve a disparar.
+    React.useLayoutEffect(() => {
+        if (!src) return;
+        const img = imgRef.current;
+        if (img?.complete && img.naturalWidth > 0) {
+            setLoadedSrc(src);
+        }
+    }, [src]);
 
     const handleError = () => {
-        setLoadedUrl(null);
         if (stage === 'real' && !useFullSize && preset) {
             setUseFullSize(true);
             return;
@@ -88,17 +100,19 @@ const ProgressiveProductImage = ({
 
             {src ? (
                 <img
+                    ref={imgRef}
+                    key={src}
                     src={src}
                     alt={alt}
                     className={cn(
                         imageClassName,
                         stage === 'placeholder' && placeholderClassName,
                         'transition-opacity duration-200',
-                        isVisible ? 'opacity-100' : 'opacity-0',
+                        isLoaded ? 'opacity-100' : 'opacity-0',
                     )}
                     loading={loading}
                     decoding="async"
-                    onLoad={() => setLoadedUrl(src)}
+                    onLoad={() => setLoadedSrc(src)}
                     onError={handleError}
                 />
             ) : !isLoading ? emptyContent : null}
