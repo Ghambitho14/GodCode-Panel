@@ -32,7 +32,18 @@ export function getSafeFaviconUrl(logoUrl: string | null | undefined): string | 
  */
 export function getSafeLogoImageSrc(logoUrl: string | null | undefined): string {
 	const trimmed = String(logoUrl ?? "").trim();
-	if (/^https?:\/\//i.test(trimmed)) return trimmed;
+	if (/^https?:\/\//i.test(trimmed)) {
+		try {
+			const host = new URL(trimmed).hostname.toLowerCase();
+			if (host === "res.cloudinary.com" || host.endsWith(".cloudinary.com")) {
+				return DEFAULT_FAVICON_HREF;
+			}
+		} catch {
+			/* URL inválida → fallback abajo */
+			return DEFAULT_FAVICON_HREF;
+		}
+		return trimmed;
+	}
 	const safe = getSafeFaviconUrl(trimmed);
 	return safe || DEFAULT_FAVICON_HREF;
 }

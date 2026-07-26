@@ -10,6 +10,7 @@ import {
 	resolvePanelCapabilities,
 } from "@/lib/tenant/menu-settings";
 import { useSignedImageUrl } from "@/shared/hooks/useSignedImageUrl";
+import { isCloudinaryImageUrl } from "@/shared/utils/supabaseStorage";
 import "../styles/AdminContextualHelp.css";
 import "../styles/AdminLayout.css";
 import "../styles/index.css";
@@ -268,10 +269,12 @@ export function AdminApp({
 		0,
 		null, // sin transform: branding debe usar object/public (imgproxy a menudo no está en self-hosted)
 	);
-	// Storage path relativa → URL pública; Cloudinary/https → passthrough.
+	// Storage path relativa → URL pública; https externo (no Cloudinary) → passthrough.
 	const effectiveLogoUrl =
 		signedLogoUrl
-		|| (rawLogoUrl && /^https?:\/\//i.test(rawLogoUrl) ? rawLogoUrl : null);
+		|| (rawLogoUrl && /^https?:\/\//i.test(rawLogoUrl) && !isCloudinaryImageUrl(rawLogoUrl)
+			? rawLogoUrl
+			: null);
 	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
 	const effectivePanelAccess = panelAccessProp ?? resolvedPanelAccess;
 	const effectiveTabLabels = Object.keys(tabLabelsFromProp).length

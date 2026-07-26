@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
     extractStoragePath,
     getSignedImageUrl,
+    isCloudinaryImageUrl,
     isSupabaseStorageUrl,
     resolveImageTransform,
 } from '@/shared/utils/supabaseStorage';
@@ -124,7 +125,13 @@ export function useSignedImageUrl(
 
         const trimmed = String(imageUrlOrPath).trim();
 
-        // URLs externas (Cloudinary, etc.): usar directo, sin firmar.
+        // Cloudinary legacy: no intentar cargar (401) → el UI usa fallback.
+        if (isCloudinaryImageUrl(trimmed)) {
+            setState({ url: null, loading: false, error: 'cloudinary_unavailable' });
+            return;
+        }
+
+        // Otras URLs externas: usar directo, sin firmar.
         if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
             setState({ url: trimmed, loading: false, error: null });
             return;

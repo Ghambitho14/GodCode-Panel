@@ -92,6 +92,24 @@ export function isSupabaseStorageUrl(value) {
 }
 
 /**
+ * URLs legacy de Cloudinary. En el panel ya no se sirven (401 / cloud privado);
+ * se tratan como “sin imagen” para ir al fallback local.
+ *
+ * @param {string | null | undefined} value
+ * @returns {boolean}
+ */
+export function isCloudinaryImageUrl(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return false;
+    try {
+        const host = new URL(trimmed).hostname.toLowerCase();
+        return host === 'res.cloudinary.com' || host.endsWith('.cloudinary.com');
+    } catch {
+        return /(?:^|\/\/)(?:[^/]*\.)?cloudinary\.com(?:\/|$)/i.test(trimmed);
+    }
+}
+
+/**
  * Construye una ruta de carpeta dentro de un bucket agrupada por empresa.
  * `companyId` es obligatorio: nunca se permite una carpeta global compartida.
  *
@@ -321,8 +339,9 @@ export async function getSignedImageUrl(pathOrUrl, bucket, expiresIn = 3600, tra
     if (!pathOrUrl) return null;
     const trimmed = String(pathOrUrl).trim();
 
-    // Cloudinary u otros hosts legacy: pasar tal cual (no hay transform de Storage).
+    // Cloudinary legacy: no usable en el panel (401). Otras URLs externas: pasar tal cual.
     if (/^https?:\/\//i.test(trimmed) && !isSupabaseStorageUrl(trimmed)) {
+        if (isCloudinaryImageUrl(trimmed)) return null;
         return trimmed;
     }
 

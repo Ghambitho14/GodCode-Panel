@@ -2,11 +2,13 @@ import React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+import { isCloudinaryImageUrl, isSupabaseStorageUrl } from '@/shared/utils/supabaseStorage';
 
 /**
  * Imagen de producto: skeleton -> Storage -> original -> fallback -> empty.
  * El estado "cargada" se amarra al `src` actual (sin reset async) para no dejar
  * el skeleton colgado cuando la imagen sale de caché antes del effect.
+ * Cloudinary legacy (401) se ignora y se va directo al fallback.
  */
 const ProgressiveProductImage = ({
     source,
@@ -22,7 +24,9 @@ const ProgressiveProductImage = ({
     /** @type {string | object | null} */
     preset = 'catalogCard',
 }) => {
-    const normalizedSource = String(source || '').trim() || null;
+    const rawSource = String(source || '').trim() || null;
+    // Sin intentar Cloudinary: cuenta como “sin imagen” → fallback local.
+    const normalizedSource = rawSource && !isCloudinaryImageUrl(rawSource) ? rawSource : null;
     const [useFullSize, setUseFullSize] = React.useState(false);
     const effectivePreset = useFullSize ? null : preset;
 
@@ -80,7 +84,14 @@ const ProgressiveProductImage = ({
     }, [src]);
 
     const handleError = () => {
-        if (stage === 'real' && !useFullSize && preset) {
+        // Solo reintentar sin transform si es Storage (imgproxy / render).
+        if (
+            stage === 'real' &&
+            !useFullSize &&
+            preset &&
+            signedUrl &&
+            isSupabaseStorageUrl(signedUrl)
+        ) {
             setUseFullSize(true);
             return;
         }
