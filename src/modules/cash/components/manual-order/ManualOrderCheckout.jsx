@@ -3,6 +3,7 @@ import { CheckCircle2, ShoppingBag, Banknote } from 'lucide-react';
 import {
 	getLocalFulfillmentMode,
 	hasManualOrderPaymentIntent,
+	hasManualOrderPaymentMethodSelected,
 	isOpenMesaMeseroMode,
 	validateManualDeliveryDetails,
 } from '../../hooks/manual-order/manualOrderShared';
@@ -254,7 +255,7 @@ export function useManualOrderCheckoutFlow({
 				? ['Productos', 'Entrega', 'Cobro inicial']
 				: ['Productos', 'Abrir sesión']))
 		: (isCompactNav
-			? ['Productos', 'Entrega', 'Pago opcional']
+			? ['Productos', 'Entrega']
 			: ['Productos', 'Completar pedido']);
 
 	return {
@@ -307,6 +308,7 @@ export default function ManualOrderCheckout({
 	canMarkPaidSession,
 	setPayModalOpen,
 }) {
+	const [quickSalePaymentModalOpen, setQuickSalePaymentModalOpen] = React.useState(false);
 	const {
 		totalToPay,
 		openMesaFulfillment,
@@ -340,6 +342,24 @@ export default function ManualOrderCheckout({
 			? openMesaSubmitLabel
 			: 'CREAR PEDIDO';
 	const quickSaleHasPayment = !effectiveOpenMesaMode && hasManualOrderPaymentIntent(manualOrder);
+	const quickSaleHasMethod = !effectiveOpenMesaMode && hasManualOrderPaymentMethodSelected(manualOrder);
+	const showQuickSalePaymentChoice = !effectiveOpenMesaMode && !isEditMode;
+	const quickSalePaymentActive = showQuickSalePaymentChoice
+		&& (quickSaleHasMethod || quickSalePaymentModalOpen);
+	const quickSalePaymentRailLabel = (() => {
+		if (!quickSaleHasMethod) return 'Pedido no pagado';
+		if (manualOrder.payment_mode === 'mixed') return 'Pagarán con Pago mixto';
+		const raw = getPaymentLabel(manualOrder);
+		if (!raw || raw === '—' || raw === 'Pago pendiente') return 'Pedido no pagado';
+		if (raw === 'Transf.' || raw.startsWith('Mixto')) {
+			return `Pagarán con ${raw === 'Transf.' ? 'Transferencia' : 'Pago mixto'}`;
+		}
+		return `Pagarán con ${raw}`;
+	})();
+	const quickSalePaymentHint = quickSaleHasMethod
+		? quickSalePaymentRailLabel
+		: null;
+
 	const tableMustDeferPayment = effectiveOpenMesaMode && openMesaFulfillment === 'mesa';
 	const immediateSessionAllowed = !effectiveOpenMesaMode ? true : tableMustDeferPayment ? false
 		: manualOrder.manualOrderSettings?.allowImmediateSessionPayment?.[
@@ -382,6 +402,29 @@ export default function ManualOrderCheckout({
 		receiptPreview,
 	} = hookActions;
 
+	const clearQuickSalePayment = React.useCallback(() => {
+		setQuickSalePaymentModalOpen(false);
+		updatePaymentType?.('pendiente');
+		updatePaymentLines?.([]);
+	}, [updatePaymentType, updatePaymentLines]);
+
+	const openQuickSalePaymentModal = React.useCallback(() => {
+		setQuickSalePaymentModalOpen(true);
+	}, []);
+
+	const closeQuickSalePaymentModal = React.useCallback(() => {
+		setQuickSalePaymentModalOpen(false);
+	}, []);
+
+	React.useEffect(() => {
+		if (!quickSalePaymentModalOpen) return undefined;
+		const onKeyDown = (event) => {
+			if (event.key === 'Escape') closeQuickSalePaymentModal();
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [quickSalePaymentModalOpen, closeQuickSalePaymentModal]);
+
 	React.useEffect(() => {
 		if (showOpenMesaPaymentChoice && !immediateSessionAllowed && manualOrder.charge_now) {
 			updateChargeNow?.(false);
@@ -416,6 +459,11 @@ export default function ManualOrderCheckout({
 			branchDeliveryCfgLoading={branchDeliveryCfgLoading}
 			enabledLocalChannels={localOrderChannels}
 			isEditMode={isEditMode}
+			showQuickSalePaymentChoice={showQuickSalePaymentChoice}
+			quickSalePaymentActive={quickSalePaymentActive}
+			quickSalePaymentHint={quickSalePaymentHint}
+			onSelectQuickSaleUnpaid={clearQuickSalePayment}
+			onSelectQuickSalePaid={openQuickSalePaymentModal}
 		/>
 	);
 
@@ -764,7 +812,7 @@ export default function ManualOrderCheckout({
 	const classicCheckoutRailActions = !effectiveOpenMesaMode ? (
 		<div className="manual-order-checkout-rail-actions" role="group" aria-label="Confirmación del pedido">
 			<div className="manual-order-checkout-rail-actions__total">
-					<span>{quickSaleHasPayment ? 'Total a cobrar' : 'Total del pedido'}</span>
+				<span>{quickSalePaymentRailLabel}</span>
 				<strong>{formatAccountingMoney(totalToPay)}</strong>
 			</div>
 			<p
@@ -879,9 +927,11 @@ export default function ManualOrderCheckout({
 						<>
 								<div className="manual-order-checkout-main">
 									{checkoutClientColumn}
-									<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
-										<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
-									</div>
+									{!showQuickSalePaymentChoice ? (
+										<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
+											<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
+										</div>
+									) : null}
 							</div>
 							{checkoutSummaryColumn}
 						</>
@@ -999,6 +1049,51 @@ export default function ManualOrderCheckout({
 			)}
 
 			{mobileDock}
+
+			{showQuickSalePaymentChoice && quickSalePaymentModalOpen ? (
+				<div
+					className="manual-order-payment-modal-overlay"
+					role="presentation"
+					onClick={closeQuickSalePaymentModal}
+				>
+					<div
+						className="manual-order-payment-modal"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="manual-order-payment-modal-title"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<header className="manual-order-payment-modal__header">
+							<h2 id="manual-order-payment-modal-title">Método de pago</h2>
+							<Button
+								variant="ghost"
+								type="button"
+								className="manual-order-payment-modal__close"
+								onClick={closeQuickSalePaymentModal}
+							>
+								Cerrar
+							</Button>
+						</header>
+						<div className="manual-order-payment-modal__body">
+							<PaymentDetails
+								{...paymentDetailsProps}
+								hideCheckoutActions
+								embedded
+							/>
+						</div>
+						<div className="manual-order-payment-modal__footer">
+							<Button
+								variant="default"
+								type="button"
+								className={cn(confirmBtnClass, 'w-full')}
+								onClick={closeQuickSalePaymentModal}
+							>
+								Listo
+							</Button>
+						</div>
+					</div>
+				</div>
+			) : null}
 		</>
 	);
 }

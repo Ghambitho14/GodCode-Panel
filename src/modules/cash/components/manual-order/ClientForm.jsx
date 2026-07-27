@@ -97,6 +97,11 @@ const ClientForm = ({
     branchDeliveryCfgLoading = false,
     enabledLocalChannels = null,
     isEditMode = false,
+	showQuickSalePaymentChoice = false,
+	quickSalePaymentActive = false,
+	quickSalePaymentHint = null,
+	onSelectQuickSaleUnpaid = null,
+	onSelectQuickSalePaid = null,
 }) => {
     const { formatMoney } = useBranchMoney();
     const { companyProfile } = useAdmin();
@@ -892,6 +897,40 @@ const ClientForm = ({
                     </div>
 
                     {deliveryFields}
+
+					{showQuickSalePaymentChoice ? (
+						<div className="mt-3">
+							<p className={`mb-2 ${textScale.micro} font-semibold uppercase tracking-wide text-gc-text-muted`}>
+								Pago
+							</p>
+							<div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
+								<Button
+									variant="default"
+									type="button"
+									className={cn(toggleBaseClass, !quickSalePaymentActive && selectedToggleActiveClass)}
+									onClick={() => onSelectQuickSaleUnpaid?.()}
+								>
+									No pagado
+								</Button>
+								<Button
+									variant="default"
+									type="button"
+									className={cn(toggleBaseClass, quickSalePaymentActive && selectedToggleActiveClass)}
+									onClick={() => onSelectQuickSalePaid?.()}
+								>
+									<Banknote size={16} aria-hidden />
+									Pago
+								</Button>
+							</div>
+							{quickSalePaymentHint ? (
+								<p className={hintClass} role="status">{quickSalePaymentHint}</p>
+							) : (
+								<p className={hintClass} role="status">
+									Por defecto el pedido queda pendiente. Elige Pago para registrar el método.
+								</p>
+							)}
+						</div>
+					) : null}
                 </div>
             </div>
         </div>

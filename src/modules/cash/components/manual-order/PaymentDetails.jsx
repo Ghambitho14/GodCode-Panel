@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Tag, Store, CreditCard, Receipt as ReceiptIcon, Upload, CheckCircle2, FileText, Coins, Split } from 'lucide-react';
 import {
     computeChangeDue,
@@ -33,10 +33,22 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
     const exchangeRate = String(branchDeliveryCfg?.exchangeRate ?? '');
     const validation = quote ? validatePaymentLines(lines, quote, methods) : { valid: false, paidMinor: 0, errors: [] };
     const remainingMinor = quote ? Number(quote.totalMinor) - Number(validation.paidMinor || 0) : 0;
+	const [amountDrafts, setAmountDrafts] = useState({});
+	const [tenderedDrafts, setTenderedDrafts] = useState({});
 
     const toggleMethod = (method) => {
         const existing = lines.find((line) => line.methodId === method.id);
         if (existing) {
+			setAmountDrafts((prev) => {
+				const next = { ...prev };
+				delete next[existing.id];
+				return next;
+			});
+			setTenderedDrafts((prev) => {
+				const next = { ...prev };
+				delete next[existing.id];
+				return next;
+			});
             updatePaymentLines(lines.filter((line) => line.id !== existing.id));
             return;
         }
@@ -54,7 +66,33 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
     };
 
     const updateLine = (id, patch) => updatePaymentLines(lines.map((line) => line.id === id ? { ...line, ...patch } : line));
+
+	const clearAmountDraft = (lineId) => {
+		setAmountDrafts((prev) => {
+			if (!(lineId in prev)) return prev;
+			const next = { ...prev };
+			delete next[lineId];
+			return next;
+		});
+	};
+	const clearTenderedDraft = (lineId) => {
+		setTenderedDrafts((prev) => {
+			if (!(lineId in prev)) return prev;
+			const next = { ...prev };
+			delete next[lineId];
+			return next;
+		});
+	};
+
     const updateAccountingAmount = (line, raw) => {
+		setAmountDrafts((prev) => ({ ...prev, [line.id]: raw }));
+		if (String(raw ?? '').trim() === '') {
+			updateLine(line.id, {
+				amountMinor: 0,
+				...(line.rail === 'cash' ? { tenderedAmountMinor: 0 } : {}),
+			});
+			return;
+		}
 		const parsed = parseMoneyInput(raw, { currency, fractionDigits, locale: manualOrder.locale });
 		if (parsed.valid) updateLine(line.id, {
 			amountMinor: parsed.minor,
@@ -62,6 +100,15 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 		});
     };
     const updateSettlementAmount = (line, method, raw) => {
+		setAmountDrafts((prev) => ({ ...prev, [line.id]: raw }));
+		if (String(raw ?? '').trim() === '') {
+			updateLine(line.id, {
+				settlementAmountMinor: 0,
+				amountMinor: 0,
+				...(line.rail === 'cash' ? { tenderedAmountMinor: 0 } : {}),
+			});
+			return;
+		}
 		const parsed = parseMoneyInput(raw, { currency: method.currency, locale: manualOrder.locale });
         if (!parsed.valid) return;
         try {
@@ -78,25 +125,53 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 	};
 	const updateTenderedAmount = (line, method, raw) => {
 		const tenderCurrency = method.currency;
+		setTenderedDrafts((prev) => ({ ...prev, [line.id]: raw }));
+		if (String(raw ?? '').trim() === '') {
+			updateLine(line.id, { tenderedAmountMinor: 0, tenderedCurrency: tenderCurrency });
+			return;
+		}
 		const parsed = parseMoneyInput(raw, { currency: tenderCurrency, locale: manualOrder.locale });
 		if (parsed.valid) updateLine(line.id, { tenderedAmountMinor: parsed.minor, tenderedCurrency: tenderCurrency });
 	};
 
+	const amountDisplayValue = (line, method, foreign) => {
+		if (line.id in amountDrafts) return amountDrafts[line.id];
+		if (foreign) {
+			const major = minorToMajor(line.settlementAmountMinor || 0, method.currency);
+			return major === 0 ? '' : String(major);
+		}
+		const major = minorToMajor(line.amountMinor || 0, currency, fractionDigits);
+		return major === 0 ? '' : String(major);
+	};
+
+	const tenderedDisplayValue = (line, method) => {
+		if (line.id in tenderedDrafts) return tenderedDrafts[line.id];
+		if (line.tenderedAmountMinor == null) return '';
+		const major = minorToMajor(line.tenderedAmountMinor, method.currency);
+		return major === 0 ? '' : String(major);
+	};
+
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {methods.map((method) => {
                     const active = lines.some((line) => line.methodId === method.id);
                     const conversionMissing = method.currency !== currency && !exchangeRate;
+                    const meta = `${method.currency}${method.evidencePolicy === 'required' ? ' · comprobante' : ''}`;
                     return (
                         <Button variant={active ? 'default' : 'outline'} type="button" key={method.id}
-                            className="min-h-[44px] justify-between px-3"
+                            className="h-auto min-h-[52px] min-w-0 flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left"
                             onClick={() => toggleMethod(method)} disabled={conversionMissing || !quote}
                             title={conversionMissing ? `Configura la tasa ${method.currency}/${currency}` : undefined}
                             aria-pressed={active}
                         >
-                            <span>{method.label}</span>
-                            <small>{method.currency}{method.evidencePolicy === 'required' ? ' · comprobante' : ''}</small>
+                            <span className="w-full truncate text-sm font-semibold leading-tight">{method.label}</span>
+                            <span className={cn(
+                                'w-full truncate text-xs font-normal leading-tight',
+                                active ? 'text-white/80' : 'text-gc-text-muted',
+                            )}>
+                                {meta}
+                            </span>
                         </Button>
                     );
                 })}
@@ -110,23 +185,38 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
                         <span className="mb-2 flex justify-between font-semibold"><span>{method.label}</span><span>{formatMinor(line.amountMinor || 0, { currency, locale: manualOrder.locale, fractionDigits })}</span></span>
                         <input className={inputClass} inputMode="decimal" min="0" type="text"
                             aria-label={`Monto ${method.label}`}
-                            value={foreign ? minorToMajor(line.settlementAmountMinor || 0, method.currency) : minorToMajor(line.amountMinor || 0, currency, fractionDigits)}
+                            value={amountDisplayValue(line, method, foreign)}
                             onChange={(event) => foreign ? updateSettlementAmount(line, method, event.target.value) : updateAccountingAmount(line, event.target.value)}
+							onBlur={() => clearAmountDraft(line.id)}
                         />
 						{method.rail === 'cash' ? (
 							<label className="mt-2 block text-xs text-gc-text-muted">
 								<span>Recibido en {method.currency}</span>
 								<input className={inputClass} inputMode="decimal" type="text" aria-label={`Monto recibido ${method.label}`}
-									value={line.tenderedAmountMinor == null ? '' : minorToMajor(line.tenderedAmountMinor, method.currency)}
+									value={tenderedDisplayValue(line, method)}
 									placeholder="Confirma el monto recibido"
-									onChange={(event) => updateTenderedAmount(line, method, event.target.value)} />
+									onChange={(event) => updateTenderedAmount(line, method, event.target.value)}
+									onBlur={() => clearTenderedDraft(line.id)} />
 							</label>
 						) : null}
 						{method.rail === 'cash' && Array.isArray(manualOrder.cashDenominations?.[foreign ? method.currency : currency]) ? (
 							<div className="mt-2 flex flex-wrap gap-2">
 								{manualOrder.cashDenominations[foreign ? method.currency : currency].map((amount) => (
 									<Button key={amount} variant="outline" type="button" className="min-h-[44px] rounded-full"
-										onClick={() => updateTenderedAmount(line, method, String(amount))}>
+										onClick={() => {
+											const tenderCurrency = method.currency;
+											const parsed = parseMoneyInput(String(amount), {
+												currency: tenderCurrency,
+												locale: manualOrder.locale,
+												fractionDigits: foreign ? undefined : fractionDigits,
+											});
+											if (!parsed.valid) return;
+											updateLine(line.id, {
+												tenderedAmountMinor: parsed.minor,
+												tenderedCurrency: tenderCurrency,
+											});
+											clearTenderedDraft(line.id);
+										}}>
 										{formatMinor(majorToMinor(amount, foreign ? method.currency : currency, foreign ? undefined : fractionDigits), { currency: foreign ? method.currency : currency, locale: manualOrder.locale, fractionDigits: foreign ? undefined : fractionDigits })}
 									</Button>
 				))}

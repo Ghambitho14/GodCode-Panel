@@ -3,6 +3,7 @@ import { createClientUuid } from '@/shared/utils/supabaseStorage';
 
 const FRIENDLY_ERRORS = {
 	client_request_id_required: 'No se pudo identificar el intento. Vuelve a confirmar el pedido.',
+	branch_currency_required: 'La moneda del pedido no coincide con la moneda contable de la sucursal.',
 	cash_shift_required: 'Debes abrir la caja de esta sucursal antes de cobrar.',
 	payment_total_mismatch: 'El desglose de pago no coincide exactamente con el total.',
 	payment_method_required: 'Selecciona y confirma el método de pago.',

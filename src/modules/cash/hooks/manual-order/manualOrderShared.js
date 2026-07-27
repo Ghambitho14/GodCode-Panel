@@ -94,6 +94,20 @@ export function hasManualOrderPaymentIntent(form) {
 	return type === 'tarjeta';
 }
 
+/**
+ * Detecta si el operador ya eligió un método de pago (sin exigir cobro cerrado).
+ * Distinto de hasManualOrderPaymentIntent: aquí basta con la selección.
+ */
+export function hasManualOrderPaymentMethodSelected(form) {
+	if (form?.v2Enabled) {
+		const lines = Array.isArray(form.payment_lines) ? form.payment_lines : [];
+		return lines.length > 0;
+	}
+	if (form?.payment_mode === 'mixed') return true;
+	const type = String(form?.payment_type ?? '').toLowerCase();
+	return type === 'tienda' || type === 'tarjeta' || type === 'online';
+}
+
 /** Resuelve el modo local desde el formulario de pedido manual. */
 export function getLocalFulfillmentMode(form) {
 	const explicit = String(form?.local_fulfillment_mode ?? '').trim().toLowerCase();

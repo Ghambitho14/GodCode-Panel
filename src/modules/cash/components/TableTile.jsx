@@ -64,7 +64,6 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 					<span className="table-tile__seq" aria-hidden>
 						#{number}
 					</span>
-					<span className="table-tile__status">{statusLabel}</span>
 				</div>
 				<div className="table-tile__head-actions">
 					<div className="order-ticket-menu" ref={ticketMenuRef}>
@@ -114,16 +113,22 @@ export default function TableTile({ order, onClick, branchName = null, logoUrl =
 				onClick={() => onClick(order)}
 				aria-label={`${kindLabel} ${number}, ${statusLabel}, ${order.display_name || order.client_name || 'Cliente'}${showPaidBadge ? ', pagado' : ''}`}
 			>
-				<span className="table-tile__kind-icon" aria-hidden>
-					{kind === 'moto' ? (
-						<DeliveryMotoIcon className="table-tile__kind-svg--moto" />
-					) : kind === 'retiro' ? (
-						<PickupBagIcon className="table-tile__kind-svg--retiro" />
-					) : (
-						<TableRestaurantIcon className="table-tile__kind-svg--mesa" />
-					)}
+				<span className="table-tile__identity">
+					<span className="table-tile__kind-icon" aria-hidden>
+						{kind === 'moto' ? (
+							<DeliveryMotoIcon className="table-tile__kind-svg--moto" />
+						) : kind === 'retiro' ? (
+							<PickupBagIcon className="table-tile__kind-svg--retiro" />
+						) : (
+							<TableRestaurantIcon className="table-tile__kind-svg--mesa" />
+						)}
+					</span>
+					<span className="table-tile__client">{order.display_name || order.client_name || 'Cliente'}</span>
 				</span>
-				<span className="table-tile__client">{order.display_name || order.client_name || 'Cliente'}</span>
+				<span className="table-tile__status">
+					<span className="table-tile__status-dot" aria-hidden />
+					{statusLabel}
+				</span>
 				<span className="table-tile__stats">
 					<span className="table-tile__stat table-tile__stat--time">
 						<Clock size={11} aria-hidden />

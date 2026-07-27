@@ -395,14 +395,14 @@ function resolveTopProductsRange(reportRange) {
 
 const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend, trendSignificant = true }) => {
     return (
-        <Card className="flex flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
+        <Card className="@container flex min-w-0 flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] sm:text-[11px]">{meta.label}</p>
                 {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} /> : null}
             </div>
-            <div className="mt-1">
+            <div className="mt-1 min-w-0">
                 {loading ? <Skeleton className="h-8 w-28" /> : (
-                    <p className="text-[20px] font-bold leading-tight tracking-tight text-[#14161a] sm:text-[28px]">{formatKpiValue(meta.key, value, fmt)}</p>
+                    <p className="text-[clamp(16px,11.5cqi,28px)] font-bold leading-tight tracking-tight tabular-nums text-[#14161a] [overflow-wrap:anywhere]">{formatKpiValue(meta.key, value, fmt)}</p>
                 )}
             </div>
             {subtitle && <p className="mt-1 text-[11px] font-medium text-[#6b7280] sm:text-xs">{subtitle}</p>}

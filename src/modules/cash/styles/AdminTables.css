@@ -12,16 +12,67 @@
 	width: 100%;
 }
 
+.admin-layout .table-tile {
+	--tile-accent: #0078ff;
+	--tile-kind: var(--admin-text-muted);
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-height: 130px;
+	border-radius: 12px;
+	border: 1px solid var(--admin-border);
+	background: var(--admin-card-bg);
+	box-shadow: var(--admin-shadow-sm);
+	font-family: inherit;
+	transition: box-shadow 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.admin-layout .table-tile::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto;
+	height: 3px;
+	background: var(--tile-accent);
+}
+
+.admin-layout .table-tile:hover {
+	box-shadow: var(--admin-shadow-md);
+	border-color: color-mix(in srgb, var(--tile-accent) 40%, var(--admin-border));
+	transform: translateY(-1px);
+}
+
+/* El menú de tickets se ancla por coordenadas fijas: mover el tile desalinearía el panel abierto. */
+.admin-layout .table-tile--menu-open {
+	z-index: 2;
+}
+
+.admin-layout .table-tile--menu-open:hover {
+	transform: none;
+}
+
+.admin-layout .table-tile--pending {
+	--tile-accent: #0078ff;
+}
+
+.admin-layout .table-tile--active {
+	--tile-accent: #dc2626;
+}
+
+.admin-layout .table-tile--completed {
+	--tile-accent: #15803d;
+}
+
 .admin-layout .table-tile--mesa {
-	border-color: color-mix(in srgb, var(--fulfillment-mesa-fg, #7c3aed) 55%, transparent);
+	--tile-kind: var(--fulfillment-mesa-fg, #7c3aed);
 }
 
 .admin-layout .table-tile--retiro {
-	border-color: color-mix(in srgb, #2563eb 55%, transparent);
+	--tile-kind: #2563eb;
 }
 
 .admin-layout .table-tile--moto {
-	border-color: color-mix(in srgb, var(--fulfillment-delivery-fg, #d97706) 55%, transparent);
+	--tile-kind: var(--fulfillment-delivery-fg, #d97706);
 }
 
 .admin-layout .table-tile__paid-badge {
@@ -31,40 +82,18 @@
 	width: 20px;
 	height: 20px;
 	border-radius: 999px;
-	color: #4ade80;
-	background: rgba(37, 211, 102, 0.15);
-	border: 1px solid rgba(37, 211, 102, 0.35);
+	color: #15803d;
+	background: color-mix(in srgb, #25d366 14%, var(--admin-card-bg));
+	border: 1px solid color-mix(in srgb, #25d366 30%, transparent);
 	flex-shrink: 0;
-}
-
-.admin-layout .table-tile {
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-	min-height: 132px;
-	border-radius: 7px;
-	border: 3px solid transparent;
-	background: #f6f6f6;
-	box-shadow: var(--admin-shadow-sm);
-	font-family: inherit;
-	transition: box-shadow 0.15s ease;
-}
-
-.admin-layout .table-tile:hover {
-	box-shadow: var(--admin-shadow-md);
-}
-
-.admin-layout .table-tile--menu-open {
-	z-index: 2;
 }
 
 .admin-layout .table-tile__head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 4px;
-	padding: 6px 8px 0;
+	gap: 6px;
+	padding: 9px 10px 0;
 	flex-shrink: 0;
 }
 
@@ -80,51 +109,40 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2px 5px;
-	font-size: 0.68rem;
-	font-weight: 800;
+	font-size: 0.72rem;
+	font-weight: 700;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
-	letter-spacing: 0.02em;
-	color: #3d3a34;
-	background: color-mix(in srgb, #3d3a34 8%, #f6f6f6);
-	border: 1px solid color-mix(in srgb, #3d3a34 12%, transparent);
-	border-radius: 4px;
+	letter-spacing: 0.01em;
+	color: var(--admin-text-muted);
 }
 
 .admin-layout .table-tile__status {
+	grid-row: 2;
 	display: inline-flex;
 	align-items: center;
-	min-width: 0;
-	flex: 1 1 auto;
-	padding: 2px 5px;
-	font-size: 0.62rem;
-	font-weight: 700;
+	gap: 4px;
+	max-width: 100%;
+	padding: 2px 7px;
+	font-size: 0.65rem;
+	font-weight: 600;
 	line-height: 1.15;
 	letter-spacing: 0.01em;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	border-radius: 4px;
-	border: 1px solid transparent;
+	border-radius: 999px;
+	color: var(--tile-accent);
+	background: color-mix(in srgb, var(--tile-accent) 12%, var(--admin-card-bg));
+	border: 1px solid color-mix(in srgb, var(--tile-accent) 24%, transparent);
 }
 
-.admin-layout .table-tile--pending .table-tile__status {
-	color: #0078ff;
-	background: color-mix(in srgb, #0078ff 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #0078ff 28%, transparent);
-}
-
-.admin-layout .table-tile--active .table-tile__status {
-	color: #dc2626;
-	background: color-mix(in srgb, #dc2626 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #dc2626 28%, transparent);
-}
-
-.admin-layout .table-tile--completed .table-tile__status {
-	color: #15803d;
-	background: color-mix(in srgb, #25d366 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #25d366 28%, transparent);
+.admin-layout .table-tile__status-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: currentColor;
+	flex-shrink: 0;
 }
 
 .admin-layout .table-tile__head-actions {
@@ -139,161 +157,86 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	width: 20px;
-	height: 20px;
-	min-width: 20px;
-	min-height: 20px;
+	width: 22px;
+	height: 22px;
+	min-width: 22px;
+	min-height: 22px;
 	padding: 0;
-	border-radius: 4px;
-	border: 1px solid color-mix(in srgb, #3d3a34 12%, transparent);
-	background: color-mix(in srgb, #3d3a34 8%, #f6f6f6);
-	color: #5c574e;
+	border-radius: 6px;
+	border: 1px solid var(--admin-border);
+	background: var(--admin-icon-bg);
+	color: var(--admin-text-muted);
 	cursor: pointer;
 	font-family: inherit;
 	box-shadow: none;
-	transition: box-shadow 0.15s ease;
+	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.admin-layout .table-tile__tool-btn:hover {
-	box-shadow: var(--admin-shadow-sm);
+.admin-layout .table-tile .table-tile__tool-btn:hover,
+.admin-layout .table-tile .table-tile__tool-btn.is-active {
+	color: var(--tile-accent);
+	border-color: color-mix(in srgb, var(--tile-accent) 32%, transparent);
+	background: color-mix(in srgb, var(--tile-accent) 10%, var(--admin-card-bg));
 }
 
 .admin-layout .table-tile__tool-btn svg {
-	width: 11px;
-	height: 11px;
+	width: 12px;
+	height: 12px;
 	flex-shrink: 0;
-}
-
-.admin-layout .table-tile__tool-btn.is-active {
-	filter: brightness(0.94);
 }
 
 .admin-layout .table-tile__body {
 	flex: 1;
 	display: grid;
 	grid-template-rows: auto auto auto;
-	align-items: center;
+	align-content: center;
 	justify-items: center;
-	gap: 6px;
+	gap: 7px;
 	width: 100%;
 	min-height: 0;
-	padding: 6px 10px 10px;
+	height: auto;
+	padding: 8px 10px 12px;
 	border: none;
 	border-radius: 0;
 	background: transparent;
+	box-shadow: none;
+	color: var(--admin-text);
 	cursor: pointer;
 	font-family: inherit;
 	text-align: center;
 }
 
+.admin-layout .table-tile .table-tile__body:hover {
+	background: transparent;
+	color: var(--admin-text);
+}
+
 .admin-layout .table-tile__body:focus-visible {
-	outline: 2px solid #0078ff;
-	outline-offset: -2px;
+	outline: 2px solid var(--tile-accent);
+	outline-offset: -3px;
 }
 
-.admin-layout .table-tile--pending {
-	border-color: rgba(0, 120, 255, 0.65);
-}
-
-.admin-layout .table-tile--active {
-	border-color: rgba(230, 57, 70, 0.55);
-}
-
-.admin-layout .table-tile--completed {
-	border-color: rgba(37, 211, 102, 0.55);
-}
-
-.admin-layout .table-tile--retiro .table-tile__kind-icon {
-	color: #2563eb;
-	background: color-mix(in srgb, #2563eb 22%, #ccc6b8);
-}
-
-.admin-layout .table-tile--mesa .table-tile__kind-icon {
-	color: var(--fulfillment-mesa-fg, #a78bfa);
-	background: color-mix(in srgb, var(--fulfillment-mesa-fg, #7c3aed) 16%, #ccc6b8);
-}
-
-.admin-layout .table-tile--moto .table-tile__kind-icon {
-	color: var(--fulfillment-delivery-fg, #fbbf24);
-	background: color-mix(in srgb, var(--fulfillment-delivery-fg, #d97706) 16%, #ccc6b8);
-}
-
-.admin-layout .table-tile--pending.table-tile--retiro .table-tile__kind-icon,
-.admin-layout .table-tile--pending.table-tile--mesa .table-tile__kind-icon,
-.admin-layout .table-tile--pending.table-tile--moto .table-tile__kind-icon {
-	color: #0078ff;
-	background: color-mix(in srgb, #0078ff 18%, #ccc6b8);
-}
-
-.admin-layout .table-tile--completed.table-tile--retiro .table-tile__kind-icon,
-.admin-layout .table-tile--completed.table-tile--mesa .table-tile__kind-icon,
-.admin-layout .table-tile--completed.table-tile--moto .table-tile__kind-icon {
-	color: #15803d;
-	background: color-mix(in srgb, #25d366 18%, #ccc6b8);
-}
-
-.admin-layout .table-tile--retiro .table-tile__seq,
-.admin-layout .table-tile--retiro .table-tile__tool-btn {
-	color: #2563eb;
-	background: color-mix(in srgb, #2563eb 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #2563eb 28%, transparent);
-}
-
-.admin-layout .table-tile--mesa .table-tile__seq,
-.admin-layout .table-tile--mesa .table-tile__tool-btn {
-	color: var(--fulfillment-mesa-fg, #a78bfa);
-	background: color-mix(in srgb, var(--fulfillment-mesa-fg, #7c3aed) 16%, #f6f6f6);
-	border-color: color-mix(in srgb, var(--fulfillment-mesa-fg, #7c3aed) 28%, transparent);
-}
-
-.admin-layout .table-tile--moto .table-tile__seq,
-.admin-layout .table-tile--moto .table-tile__tool-btn {
-	color: var(--fulfillment-delivery-fg, #fbbf24);
-	background: color-mix(in srgb, var(--fulfillment-delivery-fg, #d97706) 16%, #f6f6f6);
-	border-color: color-mix(in srgb, var(--fulfillment-delivery-fg, #d97706) 28%, transparent);
-}
-
-.admin-layout .table-tile--pending.table-tile--retiro .table-tile__seq,
-.admin-layout .table-tile--pending.table-tile--retiro .table-tile__tool-btn,
-.admin-layout .table-tile--pending.table-tile--mesa .table-tile__seq,
-.admin-layout .table-tile--pending.table-tile--mesa .table-tile__tool-btn,
-.admin-layout .table-tile--pending.table-tile--moto .table-tile__seq,
-.admin-layout .table-tile--pending.table-tile--moto .table-tile__tool-btn {
-	color: #0078ff;
-	background: color-mix(in srgb, #0078ff 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #0078ff 28%, transparent);
-}
-
-.admin-layout .table-tile--active .table-tile__seq,
-.admin-layout .table-tile--active .table-tile__tool-btn {
-	color: #dc2626;
-	background: color-mix(in srgb, #dc2626 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #dc2626 28%, transparent);
-}
-
-.admin-layout .table-tile--completed.table-tile--retiro .table-tile__seq,
-.admin-layout .table-tile--completed.table-tile--retiro .table-tile__tool-btn,
-.admin-layout .table-tile--completed.table-tile--mesa .table-tile__seq,
-.admin-layout .table-tile--completed.table-tile--mesa .table-tile__tool-btn,
-.admin-layout .table-tile--completed.table-tile--moto .table-tile__seq,
-.admin-layout .table-tile--completed.table-tile--moto .table-tile__tool-btn {
-	color: #15803d;
-	background: color-mix(in srgb, #25d366 18%, #f6f6f6);
-	border-color: color-mix(in srgb, #25d366 28%, transparent);
-}
-
-.admin-layout .table-tile__kind-icon {
+.admin-layout .table-tile__identity {
 	grid-row: 1;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	align-self: center;
-	justify-self: center;
-	width: 44px;
-	height: 44px;
-	border-radius: 5px;
+	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.admin-layout .table-tile__kind-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
 	line-height: 0;
 	flex-shrink: 0;
+	color: var(--tile-kind);
+	background: var(--admin-icon-bg);
 }
 
 .admin-layout .table-tile__kind-svg {
@@ -301,32 +244,26 @@
 	flex-shrink: 0;
 }
 
-.admin-layout .table-tile__kind-svg--retiro {
-	width: 26px;
-	height: 26px;
-}
-
+.admin-layout .table-tile__kind-svg--retiro,
 .admin-layout .table-tile__kind-svg--mesa {
-	width: 28px;
-	height: 28px;
+	width: 17px;
+	height: 17px;
 }
 
 .admin-layout .table-tile__kind-svg--moto {
-	width: 30px;
-	height: 30px;
+	width: 19px;
+	height: 19px;
 }
 
 .admin-layout .table-tile__client {
-	grid-row: 2;
-	font-size: 0.86rem;
+	font-size: 0.95rem;
 	font-weight: 700;
 	line-height: 1.25;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	max-width: 100%;
-	padding: 0 2px;
-	color: #2c2924;
+	min-width: 0;
+	color: var(--admin-text);
 }
 
 .admin-layout .table-tile__stats {
@@ -337,6 +274,7 @@
 	gap: 6px;
 	min-width: 0;
 	max-width: 100%;
+	color: var(--admin-text-muted);
 }
 
 .admin-layout .table-tile__stat {
@@ -347,6 +285,7 @@
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
 	line-height: 1;
+	color: var(--admin-text-muted);
 }
 
 .admin-layout .table-tile__stat svg {
@@ -356,24 +295,18 @@
 .admin-layout .table-tile__stat-sep {
 	font-size: 0.6rem;
 	font-weight: 400;
-	color: #71717a;
+	color: color-mix(in srgb, var(--admin-text-muted) 55%, transparent);
 	user-select: none;
 }
 
-.admin-layout .table-tile--pending .table-tile__stat--time {
-	color: #0078ff;
-}
+@media (prefers-reduced-motion: reduce) {
+	.admin-layout .table-tile {
+		transition: none;
+	}
 
-.admin-layout .table-tile--active .table-tile__stat--time {
-	color: #dc2626;
-}
-
-.admin-layout .table-tile--completed .table-tile__stat--time {
-	color: #15803d;
-}
-
-.admin-layout .table-tile__stat--items {
-	color: #6e6a62;
+	.admin-layout .table-tile:hover {
+		transform: none;
+	}
 }
 
 .admin-layout .tables-view__empty {
@@ -929,15 +862,26 @@
 	}
 
 	.admin-layout .table-tile {
-		min-height: 118px;
+		min-height: 116px;
 	}
 
 	.admin-layout .table-tile__head {
-		padding: 5px 6px 0;
+		padding: 7px 8px 0;
 	}
 
 	.admin-layout .table-tile__body {
-		padding: 4px 8px 8px;
+		padding: 6px 8px 10px;
+		gap: 6px;
+	}
+
+	.admin-layout .table-tile__kind-icon {
+		width: 24px;
+		height: 24px;
+		border-radius: 7px;
+	}
+
+	.admin-layout .table-tile__client {
+		font-size: 0.88rem;
 	}
 
 	.admin-layout .close-table-modal__actions {
