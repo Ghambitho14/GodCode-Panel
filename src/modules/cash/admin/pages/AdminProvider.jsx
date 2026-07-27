@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase, TABLES } from '@/integrations/supabase';
+import { supabase, TABLES, getCurrentUser } from '@/integrations/supabase';
 import { useCashSystem } from '../../hooks/useCashSystem';
 import { ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, shouldRegisterPaidOrderAtStatus, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
 import { useLocation as useBranchLocation } from '../../context/useLocation';
@@ -315,8 +315,9 @@ export const AdminProvider = ({
 
 	const signOutAndClearDrafts = useCallback(async () => {
 		try {
-			const { data } = await supabase.auth.getUser();
-			const identities = [...new Set([userEmail, data?.user?.id].filter(Boolean))];
+			// Con accessToken del BFF, supabase.auth.getUser() no está disponible.
+			const userId = getCurrentUser()?.id;
+			const identities = [...new Set([userEmail, userId].filter(Boolean))];
 			await Promise.allSettled(identities.map(clearManualOrderDraftsForUser));
 		} finally {
 			await signOut();

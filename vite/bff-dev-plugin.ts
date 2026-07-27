@@ -110,6 +110,79 @@ function proxyToSupabaseDev(req: IncomingMessage, res: ServerResponse) {
   req.pipe(proxyReq);
 }
 
+function proxyToSupabaseUpgradeDev(
+  req: IncomingMessage,
+  socket: import("node:stream").Duplex,
+  head: Buffer,
+) {
+  const rawUrl = req.url || "/";
+  if (!rawUrl.startsWith("/api/supabase")) {
+    return false;
+  }
+
+  const url = new URL(rawUrl, "http://localhost");
+  const targetUrl =
+    process.env.SUPABASE_INTERNAL_URL?.trim() ||
+    process.env.SUPABASE_URL?.trim() ||
+    "http://127.0.0.1:54321";
+  const target = new URL(targetUrl);
+  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
+  const isHttps = target.protocol === "https:";
+  const port = target.port || (isHttps ? "443" : "80");
+  const headers = { ...req.headers, host: target.hostname };
+  delete headers["proxy-connection"];
+
+  const transport = isHttps ? httpsRequest : httpRequest;
+  const proxyReq = transport({
+    hostname: target.hostname,
+    port,
+    path: targetPath,
+    method: "GET",
+    headers,
+  });
+
+  proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {
+    let response = "HTTP/1.1 101 Switching Protocols\r\n";
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (value == null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) response += `${key}: ${item}\r\n`;
+      } else {
+        response += `${key}: ${value}\r\n`;
+      }
+    }
+    response += "\r\n";
+    socket.write(response);
+    if (proxyHead?.length) socket.write(proxyHead);
+
+    proxySocket.pipe(socket);
+    socket.pipe(proxySocket);
+
+    proxySocket.on("error", () => socket.destroy());
+    socket.on("error", () => proxySocket.destroy());
+  });
+
+  proxyReq.on("response", (proxyRes) => {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[gc-bff-dev] ws upgrade rechazado:",
+      proxyRes.statusCode,
+      proxyRes.statusMessage,
+    );
+    socket.destroy();
+  });
+
+  proxyReq.on("error", (error) => {
+    // eslint-disable-next-line no-console
+    console.error("[gc-bff-dev] ws proxy error:", error);
+    socket.destroy();
+  });
+
+  if (head?.length) proxyReq.write(head);
+  proxyReq.end();
+  return true;
+}
+
 export function bffDevPlugin(mode: string): Plugin {
   return {
     name: "gc-bff-dev",
@@ -162,6 +235,17 @@ export function bffDevPlugin(mode: string): Plugin {
 
       server.middlewares.use("/api/supabase", (req, res) => {
         proxyToSupabaseDev(req, res);
+      });
+
+      // Realtime usa WebSocket: el middleware HTTP no alcanza; hay que hacer upgrade.
+      server.httpServer?.on("upgrade", (req, socket, head) => {
+        try {
+          proxyToSupabaseUpgradeDev(req, socket, head);
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error("[gc-bff-dev] ws upgrade error:", error);
+          socket.destroy();
+        }
       });
     },
   };

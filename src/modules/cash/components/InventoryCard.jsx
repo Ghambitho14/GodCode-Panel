@@ -72,6 +72,7 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                         placeholderSrc={PRODUCT_IMAGE_PLACEHOLDER}
                         alt={product.name}
                         placeholderClassName="inv-img-placeholder"
+                        preset="catalogCard"
                     />
                     {viewMode === 'grid' ? statusToggleBtn : null}
                 </div>

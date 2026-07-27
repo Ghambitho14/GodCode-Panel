@@ -31,6 +31,7 @@ function evidenceCopy(status) {
 
 function ReceiptImage({ source }) {
     const [imageFailed, setImageFailed] = useState(false);
+    const [useFullSize, setUseFullSize] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const { url, loading, error } = useSignedImageUrl(
         source,
@@ -38,13 +39,28 @@ function ReceiptImage({ source }) {
         3600,
         Boolean(source),
         refreshKey,
+        'receiptViewer',
+    );
+    const { url: fullUrl } = useSignedImageUrl(
+        source,
+        'receipts',
+        3600,
+        Boolean(source),
+        refreshKey,
+        null,
     );
 
-    useEffect(() => setImageFailed(false), [url]);
+    useEffect(() => {
+        setImageFailed(false);
+        setUseFullSize(false);
+    }, [url, fullUrl]);
+
+    const displayUrl = useFullSize ? fullUrl : url;
 
     const retry = () => {
         invalidateSignedImageUrl(source, 'receipts');
         setImageFailed(false);
+        setUseFullSize(false);
         setRefreshKey((value) => value + 1);
     };
 
@@ -58,7 +74,7 @@ function ReceiptImage({ source }) {
         );
     }
 
-    if (error || imageFailed || !url) {
+    if (error || imageFailed || !displayUrl) {
         return (
             <div className="payment-receipt-panel__viewer-state payment-receipt-panel__viewer-state--error" role="alert">
                 <ImageOff size={30} aria-hidden />
@@ -73,8 +89,18 @@ function ReceiptImage({ source }) {
 
     return (
         <figure className="payment-receipt-panel__figure">
-            <img src={url} alt="Comprobante de pago" onError={() => setImageFailed(true)} />
-            <a href={url} target="_blank" rel="noreferrer">
+            <img
+                src={displayUrl}
+                alt="Comprobante de pago"
+                onError={() => {
+                    if (!useFullSize && fullUrl && fullUrl !== displayUrl) {
+                        setUseFullSize(true);
+                        return;
+                    }
+                    setImageFailed(true);
+                }}
+            />
+            <a href={fullUrl || displayUrl} target="_blank" rel="noreferrer">
                 <ExternalLink size={15} aria-hidden /> Abrir tamaño completo
             </a>
         </figure>

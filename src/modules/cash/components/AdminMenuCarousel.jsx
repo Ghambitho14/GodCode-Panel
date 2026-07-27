@@ -8,6 +8,7 @@ import {
 	validateImageFile,
 	deleteCompanyImage,
 	IMAGE_STORAGE_CONTEXTS,
+	MENU_IMAGE_MAX_SIZE_MB,
 	getSignedImageUrl,
 } from '@/shared/utils/supabaseStorage';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
@@ -74,18 +75,23 @@ const filenameFromUrl = (url) => {
 };
 
 const CarouselSlideThumbnail = ({ imagePath, index }) => {
-	const { url, loading, error } = useSignedImageUrl(imagePath, 'menu');
+	const { url, loading, error } = useSignedImageUrl(imagePath, 'menu', 3600, true, 0, 'carouselThumb');
+	const { url: fullUrl } = useSignedImageUrl(imagePath, 'menu', 3600, true, 0, null);
 	const [imageFailed, setImageFailed] = useState(false);
+	const [useFullSrc, setUseFullSrc] = useState(false);
 
 	useEffect(() => {
 		setImageFailed(false);
-	}, [url]);
+		setUseFullSrc(false);
+	}, [url, fullUrl]);
 
-	const available = Boolean(url && !imageFailed && !error);
+	const displayUrl = useFullSrc ? fullUrl : url;
+	const available = Boolean(displayUrl && !imageFailed && !error);
+	const openUrl = fullUrl || displayUrl;
 
 	return (
 		<a
-			href={available ? url : undefined}
+			href={available && openUrl ? openUrl : undefined}
 			target={available ? '_blank' : undefined}
 			rel={available ? 'noopener noreferrer' : undefined}
 			className="menu-carousel-slide-card-thumb"
@@ -98,12 +104,18 @@ const CarouselSlideThumbnail = ({ imagePath, index }) => {
 			{loading ? <Skeleton className="h-full w-full rounded-none" aria-hidden="true" /> : null}
 			{available ? (
 				<img
-					src={url}
+					src={displayUrl}
 					alt=""
 					className="menu-carousel-slide-thumb"
 					loading="lazy"
 					decoding="async"
-					onError={() => setImageFailed(true)}
+					onError={() => {
+						if (!useFullSrc && fullUrl && fullUrl !== displayUrl) {
+							setUseFullSrc(true);
+							return;
+						}
+						setImageFailed(true);
+					}}
 				/>
 			) : !loading ? (
 				<span className="flex h-full w-full items-center justify-center bg-gc-muted text-gc-text-muted" aria-hidden="true">
@@ -494,7 +506,7 @@ export default function AdminMenuCarousel({
 		if (!file || !branchId) return;
 		setUploading(true);
 		try {
-			const validation = validateImageFile(file);
+			const validation = validateImageFile(file, { maxSizeMb: MENU_IMAGE_MAX_SIZE_MB });
 			if (!validation.valid) throw new Error(validation.error);
 			const fitted = await autoFitCarouselImage(file);
 			await uploadAndCreateBanner(fitted);

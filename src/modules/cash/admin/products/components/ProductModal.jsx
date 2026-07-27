@@ -39,7 +39,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
 
   const [localFile, setLocalFile] = useState(null);
   const rawExistingUrl = formData.image_url || '';
-  const { url: signedExistingUrl } = useSignedImageUrl(rawExistingUrl, 'menu');
+  const { url: signedExistingUrl } = useSignedImageUrl(rawExistingUrl, 'menu', 3600, true, 0, 'modalPreview');
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {

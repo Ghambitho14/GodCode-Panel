@@ -71,7 +71,7 @@ export default function AdminCartUpsellItemModal({
 	const [isDirty, setIsDirty] = useState(false);
 	const [errors, setErrors] = useState({});
 	const storedImagePath = localFile ? null : String(formData.imageUrl || "").trim() || null;
-	const { url: signedStoredImageUrl, loading: storedImageLoading } = useSignedImageUrl(storedImagePath, "menu");
+	const { url: signedStoredImageUrl, loading: storedImageLoading } = useSignedImageUrl(storedImagePath, "menu", 3600, true, 0, "modalPreview");
 	const resolvedPreviewUrl = localFile ? previewUrl : signedStoredImageUrl;
 
 	useEffect(() => {

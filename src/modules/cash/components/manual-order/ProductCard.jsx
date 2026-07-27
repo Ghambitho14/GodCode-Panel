@@ -134,6 +134,7 @@ const ProductCard = ({
                         fallbackSrc={fallbackImageUrl}
                         alt={product.name}
                         enabled={shouldLoadImage}
+                        preset="productThumb"
                         imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                         skeletonClassName="rounded-full"
                         emptyContent={<span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>}

@@ -5,10 +5,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const storageMocks = vi.hoisted(() => ({
 	getSignedImageUrl: vi.fn(),
-	isSupabaseStorageUrl: vi.fn(() => true),
+	isSupabaseStorageUrl: vi.fn((value) => /supabase|storage\/v1/i.test(String(value))),
 	extractStoragePath: vi.fn((value, bucket) => String(value).startsWith(`${bucket}/`)
 		? String(value).slice(bucket.length + 1)
 		: value),
+	resolveImageTransform: vi.fn((presetOrTransform) => {
+		if (presetOrTransform == null || presetOrTransform === false) return null;
+		if (typeof presetOrTransform === 'string') {
+			const presets = {
+				productThumb: { width: 256, quality: 70, resize: 'cover' },
+				catalogCard: { width: 480, quality: 75, resize: 'cover' },
+				carouselThumb: { width: 216, quality: 70, resize: 'cover' },
+				modalPreview: { width: 640, quality: 80, resize: 'contain' },
+				receiptViewer: { width: 1200, quality: 80, resize: 'contain' },
+				full: null,
+			};
+			return presets[presetOrTransform] ?? null;
+		}
+		if (typeof presetOrTransform === 'object') return presetOrTransform;
+		return null;
+	}),
 }));
 
 vi.mock('@/shared/utils/supabaseStorage', () => storageMocks);

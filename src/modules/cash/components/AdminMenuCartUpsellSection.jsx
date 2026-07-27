@@ -8,6 +8,7 @@ import {
 	validateImageFile,
 	deleteCompanyImage,
 	IMAGE_STORAGE_CONTEXTS,
+	MENU_IMAGE_MAX_SIZE_MB,
 } from "@/shared/utils/supabaseStorage";
 import {
 	CART_UPSELL_MAX_ITEMS,
@@ -480,7 +481,7 @@ export default function AdminMenuCartUpsellSection({
 			return;
 		}
 		if (localFile) {
-			const v = validateImageFile(localFile);
+			const v = validateImageFile(localFile, { maxSizeMb: MENU_IMAGE_MAX_SIZE_MB });
 			if (!v.valid) {
 				showNotify(v.error || "Archivo no válido", "error");
 				return;
@@ -787,6 +788,7 @@ export default function AdminMenuCartUpsellSection({
                                                         fallbackSrc={fallbackUrl}
                                                         placeholderSrc={PRODUCT_IMAGE_PLACEHOLDER}
                                                         alt=""
+                                                        preset="catalogCard"
                                                         imageClassName="admin-cart-upsell-card__img"
                                                         placeholderClassName="admin-cart-upsell-card__img--placeholder"
                                                     />
