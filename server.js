@@ -393,6 +393,27 @@ async function handleRequest(req, res) {
   return serveStatic(req, res);
 }
 
+function envPresent(...keys) {
+  return keys.some((key) => Boolean(String(process.env[key] || "").trim()));
+}
+
+function logBoot() {
+  const distOk = existsSync(DIST_DIR);
+  console.log(
+    `[GodCode] boot NODE_ENV=${process.env.NODE_ENV || "(unset)"} PORT=${PORT} dist=${distOk ? "ok" : "missing"} supabase_internal_url=${envPresent("SUPABASE_INTERNAL_URL") ? "set" : "missing"} supabase_url=${envPresent("SUPABASE_URL", "VITE_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL") ? "set" : "missing"} anon_key=${envPresent("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY") ? "set" : "missing"}`,
+  );
+}
+
+process.on("uncaughtException", (error) => {
+  console.error("[GodCode] uncaughtException:", error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[GodCode] unhandledRejection:", reason);
+});
+
+logBoot();
+
 const server = createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
     console.error("[server] error inesperado:", error);
@@ -409,6 +430,13 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
+server.on("error", (error) => {
+  console.error("[GodCode] error al escuchar:", error);
+  process.exit(1);
+});
+
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`[GodCode] servidor listo en puerto ${PORT}`);
+  console.log(
+    `[GodCode] servidor listo en 0.0.0.0:${PORT} NODE_ENV=${process.env.NODE_ENV || "(unset)"}`,
+  );
 });

@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, TABLES, getCurrentUser } from '@/integrations/supabase';
 import { useCashSystem } from '../../hooks/useCashSystem';
-import { ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, shouldRegisterPaidOrderAtStatus, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown } from '@/shared/utils/orderUtils';
+import { ORDERS_LIST_SELECT, sanitizeOrder, isOrderPaymentDeferred, isOrderPaymentSettled, shouldRegisterPaidOrderAtStatus, buildPaymentBreakdownForOrder, buildSettlementPaymentBreakdown, resolveOrderDueMinor } from '@/shared/utils/orderUtils';
 import { useLocation as useBranchLocation } from '../../context/useLocation';
 import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
 import { getAppScopedPath } from '@/shared/utils/app-route';
@@ -28,7 +28,7 @@ import { clearManualOrderDraftsForUser } from '../../services/manualOrderDrafts'
 import { installPaymentEvidenceOnlineRetry } from '../../services/paymentEvidenceOutbox';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
 import { atomicOrderTransactionService } from '../../services/atomicOrderTransactionService';
-import { majorToMinor } from '@/lib/money/minor-units';
+import { majorToMinor, minorToMajor } from '@/lib/money/minor-units';
 import { fractionDigitsForCurrency, normalizeCurrencyCode } from '@/shared/utils/money';
 import { createClientUuid } from '@/shared/utils/supabaseStorage';
 import {
@@ -49,11 +49,7 @@ function settlementLinesFromLegacyPatch(order, patch) {
 	if (Array.isArray(patch?.payment_lines) && patch.payment_lines.length > 0) return patch.payment_lines;
 	const currency = normalizeCurrencyCode(order.currency);
 	const digits = fractionDigitsForCurrency(currency);
-	const totalMinor = Number.isSafeInteger(Number(order.payment_balance_minor)) && Number(order.payment_balance_minor) > 0
-		? Number(order.payment_balance_minor)
-		: Number.isSafeInteger(Number(order.total_minor))
-		? Number(order.total_minor)
-		: majorToMinor(order.total, currency, digits);
+	const totalMinor = resolveOrderDueMinor(order);
 	if (patch?.payment_mode === 'mixed') {
 		const cash = majorToMinor(patch.cash_amount, currency, digits);
 		const card = majorToMinor(patch.card_amount, currency, digits);
@@ -98,15 +94,18 @@ function settlementLinesFromLegacyPatch(order, patch) {
 
 function legacyAtomicPaymentPatch(order, patch = null) {
 	const source = patch || order || {};
+	const currency = normalizeCurrencyCode(order?.currency);
+	const digits = fractionDigitsForCurrency(currency);
+	const dueMajor = minorToMajor(resolveOrderDueMinor(order), currency, digits);
 	const breakdown = patch?.payment_breakdown
 		|| buildPaymentBreakdownForOrder({
 			...order,
 			...source,
-			total: Number(order?.total) || 0,
+			total: dueMajor,
 		})
 		|| buildSettlementPaymentBreakdown(
 			source.payment_type || order?.payment_type,
-			Number(order?.total) || 0,
+			dueMajor,
 		);
 	return {
 		...source,

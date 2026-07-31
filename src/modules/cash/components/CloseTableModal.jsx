@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
@@ -7,17 +7,12 @@ import { CheckCircle2 } from 'lucide-react';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
 import {
-
 	buildPaymentBreakdownForOrder,
-
 	getOrderTileKind,
-
 	getOrderPaymentDisplayLabel,
-
 	isOrderPaymentSettled,
-
+	resolveOrderDueMinor,
 	validateCheckoutPayment,
-
 } from '@/shared/utils/orderUtils';
 
 import PaymentDetails from './manual-order/PaymentDetails';
@@ -88,26 +83,45 @@ export default function CloseTableModal({
 	const [form, setForm] = useState(DEFAULT_FORM);
 
 	const [loading, setLoading] = useState(false);
-
-
+	const dueMinorBaselineRef = useRef(null);
 
 	useEffect(() => {
-
 		if (!isOpen || !order) return;
-
 		setForm({
-
 			...DEFAULT_FORM,
-
 			// Un pedido pendiente no hereda "efectivo". El cajero debe confirmar
 			// el método real antes de registrar o cerrar el cobro.
 			payment_type: order.payment_type && order.payment_type !== 'pendiente' ? order.payment_type : '',
-
 		});
-
+		dueMinorBaselineRef.current = resolveOrderDueMinor(order);
 		// Solo al abrir o cambiar de pedido — no cuando el padre pasa un nuevo objeto (realtime).
 	}, [isOpen, order?.id]);
 
+	useEffect(() => {
+		if (!isOpen || !order || confirmOnly) return;
+		const nextDue = resolveOrderDueMinor(order);
+		if (dueMinorBaselineRef.current == null) {
+			dueMinorBaselineRef.current = nextDue;
+			return;
+		}
+		if (dueMinorBaselineRef.current === nextDue) return;
+		dueMinorBaselineRef.current = nextDue;
+		setForm((prev) => ({
+			...prev,
+			payment_lines: [],
+			cash_amount: 0,
+			card_amount: 0,
+			cash_tendered: 0,
+		}));
+	}, [
+		isOpen,
+		confirmOnly,
+		order?.id,
+		order?.payment_balance_minor,
+		order?.total_minor,
+		order?.total,
+		order?.currency,
+	]);
 
 
 	useLockBodyScroll(isOpen);
@@ -134,16 +148,14 @@ export default function CloseTableModal({
 
 	if (!isOpen || !order) return null;
 
-
-
-	const orderTotal = Number(order.total) || 0;
 	const currency = String(order.currency || branch?.currency || 'CLP').toUpperCase();
 	const fractionDigits = isoFractionDigits(currency, branch?.manual_order_settings?.currencyFractionDigits);
 	const isV2Order = order.manual_order_mode === 'session' || order.manual_order_mode === 'quick_sale';
 	const paymentMethods = normalizePaymentMethods(['cash', 'card', ...(branch?.payment_methods || [])], { accountingCurrency: currency });
-	const total = !confirmOnly && Number.isSafeInteger(Number(order.payment_balance_minor))
-		? minorToMajor(Number(order.payment_balance_minor), currency, fractionDigits)
-		: orderTotal;
+	const dueMinor = resolveOrderDueMinor(order);
+	const total = !confirmOnly
+		? minorToMajor(dueMinor, currency, fractionDigits)
+		: (Number(order.total) || 0);
 
 	const confirmLabel = isPayIntent
 		? 'Registrar pago'
@@ -157,56 +169,35 @@ export default function CloseTableModal({
 
 	const statusLabel = isPayIntent ? 'Cobro' : 'Lista';
 
-
-
 	const manualOrderShape = {
-
 		...form,
-
 		total,
-
 		order_type: order.order_type,
-
 		delivery_fee: order.delivery_fee,
-
 		items: order.items,
-
 		coupon_code: order.coupon_code,
 		v2Enabled: isV2Order,
 		currency,
 		fractionDigits,
-		quote: isV2Order ? { totalMinor: Number(order.payment_balance_minor ?? order.total_minor), currency, fractionDigits, quoteHash: 'settlement' } : null,
+		quote: isV2Order ? { totalMinor: dueMinor, currency, fractionDigits, quoteHash: 'settlement' } : null,
 		paymentMethods,
 		payment_lines: form.payment_lines,
 		cashDenominations: branch?.manual_order_settings?.cashDenominations || {},
-
 	};
 
-
-
 	const isFormValid = () => {
-
 		if (confirmOnly) return true;
-
-		if (total <= 0) return true;
+		if (dueMinor <= 0) return false;
 		if (isV2Order) return validatePaymentLines(manualOrderShape.payment_lines, manualOrderShape.quote, paymentMethods).valid;
 
 		return validateCheckoutPayment({
-
 			payment_mode: form.payment_mode,
-
 			payment_type: form.payment_type,
-
 			cash_amount: form.cash_amount,
-
 			card_amount: form.card_amount,
-
 			cash_tendered: form.cash_tendered,
-
 			totalToPay: total,
-
 		}).valid;
-
 	};
 
 

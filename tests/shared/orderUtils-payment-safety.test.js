@@ -4,7 +4,10 @@ import {
 	buildPaymentBreakdownForOrder,
 	buildSettlementPaymentBreakdown,
 	getOrderPaymentBreakdown,
+	isOrderPaymentDeferred,
 	isOrderPaymentSettled,
+	resolveOrderDueMinor,
+	sanitizeOrder,
 	shouldRegisterPaidOrderAtStatus,
 	validateCheckoutPayment,
 } from '@/shared/utils/orderUtils';
@@ -110,5 +113,57 @@ describe('seguridad del pago manual', () => {
 		expect(shouldRegisterPaidOrderAtStatus(paid, 'picked_up')).toBe(true);
 		expect(shouldRegisterPaidOrderAtStatus(pending, 'completed')).toBe(false);
 		expect(shouldRegisterPaidOrderAtStatus(paid, 'cancelled')).toBe(false);
+	});
+});
+
+describe('resolveOrderDueMinor / sanitize minors', () => {
+	it('no trata null de payment_balance_minor como cobro de 0', () => {
+		expect(resolveOrderDueMinor({
+			payment_balance_minor: null,
+			total_minor: 599_000,
+			total: 5990,
+			currency: 'USD',
+		})).toBe(599_000);
+		expect(sanitizeOrder({
+			id: 1,
+			total: 5990,
+			currency: 'USD',
+			payment_balance_minor: null,
+			total_minor: 599_000,
+			items: [],
+		}).payment_balance_minor).toBeNull();
+	});
+
+	it('prefiere balance positivo sobre total_minor', () => {
+		expect(resolveOrderDueMinor({
+			payment_balance_minor: 18_500,
+			total_minor: 14_500,
+			total: 14_500,
+			currency: 'CLP',
+		})).toBe(18_500);
+	});
+
+	it('trata balance 0 como liquidado (due 0); null cae a total_minor', () => {
+		expect(resolveOrderDueMinor({
+			payment_balance_minor: 0,
+			total_minor: 14_500,
+			total: 14_500,
+			currency: 'CLP',
+		})).toBe(0);
+		expect(resolveOrderDueMinor({
+			payment_balance_minor: null,
+			total_minor: 14_500,
+			total: 14_500,
+			currency: 'CLP',
+		})).toBe(14_500);
+		expect(isOrderPaymentSettled({
+			payment_balance_minor: 0,
+			payment_status: 'paid',
+		})).toBe(true);
+		expect(isOrderPaymentDeferred({
+			payment_balance_minor: null,
+			payment_status: 'pending',
+			total_minor: 14_500,
+		})).toBe(true);
 	});
 });

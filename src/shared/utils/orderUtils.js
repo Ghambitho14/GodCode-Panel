@@ -1,5 +1,5 @@
 /** Etiquetas para método de pago específico (coincide con keys del carrito/SaaS). */
-import { formatMoney, normalizeCurrencyCode, minorToMajor } from '@/shared/utils/money';
+import { formatMoney, normalizeCurrencyCode, minorToMajor, majorToMinor, fractionDigitsForCurrency } from '@/shared/utils/money';
 import { formatOrderAmountForShare, shareIdLabelFromLocale } from '@/lib/money/order-amount';
 
 export const PAYMENT_METHOD_LABELS = {
@@ -927,10 +927,18 @@ export function isMenuOrderAwaitingPayment(order) {
 	return true;
 }
 
+/** @param {unknown} raw @returns {number | null} */
+function parseOptionalMinor(raw) {
+	if (raw == null || raw === '') return null;
+	const n = Number(raw);
+	return Number.isSafeInteger(n) ? n : null;
+}
+
 /** @param {{ payment_type?: string }} order */
 export function isOrderPaymentDeferred(order) {
 	if (!order) return false;
-	if (Number.isSafeInteger(Number(order.payment_balance_minor))) return Number(order.payment_balance_minor) > 0;
+	const balance = parseOptionalMinor(order.payment_balance_minor);
+	if (balance != null) return balance > 0;
 	if (['pending', 'pending_verification', 'partial'].includes(order.payment_status)) return true;
 	if (order.payment_status === 'paid') return false;
 	if (order.payment_timing === 'deferred') return true;
@@ -1082,9 +1090,31 @@ export function buildSettlementPaymentBreakdown(paymentType, total) {
 	};
 }
 
+/**
+ * Saldo a cobrar en minor units. Nunca trata `null`/`undefined` como 0 pendiente.
+ * Un `payment_balance_minor` explícito (incluido 0 = liquidado) tiene prioridad.
+ * @param {Record<string, unknown> | null | undefined} order
+ * @returns {number}
+ */
+export function resolveOrderDueMinor(order) {
+	if (!order) return 0;
+	const balance = parseOptionalMinor(order.payment_balance_minor);
+	if (balance != null) return Math.max(0, balance);
+	const totalMinor = parseOptionalMinor(order.total_minor);
+	if (totalMinor != null && totalMinor > 0) return totalMinor;
+	const currency = normalizeCurrencyCode(order.currency);
+	const digits = fractionDigitsForCurrency(currency);
+	try {
+		return majorToMinor(order.total, currency, digits);
+	} catch {
+		return 0;
+	}
+}
+
 /** Pedido con pago ya definido y listo para confirmar al cerrar. */
 export function isOrderPaymentSettled(order) {
-	if (Number.isSafeInteger(Number(order?.payment_balance_minor))) return Number(order.payment_balance_minor) === 0;
+	const balance = parseOptionalMinor(order?.payment_balance_minor);
+	if (balance != null) return balance === 0;
 	if (order?.payment_status) return order.payment_status === 'paid';
 	if (!order || isOrderPaymentDeferred(order)) return false;
 	const breakdown = getOrderPaymentBreakdown(order);
@@ -1360,11 +1390,11 @@ export function sanitizeOrder(rawOrder) {
 			? normalizePaymentBreakdown(rawOrder.payment_breakdown)
 			: null,
 		payment_lines: Array.isArray(rawOrder.payment_lines) ? rawOrder.payment_lines : [],
-		subtotal_minor: Number.isSafeInteger(Number(rawOrder.subtotal_minor)) ? Number(rawOrder.subtotal_minor) : null,
-		discount_total_minor: Number.isSafeInteger(Number(rawOrder.discount_total_minor)) ? Number(rawOrder.discount_total_minor) : null,
-		delivery_fee_minor: Number.isSafeInteger(Number(rawOrder.delivery_fee_minor)) ? Number(rawOrder.delivery_fee_minor) : null,
-		total_minor: Number.isSafeInteger(Number(rawOrder.total_minor)) ? Number(rawOrder.total_minor) : null,
-		payment_balance_minor: Number.isSafeInteger(Number(rawOrder.payment_balance_minor)) ? Number(rawOrder.payment_balance_minor) : null,
+		subtotal_minor: parseOptionalMinor(rawOrder.subtotal_minor),
+		discount_total_minor: parseOptionalMinor(rawOrder.discount_total_minor),
+		delivery_fee_minor: parseOptionalMinor(rawOrder.delivery_fee_minor),
+		total_minor: parseOptionalMinor(rawOrder.total_minor),
+		payment_balance_minor: parseOptionalMinor(rawOrder.payment_balance_minor),
 		payment_status: rawOrder.payment_status ?? null,
 		payment_evidence_status: rawOrder.payment_evidence_status ?? null,
 	};

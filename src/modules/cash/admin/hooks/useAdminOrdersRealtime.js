@@ -70,11 +70,14 @@ export function useAdminOrdersRealtime({
 
 			const newOrder = mergeOrderInMemory(null, raw);
 			if (!newOrder?.id) return;
+			let orderForPrint = newOrder;
 			setOrders((prev) => {
 				const existingIdx = prev.findIndex((o) => o.id === newOrder.id);
 				if (existingIdx >= 0) {
+					const merged = mergeOrderInMemory(prev[existingIdx], raw);
+					orderForPrint = merged;
 					return prev.map((o, i) =>
-						i === existingIdx ? mergeOrderInMemory(o, raw) : o,
+						i === existingIdx ? merged : o,
 					);
 				}
 				return [newOrder, ...prev];
@@ -88,8 +91,13 @@ export function useAdminOrdersRealtime({
 
 				void (async () => {
 					try {
-						const fullOrder = await fetchOrderWithItems({ orderId: newOrder.id, companyId });
-						const orderToPrint = fullOrder && fullOrder.items ? fullOrder : newOrder;
+						let orderToPrint = orderForPrint;
+						if (!Array.isArray(orderToPrint.items) || orderToPrint.items.length === 0) {
+							const fullOrder = await fetchOrderWithItems({ orderId: newOrder.id, companyId });
+							if (fullOrder && Array.isArray(fullOrder.items) && fullOrder.items.length > 0) {
+								orderToPrint = fullOrder;
+							}
+						}
 						printOrderTicket(
 							orderToPrint,
 							selectedBranch?.name ?? 'NOMBRE DEL LOCAL',

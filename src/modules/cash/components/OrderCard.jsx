@@ -198,8 +198,12 @@ const OrderCard = ({
     useEffect(() => {
         if (!liveOrder.id || itemsHydrated) return;
         setItemsHydrated(true);
+        if (Array.isArray(liveOrder.items) && liveOrder.items.length > 0) {
+            setLocalItems(liveOrder.items);
+            return;
+        }
         loadOrderItems(liveOrder.id);
-    }, [liveOrder.id, itemsHydrated, loadOrderItems]);
+    }, [liveOrder.id, liveOrder.items, itemsHydrated, loadOrderItems]);
 
     // Keep card items in sync when the order is edited (upsert/realtime updates total
     // via liveOrder but localItems would otherwise stay on the pre-edit hydrate).

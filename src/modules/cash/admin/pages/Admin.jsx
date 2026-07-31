@@ -134,7 +134,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     loading,
     inventoryBranchRows,
     companyId,
-    cashSystem,
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
@@ -163,9 +162,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   const handleManualOrderSaved = React.useCallback(async (savedOrder) => {
     upsertOrder(savedOrder);
     // Pedido, inventario, pago y caja ya fueron confirmados por la misma RPC.
-    void cashSystem?.refresh?.();
+    // Los movimientos de caja llegan por Realtime; no forzar refresh completo.
     return true;
-  }, [cashSystem, upsertOrder]);
+  }, [upsertOrder]);
 
   React.useEffect(() => {
     if (!selectedClient) setClientOrderDetail(null);
