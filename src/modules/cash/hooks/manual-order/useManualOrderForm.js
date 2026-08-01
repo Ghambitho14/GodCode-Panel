@@ -1,13 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { firstEnabledLocalChannel, parseLocalOrderChannels } from '@/lib/delivery-settings';
-import {
-    normalizeManualPhone,
-    fetchClientAddresses,
-} from '../../services/clientService';
+import { normalizeManualPhone } from '../../services/clientService';
 import {
     MANUAL_ORDER_INITIAL_FORM_STATE,
-    mergeAddressIntoForm,
     OPEN_MESA_CAJA_DEFAULTS,
     applyLocalFulfillmentMode,
     applyMesaPartyMode,
@@ -35,18 +31,11 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
     const [rutValid, setRutValid] = useState(true);
     const [phoneValid, setPhoneValid] = useState(true);
 
-    const applySavedAddress = useCallback((addressRow, branchDeliveryCfg, subtotal = 0) => {
-        if (!addressRow || typeof addressRow !== 'object') return;
-        setForm((prev) => mergeAddressIntoForm(prev, addressRow, branchDeliveryCfg, subtotal));
-    }, []);
-
     const updateClientName = useCallback((val, opts = {}) => {
         setForm((prev) => {
             const next = { ...prev, client_name: val };
             if (!opts.fromClientSelect && prev.selected_client_id) {
                 next.selected_client_id = '';
-                next.saved_addresses = [];
-                next.selected_address_id = '';
             }
             return next;
         });
@@ -60,7 +49,7 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         setForm(prev => ({ ...prev, note: val }));
     }, []);
 
-    const updateOrderType = useCallback((val, branchDeliveryCfg = null, subtotal = 0) => {
+    const updateOrderType = useCallback((val) => {
         setForm((prev) => {
             if (val === 'pickup') {
                 return {
@@ -71,27 +60,10 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
                     delivery_address: '',
                     delivery_reference: '',
                     delivery_km: '',
-                    selected_address_id: '',
                 };
             }
 
-            const next = { ...prev, order_type: val };
-            if (
-                val === 'delivery' &&
-                Array.isArray(prev.saved_addresses) &&
-                prev.saved_addresses.length > 0 &&
-                !prev.delivery_address &&
-                !prev.delivery_reference &&
-                !prev.delivery_named_area_id
-            ) {
-                return mergeAddressIntoForm(
-                    next,
-                    prev.saved_addresses[0],
-                    branchDeliveryCfg,
-                    subtotal,
-                );
-            }
-            return next;
+            return { ...prev, order_type: val };
         });
     }, []);
 
@@ -104,14 +76,13 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
     }, []);
 
     const updateDeliveryAddress = useCallback((val) => {
-        setForm(prev => ({ ...prev, delivery_address: val, selected_address_id: '' }));
+        setForm(prev => ({ ...prev, delivery_address: val }));
     }, []);
 
     const updateDeliveryReference = useCallback((val) => {
         setForm((prev) => ({
             ...prev,
             delivery_reference: typeof val === 'string' ? val : '',
-            selected_address_id: '',
         }));
     }, []);
 
@@ -119,7 +90,6 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         setForm((prev) => ({
             ...prev,
             delivery_km: val === '' || val == null ? '' : String(val),
-            selected_address_id: '',
         }));
     }, []);
 
@@ -131,7 +101,6 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         setForm((prev) => ({
             ...prev,
             delivery_named_area_id: typeof val === 'string' ? val : '',
-            selected_address_id: '',
         }));
     }, []);
 
@@ -217,55 +186,28 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
             client_phone: cleaned,
             ...(prev.selected_client_id ? {
                 selected_client_id: '',
-                saved_addresses: [],
-                selected_address_id: '',
             } : {}),
         }));
 
         setPhoneValid(strategy.validatePhone(cleaned));
     }, [strategy]);
 
-    const applyClientRecord = useCallback(async (client, opts = {}) => {
+    const applyClientRecord = useCallback(async (client) => {
         if (!client || typeof client !== 'object') return;
 
-        const { branchDeliveryCfg = null, subtotal = 0 } = opts;
         const name = String(client.name ?? '').trim();
         const rutRaw = String(client.rut ?? client.document ?? '').trim();
         const rut = rutRaw ? strategy.formatId(rutRaw) : '';
         const phone = normalizeManualPhone(client.phone) || strategy.phonePrefix;
         const clientId = client.id != null ? String(client.id) : '';
 
-        let savedAddresses = [];
-        if (clientId) {
-            try {
-                savedAddresses = await fetchClientAddresses(clientId);
-            } catch {
-                savedAddresses = [];
-            }
-        }
-
-        setForm((prev) => {
-            let next = {
-                ...prev,
-                client_name: name || prev.client_name,
-                client_rut: rut || prev.client_rut,
-                client_phone: phone || prev.client_phone,
-                selected_client_id: clientId,
-                saved_addresses: savedAddresses,
-                selected_address_id: '',
-            };
-
-            if (prev.order_type === 'delivery' && savedAddresses.length > 0) {
-                next = mergeAddressIntoForm(
-                    next,
-                    savedAddresses[0],
-                    branchDeliveryCfg,
-                    subtotal,
-                );
-            }
-
-            return next;
-        });
+        setForm((prev) => ({
+            ...prev,
+            client_name: name || prev.client_name,
+            client_rut: rut || prev.client_rut,
+            client_phone: phone || prev.client_phone,
+            selected_client_id: clientId,
+        }));
 
         setRutValid(rut ? strategy.validateId(rut) : false);
         setPhoneValid(strategy.validatePhone(phone));
@@ -332,7 +274,6 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,
-        applySavedAddress,
         resetForm,
 		resetOpenMesaForm,
 		restoreForm,

@@ -151,7 +151,6 @@ export default function ManualOrderCheckoutVisualHarness() {
 		updateDeliveryFee: setField('delivery_fee'),
 		updateDeliveryNamedAreaId: setField('delivery_named_area_id'),
 		applyClientRecord: () => {},
-		applySavedAddress: () => {},
 		getInputStyle: () => ({}),
 		rutValid: true,
 		phoneValid: true,

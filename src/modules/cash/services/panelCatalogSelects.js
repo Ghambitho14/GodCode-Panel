@@ -14,9 +14,6 @@ export const PRODUCT_BRANCH_SELECT =
 export const CLIENTS_PANEL_SELECT =
 	'id, name, phone, phone_normalized, rut, total_orders, total_spent, is_frequent, first_order_at, last_order_at, created_at, updated_at, company_id';
 
-export const CLIENT_ADDRESSES_PANEL_SELECT =
-	'id, client_id, address_line, reference, named_area_id, delivery_km, last_used_at';
-
 export const COMPANY_ADMIN_SELECT = 'id, name, legal_rut, address, phone, email';
 
 export const DISCOUNT_COUPONS_PANEL_SELECT =

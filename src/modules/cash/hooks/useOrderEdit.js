@@ -26,9 +26,6 @@ import { supabase, TABLES } from '@/integrations/supabase';
 import { buildCouponPreview } from '@/lib/discount-coupon';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import {
-	fetchClientAddresses,
-} from '../services/clientService';
-import {
 	COUPON_PREVIEW_ERR_MSG,
 	getEffectiveItemPrice,
 	OPEN_MESA_CAJA_DEFAULTS,
@@ -38,7 +35,6 @@ import {
 	deriveMesaPartyModeFromOrder,
 	getLocalFulfillmentMode,
 	isOpenMesaMeseroMode,
-	mergeAddressIntoForm,
 	normalizeManualOrderType,
 	resolveOpenMesaClientName,
 	buildManualDeliveryPayload,
@@ -93,8 +89,6 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 			note: '',
 			coupon_code: '',
 			selected_client_id: '',
-			saved_addresses: [],
-			selected_address_id: '',
 		};
 	}
 	const items = Array.isArray(initialOrder.items) ? initialOrder.items.map((it) => ({
@@ -149,8 +143,6 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 		note: String(initialOrder.note ?? '').replace(/^\[Sucursal: [^\]]+\]\s*\n?/i, '').replace(/\n?\[Envío: [^\]]+\]/i, ''),
 		coupon_code: resolveOrderCouponCode(initialOrder),
 		selected_client_id: initialOrder.client_id != null ? String(initialOrder.client_id) : '',
-		saved_addresses: [],
-		selected_address_id: '',
 	};
 }
 
@@ -191,28 +183,6 @@ export const useOrderEdit = (
 		return strategy.validatePhone(String(initialOrder?.client_phone ?? ''));
 	});
 
-	useEffect(() => {
-		const clientId = initialOrder?.client_id != null ? String(initialOrder.client_id) : '';
-		if (!clientId) return undefined;
-
-		let cancelled = false;
-		(async () => {
-			try {
-				const savedAddresses = await fetchClientAddresses(clientId);
-				if (cancelled || !savedAddresses.length) return;
-				setManualOrder((prev) => ({
-					...prev,
-					saved_addresses: savedAddresses,
-				}));
-			} catch {
-				// ignore
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [initialOrder?.client_id]);
 	const [receiptFile, setReceiptFile] = useState(null);
 	const [receiptPreview, setReceiptPreview] = useState(null);
 
@@ -254,15 +224,9 @@ export const useOrderEdit = (
 
 	const getPrice = useCallback((product) => getEffectiveItemPrice(product), []);
 
-	const applySavedAddress = useCallback((addressRow, cfg, subtotal = 0) => {
-		if (!addressRow || typeof addressRow !== 'object') return;
-		setManualOrder((prev) => mergeAddressIntoForm(prev, addressRow, cfg, subtotal));
-	}, []);
-
-	const applyClientRecord = useCallback(async (client, opts = {}) => {
+	const applyClientRecord = useCallback(async (client) => {
 		if (!client || typeof client !== 'object') return;
 
-		const { branchDeliveryCfg: cfg = null, subtotal = 0 } = opts;
 		const name = String(client.name ?? '').trim();
 		const rutRaw = String(client.rut ?? client.document ?? '').trim();
 		const rut = rutRaw ? strategy.formatId(rutRaw) : '';
@@ -270,32 +234,13 @@ export const useOrderEdit = (
 		const phone = normalizedPhone.valid ? normalizedPhone.e164 : String(client.phone ?? '').trim();
 		const clientId = client.id != null ? String(client.id) : '';
 
-		let savedAddresses = [];
-		if (clientId) {
-			try {
-				savedAddresses = await fetchClientAddresses(clientId);
-			} catch {
-				savedAddresses = [];
-			}
-		}
-
-		setManualOrder((prev) => {
-			let next = {
-				...prev,
-				client_name: name || prev.client_name,
-				client_rut: rut || prev.client_rut,
-				client_phone: phone || prev.client_phone,
-				selected_client_id: clientId,
-				saved_addresses: savedAddresses,
-				selected_address_id: '',
-			};
-
-			if (prev.order_type === 'delivery' && savedAddresses.length > 0) {
-				next = mergeAddressIntoForm(next, savedAddresses[0], cfg, subtotal);
-			}
-
-			return next;
-		});
+		setManualOrder((prev) => ({
+			...prev,
+			client_name: name || prev.client_name,
+			client_rut: rut || prev.client_rut,
+			client_phone: phone || prev.client_phone,
+			selected_client_id: clientId,
+		}));
 
 		setRutValid(rut ? strategy.validateId(rut) : false);
 		setPhoneValid(strategy.validatePhone(phone));
@@ -306,15 +251,13 @@ export const useOrderEdit = (
 			const next = { ...prev, client_name: val };
 			if (!opts.fromClientSelect && prev.selected_client_id) {
 				next.selected_client_id = '';
-				next.saved_addresses = [];
-				next.selected_address_id = '';
 			}
 			return next;
 		});
 	const updateCouponCode = (val) =>
 		setManualOrder((prev) => ({ ...prev, coupon_code: typeof val === 'string' ? val : '' }));
 	const updateNote = (val) => setManualOrder((prev) => ({ ...prev, note: val }));
-	const updateOrderType = (val, cfg = null, subtotal = 0) =>
+	const updateOrderType = (val) =>
 		setManualOrder((prev) => {
 			if (val === 'pickup') {
 				return {
@@ -326,44 +269,30 @@ export const useOrderEdit = (
 					delivery_address: '',
 					delivery_reference: '',
 					delivery_km: '',
-					selected_address_id: '',
 				};
 			}
 
-			const next = {
+			return {
 				...prev,
 				order_type: val,
 				...(val === 'delivery' ? { local_fulfillment_mode: 'delivery' } : {}),
 			};
-			if (
-				val === 'delivery' &&
-				Array.isArray(prev.saved_addresses) &&
-				prev.saved_addresses.length > 0 &&
-				!prev.delivery_address &&
-				!prev.delivery_reference &&
-				!prev.delivery_named_area_id
-			) {
-				return mergeAddressIntoForm(next, prev.saved_addresses[0], cfg, subtotal);
-			}
-			return next;
 		});
 	const updateLocalFulfillmentMode = (mode, cfg = null, subtotal = 0) =>
 		setManualOrder((prev) => applyLocalFulfillmentMode(prev, mode, cfg, subtotal));
 	const updateMesaPartyMode = (mode) =>
 		setManualOrder((prev) => applyMesaPartyMode(prev, mode));
 	const updateDeliveryAddress = (val) =>
-		setManualOrder((prev) => ({ ...prev, delivery_address: val, selected_address_id: '' }));
+		setManualOrder((prev) => ({ ...prev, delivery_address: val }));
 	const updateDeliveryReference = (val) =>
 		setManualOrder((prev) => ({
 			...prev,
 			delivery_reference: typeof val === 'string' ? val : '',
-			selected_address_id: '',
 		}));
 	const updateDeliveryKm = (val) =>
 		setManualOrder((prev) => ({
 			...prev,
 			delivery_km: val === '' || val == null ? '' : String(val),
-			selected_address_id: '',
 		}));
 	const updateDeliveryFee = useCallback(
 		(val) => setManualOrder((prev) => ({ ...prev, delivery_fee: Number(val) || 0 })),
@@ -374,7 +303,6 @@ export const useOrderEdit = (
 			setManualOrder((prev) => ({
 				...prev,
 				delivery_named_area_id: typeof val === 'string' ? val : '',
-				selected_address_id: '',
 			})),
 		[],
 	);
@@ -441,8 +369,6 @@ export const useOrderEdit = (
 			client_phone: cleaned,
 			...(prev.selected_client_id ? {
 				selected_client_id: '',
-				saved_addresses: [],
-				selected_address_id: '',
 			} : {}),
 		}));
 		setPhoneValid(normalizeInternationalPhone(cleaned, countryProfile.countryCode).valid);
@@ -950,7 +876,6 @@ export const useOrderEdit = (
 		handleRutChange,
 		handlePhoneChange,
 		applyClientRecord,
-		applySavedAddress,
 		handleFileChange,
 		removeReceipt,
 		addItem,

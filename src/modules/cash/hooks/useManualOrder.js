@@ -121,7 +121,7 @@ export const useManualOrder = (
 		updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference,
 		updateDeliveryKm, updateDeliveryFee, updateDeliveryNamedAreaId, updatePaymentType, updatePaymentMode,
 		updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
-		handleRutChange, handlePhoneChange, applyClientRecord, applySavedAddress, resetForm, resetOpenMesaForm,
+		handleRutChange, handlePhoneChange, applyClientRecord, resetForm, resetOpenMesaForm,
 		getInputStyle, restoreForm,
 	} = useManualOrderForm(localOrderChannels, formCountry, { currency, locale, fractionDigits });
 
@@ -431,7 +431,7 @@ export const useManualOrder = (
 		manualOrder, loading, rutValid, phoneValid, receiptFile, receiptPreview,
 		updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow: handleChargeNowChange, updatePaymentLines,
-		handleRutChange, handlePhoneChange, applyClientRecord, applySavedAddress, handleFileChange, removeReceipt,
+		handleRutChange, handlePhoneChange, applyClientRecord, handleFileChange, removeReceipt,
 		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,
 		updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress,
 		updateDeliveryReference, updateDeliveryKm: handleUpdateDeliveryKm, updateDeliveryFee,

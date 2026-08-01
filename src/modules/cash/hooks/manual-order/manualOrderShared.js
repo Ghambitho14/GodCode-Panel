@@ -5,7 +5,6 @@ import {
 	isCajaGenericIdentity,
 	isLegacySalonClientName,
 } from '@/shared/utils/orderUtils';
-import { mapAddressToFormFields } from '../../services/clientService';
 
 /** Defaults CAJA para documento/teléfono en sesiones locales (mesero o valores iniciales). */
 export const OPEN_MESA_CAJA_DEFAULTS = {
@@ -36,8 +35,6 @@ export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	note: '',
 	coupon_code: '',
 	selected_client_id: '',
-	saved_addresses: [],
-	selected_address_id: '',
 	charge_now: false,
 	payment_lines: [],
 };
@@ -148,9 +145,9 @@ function withCajaContactDefaults(fields = {}) {
 }
 
 /** Aplica mesa | retiro | delivery al formulario de abrir sesión local. */
-export function applyLocalFulfillmentMode(prev, mode, branchDeliveryCfg = null, subtotal = 0) {
+export function applyLocalFulfillmentMode(prev, mode) {
 	if (mode === 'delivery') {
-		const next = withCajaContactDefaults({
+		return withCajaContactDefaults({
 			...prev,
 			local_fulfillment_mode: 'delivery',
 			mesa_party_mode: 'cliente',
@@ -163,16 +160,6 @@ export function applyLocalFulfillmentMode(prev, mode, branchDeliveryCfg = null, 
 					: prev.client_name,
 			selected_client_id: '',
 		});
-		if (
-			Array.isArray(prev.saved_addresses) &&
-			prev.saved_addresses.length > 0 &&
-			!prev.delivery_address &&
-			!prev.delivery_reference &&
-			!prev.delivery_named_area_id
-		) {
-			return mergeAddressIntoForm(next, prev.saved_addresses[0], branchDeliveryCfg, subtotal);
-		}
-		return next;
 	}
 
 	const base = {
@@ -183,7 +170,6 @@ export function applyLocalFulfillmentMode(prev, mode, branchDeliveryCfg = null, 
 		delivery_address: '',
 		delivery_reference: '',
 		delivery_km: '',
-		selected_address_id: '',
 		selected_client_id: '',
 	};
 
@@ -222,8 +208,6 @@ export function applyMesaPartyMode(prev, mode) {
 			order_type: 'pickup',
 			client_name: '',
 			selected_client_id: '',
-			saved_addresses: [],
-			selected_address_id: '',
 		});
 	}
 	return withCajaContactDefaults({
@@ -233,8 +217,6 @@ export function applyMesaPartyMode(prev, mode) {
 		order_type: 'pickup',
 		client_name: prev.client_name || '',
 		selected_client_id: '',
-		saved_addresses: [],
-		selected_address_id: '',
 	});
 }
 
@@ -273,14 +255,6 @@ export function getEffectiveItemPrice(item) {
 		return Number(item.discount_price);
 	}
 	return Number(item?.price) || 0;
-}
-
-export function resolveDeliveryFeeForAddress(branchDeliveryCfg, subtotal, namedAreaId) {
-	if (!branchDeliveryCfg || !namedAreaId) return null;
-	const r = computeDeliveryFee(branchDeliveryCfg, 0, Number(subtotal) || 0, {
-		namedAreaId,
-	});
-	return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
 }
 
 /**
@@ -386,23 +360,6 @@ export function validateManualDeliveryDetails(form, branchDeliveryCfg) {
 
 	if (address.length < 5) return 'La dirección de delivery es obligatoria.';
 	return null;
-}
-
-export function mergeAddressIntoForm(prev, addressRow, branchDeliveryCfg, subtotal) {
-	const fields = mapAddressToFormFields(addressRow);
-	const addressId = addressRow?.id != null ? String(addressRow.id) : '';
-	const feeFromZone = resolveDeliveryFeeForAddress(
-		branchDeliveryCfg,
-		subtotal,
-		fields.delivery_named_area_id,
-	);
-
-	return {
-		...prev,
-		...fields,
-		selected_address_id: addressId,
-		...(feeFromZone != null ? { delivery_fee: feeFromZone } : {}),
-	};
 }
 
 /** Estados de sesión local aún abiertos (no entregados ni cancelados). */

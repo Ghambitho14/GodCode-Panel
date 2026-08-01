@@ -12,7 +12,6 @@ export const TABLES = Object.freeze({
   product_branch: "product_branch",
   orders: "orders",
   clients: "clients",
-  client_addresses: "client_addresses",
   users: "users",
   cash_shifts: "cash_shifts",
   cash_movements: "cash_movements",

@@ -11,7 +11,7 @@ import {
     computeDeliveryFee,
     effectiveDeliveryPricingMode,
 } from '@/lib/delivery-settings';
-import { formatSavedAddressLabel, normalizePhoneForSearch } from '../../services/clientService';
+import { normalizePhoneForSearch } from '../../services/clientService';
 import {
     getLocalFulfillmentMode,
     isManualNamedDeliveryMode,
@@ -84,7 +84,6 @@ const ClientForm = ({
     updateDeliveryNamedAreaId,
     updateClientName,
     applyClientRecord,
-    applySavedAddress,
     handleRutChange,
     handlePhoneChange,
     rutValid,
@@ -122,10 +121,6 @@ const ClientForm = ({
         () => filterClientsByNameOrPhone(clients, manualOrder.client_name),
         [clients, manualOrder.client_name],
     );
-
-    const savedAddresses = Array.isArray(manualOrder.saved_addresses)
-        ? manualOrder.saved_addresses
-        : [];
 
     const clientSelectOpts = useMemo(
         () => ({
@@ -293,21 +288,6 @@ const ClientForm = ({
 		}
 	};
 
-    const handleSavedAddressChange = (e) => {
-        const addressId = e.target.value;
-        if (!addressId) {
-            updateDeliveryAddress('');
-            updateDeliveryReference('');
-            updateDeliveryKm('');
-            updateDeliveryNamedAreaId('');
-            return;
-        }
-        const row = savedAddresses.find((a) => String(a.id) === addressId);
-        if (row) {
-            applySavedAddress?.(row, branchDeliveryCfg, Number(manualOrder.total) || 0);
-        }
-    };
-
     const handleOrderTypeChange = (type) => {
         updateOrderType(type, branchDeliveryCfg, Number(manualOrder.total) || 0);
     };
@@ -466,26 +446,6 @@ const ClientForm = ({
 
     const deliveryFields = isDelivery ? (
         <div className={`mt-3 flex flex-col ${spacing.normal}`}>
-            {savedAddresses.length > 0 ? (
-                inputWithIcon(
-                    <MapPin size={14} aria-hidden />,
-                    <select
-                        id="manual-order-saved-address"
-                        aria-label="Dirección guardada del cliente"
-                        className={cn(inputClass, 'pl-10 font-semibold')}
-                        value={manualOrder.selected_address_id || ''}
-                        onChange={handleSavedAddressChange}
-                    >
-                        <option value="">NUEVA DIRECCIÓN</option>
-                        {savedAddresses.map((addr) => (
-                            <option key={String(addr.id)} value={String(addr.id)}>
-                                {formatSavedAddressLabel(addr)}
-                            </option>
-                        ))}
-                    </select>,
-                )
-            ) : null}
-
             {namedAreaAutoMode ? (
                 <>
                     {inputWithIcon(
