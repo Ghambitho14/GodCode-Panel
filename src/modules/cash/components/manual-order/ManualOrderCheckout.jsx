@@ -329,10 +329,26 @@ export default function ManualOrderCheckout({
 	), [manualOrder.currency, manualOrder.locale, manualOrder.fractionDigits]);
 	const canSubmitOrder = isFormValid();
 	const [cartSheetOpen, setCartSheetOpen] = React.useState(false);
+	const [cartSheetDragY, setCartSheetDragY] = React.useState(0);
+	const cartSheetPanelRef = React.useRef(null);
+	const cartSheetDragRef = React.useRef({ active: false, startY: 0, dy: 0 });
 
 	React.useEffect(() => {
 		if (orderStep !== 1) setCartSheetOpen(false);
 	}, [orderStep]);
+
+	React.useEffect(() => {
+		if (!cartSheetOpen) setCartSheetDragY(0);
+	}, [cartSheetOpen]);
+
+	React.useEffect(() => {
+		if (!cartSheetOpen) return undefined;
+		const onKeyDown = (event) => {
+			if (event.key === 'Escape') setCartSheetOpen(false);
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [cartSheetOpen]);
 
 	const toggleCartSheet = React.useCallback(() => {
 		setCartSheetOpen((open) => !open);
@@ -340,6 +356,35 @@ export default function ManualOrderCheckout({
 
 	const closeCartSheet = React.useCallback(() => {
 		setCartSheetOpen(false);
+	}, []);
+
+	const onCartSheetTouchStart = React.useCallback((event) => {
+		if (!cartSheetOpen) return;
+		const panel = cartSheetPanelRef.current;
+		if (panel && panel.scrollTop > 2) return;
+		const touch = event.touches?.[0];
+		if (!touch) return;
+		cartSheetDragRef.current = { active: true, startY: touch.clientY, dy: 0 };
+	}, [cartSheetOpen]);
+
+	const onCartSheetTouchMove = React.useCallback((event) => {
+		const drag = cartSheetDragRef.current;
+		if (!drag.active) return;
+		const touch = event.touches?.[0];
+		if (!touch) return;
+		const dy = Math.max(0, touch.clientY - drag.startY);
+		drag.dy = dy;
+		setCartSheetDragY(dy);
+	}, []);
+
+	const onCartSheetTouchEnd = React.useCallback(() => {
+		const drag = cartSheetDragRef.current;
+		if (!drag.active) return;
+		const shouldClose = drag.dy > 72;
+		drag.active = false;
+		drag.dy = 0;
+		setCartSheetDragY(0);
+		if (shouldClose) setCartSheetOpen(false);
 	}, []);
 
 	const openMesaSubmitLabel = getOpenMesaSubmitLabel({
@@ -663,10 +708,22 @@ export default function ManualOrderCheckout({
 
 					<div
 						id="manual-order-mobile-cart-sheet"
-						className={cn('manual-order-mobile-cart-sheet', cartSheetOpen && 'is-open')}
+						className={cn(
+							'manual-order-mobile-cart-sheet',
+							cartSheetOpen && 'is-open',
+							cartSheetDragY > 0 && 'is-dragging',
+						)}
 						aria-hidden={!cartSheetOpen}
+						style={cartSheetOpen && cartSheetDragY > 0
+							? { transform: `translateY(${cartSheetDragY}px) scale(1)`, opacity: Math.max(0.45, 1 - cartSheetDragY / 280) }
+							: undefined}
+						onTouchStart={onCartSheetTouchStart}
+						onTouchMove={onCartSheetTouchMove}
+						onTouchEnd={onCartSheetTouchEnd}
+						onTouchCancel={onCartSheetTouchEnd}
 					>
-						<div className="manual-order-mobile-cart-sheet__panel">
+						<div className="manual-order-mobile-cart-sheet__handle" aria-hidden />
+						<div ref={cartSheetPanelRef} className="manual-order-mobile-cart-sheet__panel">
 							<OrderSummary {...orderSummaryProps} />
 						</div>
 					</div>
@@ -679,9 +736,18 @@ export default function ManualOrderCheckout({
 						aria-expanded={cartSheetOpen}
 						aria-controls="manual-order-mobile-cart-sheet"
 						title={cartSheetOpen ? 'Cerrar carrito' : 'Ver carrito'}
-						aria-label={cartSheetOpen ? 'Cerrar carrito' : 'Ver y editar carrito'}
+						aria-label={cartSheetOpen
+							? 'Cerrar carrito'
+							: hasCartItems
+								? `Ver y editar carrito, ${cartItemCount} ${cartItemCount === 1 ? 'ítem' : 'ítems'}`
+								: 'Ver y editar carrito'}
 					>
 						{cartSheetOpen ? <ChevronDown size={20} strokeWidth={2.5} aria-hidden /> : <ChevronUp size={20} strokeWidth={2.5} aria-hidden />}
+						{!cartSheetOpen && hasCartItems ? (
+							<span className="manual-order-mobile-cart-fab__badge" aria-hidden>
+								{cartItemCount > 99 ? '99+' : cartItemCount}
+							</span>
+						) : null}
 					</Button>
 
 					<button
