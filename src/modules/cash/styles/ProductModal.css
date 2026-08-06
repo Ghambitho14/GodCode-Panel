@@ -550,6 +550,17 @@
 	border-bottom: 1px solid var(--admin-border, #e2e8f0);
 }
 
+.admin-layout .modal-content.product-modal-content .btn-close,
+.admin-layout .modal-content .modal-header .btn-close {
+	border-radius: 50% !important;
+	width: 36px !important;
+	height: 36px !important;
+	min-width: 36px !important;
+	min-height: 36px !important;
+	padding: 0 !important;
+	aspect-ratio: 1 / 1;
+}
+
 .admin-layout .modal-content .modal-header h3 {
 	color: var(--admin-text, #0f172a);
 }

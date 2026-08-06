@@ -74,8 +74,15 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <header className="modal-header">
           <h3>{category ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
-          <Button variant="default" onClick={handleSafeClose} className="btn-close">
-            <X size={24} />
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={handleSafeClose}
+            className="btn-close"
+            aria-label="Cerrar"
+          >
+            <X size={18} />
           </Button>
         </header>
 

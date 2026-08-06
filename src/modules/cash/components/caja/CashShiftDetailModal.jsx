@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, History, Clock, User, DollarSign, CreditCard, Smartphone, XCircle, Eye, Truck } from 'lucide-react';
+import { X, Clock, XCircle, Eye } from 'lucide-react';
 import { getOrderForMovement, isMovementOrderClickable } from '../../utils/getOrderForMovement';
 import { cashService } from '../../services/cashService';
 import {
@@ -8,31 +8,22 @@ import {
     isOperatingLocalExpense,
 } from '../../utils/cashMovementKinds';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { getPaymentLabel, getOrderTileKind, getOrderFulfillmentDisplayLabel } from '@/shared/utils/orderUtils';
+import {
+    getPaymentLabel,
+    getOrderTileKind,
+    getOrderFulfillmentDisplayLabel,
+    PAYMENT_METHOD_LABELS,
+    isMixedPaymentBreakdown,
+} from '@/shared/utils/orderUtils';
 import { getClosedShiftReconciliation, diffCounted } from '../../utils/shiftCloseReconciliation';
 import { isCourierPayoutMovement } from '../../utils/cashTotals';
+import { formatShiftDuration } from '../../utils/shiftDuration';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
-import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
-import AdminIconSlot from '../AdminIconSlot';
 import PickupBagIcon from '../PickupBagIcon';
 import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import { Button } from "@/components/ui/button";
-
-const PaymentMethodChip = ({ Icon, label, value }) => (
-    <div className="cash-shift-detail-method-chip">
-        <PaymentMethodBreakdownHeader Icon={Icon} label={label} />
-        <span className="cash-shift-detail-method-chip__value">{value}</span>
-    </div>
-);
-
-const PaymentMethodBreakdownHeader = ({ Icon, label }) => (
-    <div className="cash-shift-detail-method-head">
-        <AdminIconSlot Icon={Icon} slotSize="xxs" />
-        <span>{label}</span>
-    </div>
-);
 
 function movementTypeLabel(m) {
     if (m.type === 'cancel') return 'Cancelado';
@@ -45,30 +36,71 @@ function movementTypeLabel(m) {
     return 'Devolución';
 }
 
-const PAYMENT_LABEL_SHORT = {
-    Efectivo: 'Efectivo',
-    Tarjeta: 'Tarjeta',
-    Transferencia: 'Transf.',
-    MercadoPago: 'MP',
-    'Tarjeta (Online)': 'T.Online',
-    'Pago Móvil': 'P.Móvil',
-    'En local': 'Local',
-    Zelle: 'Zelle',
-    PayPal: 'PayPal',
+function movementTypeClass(m) {
+    if (m.type === 'cancel') return 'cancel';
+    if (m.type === 'sale') return 'sale';
+    if (m.type === 'income') return 'income';
+    if (isCashWithdrawal(m) || isOperatingLocalExpense(m) || isManualLocalExpense(m) || isCourierPayoutMovement(m)) {
+        return 'expense';
+    }
+    if (m.type === 'expense') return 'refund';
+    return m.type || 'expense';
+}
+
+const RAIL_METHOD_LABELS = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    online: 'Transferencia',
+    tarjeta: 'Tarjeta',
+    tienda: 'Efectivo',
+    efectivo: 'Efectivo',
+    transferencia: 'Transferencia',
 };
 
-function movementPaymentLabel(m, linkedOrder = null) {
-    if (m.type === 'cancel') return '—';
-    const order = linkedOrder ?? m.orders;
-    if (order) {
-        const label = getPaymentLabel(order);
-        if (label.startsWith('Mixto')) return 'Mixto';
-        return PAYMENT_LABEL_SHORT[label] || label;
+function methodKeyToLabel(raw) {
+    if (raw == null || raw === '') return null;
+    const key = String(raw).trim().toLowerCase();
+    if (!key) return null;
+    if (RAIL_METHOD_LABELS[key]) return RAIL_METHOD_LABELS[key];
+    if (PAYMENT_METHOD_LABELS[key]) {
+        const label = PAYMENT_METHOD_LABELS[key];
+        if (label === 'Transf.' || label === 'Transferencia') return 'Transferencia';
+        if (label === 'En local') return 'Efectivo';
+        return label;
     }
-    if (m.payment_method === 'cash') return 'Efectivo';
-    if (m.payment_method === 'card') return 'Tarjeta';
-    if (m.payment_method === 'online') return 'Transf.';
-    return '—';
+    return null;
+}
+
+/** Solo nombre del método — nunca montos (getPaymentLabel a veces incluye "$31"). */
+function movementPaymentLabel(m, linkedOrder = null) {
+    if (m.type === 'cancel') return null;
+
+    const fromMovement = methodKeyToLabel(m.payment_method);
+    if (fromMovement) return fromMovement;
+
+    const order = linkedOrder ?? (Array.isArray(m.orders) ? m.orders[0] : m.orders);
+    if (!order) return null;
+
+    if (Array.isArray(order.payment_lines) && order.payment_lines.length > 0) {
+        if (order.payment_lines.length > 1) return 'Mixto';
+        const line = order.payment_lines[0];
+        return (
+            methodKeyToLabel(line.methodId) ||
+            methodKeyToLabel(line.rail) ||
+            methodKeyToLabel(line.method_id) ||
+            '—'
+        );
+    }
+
+    if (isMixedPaymentBreakdown(order.payment_breakdown)) return 'Mixto';
+
+    const fromSpecific = methodKeyToLabel(order.payment_method_specific);
+    if (fromSpecific) return fromSpecific;
+
+    const fromType = methodKeyToLabel(order.payment_type);
+    if (fromType) return fromType;
+
+    return null;
 }
 
 function formatMovementDateTime(iso) {
@@ -93,9 +125,18 @@ function FulfillmentTypeIcon({ kind, size = 12 }) {
     return null;
 }
 
+function orderItemsSummary(items) {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    const totalUnits = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+    if (items.length === 1) {
+        const i = items[0];
+        return `${i.quantity || 1}× ${(i.name ?? 'Producto').split(' (')[0]}`;
+    }
+    return `${items.length} productos · ${totalUnits} u.`;
+}
+
 const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], onMovementClick }) => {
     const { formatMoney: fmtHist } = useBranchMoney();
-    const { formatOrderAmount } = useOrderMoney();
     const [movements, setMovements] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openedByLabel, setOpenedByLabel] = useState('');
@@ -249,80 +290,95 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
     const reconciliation = shift.closed_at ? getClosedShiftReconciliation(shift, totals) : null;
 
     const reconcileRows = [
-        { key: 'cash', label: 'Efectivo', Icon: DollarSign },
-        { key: 'card', label: 'Tarjeta (punto)', Icon: CreditCard },
-        { key: 'online', label: 'Transferencia', Icon: Smartphone },
+        { key: 'cash', label: 'Efectivo' },
+        { key: 'card', label: 'Tarjeta (punto)' },
+        { key: 'online', label: 'Transferencia' },
+    ];
+
+    const methodMetrics = [
+        { key: 'cash', label: 'Efectivo', value: totals.cash },
+        { key: 'card', label: 'Tarjeta', value: totals.card },
+        { key: 'online', label: 'Transferencia', value: totals.online },
     ];
 
     return (
-        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="cash-shift-detail-title">
+        <div
+            className="modal-overlay"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
-                className="modal-content glass cash-shift-detail-modal"
+                className="modal-content cash-dialog cash-shift-detail-modal"
                 onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cash-shift-detail-title"
             >
-                <header className="modal-header cash-shift-detail-modal__header">
+                <header className="modal-header cash-dialog__header cash-shift-detail-modal__header">
                     <div className="cash-shift-detail-modal__title-block">
-                        <History className="text-accent" size={22} aria-hidden />
-                        <div>
-                            <h3 id="cash-shift-detail-title" className="cash-shift-detail-modal__title">
-                                Turno cerrado
-                            </h3>
-                            <div className="cash-shift-detail-modal__meta">
-                                <span>
-                                    {new Date(shift.closed_at).toLocaleDateString('es-CL', {
-                                        weekday: 'short',
-                                        day: '2-digit',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </span>
-                                <span className="cash-shift-detail-modal__badge">
-                                    {shiftOrdersCount} {shiftOrdersCount === 1 ? 'pedido' : 'pedidos'}
-                                </span>
-                                <span className="cash-shift-detail-modal__badge cash-shift-detail-modal__badge--muted">
-                                    {movementsWithCancellations.length}{' '}
-                                    {movementsWithCancellations.length === 1 ? 'movimiento' : 'movimientos'}
-                                </span>
-                            </div>
+                        <h3 id="cash-shift-detail-title" className="cash-dialog__title cash-shift-detail-modal__title">
+                            Turno cerrado
+                        </h3>
+                        <div className="cash-shift-detail-modal__meta">
+                            <span>
+                                {new Date(shift.closed_at).toLocaleDateString('es-CL', {
+                                    weekday: 'short',
+                                    day: '2-digit',
+                                    month: 'long',
+                                    year: 'numeric',
+                                })}
+                            </span>
+                            <span className="cash-shift-detail-modal__badge">
+                                {shiftOrdersCount} {shiftOrdersCount === 1 ? 'pedido' : 'pedidos'}
+                            </span>
+                            <span className="cash-shift-detail-modal__badge cash-shift-detail-modal__badge--muted">
+                                {movementsWithCancellations.length}{' '}
+                                {movementsWithCancellations.length === 1 ? 'movimiento' : 'movimientos'}
+                            </span>
                         </div>
                     </div>
-                    <Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
-                        <X size={22} strokeWidth={2} />
-                    </Button>
+                    <button type="button" onClick={onClose} className="cash-dialog__dismiss" aria-label="Cerrar">
+                        <X size={16} strokeWidth={2} />
+                    </button>
                 </header>
 
                 <div className="cash-shift-detail-modal__body">
                     <aside className="cash-shift-detail-summary">
                         <section className="cash-shift-detail-card">
-                            <h4 className="cash-shift-detail-section-title">
-                                <Clock size={15} aria-hidden /> Información del turno
-                            </h4>
-                            <dl className="cash-shift-detail-dl">
-                                <div className="cash-shift-detail-dl__row">
-                                    <dt>Apertura</dt>
-                                    <dd>
+                            <h4 className="cash-shift-detail-section-title">Información del turno</h4>
+                            <div className="cash-shift-detail-info-grid">
+                                <div className="cash-shift-detail-info-item">
+                                    <span className="cash-shift-detail-info-item__label">Apertura</span>
+                                    <span className="cash-shift-detail-info-item__value">
                                         {new Date(shift.opened_at).toLocaleString('es-CL', {
                                             dateStyle: 'short',
                                             timeStyle: 'short',
                                         })}
-                                    </dd>
+                                    </span>
                                 </div>
-                                <div className="cash-shift-detail-dl__row">
-                                    <dt>Cierre</dt>
-                                    <dd>
+                                <div className="cash-shift-detail-info-item">
+                                    <span className="cash-shift-detail-info-item__label">Cierre</span>
+                                    <span className="cash-shift-detail-info-item__value">
                                         {new Date(shift.closed_at).toLocaleString('es-CL', {
                                             dateStyle: 'short',
                                             timeStyle: 'short',
                                         })}
-                                    </dd>
+                                    </span>
                                 </div>
-                                <div className="cash-shift-detail-dl__row">
-                                    <dt>
-                                        <User size={13} aria-hidden /> Responsable
-                                    </dt>
-                                    <dd>{openedByLabel || (openedById ? 'Cargando…' : 'Sin registrar')}</dd>
+                                <div className="cash-shift-detail-info-item">
+                                    <span className="cash-shift-detail-info-item__label">Duración</span>
+                                    <span className="cash-shift-detail-info-item__value">
+                                        <Clock size={13} aria-hidden />
+                                        {formatShiftDuration(shift.opened_at, shift.closed_at)}
+                                    </span>
                                 </div>
-                            </dl>
+                                <div className="cash-shift-detail-info-item cash-shift-detail-info-item--wide">
+                                    <span className="cash-shift-detail-info-item__label">Responsable</span>
+                                    <span className="cash-shift-detail-info-item__value">
+                                        {openedByLabel || (openedById ? 'Cargando…' : 'Sin registrar')}
+                                    </span>
+                                </div>
+                            </div>
                         </section>
 
                         <section className="cash-shift-detail-card">
@@ -382,9 +438,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                         </section>
 
                         <section className="cash-shift-detail-card">
-                            <h4 className="cash-shift-detail-section-title">
-                                <Truck size={15} aria-hidden /> Resumen delivery
-                            </h4>
+                            <h4 className="cash-shift-detail-section-title">Resumen delivery</h4>
                             <div className="cash-shift-detail-kpi-grid">
                                 <div className="cash-shift-detail-kpi cash-shift-detail-kpi--highlight cash-shift-detail-kpi--delivery">
                                     <span className="cash-shift-detail-kpi__label">Delivery a pagar</span>
@@ -416,28 +470,30 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                             <section className="cash-shift-detail-card">
                                 <h4 className="cash-shift-detail-section-title">Cuadre al cierre</h4>
                                 <div className="cash-shift-detail-reconcile">
-                                    {reconcileRows.map(({ key, label, Icon }) => {
+                                    {reconcileRows.map(({ key, label }) => {
                                         const { expected, actual } = reconciliation[key];
                                         const hasActual = actual != null && !Number.isNaN(actual);
                                         const diff = hasActual ? diffCounted(expected, actual) : null;
                                         return (
                                             <div key={key} className="cash-shift-detail-reconcile__row">
-                                                <PaymentMethodBreakdownHeader Icon={Icon} label={label} />
+                                                <span className="cash-shift-detail-reconcile__label">{label}</span>
                                                 <div className="cash-shift-detail-reconcile__nums">
                                                     <span>
                                                         Esp. <strong>{fmtHist(expected)}</strong>
                                                     </span>
+                                                    <span className="cash-shift-detail-reconcile__sep" aria-hidden>
+                                                        ·
+                                                    </span>
                                                     <span>
-                                                        Cont.{' '}
-                                                        <strong>{hasActual ? fmtHist(actual) : '—'}</strong>
+                                                        Cont. <strong>{hasActual ? fmtHist(actual) : '—'}</strong>
                                                     </span>
                                                     {hasActual && diff ? (
                                                         <span
-                                                            className={`cash-shift-close-diff cash-shift-close-diff--${diff.status === 'match' ? 'match' : diff.status}`}
+                                                            className={`cash-shift-detail-reconcile__status cash-shift-detail-reconcile__status--${diff.status}`}
                                                         >
                                                             {diff.status === 'match'
                                                                 ? 'Cuadrado'
-                                                                : `${diff.status === 'surplus' ? 'Sobrante' : 'Faltante'}: ${fmtHist(Math.abs(diff.diff))}`}
+                                                                : `${diff.status === 'surplus' ? 'Sobrante' : 'Faltante'} ${fmtHist(Math.abs(diff.diff))}`}
                                                         </span>
                                                     ) : null}
                                                 </div>
@@ -451,9 +507,14 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                         <section className="cash-shift-detail-card">
                             <h4 className="cash-shift-detail-section-title">Cobros por método</h4>
                             <div className="cash-shift-detail-methods-row">
-                                <PaymentMethodChip Icon={DollarSign} label="Efectivo" value={fmtHist(totals.cash)} />
-                                <PaymentMethodChip Icon={CreditCard} label="Tarjeta" value={fmtHist(totals.card)} />
-                                <PaymentMethodChip Icon={Smartphone} label="Transf." value={fmtHist(totals.online)} />
+                                {methodMetrics.map(({ key, label, value }) => (
+                                    <div key={key} className="cash-shift-detail-method-metric">
+                                        <span className="cash-shift-detail-method-metric__label">{label}</span>
+                                        <strong className="cash-shift-detail-method-metric__value">
+                                            {fmtHist(value)}
+                                        </strong>
+                                    </div>
+                                ))}
                             </div>
                         </section>
                     </aside>
@@ -493,28 +554,35 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                         {movementsWithCancellations.map((m) => {
                                             const movementDatetime = formatMovementDateTime(m.created_at);
                                             const linkedOrder = resolveMovementOrder(m, orders);
+                                            const isSale = m.type === 'sale';
                                             const fulfillmentKind =
-                                                linkedOrder && m.type !== 'cancel'
-                                                    ? getOrderTileKind(linkedOrder)
-                                                    : null;
+                                                linkedOrder && isSale ? getOrderTileKind(linkedOrder) : null;
+                                            const typeClass = movementTypeClass(m);
                                             const paymentLabel = movementPaymentLabel(m, linkedOrder);
                                             const paymentTitle =
                                                 linkedOrder && m.type !== 'cancel'
                                                     ? getPaymentLabel(linkedOrder)
-                                                    : paymentLabel;
+                                                    : paymentLabel || undefined;
                                             const clickable =
                                                 Boolean(onMovementClick) &&
                                                 isMovementOrderClickable(m, orders);
                                             const orderForRow = clickable
                                                 ? (linkedOrder ?? getOrderForMovement(m, orders))
                                                 : null;
+                                            const clientName = linkedOrder
+                                                ? (linkedOrder.display_name || linkedOrder.client_name || 'Cliente casual')
+                                                : null;
+                                            const itemsSummary = linkedOrder
+                                                ? orderItemsSummary(linkedOrder.items)
+                                                : null;
+                                            const metaLine = [clientName, itemsSummary].filter(Boolean).join(' · ');
                                             const handleRowActivate = () => {
                                                 if (clickable && onMovementClick) onMovementClick(m);
                                             };
                                             return (
                                             <tr
                                                 key={m.id}
-                                                className={`movement-row${m.type === 'cancel' ? ' movement-row--cancelled' : ''}${clickable ? ' movement-row--clickable' : ''}${fulfillmentKind ? ` movement-row--fulfillment-${fulfillmentKind}` : ''}`}
+                                                className={`movement-row cash-shift-detail-movements__row${m.type === 'cancel' ? ' movement-row--cancelled' : ''}${clickable ? ' movement-row--clickable' : ''}${fulfillmentKind ? ` movement-row--fulfillment-${fulfillmentKind}` : ''}${typeClass === 'refund' ? ' movement-row--refund' : ''}`}
                                                 onClick={clickable ? handleRowActivate : undefined}
                                                 onKeyDown={
                                                     clickable
@@ -548,16 +616,16 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                     <div className="cash-shift-detail-movement-row">
                                                         <div className="cash-shift-detail-movement-main">
                                                             <span
-                                                                className={`movement-type type-${m.type === 'cancel' ? 'cancel' : m.type}${fulfillmentKind ? ` movement-type--fulfillment-${fulfillmentKind}` : ''}`}
+                                                                className={`movement-type type-${typeClass}${fulfillmentKind ? ` movement-type--fulfillment-${fulfillmentKind}` : ''}`}
                                                             >
                                                                 {m.type === 'cancel' ? (
                                                                     <>
-                                                                        <XCircle size={12} aria-hidden />
+                                                                        <XCircle size={10} aria-hidden />
                                                                         Cancelado
                                                                     </>
-                                                                ) : fulfillmentKind && m.type === 'sale' ? (
+                                                                ) : fulfillmentKind && isSale ? (
                                                                     <>
-                                                                        <FulfillmentTypeIcon kind={fulfillmentKind} />
+                                                                        <FulfillmentTypeIcon kind={fulfillmentKind} size={10} />
                                                                         {getOrderFulfillmentDisplayLabel(linkedOrder)}
                                                                     </>
                                                                 ) : (
@@ -566,37 +634,23 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                             </span>
                                                             <div className="cash-shift-detail-movement-main__body">
                                                                 <div className="cash-shift-detail-movement-desc">
-                                                                    {m.description || '—'}
+                                                                    <span className="cash-shift-detail-movement-desc__text">
+                                                                        {m.description || '—'}
+                                                                    </span>
                                                                     {clickable ? (
-                                                                        <span className="cash-shift-detail-movement-view-hint">
-                                                                            <Eye size={12} aria-hidden /> Ver detalle
+                                                                        <span className="cash-shift-detail-movement-view-hint" aria-hidden>
+                                                                            <Eye size={12} strokeWidth={1.75} />
                                                                         </span>
                                                                     ) : null}
                                                                 </div>
-                                                                {linkedOrder ? (
+                                                                {metaLine ? (
                                                                     <div className="cash-shift-detail-movement-order">
-                                                                        <span className="cash-shift-detail-movement-order__client">
-																						{linkedOrder.display_name || linkedOrder.client_name || 'Cliente casual'}
+                                                                        <span
+                                                                            className="cash-shift-detail-movement-order__client"
+                                                                            title={metaLine}
+                                                                        >
+                                                                            {metaLine}
                                                                         </span>
-                                                                        {Array.isArray(linkedOrder.items) && linkedOrder.items.length > 0 ? (
-                                                                            <span className="cash-shift-detail-movement-order__items">
-                                                                                {linkedOrder.items
-                                                                                    .map(
-                                                                                        (i) =>
-                                                                                            `${i.quantity}x ${(i.name ?? '').split(' (')[0]}`
-                                                                                    )
-                                                                                    .join(', ')}
-                                                                            </span>
-                                                                        ) : null}
-                                                                        {Number(linkedOrder.delivery_fee) > 0 ? (
-                                                                            <span className="cash-shift-detail-movement-order__delivery">
-                                                                                Envío: {formatOrderAmount({
-                                                                                    amountUsd: Number(linkedOrder.delivery_fee),
-                                                                                    order: linkedOrder,
-                                                                                    paymentMethod: linkedOrder.payment_method_specific,
-                                                                                })}
-                                                                            </span>
-                                                                        ) : null}
                                                                     </div>
                                                                 ) : null}
                                                             </div>
@@ -616,16 +670,10 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                                                     }
                                                                 >
                                                                     {m.type === 'expense' ? '−' : '+'}
-                                                                    {linkedOrder && m.type === 'sale'
-                                                                        ? formatOrderAmount({
-                                                                            amountUsd: m.amount,
-                                                                            order: linkedOrder,
-                                                                            paymentMethod: linkedOrder.payment_method_specific,
-                                                                        })
-                                                                        : fmtHist(m.amount)}
+                                                                    {fmtHist(m.amount)}
                                                                 </span>
                                                             )}
-                                                            {m.type !== 'cancel' ? (
+                                                            {paymentLabel ? (
                                                                 <span className="cash-shift-detail-movement-pay__method">
                                                                     {paymentLabel}
                                                                 </span>
@@ -643,9 +691,14 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                     </section>
                 </div>
 
-                <footer className="modal-footer cash-shift-detail-modal__footer">
-                    <Button variant="secondary" type="button" className="btn-block" onClick={onClose}>
-                        Cerrar detalle
+                <footer className="cash-dialog__footer cash-shift-detail-modal__footer">
+                    <Button
+                        variant="outline"
+                        type="button"
+                        className="cash-dialog__btn cash-dialog__btn--ghost"
+                        onClick={onClose}
+                    >
+                        Cerrar
                     </Button>
                 </footer>
             </div>

@@ -149,8 +149,15 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
                 : 'Agrega un producto al catálogo. El stock se gestiona en Inventario.'}
             </p>
           </div>
-          <Button variant="default" onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
-            <X size={24} />
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={handleSafeClose}
+            className="btn-close"
+            aria-label="Cerrar"
+          >
+            <X size={18} />
           </Button>
         </header>
 

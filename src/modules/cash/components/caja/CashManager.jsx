@@ -3,8 +3,8 @@ import {
     Unlock, Lock, History, 
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
-    DollarSign, CreditCard, Smartphone, ChevronRight, Truck,
-    MapPin, Calculator,
+    DollarSign, CreditCard, ChevronRight, Truck,
+    MapPin,
 } from 'lucide-react';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { isValidBranchId } from '@/shared/utils/safeIds';
@@ -26,6 +26,11 @@ import {
     resolveReportPeriodRange,
 } from '../../utils/reportPeriodRange';
 import { getOrderForMovement } from '../../utils/getOrderForMovement';
+import {
+    formatShiftDuration,
+    formatShiftHoursRange,
+    formatShiftOpenedDay,
+} from '../../utils/shiftDuration';
 import { Button } from "@/components/ui/button";
 
 const CASH_SHIFT_HISTORY_PERIOD_OPTIONS = getCashShiftHistoryPeriodOptions();
@@ -49,12 +54,7 @@ function RecentMovementIcon({ type, order, isCancel }) {
 const ElapsedTime = ({ since }) => {
     const [elapsed, setElapsed] = useState('');
     useEffect(() => {
-        const calc = () => {
-            const diff = Date.now() - new Date(since).getTime();
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            setElapsed(h > 0 ? `${h}h ${m}m` : `${m}m`);
-        };
+        const calc = () => setElapsed(formatShiftDuration(since));
         calc();
         const id = setInterval(calc, 60000);
         return () => clearInterval(id);
@@ -179,69 +179,72 @@ const CashManager = ({
 
     return (
         <div className="cash-container animate-fade">
-            {/* HEADER */}
-            <header className="cash-header">
-                <div className="cash-header-left">
-                    <AdminIconSlot Icon={Calculator} slotSize="lg" tone="accent" className="cash-header-brand-icon" />
-                    {activeShift ? (
-                        <div className="cash-header-status">
-                            <span className="cash-pulse" />
-                            Turno activo · <ElapsedTime since={activeShift.opened_at} />
+            {/* HEADER — solo con turno activo */}
+            {activeShift ? (
+                <header className="cash-header">
+                    <div className="cash-header-brand">
+                        <div className="cash-header-titles">
+                            <div className="cash-shift-heading" role="status">
+                                <span className="cash-pulse" aria-hidden />
+                                <h1 className="cash-page-title">Turno activo</h1>
+                            </div>
+                            <p className="cash-shift-meta">
+                                <Clock size={14} aria-hidden />
+                                <span>
+                                    <ElapsedTime since={activeShift.opened_at} />
+                                    {' · desde '}
+                                    {new Date(activeShift.opened_at).toLocaleTimeString('es-CL', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    })}
+                                </span>
+                            </p>
                         </div>
-                    ) : null}
-                </div>
-                <div className="cash-header-actions">
-                    {activeShift ? (
-                        <>
-                            <Button variant="default"
-                                type="button"
-                                className="btn-income"
-                                onClick={() => {
-                                    setMovementModalVariant('income');
-                                    setIsMovementModalOpen(true);
-                                }}
-                            >
-                                <ArrowUpCircle size={16} /> Ingreso
-                            </Button>
-                            <Button variant="default"
-                                type="button"
-                                className="btn-expense btn-cash-withdrawal"
-                                onClick={() => {
-                                    setMovementModalVariant('cash_withdrawal');
-                                    setIsMovementModalOpen(true);
-                                }}
-                                title="Retiro de efectivo del turno (compras menores, vuelto). Gastos grandes: Ventas → Gastos del local."
-                            >
-                                <ArrowDownCircle size={16} /> Sacar efectivo
-                            </Button>
-                            <Button variant="destructive" type="button" className="" onClick={() => setIsShiftModalOpen(true)}>
-                                <Lock size={16} /> Cerrar caja
-                            </Button>
-                        </>
-                    ) : (
-                        <Button variant="default" type="button" className="btn-open-shift" onClick={() => setIsShiftModalOpen(true)}>
-                            <Unlock size={18} /> Abrir caja
+                    </div>
+                    <div className="cash-header-actions" role="group" aria-label="Acciones del turno">
+                        <Button
+                            variant="outline"
+                            type="button"
+                            className="cash-action-btn cash-action-btn--income"
+                            onClick={() => {
+                                setMovementModalVariant('income');
+                                setIsMovementModalOpen(true);
+                            }}
+                        >
+                            <ArrowUpCircle size={16} aria-hidden className="cash-action-icon" /> Ingreso
                         </Button>
-                    )}
-                </div>
-            </header>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            className="cash-action-btn cash-action-btn--withdraw"
+                            onClick={() => {
+                                setMovementModalVariant('cash_withdrawal');
+                                setIsMovementModalOpen(true);
+                            }}
+                            title="Retiro de efectivo del turno (compras menores, vuelto). Gastos grandes: Ventas → Gastos del local."
+                        >
+                            <ArrowDownCircle size={16} aria-hidden className="cash-action-icon" /> Sacar efectivo
+                        </Button>
+                        <Button
+                            variant="outline"
+                            type="button"
+                            className="cash-action-btn cash-action-btn--close"
+                            onClick={() => setIsShiftModalOpen(true)}
+                        >
+                            <Lock size={16} aria-hidden className="cash-action-icon" /> Cerrar turno
+                        </Button>
+                    </div>
+                </header>
+            ) : null}
 
             {/* TURNO ACTIVO: KPI DASHBOARD */}
             {activeShift ? (
-                <section className="cash-section">
+                <section className="cash-section cash-section--active">
                     <div className="cash-kpi-grid">
-                        <div className="cash-kpi balance">
+                        <div className="cash-kpi">
                             <div className="cash-kpi-header">
-                                <AdminIconSlot
-                                    Icon={DollarSign}
-                                    slotSize="sm"
-                                    style={{
-                                        color: 'var(--c-balance)',
-                                        background: 'rgba(2, 132, 199, 0.12)',
-                                        borderColor: 'rgba(2, 132, 199, 0.28)',
-                                    }}
-                                />
-                                <span>Balance Esperado</span>
+                                <AdminIconSlot Icon={DollarSign} slotSize="sm" tone="accent" />
+                                <span>Balance esperado</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(expectedCashBalance)}</div>
                             <div className="cash-kpi-sub">
@@ -249,34 +252,18 @@ const CashManager = ({
                             </div>
                         </div>
 
-                        <div className="cash-kpi income">
+                        <div className="cash-kpi">
                             <div className="cash-kpi-header">
-                                <AdminIconSlot
-                                    Icon={TrendingUp}
-                                    slotSize="sm"
-                                    style={{
-                                        color: 'var(--c-income)',
-                                        background: 'rgba(37, 211, 102, 0.12)',
-                                        borderColor: 'rgba(37, 211, 102, 0.28)',
-                                    }}
-                                />
+                                <AdminIconSlot Icon={TrendingUp} slotSize="sm" tone="success" />
                                 <span>Ingresos</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(totals.income)}</div>
                             <div className="cash-kpi-sub">{salesCount} ventas · {movementCount - salesCount > 0 ? `${movements.filter(m => m.type === 'income').length} manuales` : 'sin manuales'}</div>
                         </div>
 
-                        <div className="cash-kpi expense">
+                        <div className="cash-kpi">
                             <div className="cash-kpi-header">
-                                <AdminIconSlot
-                                    Icon={TrendingDown}
-                                    slotSize="sm"
-                                    style={{
-                                        color: 'var(--c-expense)',
-                                        background: 'rgba(220, 38, 38, 0.1)',
-                                        borderColor: 'rgba(220, 38, 38, 0.28)',
-                                    }}
-                                />
+                                <AdminIconSlot Icon={TrendingDown} slotSize="sm" tone="danger" />
                                 <span>Retiros de efectivo</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(Number(totals.cashWithdrawals) || 0)}</div>
@@ -292,50 +279,9 @@ const CashManager = ({
                             </div>
                         </div>
 
-                        <div className="cash-kpi methods">
+                        <div className="cash-kpi">
                             <div className="cash-kpi-header">
-                                <AdminIconSlot
-                                    Icon={CreditCard}
-                                    slotSize="sm"
-                                    style={{
-                                        color: 'var(--c-text-secondary)',
-                                        background: 'var(--admin-icon-bg)',
-                                        borderColor: 'var(--admin-border)',
-                                    }}
-                                />
-                                <span>Cobros por método</span>
-                            </div>
-                            <div className="cash-methods-grid">
-                                <div className="cash-method-row">
-                                    <AdminIconSlot Icon={DollarSign} slotSize="xxs" style={{ color: 'var(--c-income)', background: 'rgba(37, 211, 102, 0.1)', borderColor: 'rgba(37, 211, 102, 0.22)' }} />
-                                    <span>Efectivo</span>
-                                    <strong>{fmt(totals.cash)}</strong>
-                                </div>
-                                <div className="cash-method-row">
-                                    <AdminIconSlot Icon={CreditCard} slotSize="xxs" style={{ color: '#3b82f6', background: 'rgba(37, 99, 235, 0.08)', borderColor: 'rgba(37, 99, 235, 0.22)' }} />
-                                    <span>Tarjeta</span>
-                                    <strong>{fmt(totals.card)}</strong>
-                                </div>
-                                <div className="cash-method-row">
-                                    <AdminIconSlot Icon={Smartphone} slotSize="xxs" style={{ color: '#7c3aed', background: 'rgba(124, 58, 237, 0.08)', borderColor: 'rgba(124, 58, 237, 0.22)' }} />
-                                    <span>Transf.</span>
-                                    <strong>{fmt(totals.online)}</strong>
-                                </div>
-                            </div>
-                            <div className="cash-kpi-sub">Solo ventas de pedidos</div>
-                        </div>
-
-                        <div className="cash-kpi delivery">
-                            <div className="cash-kpi-header">
-                                <AdminIconSlot
-                                    Icon={Truck}
-                                    slotSize="sm"
-                                    style={{
-                                        color: 'var(--fulfillment-delivery-fg)',
-                                        background: 'var(--fulfillment-delivery-bg)',
-                                        borderColor: 'var(--fulfillment-delivery-border)',
-                                    }}
-                                />
+                                <AdminIconSlot Icon={Truck} slotSize="sm" tone="accent" />
                                 <span>Delivery a pagar</span>
                             </div>
                             <div className="cash-kpi-value">{fmt(deliveryPendingToPay)}</div>
@@ -345,13 +291,40 @@ const CashManager = ({
                         </div>
                     </div>
 
+                    <div className="cash-methods-panel">
+                        <div className="cash-methods-panel-header">
+                            <AdminIconSlot Icon={CreditCard} slotSize="sm" />
+                            <div className="cash-methods-panel-titles">
+                                <span className="cash-methods-panel-title">Cobros por método</span>
+                                <span className="cash-kpi-sub">Solo ventas de pedidos</span>
+                            </div>
+                        </div>
+                        <div className="cash-methods-metrics">
+                            <div className="cash-method-metric">
+                                <span className="cash-method-metric-label">Efectivo</span>
+                                <strong className="cash-method-metric-value">{fmt(totals.cash)}</strong>
+                            </div>
+                            <div className="cash-method-metric">
+                                <span className="cash-method-metric-label">Tarjeta</span>
+                                <strong className="cash-method-metric-value">{fmt(totals.card)}</strong>
+                            </div>
+                            <div className="cash-method-metric">
+                                <span className="cash-method-metric-label">Transf.</span>
+                                <strong className="cash-method-metric-value">{fmt(totals.online)}</strong>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* ÚLTIMOS MOVIMIENTOS */}
                     {recentMovements.length > 0 && (
                         <div className="cash-recent">
                             <div className="cash-recent-header">
-                                <h4><AdminIconSlot Icon={Clock} slotSize="sm" tone="accent" /> Últimos movimientos</h4>
-                                <Button variant="default" className="btn-text" onClick={() => setViewingShift(activeShift)}>
-                                    Ver todos <ChevronRight size={14} />
+                                <h2 className="cash-block-title">
+                                    <AdminIconSlot Icon={Clock} slotSize="sm" tone="accent" />
+                                    Últimos movimientos
+                                </h2>
+                                <Button variant="ghost" type="button" className="btn-text" onClick={() => setViewingShift(activeShift)}>
+                                    Ver todos <ChevronRight size={14} aria-hidden />
                                 </Button>
                             </div>
                             <div className="cash-recent-list">
@@ -426,14 +399,19 @@ const CashManager = ({
                     )}
                 </section>
             ) : (
-                <section className="cash-empty-state">
-                    <div className="cash-empty-icon">
-                        <Lock size={48} />
+                <section className="cash-empty-state cash-empty-state--cta" aria-label="Sin turno abierto">
+                    <div className="cash-empty-icon" aria-hidden>
+                        <Lock size={32} />
                     </div>
-                    <h3>Caja cerrada</h3>
-                    <p>Abre un turno para comenzar a registrar ventas e ingresos.</p>
-                    <Button variant="default" className="" onClick={() => setIsShiftModalOpen(true)}>
-                        <Unlock size={18} /> Abrir caja
+                    <h1 className="cash-page-title cash-page-title--muted">Sin turno abierto</h1>
+                    <p className="cash-shift-meta">Abre un turno para registrar movimientos</p>
+                    <Button
+                        variant="default"
+                        type="button"
+                        className="btn-open-shift"
+                        onClick={() => setIsShiftModalOpen(true)}
+                    >
+                        <Unlock size={18} aria-hidden /> Abrir turno
                     </Button>
                 </section>
             )}
@@ -441,7 +419,10 @@ const CashManager = ({
             {/* HISTORIAL DE TURNOS */}
             <section className="cash-section">
                 <div className="cash-section-header">
-                    <h3 className="cash-section-title cash-section-title--with-icon"><AdminIconSlot Icon={History} slotSize="sm" tone="accent" /> Historial de turnos</h3>
+                    <h2 className="cash-block-title">
+                        <AdminIconSlot Icon={History} slotSize="sm" tone="accent" />
+                        Historial de turnos
+                    </h2>
                     <div className="cash-filters-inline">
                         <ReportPeriodSelect
                             value={filterPeriod}
@@ -465,28 +446,25 @@ const CashManager = ({
                     <div className="cash-history-list">
                         {filteredShifts.map(shift => {
                             const diff = shift.difference ?? ((shift.actual_balance || 0) - (shift.expected_balance || 0));
-                            const duration = shift.closed_at && shift.opened_at
-                                ? Math.round((new Date(shift.closed_at) - new Date(shift.opened_at)) / 60000)
-                                : 0;
-                            const durationStr = duration >= 60 ? `${Math.floor(duration / 60)}h ${duration % 60}m` : `${duration}m`;
+                            const durationStr = formatShiftDuration(shift.opened_at, shift.closed_at);
+                            const hoursRange = formatShiftHoursRange(shift.opened_at, shift.closed_at);
+                            const ordersCount = Number(shift.orders_count ?? 0);
 
                             return (
                                 <div key={shift.id} className="cash-history-card" onClick={() => setViewingShift(shift)}>
                                     <div className="cash-history-date">
                                         <span className="cash-history-day">
-                                            {new Date(shift.opened_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })}
+                                            {formatShiftOpenedDay(shift.opened_at)}
                                         </span>
-                                        <span className="cash-history-hours">
-                                            {new Date(shift.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                            {' → '}
-                                            {new Date(shift.closed_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                        <span className="cash-history-duration">
-                                            <Clock size={12} /> {durationStr}
-                                        </span>
-                                        <span className="cash-history-orders">
-                                            {Number(shift.orders_count ?? 0)} {Number(shift.orders_count ?? 0) === 1 ? 'pedido' : 'pedidos'}
-                                        </span>
+                                        <span className="cash-history-hours">{hoursRange}</span>
+                                        <div className="cash-history-meta">
+                                            <span className="cash-history-duration">
+                                                <Clock size={12} aria-hidden /> {durationStr}
+                                            </span>
+                                            <span className="cash-history-orders">
+                                                {ordersCount} {ordersCount === 1 ? 'pedido' : 'pedidos'}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div className="cash-history-amounts">
@@ -506,7 +484,7 @@ const CashManager = ({
                                         </div>
                                     </div>
 
-                                    <div className="cash-history-arrow">
+                                    <div className="cash-history-arrow" aria-hidden>
                                         <Eye size={16} />
                                     </div>
                                 </div>

@@ -1,245 +1,205 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowDownCircle, ArrowUpCircle, FileText, CreditCard, DollarSign, Banknote } from 'lucide-react';
+import { X, CreditCard, DollarSign } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
-import { Button } from "@/components/ui/button";
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { Button } from '@/components/ui/button';
 
 /**
  * @param {'income' | 'cash_withdrawal' | 'operating_expense'} variant
  */
 const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) => {
-    const [formData, setFormData] = useState({
-        amount: '',
-        description: '',
-        paymentMethod: 'cash',
-    });
-    const [error, setError] = useState('');
+	const { currency } = useBranchMoney();
+	const [formData, setFormData] = useState({
+		amount: '',
+		description: '',
+		paymentMethod: 'cash',
+	});
+	const [error, setError] = useState('');
 
-    const isIncome = variant === 'income';
-    const isCashWithdrawal = variant === 'cash_withdrawal';
-    const isOperatingExpense = variant === 'operating_expense';
-    const isExpense = isCashWithdrawal || isOperatingExpense;
+	const isIncome = variant === 'income';
+	const isCashWithdrawal = variant === 'cash_withdrawal';
+	const isOperatingExpense = variant === 'operating_expense';
 
-    useEffect(() => {
-        if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setFormData({
-                amount: '',
-                description: '',
-                paymentMethod: 'cash',
-            });
-            setError('');
-        }
-    }, [isOpen, variant]);
+	useEffect(() => {
+		if (isOpen) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
+			setFormData({
+				amount: '',
+				description: '',
+				paymentMethod: 'cash',
+			});
+			setError('');
+		}
+	}, [isOpen, variant]);
 
-    useLockBodyScroll(isOpen);
+	useLockBodyScroll(isOpen);
 
-    if (!isOpen) return null;
+	if (!isOpen) return null;
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const numAmount = parseFloat(formData.amount);
+	const handleSubmit = (e) => {
+		e.preventDefault();
+		const numAmount = parseFloat(formData.amount);
 
-        if (isNaN(numAmount) || numAmount <= 0) {
-            setError('Ingresa un monto válido');
-            return;
-        }
+		if (isNaN(numAmount) || numAmount <= 0) {
+			setError('Ingresa un monto válido');
+			return;
+		}
 
-        if (!formData.description.trim()) {
-            setError('La descripción es obligatoria');
-            return;
-        }
+		if (!formData.description.trim()) {
+			setError('La descripción es obligatoria');
+			return;
+		}
 
-        if (isCashWithdrawal) {
-            onConfirm('expense', numAmount, formData.description, 'cash');
-        } else {
-            onConfirm(isIncome ? 'income' : 'expense', numAmount, formData.description, formData.paymentMethod);
-        }
-        onClose();
-    };
+		if (isCashWithdrawal) {
+			onConfirm('expense', numAmount, formData.description, 'cash');
+		} else {
+			onConfirm(isIncome ? 'income' : 'expense', numAmount, formData.description, formData.paymentMethod);
+		}
+		onClose();
+	};
 
-    const title = isIncome
-        ? 'Registrar Ingreso'
-        : isCashWithdrawal
-          ? 'Sacar efectivo de caja'
-          : 'Registrar gasto del local';
+	const title = isIncome
+		? 'Registrar ingreso'
+		: isCashWithdrawal
+			? 'Sacar efectivo'
+			: 'Gasto del local';
 
-    const descPlaceholder = isIncome
-        ? 'Ej: Aporte extra, Ajuste...'
-        : isCashWithdrawal
-          ? 'Ej: Compra urgente, vuelto, taxi...'
-          : 'Ej: Mercadería, arriendo, sueldo...';
+	const descPlaceholder = isIncome
+		? 'Ej: Aporte extra, ajuste…'
+		: isCashWithdrawal
+			? 'Ej: Compra urgente, vuelto, taxi…'
+			: 'Ej: Mercadería, arriendo, sueldo…';
 
-    return (
-        <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-            <div className="modal-content" style={{ maxWidth: 450 }} onClick={(e) => e.stopPropagation()}>
-                <header className="modal-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {isIncome ? (
-                            <ArrowUpCircle className="text-accent" size={24} />
-                        ) : isCashWithdrawal ? (
-                            <Banknote className="text-danger" size={24} />
-                        ) : (
-                            <ArrowDownCircle className="text-danger" size={24} />
-                        )}
-                        <h3 className="fw-700">{title}</h3>
-                    </div>
-                    <Button variant="default" type="button" onClick={onClose} className="btn-close">
-                        <X size={24} />
-                    </Button>
-                </header>
+	const submitLabel = isCashWithdrawal ? 'Registrar retiro' : 'Guardar movimiento';
+	const submitClass = isIncome
+		? 'cash-dialog__btn cash-dialog__btn--income'
+		: 'cash-dialog__btn cash-dialog__btn--expense';
 
-                {isCashWithdrawal ? (
-                    <p className="cash-movement-modal-hint">
-                        Retiro de efectivo del turno. Para mercadería, arriendo o sueldo usa{' '}
-                        <strong>Ventas → Gastos del local</strong>.
-                    </p>
-                ) : null}
-                {isOperatingExpense ? (
-                    <p className="cash-movement-modal-hint">
-                        Gastos operativos del negocio (mercadería, arriendo, sueldo, servicios).
-                    </p>
-                ) : null}
+	return (
+		<div className="modal-overlay" onClick={onClose} role="presentation">
+			<div
+				className={`modal-content cash-dialog cash-movement-modal cash-movement-modal--${variant}`}
+				onClick={(e) => e.stopPropagation()}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="cash-movement-modal-title"
+			>
+				<header className="modal-header cash-dialog__header">
+					<h3 id="cash-movement-modal-title" className="cash-dialog__title">
+						{title}
+					</h3>
+					<button type="button" onClick={onClose} className="cash-dialog__dismiss" aria-label="Cerrar">
+						<X size={16} strokeWidth={2} />
+					</button>
+				</header>
 
-                <form onSubmit={handleSubmit} style={{ padding: '20px 0' }}>
-                    <div className="modal-form">
-                        <div className="form-group">
-                            <label>Monto</label>
-                            <div style={{ position: 'relative' }}>
-                                <span
-                                    style={{
-                                        position: 'absolute',
-                                        left: 15,
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    $
-                                </span>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    style={{ paddingLeft: 30 }}
-                                    placeholder="0"
-                                    autoFocus
-                                    value={formData.amount}
-                                    onChange={(e) =>
-                                        setFormData((prev) => ({ ...prev, amount: e.target.value }))
-                                    }
-                                    required
-                                />
-                            </div>
-                        </div>
+				<form onSubmit={handleSubmit} className="cash-dialog__form">
+					<div className="modal-form cash-dialog__body">
+						{isCashWithdrawal ? (
+							<p className="cash-dialog__hint">
+								Para mercadería, arriendo o sueldo usa <strong>Ventas → Gastos del local</strong>.
+							</p>
+						) : null}
+						{isOperatingExpense ? (
+							<p className="cash-dialog__hint">
+								Gastos operativos del negocio (mercadería, arriendo, sueldo, servicios).
+							</p>
+						) : null}
 
-                        <div className="form-group">
-                            <label>Descripción / Motivo</label>
-                            <div style={{ position: 'relative' }}>
-                                <span
-                                    style={{
-                                        position: 'absolute',
-                                        left: 12,
-                                        top: 12,
-                                        color: 'var(--text-secondary)',
-                                    }}
-                                >
-                                    <FileText size={16} />
-                                </span>
-                                <textarea
-                                    className="form-input"
-                                    style={{ paddingLeft: 35, minHeight: 80, resize: 'none' }}
-                                    placeholder={descPlaceholder}
-                                    value={formData.description}
-                                    onChange={(e) =>
-                                        setFormData((prev) => ({ ...prev, description: e.target.value }))
-                                    }
-                                    required
-                                />
-                            </div>
-                        </div>
+						<div className="form-group">
+							<label htmlFor="cash-movement-amount">Monto</label>
+							<div className="cash-dialog__amount-wrap">
+								<span className="cash-dialog__currency" aria-hidden>
+									{currency}
+								</span>
+								<input
+									id="cash-movement-amount"
+									type="number"
+									min="0"
+									step="any"
+									className="form-input cash-dialog__amount-input"
+									placeholder="0"
+									autoFocus
+									value={formData.amount}
+									onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
+									required
+								/>
+							</div>
+						</div>
 
-                        {!isCashWithdrawal ? (
-                            <div className="form-group">
-                                <label>Método</label>
-                                <div
-                                    className="payment-options"
-                                    style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}
-                                >
-                                    <Button variant="default"
-                                        type="button"
-                                        className={`btn btn-secondary ${formData.paymentMethod === 'cash' ? 'active' : ''}`}
-                                        onClick={() =>
-                                            setFormData((prev) => ({ ...prev, paymentMethod: 'cash' }))
-                                        }
-                                        style={{
-                                            borderColor:
-                                                formData.paymentMethod === 'cash'
-                                                    ? 'var(--accent-primary)'
-                                                    : '',
-                                        }}
-                                    >
-                                        <DollarSign size={16} style={{ marginRight: 6 }} /> Efectivo
-                                    </Button>
-                                    <Button variant="default"
-                                        type="button"
-                                        className={`btn btn-secondary ${formData.paymentMethod === 'card' ? 'active' : ''}`}
-                                        onClick={() =>
-                                            setFormData((prev) => ({ ...prev, paymentMethod: 'card' }))
-                                        }
-                                        style={{
-                                            borderColor:
-                                                formData.paymentMethod === 'card'
-                                                    ? 'var(--accent-primary)'
-                                                    : '',
-                                        }}
-                                    >
-                                        <CreditCard size={16} style={{ marginRight: 6 }} />{' '}
-                                        {isIncome ? 'Tarjeta/Transf' : 'Tarjeta'}
-                                    </Button>
-                                </div>
-                                <p
-                                    style={{
-                                        fontSize: '0.7rem',
-                                        color: 'var(--text-secondary)',
-                                        marginTop: 8,
-                                    }}
-                                >
-                                    * Solo los movimientos en <b>Efectivo</b> afectan el arqueo de caja física.
-                                </p>
-                            </div>
-                        ) : (
-                            <p className="cash-movement-modal-hint cash-movement-modal-hint--inline">
-                                Este retiro se registra solo en <b>efectivo</b> y reduce el balance esperado del
-                                turno.
-                            </p>
-                        )}
+						<div className="form-group">
+							<label htmlFor="cash-movement-desc">Descripción / Motivo</label>
+							<textarea
+								id="cash-movement-desc"
+								className="form-input cash-dialog__textarea"
+								placeholder={descPlaceholder}
+								value={formData.description}
+								onChange={(e) =>
+									setFormData((prev) => ({ ...prev, description: e.target.value }))
+								}
+								required
+							/>
+						</div>
 
-                        {error ? (
-                            <div
-                                className="animate-fade"
-                                style={{
-                                    color: '#e63946',
-                                    fontSize: '0.85rem',
-                                    marginTop: 10,
-                                    textAlign: 'center',
-                                }}
-                            >
-                                {error}
-                            </div>
-                        ) : null}
-                    </div>
+						{!isCashWithdrawal ? (
+							<div className="form-group">
+								<span className="cash-dialog__field-label" id="cash-movement-method-label">
+									Método
+								</span>
+								<div
+									className="cash-dialog__pay-options"
+									role="group"
+									aria-labelledby="cash-movement-method-label"
+								>
+									<button
+										type="button"
+										className={`cash-dialog__pay-option${formData.paymentMethod === 'cash' ? ' is-active' : ''}`}
+										onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: 'cash' }))}
+										aria-pressed={formData.paymentMethod === 'cash'}
+									>
+										<DollarSign size={15} strokeWidth={1.75} aria-hidden />
+										Efectivo
+									</button>
+									<button
+										type="button"
+										className={`cash-dialog__pay-option${formData.paymentMethod === 'card' ? ' is-active' : ''}`}
+										onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: 'card' }))}
+										aria-pressed={formData.paymentMethod === 'card'}
+									>
+										<CreditCard size={15} strokeWidth={1.75} aria-hidden />
+										{isIncome ? 'Tarjeta / Transf.' : 'Tarjeta'}
+									</button>
+								</div>
+								<p className="cash-dialog__field-hint">
+									Solo los movimientos en <strong>efectivo</strong> afectan el arqueo físico.
+								</p>
+							</div>
+						) : (
+							<p className="cash-dialog__hint cash-dialog__hint--muted">
+								Este retiro se registra solo en <strong>efectivo</strong> y reduce el balance esperado
+								del turno.
+							</p>
+						)}
 
-                    <div style={{ marginTop: 30, display: 'flex', gap: 10 }}>
-                        <Button variant="secondary" type="button" onClick={onClose} className="" style={{ flex: 1 }}>
-                            Cancelar
-                        </Button>
-                        <Button variant="default" type="submit" className="" style={{ flex: 1 }}>
-                            {isCashWithdrawal ? 'Registrar retiro' : 'Guardar movimiento'}
-                        </Button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
+						{error ? (
+							<p className="cash-dialog__error" role="alert">
+								{error}
+							</p>
+						) : null}
+					</div>
+
+					<div className="cash-dialog__footer">
+						<Button variant="outline" type="button" onClick={onClose} className="cash-dialog__btn cash-dialog__btn--ghost">
+							Cancelar
+						</Button>
+						<Button variant="default" type="submit" className={submitClass}>
+							{submitLabel}
+						</Button>
+					</div>
+				</form>
+			</div>
+		</div>
+	);
 };
 
 export default CashMovementModal;

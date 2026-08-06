@@ -281,6 +281,21 @@
 
 .admin-layout .btn-close {
     color: var(--admin-text-muted, #64748b);
+    background: var(--admin-card-bg, #fff) !important;
+    border: 1px solid var(--admin-border, #e2e8f0) !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+.admin-layout .btn-close:hover {
+    background: var(--admin-icon-bg, #f8fafc) !important;
+    color: var(--admin-text, #0f172a);
+    transform: none;
 }
 
 .admin-layout .modal-footer {
