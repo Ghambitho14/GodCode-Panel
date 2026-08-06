@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAntiZoom, syncMobileViewportVars } from "./use-anti-zoom";
+import { PwaInstallHint } from "./components/PwaInstallHint";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,6 +39,7 @@ export function AppShell({ children }: AppShellProps) {
       </div>
       <div id="app-ui-layer" className="tenant-ui-layer">
         <div id="modal-root" className="tenant-portal-modal" />
+        <PwaInstallHint />
       </div>
     </div>
   );

@@ -1,0 +1,64 @@
+.pwa-install-hint {
+	position: fixed;
+	z-index: 12020;
+	pointer-events: auto;
+	left: max(10px, env(safe-area-inset-left, 0px));
+	right: max(10px, env(safe-area-inset-right, 0px));
+	bottom: max(72px, calc(64px + env(safe-area-inset-bottom, 0px)));
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 12px 12px 12px 14px;
+	border-radius: 14px;
+	border: 1px solid var(--admin-border, #e5e5ea);
+	background: var(--admin-card-bg, #fff);
+	box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
+	box-sizing: border-box;
+}
+
+.pwa-install-hint__body {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	min-width: 0;
+	flex: 1;
+}
+
+.pwa-install-hint__icon {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 10px;
+	background: color-mix(in srgb, #2563eb 12%, var(--admin-icon-bg, #f5f5f7));
+	color: #2563eb;
+}
+
+.pwa-install-hint__text {
+	margin: 0;
+	font-size: 0.8125rem;
+	line-height: 1.45;
+	color: var(--admin-text, #1d1d1f);
+}
+
+.pwa-install-hint__ios-share {
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.pwa-install-hint__close {
+	flex-shrink: 0;
+	width: 34px;
+	height: 34px;
+	min-width: 34px;
+	padding: 0;
+	color: var(--admin-text-muted, #6e6e73);
+}
+
+@media (min-width: 1025px) {
+	.pwa-install-hint {
+		display: none;
+	}
+}
