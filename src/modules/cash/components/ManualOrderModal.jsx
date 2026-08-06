@@ -47,7 +47,7 @@ const ManualOrderModal = ({
 	openMesaMode = false,
 	localOrderChannels = null,
 }) => {
-	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile } = useAdmin();
+	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile, branchExchangeRate } = useAdmin();
 	useLockBodyScroll(isOpen);
 	const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
 	const isEditMode = Boolean(editOrder?.id);
@@ -169,10 +169,12 @@ const ManualOrderModal = ({
 		isOpenOrderSessionStatus(liveEditOrder?.status);
 
 	const wizardStepCount = effectiveOpenMesaMode
-		? (openMesaChargeNow && isCompactNav ? 3 : 2)
-		: (isCompactNav
-			? MOBILE_WIZARD_STEPS
-			: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS));
+		? (openMesaChargeNow ? 3 : 2)
+		: (isEditMode
+			? 2
+			: (isCompactNav
+				? MOBILE_WIZARD_STEPS
+				: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS)));
 
 	useEffect(() => {
 		if (isOpen && !wasOpenRef.current) {
@@ -227,14 +229,17 @@ const ManualOrderModal = ({
 
 	useEffect(() => {
 		setOrderStep((prev) => {
-			const max = isCompactNav
-				? MOBILE_WIZARD_STEPS
-				: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
+			const max = effectiveOpenMesaMode
+				? (openMesaChargeNow ? 3 : 2)
+				: (isEditMode
+					? 2
+					: (isCompactNav
+						? MOBILE_WIZARD_STEPS
+						: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS)));
 			if (prev <= max) return prev;
-			if (!isCompactNav && prev === 3) return 2;
 			return max;
 		});
-	}, [isCompactNav, isTabletNav]);
+	}, [isCompactNav, isTabletNav, effectiveOpenMesaMode, openMesaChargeNow, isEditMode]);
 
 	const manualOrderForTicket = useMemo(() => {
 		if (manualOrder.order_type !== 'delivery') return manualOrder;
@@ -261,14 +266,29 @@ const ManualOrderModal = ({
 		branchAddress: branch?.address ?? null,
 		orderChannel: 'PDV',
 		companyName: companyName ?? null,
+		branch,
+		company: companyProfile,
+		exchangeRate: branchDeliveryCfg?.exchangeRate ?? branchExchangeRate ?? null,
 	});
 
 	const printManualKitchen = () => {
-		printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('kitchen'));
+		const ok = printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('kitchen'));
+		if (!ok) {
+			showNotify?.(
+				'No se pudo abrir la ventana de impresión. Permite ventanas emergentes para este sitio.',
+				'warning',
+			);
+		}
 	};
 
 	const printManualCaja = () => {
-		printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
+		const ok = printOrderTicket(manualOrderForTicket, branch?.name, logoUrl ?? null, ticketOpts('cashier'));
+		if (!ok) {
+			showNotify?.(
+				'No se pudo abrir la ventana de impresión. Permite ventanas emergentes para este sitio.',
+				'warning',
+			);
+		}
 	};
 
 	const requestClose = React.useCallback(() => {
@@ -572,8 +592,8 @@ const ManualOrderModal = ({
 							receiptFile,
 							receiptPreview,
 						}}
-						printManualKitchen={isEditMode ? printManualKitchen : null}
-						printManualCaja={isEditMode ? printManualCaja : null}
+						printManualKitchen={printManualKitchen}
+						printManualCaja={printManualCaja}
 						submitOrder={submitAndClearDraft}
 						canCancelOrder={canCancelOrder}
 						handleCancelOrder={handleCancelOrder}

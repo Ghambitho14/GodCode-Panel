@@ -406,9 +406,12 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 					line-height: 1.3;
 				}
 				.c-price {
-					white-space: nowrap;
 					flex-shrink: 0;
 					font-size: 10.5pt;
+					text-align: right;
+					max-width: 48%;
+					white-space: normal;
+					line-height: 1.25;
 				}
 				.c-detail {
 					font-size: 9.5pt;
@@ -429,9 +432,6 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				.c-item-extra .c-line-text {
 					font-size: 9.5pt;
 				}
-				/* Comentario por item en el ticket de caja: linea discreta debajo
-				   del nombre, sin borde fuerte (el cliente solo necesita ver que
-				   su pedido especial quedo registrado). */
 				.c-item-note {
 					margin-top: 1mm;
 					padding-left: 2mm;
@@ -452,6 +452,13 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 					align-items: baseline;
 					font-size: 10.5pt;
 					margin: 0 0 1.5mm;
+					gap: 2mm;
+				}
+				.c-money-row > span:last-child,
+				.c-total-big > span:last-child {
+					text-align: right;
+					max-width: 62%;
+					line-height: 1.25;
 				}
 				.c-total-big {
 					display: flex;
@@ -461,6 +468,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 					padding-top: 2mm;
 					border-top: 2px solid #000;
 					font-size: 13pt;
+					gap: 2mm;
 				}
 				.c-legal {
 					font-size: 8.5pt;

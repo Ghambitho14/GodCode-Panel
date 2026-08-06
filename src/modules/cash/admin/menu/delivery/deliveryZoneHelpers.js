@@ -77,9 +77,9 @@ export const DELIVERY_TOOLTIPS = {
 	baseFee:
 		"Suma fija que se añade al costo por km antes de aplicar mínimos, máximos o envío gratis por subtotal.",
 	originLat:
-		"Latitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -33.4489.",
+		"Latitud del local (norte/sur). En Venezuela suele ser positiva, ej. 11.0208. En Chile negativa, ej. -33.4489.",
 	originLng:
-		"Longitud del local para calcular distancia al cliente (modalidad por km). Formato decimal, ej. -70.6693.",
+		"Longitud del local (este/oeste). En Venezuela y Chile SIEMPRE es negativa (oeste), ej. -63.8937. Si la pones positiva el mapa cae al otro lado del mundo.",
 	saveButton:
 		"Guarda tarifas, zonas, métodos de pago permitidos en delivery, WhatsApp del repartidor y opciones avanzadas en el servidor.",
 	preview:

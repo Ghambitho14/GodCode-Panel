@@ -3,12 +3,10 @@ import { Store, Truck, MapPin, User, CheckCircle2, Loader2, Banknote } from 'luc
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { getFormStrategy } from '@/lib/geo/country-forms';
-import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { geocodeAddress } from '../../services/geocodeService';
-import { geocodeToCoords } from '../../services/placesService';
+import { geocodeToCoords, reverseGeocodeLocality } from '../../services/placesService';
 import { haversineKm, isValidLatLng } from '@/lib/geo';
 import {
-    computeDeliveryFee,
     effectiveDeliveryPricingMode,
 } from '@/lib/delivery-settings';
 import { normalizePhoneForSearch } from '../../services/clientService';
@@ -17,29 +15,52 @@ import {
     isManualNamedDeliveryMode,
     isOpenMesaMeseroMode,
     LOCAL_FULFILLMENT_MODES,
+    validateManualDeliveryDetails,
 } from '../../hooks/manual-order/manualOrderShared';
+import DeliveryPlaceSuggestInput from '../DeliveryPlaceSuggestInput';
 import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
 import PickupBagIcon from '../PickupBagIcon';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
-import { selectedToggleActiveClass, spacing, textScale } from './manualOrderStyles';
+import { selectedToggleActiveClass, spacing, textScale, toggleBaseClass } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
 import { requirementsFor } from '../../domain/manual-order-settings';
-import { majorToMinor, minorToMajor } from '@/lib/money/minor-units';
+import { resolveEffectiveCountry, isVenezuelaCountry } from '@/lib/geo/tenant-locale';
 
-const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
+const sectionCardClass = 'manual-order-step-card flex min-h-0 flex-col overflow-visible rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 const inputClass =
     `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const inputReadonlyClass =
     'cursor-not-allowed border-gc-border/50 bg-gc-muted/60 text-gc-text-muted focus:ring-0';
-const toggleBaseClass =
-    `flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-gc-border bg-gc-page px-2.5 py-3 ${textScale.body} font-semibold text-gc-text transition-colors sm:px-3`;
 const hintClass =
     `mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
 const inlineActionClass =
     `inline-flex min-h-[42px] items-center gap-1.5 self-start rounded-[12px] border border-gc-border bg-gc-card px-3.5 py-2 ${textScale.body} font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50`;
 const fieldLabelClass = `flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`;
+
+const phoneHasMeaningfulDigits = (phone, prefix) => {
+    const valueDigits = String(phone ?? '').replace(/\D/g, '');
+    const prefixDigits = String(prefix ?? '').replace(/\D/g, '');
+    if (!valueDigits) return false;
+    if (!prefixDigits) return valueDigits.length > 0;
+    return valueDigits.length > prefixDigits.length;
+};
+
+const highlightClientMatch = (text, query) => {
+    const value = String(text ?? '');
+    const q = String(query ?? '').trim();
+    if (!value || !q) return value;
+    const idx = value.toLowerCase().indexOf(q.toLowerCase());
+    if (idx < 0) return value;
+    return (
+        <>
+            {value.slice(0, idx)}
+            <mark className="manual-order-client-suggestion__match">{value.slice(idx, idx + q.length)}</mark>
+            {value.slice(idx + q.length)}
+        </>
+    );
+};
 
 const fulfillmentActiveClass = {
     mesa: 'border-[var(--fulfillment-mesa-border)] bg-[var(--fulfillment-mesa-bg)] text-[var(--fulfillment-mesa-fg)]',
@@ -182,19 +203,102 @@ const ClientForm = ({
         String(branchDeliveryCfg?.namedAreaResolution ?? '').toLowerCase() === 'address_matched';
     const manualNamedAreaMode = isDelivery && isManualNamedDeliveryMode(branchDeliveryCfg);
 
+    const deliveryValidationError = useMemo(() => {
+        if (!isDelivery || branchDeliveryCfgLoading) return null;
+        return validateManualDeliveryDetails(manualOrder, branchDeliveryCfg);
+    }, [
+        isDelivery,
+        branchDeliveryCfgLoading,
+        branchDeliveryCfg,
+        manualOrder.order_type,
+        manualOrder.delivery_address,
+        manualOrder.delivery_reference,
+        manualOrder.delivery_named_area_id,
+        manualOrder.delivery_km,
+        manualOrder.total,
+        manualOrder.items_subtotal,
+    ]);
+
     const showDistancePricing = Boolean(
         branchDeliveryCfg &&
         isDelivery &&
         effectiveDeliveryPricingMode(branchDeliveryCfg) === 'distance',
     );
 
+    const isExternalDeliveryPricing = Boolean(
+        branchDeliveryCfg &&
+        isDelivery &&
+        effectiveDeliveryPricingMode(branchDeliveryCfg) === 'external',
+    );
+
     const distanceAutoMode = showDistancePricing &&
         isValidLatLng(branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng);
 
-    const handleDetectZone = async () => {
+    const placesRegion = useMemo(() => {
+        const country = resolveEffectiveCountry(branch, companyProfile);
+        return isVenezuelaCountry(country) ? 've' : 'cl';
+    }, [branch, companyProfile]);
+
+    const placesBias = useMemo(() => {
+        if (!isValidLatLng(branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng)) {
+            return { lat: undefined, lng: undefined };
+        }
+        return {
+            lat: Number(branchDeliveryCfg.originLat),
+            lng: Number(branchDeliveryCfg.originLng),
+        };
+    }, [branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng]);
+
+    const placesMaxKm = useMemo(() => {
+        const maxKm = Number(branchDeliveryCfg?.maxDeliveryKm);
+        return Number.isFinite(maxKm) && maxKm > 0 ? maxKm : undefined;
+    }, [branchDeliveryCfg?.maxDeliveryKm]);
+
+    const [localPlaceState, setLocalPlaceState] = useState('');
+
+    useEffect(() => {
+        if (!isValidLatLng(placesBias.lat, placesBias.lng)) {
+            setLocalPlaceState('');
+            return undefined;
+        }
+        const ac = new AbortController();
+        void reverseGeocodeLocality({
+            lat: placesBias.lat,
+            lng: placesBias.lng,
+            signal: ac.signal,
+        })
+            .then((place) => {
+                if (ac.signal.aborted) return;
+                setLocalPlaceState(String(place?.state ?? '').trim());
+            })
+            .catch(() => {
+                if (!ac.signal.aborted) setLocalPlaceState('');
+            });
+        return () => ac.abort();
+    }, [placesBias.lat, placesBias.lng]);
+
+    const applyDistanceFromCoords = (lat, lng, label, { silent = false } = {}) => {
+        if (!isValidLatLng(branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng)) return false;
+        if (!isValidLatLng(lat, lng)) return false;
+        const km = haversineKm(
+            { lat: Number(branchDeliveryCfg.originLat), lng: Number(branchDeliveryCfg.originLng) },
+            { lat: Number(lat), lng: Number(lng) },
+        );
+        const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
+        updateDeliveryKm(safeKm.toFixed(2));
+        if (!silent) {
+            showNotify?.(
+                `Distancia desde el local: ${safeKm.toFixed(2)} km${label ? ` (${label})` : ''}`,
+                'success',
+            );
+        }
+        return true;
+    };
+
+    const handleDetectZone = async (addressOverride) => {
         if (detectingZone) return;
         const branchId = String(branch?.id ?? '').trim();
-        const address = String(manualOrder.delivery_address ?? '').trim();
+        const address = String(addressOverride ?? manualOrder.delivery_address ?? '').trim();
         if (!branchId) {
             showNotify?.('Selecciona una sucursal primero.', 'warning');
             return;
@@ -220,44 +324,159 @@ const ClientForm = ({
         }
     };
 
-    const handleCalculateDistance = async () => {
-        if (calculatingDistance) return;
-        const address = String(manualOrder.delivery_address ?? '').trim();
+    const handleCalculateDistance = async ({
+        addressOverride,
+        silent = false,
+    } = {}) => {
+        if (calculatingDistance) return false;
+        const address = String(addressOverride ?? manualOrder.delivery_address ?? '').trim();
         if (!address) {
-            showNotify?.('Escribe una dirección para calcular la distancia.', 'warning');
-            return;
+            if (!silent) showNotify?.('Escribe una dirección para calcular la distancia.', 'warning');
+            return false;
+        }
+        if (address.length < 8) {
+            if (!silent) {
+                showNotify?.('Escribe una dirección más completa para calcular la distancia.', 'warning');
+            }
+            return false;
         }
         if (!isValidLatLng(branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng)) {
-            showNotify?.(
-                'Configura la ubicación del local en Settings para autocalcular distancia.',
-                'warning',
-            );
-            return;
+            if (!silent) {
+                showNotify?.(
+                    'Configura la ubicación del local en Settings → Delivery para autocalcular distancia.',
+                    'warning',
+                );
+            }
+            return false;
         }
         setCalculatingDistance(true);
         try {
-            const result = await geocodeToCoords({ address });
+            const result = await geocodeToCoords({
+                address,
+                region: placesRegion,
+                lat: placesBias.lat,
+                lng: placesBias.lng,
+                maxKm: placesMaxKm,
+                state: localPlaceState || undefined,
+            });
             if (!result.ok) {
-                showNotify?.(result.message, 'warning');
-                return;
+                if (!silent) showNotify?.(result.message, 'warning');
+                return false;
             }
-            const km = haversineKm(
-                { lat: Number(branchDeliveryCfg.originLat), lng: Number(branchDeliveryCfg.originLng) },
-                { lat: result.lat, lng: result.lng },
-            );
-            const safeKm = Number.isFinite(km) && km >= 0 ? km : 0;
-            updateDeliveryKm(safeKm.toFixed(2));
-            showNotify?.(
-                `Distancia calculada: ${safeKm.toFixed(2)} km (${result.label})`,
-                'success',
-            );
+            if (Number.isFinite(result.km)) {
+                updateDeliveryKm(Number(result.km).toFixed(2));
+                if (!silent) {
+                    showNotify?.(
+                        `Distancia desde el local: ${Number(result.km).toFixed(2)} km (${result.label})`,
+                        'success',
+                    );
+                }
+                return true;
+            }
+            return applyDistanceFromCoords(result.lat, result.lng, result.label, { silent });
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Error al calcular la distancia';
-            showNotify?.(msg, 'error');
+            if (!silent) {
+                const msg = err instanceof Error ? err.message : 'Error al calcular la distancia';
+                showNotify?.(msg, 'error');
+            }
+            return false;
         } finally {
             setCalculatingDistance(false);
         }
     };
+
+    const lastAutoDistanceAddressRef = useRef('');
+
+    useEffect(() => {
+        if (!distanceAutoMode || !isDelivery) return undefined;
+        const address = String(manualOrder.delivery_address ?? '').trim();
+        if (address.length < 8) return undefined;
+        if (address === lastAutoDistanceAddressRef.current) return undefined;
+        if (!isValidLatLng(branchDeliveryCfg?.originLat, branchDeliveryCfg?.originLng)) return undefined;
+
+        const ac = new AbortController();
+        const timer = window.setTimeout(() => {
+            void (async () => {
+                setCalculatingDistance(true);
+                try {
+                    const result = await geocodeToCoords({
+                        address,
+                        region: placesRegion,
+                        lat: placesBias.lat,
+                        lng: placesBias.lng,
+                        maxKm: placesMaxKm,
+                        state: localPlaceState || undefined,
+                        signal: ac.signal,
+                    });
+                    if (ac.signal.aborted) return;
+                    if (!result.ok) return;
+                    if (Number.isFinite(result.km)) {
+                        updateDeliveryKm(Number(result.km).toFixed(2));
+                        lastAutoDistanceAddressRef.current = address;
+                        return;
+                    }
+                    const applied = applyDistanceFromCoords(result.lat, result.lng, result.label, { silent: true });
+                    if (applied) lastAutoDistanceAddressRef.current = address;
+                } catch (err) {
+                    if (err?.name === 'AbortError' || ac.signal.aborted) return;
+                } finally {
+                    if (!ac.signal.aborted) setCalculatingDistance(false);
+                }
+            })();
+        }, 700);
+
+        return () => {
+            window.clearTimeout(timer);
+            ac.abort();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- solo reacciona a dirección/origen
+    }, [
+        distanceAutoMode,
+        isDelivery,
+        manualOrder.delivery_address,
+        placesBias.lat,
+        placesBias.lng,
+        placesMaxKm,
+        localPlaceState,
+        placesRegion,
+    ]);
+
+    const handleAddressSuggestionPick = async (item) => {
+        if (distanceAutoMode && item?.lat != null && item?.lng != null) {
+            lastAutoDistanceAddressRef.current = String(item.label ?? '').trim();
+            applyDistanceFromCoords(item.lat, item.lng, item.label, { silent: true });
+            return;
+        }
+        if (distanceAutoMode && String(item?.label ?? '').trim()) {
+            const label = String(item.label).trim();
+            const ok = await handleCalculateDistance({ addressOverride: label, silent: true });
+            if (ok) lastAutoDistanceAddressRef.current = label;
+            return;
+        }
+        if (namedAreaAutoMode && String(item?.label ?? '').trim()) {
+            void handleDetectZone(item.label);
+        }
+    };
+
+    const deliveryAddressSuggest = (
+        <DeliveryPlaceSuggestInput
+            id="manual-order-delivery-address"
+            variant="manual"
+            placeholder="DIRECCIÓN DE ENTREGA *"
+            value={manualOrder.delivery_address}
+            onChange={updateDeliveryAddress}
+            onPick={handleAddressSuggestionPick}
+            region={placesRegion}
+            biasLat={placesBias.lat}
+            biasLng={placesBias.lng}
+            maxKm={placesMaxKm}
+            state={localPlaceState || undefined}
+            ariaRequired
+            aria-label="Dirección de entrega"
+            inputClassName={cn(inputClass, 'pl-10 font-semibold')}
+            wrapClassName="w-full"
+        />
+    );
 
     const handleSelectClient = (client) => {
         applyClientRecord?.(client, clientSelectOpts);
@@ -306,39 +525,46 @@ const ClientForm = ({
 
     const validationIcon = (
         <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            <CheckCircle2 size={18} className="text-gc-accent" aria-hidden />
+            <CheckCircle2 size={16} className="text-gc-accent/75" aria-hidden />
         </div>
     );
 
     const clientSuggestionsList = (suggestionsId) => showClientSuggestions ? (
         <ul
             id={suggestionsId}
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-[4px] border border-gc-border bg-gc-card py-1 shadow-lg"
+            className="manual-order-client-suggestions"
             role="listbox"
         >
-            {clientSuggestions.map((client, index) => (
-                <li key={client.id} id={`${suggestionsId}-option-${index}`} role="option" aria-selected={index === activeSuggestionIndex}>
-                    <Button variant="outline"
-                        type="button"
-                        className={cn('flex min-h-[44px] w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors hover:bg-gc-muted focus-visible:bg-gc-muted focus-visible:outline-none', index === activeSuggestionIndex && 'bg-gc-muted')}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleSelectClient(client)}
-                    >
-                        <span className={`${textScale.body} font-bold text-gc-text`}>
-                            {client.name}
-                        </span>
-                        <span className={`${textScale.micro} text-gc-text-muted`}>
-                            {[client.rut, client.phone].filter(Boolean).join(' · ')}
-                        </span>
-                    </Button>
-                </li>
-            ))}
+            {clientSuggestions.map((client, index) => {
+                const isActive = index === activeSuggestionIndex;
+                return (
+                    <li key={client.id} role="presentation">
+                        <button
+                            type="button"
+                            id={`${suggestionsId}-option-${index}`}
+                            role="option"
+                            aria-selected={isActive}
+                            className={cn('manual-order-client-suggestion', isActive && 'is-active')}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onMouseEnter={() => setActiveSuggestionIndex(index)}
+                            onClick={() => handleSelectClient(client)}
+                        >
+                            <span className="manual-order-client-suggestion__name">
+                                {highlightClientMatch(client.name, manualOrder.client_name)}
+                            </span>
+                            <span className="manual-order-client-suggestion__meta">
+                                {[client.rut, client.phone].filter(Boolean).join(' · ') || 'Sin documento ni teléfono'}
+                            </span>
+                        </button>
+                    </li>
+                );
+            })}
         </ul>
     ) : null;
 
     const registeredClientSearchField = (placeholder, suggestionsId = 'manual-order-client-suggestions') => (
         <div className="grid gap-3">
-            <div className="relative w-full" ref={clientSearchRef}>
+            <div className="manual-order-client-search relative z-10 w-full" ref={clientSearchRef}>
                 <input
                     type="text"
                     placeholder={placeholder}
@@ -356,12 +582,12 @@ const ClientForm = ({
 					aria-activedescendant={activeSuggestionIndex >= 0 ? `${suggestionsId}-option-${activeSuggestionIndex}` : undefined}
                     style={{
                         paddingRight:
-                            manualOrder.selected_client_id || manualOrder.client_name.length >= 3
+                            manualOrder.selected_client_id || manualOrder.client_name.trim().length >= 2
                                 ? '40px'
                                 : undefined,
                     }}
                 />
-                {(manualOrder.selected_client_id || manualOrder.client_name.length >= 3) && validationIcon}
+                {(manualOrder.selected_client_id || manualOrder.client_name.trim().length >= 2) && validationIcon}
                 {clientSuggestionsList(suggestionsId)}
             </div>
         </div>
@@ -417,11 +643,24 @@ const ClientForm = ({
                     readOnly={lockIdentityFields}
                     aria-readonly={lockIdentityFields}
                     style={{
-                        ...(lockIdentityFields ? {} : getInputStyle(phoneValid)),
-                        paddingRight: !lockIdentityFields && phoneValid ? '40px' : undefined,
+                        ...(lockIdentityFields
+							? {}
+							: phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix)
+								? getInputStyle(phoneValid)
+								: {}),
+                        paddingRight:
+							!lockIdentityFields
+							&& phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix)
+							&& phoneValid
+								? '40px'
+								: undefined,
                     }}
                 />
-                {!lockIdentityFields && phoneValid ? validationIcon : null}
+                {!lockIdentityFields
+					&& phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix)
+					&& phoneValid
+					? validationIcon
+					: null}
             </div>
 
             {lockIdentityFields ? (
@@ -450,18 +689,20 @@ const ClientForm = ({
                 <>
                     {inputWithIcon(
                         <MapPin size={14} aria-hidden />,
-                        <input
-                            type="text"
-                            placeholder="DIRECCIÓN DE ENTREGA *"
-                            className={cn(inputClass, 'pl-10 font-semibold')}
-                            value={manualOrder.delivery_address}
-                            onChange={(e) => updateDeliveryAddress(e.target.value)}
-                        />,
+                        deliveryAddressSuggest,
                     )}
-                    <Button variant="default"
+                    {placesBias.lat != null ? (
+                        <p className={`${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                            Sugerencias cerca del local
+                            {localPlaceState ? ` · ${localPlaceState}` : ''}
+                            {placesMaxKm != null ? ` · hasta ${placesMaxKm} km` : ''}
+                            .
+                        </p>
+                    ) : null}
+                    <Button variant="outline"
                         type="button"
                         className={inlineActionClass}
-                        onClick={handleDetectZone}
+                        onClick={() => handleDetectZone()}
                         disabled={detectingZone || !manualOrder.delivery_address}
                     >
                         {detectingZone ? (
@@ -487,18 +728,7 @@ const ClientForm = ({
                         aria-label="Zona de entrega"
                         className={cn(inputClass, 'pl-10 font-semibold')}
                         value={manualOrder.delivery_named_area_id || ''}
-                        onChange={(e) => {
-                            const v = e.target.value;
-                            updateDeliveryNamedAreaId(v);
-                            if (v && branchDeliveryCfg) {
-                                const subtotal = Number(manualOrder.total) || 0;
-                                const r = computeDeliveryFee(branchDeliveryCfg, 0, subtotal, { namedAreaId: v });
-                                if (r.fee >= 0) {
-									const currency = manualOrder.currency || 'CLP';
-									updateDeliveryFee(String(minorToMajor(majorToMinor(r.fee, currency, manualOrder.fractionDigits), currency, manualOrder.fractionDigits)));
-                                }
-                            }
-                        }}
+                        onChange={(e) => updateDeliveryNamedAreaId(e.target.value)}
                     >
                         <option value="">{namedAreaAutoMode ? 'ZONA DETECTADA / SELECCIÓN MANUAL' : 'ZONA DE ENTREGA *'}</option>
                         {(branchDeliveryCfg?.namedAreas ?? []).map((z) => (
@@ -530,60 +760,88 @@ const ClientForm = ({
                 )
             ) : null}
 
+            {!showNamedZonePicker ? (
+                <>
+                    {inputWithIcon(
+                        <MapPin size={14} aria-hidden />,
+                        deliveryAddressSuggest,
+                    )}
+                    {distanceAutoMode || placesBias.lat != null ? (
+                        <p className={`${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                            Sugerencias cerca del local
+                            {localPlaceState ? ` · ${localPlaceState}` : ''}
+                            {placesMaxKm != null ? ` · hasta ${placesMaxKm} km` : ''}
+                            .
+                        </p>
+                    ) : null}
+                </>
+            ) : null}
+
+            {distanceAutoMode ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className={`${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                        {calculatingDistance
+                            ? 'Calculando distancia desde el local…'
+                            : manualOrder.delivery_km
+                                ? `Distancia desde el local: ${manualOrder.delivery_km} km`
+                                : 'La distancia se calcula sola desde la ubicación del local.'}
+                    </p>
+                    <Button
+                        variant="outline"
+                        type="button"
+                        className={cn(inlineActionClass, 'min-h-[34px] py-1.5')}
+                        onClick={() => {
+                            lastAutoDistanceAddressRef.current = '';
+                            void handleCalculateDistance({ silent: false });
+                        }}
+                        disabled={calculatingDistance || !manualOrder.delivery_address}
+                    >
+                        {calculatingDistance ? (
+                            <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Calculando...
+                            </>
+                        ) : (
+                            <>
+                                <MapPin size={14} />
+                                Recalcular
+                            </>
+                        )}
+                    </Button>
+                </div>
+            ) : null}
+
             {showDistancePricing ? (
                 inputWithIcon(
                     <MapPin size={14} className="opacity-70" aria-hidden />,
                     <input
                         type="text"
                         inputMode="decimal"
-                        placeholder="DISTANCIA APROX. (KM) — OPC."
+                        placeholder={
+                            distanceAutoMode
+                                ? 'KM DESDE EL LOCAL (auto)'
+                                : 'DISTANCIA APROX. (KM) — OPC.'
+                        }
                         className={cn(inputClass, 'pl-10')}
                         value={manualOrder.delivery_km}
                         onChange={(e) => updateDeliveryKm(e.target.value)}
+                        aria-label="Distancia desde el local en kilómetros"
                     />,
                     true,
                 )
             ) : null}
 
-            {!showNamedZonePicker ? (
-                inputWithIcon(
-                    <MapPin size={14} aria-hidden />,
-                    <input
-                        type="text"
-                        placeholder={showDistancePricing ? 'DIRECCIÓN DE ENTREGA *' : 'DIRECCIÓN DE ENTREGA'}
-                        className={cn(inputClass, 'pl-10 font-semibold')}
-                        value={manualOrder.delivery_address}
-                        onChange={(e) => updateDeliveryAddress(e.target.value)}
-                    />,
-                )
-            ) : null}
-
-            {distanceAutoMode ? (
-                <Button variant="default"
-                    type="button"
-                    className={inlineActionClass}
-                    onClick={handleCalculateDistance}
-                    disabled={calculatingDistance || !manualOrder.delivery_address}
-                >
-                    {calculatingDistance ? (
-                        <>
-                            <Loader2 size={14} className="animate-spin" />
-                            Calculando...
-                        </>
-                    ) : (
-                        <>
-                            <MapPin size={14} />
-                            Calcular distancia
-                        </>
-                    )}
-                </Button>
-            ) : null}
-
             {showDistancePricing && !distanceAutoMode && (
                 <p className={`${textScale.micro} italic leading-relaxed text-gc-text-muted`}>
-                    Configura la ubicación del local en Settings → Delivery para autocalcular distancia.
+                    Configura la ubicación del local en Settings → Delivery para calcular la distancia automáticamente desde el local.
                 </p>
             )}
+
+            {isExternalDeliveryPricing ? (
+                <p className={`${textScale.micro} leading-relaxed text-gc-text-muted`}>
+                    El costo de envío lo define el proveedor externo (p. ej. Uber Direct).
+                </p>
+            ) : null}
 
             {inputWithIcon(
                 <Banknote size={14} aria-hidden />,
@@ -601,10 +859,16 @@ const ClientForm = ({
                     className={cn(inputClass, 'pl-10 font-semibold')}
                     value={manualOrder.delivery_fee || ''}
                     onChange={(e) => updateDeliveryFee(e.target.value)}
-                    readOnly={!canOverrideDeliveryFee}
-                    aria-readonly={!canOverrideDeliveryFee}
+                    readOnly={!canOverrideDeliveryFee || isExternalDeliveryPricing}
+                    aria-readonly={!canOverrideDeliveryFee || isExternalDeliveryPricing}
                 />,
             )}
+
+            {deliveryValidationError ? (
+                <p className={`${hintClass} !border-gc-danger/30 !bg-gc-danger/10 !text-gc-danger`} role="alert">
+                    {deliveryValidationError}
+                </p>
+            ) : null}
         </div>
     ) : (
         <p className={hintClass}>
@@ -635,9 +899,10 @@ const ClientForm = ({
                                   : 'grid-cols-1 min-[400px]:grid-cols-3',
                         )}>
                             {channels.mesa ? (
-                                <Button variant="default"
+                                <Button variant="outline"
                                     type="button"
                                     className={cn(
+                                        'manual-order-toggle',
                                         toggleBaseClass,
                                         isMesa ? fulfillmentActiveClass.mesa : null,
                                     )}
@@ -648,9 +913,10 @@ const ClientForm = ({
                                 </Button>
                             ) : null}
                             {channels.retiro ? (
-                                <Button variant="default"
+                                <Button variant="outline"
                                     type="button"
                                     className={cn(
+                                        'manual-order-toggle',
                                         toggleBaseClass,
                                         isRetiro ? fulfillmentActiveClass.retiro : null,
                                     )}
@@ -661,9 +927,10 @@ const ClientForm = ({
                                 </Button>
                             ) : null}
                             {channels.delivery ? (
-                                <Button variant="default"
+                                <Button variant="outline"
                                     type="button"
                                     className={cn(
+                                        'manual-order-toggle',
                                         toggleBaseClass,
                                         isDelivery ? fulfillmentActiveClass.delivery : null,
                                     )}
@@ -682,9 +949,7 @@ const ClientForm = ({
 
                     {isMesa ? (
                         <p className={hintClass}>
-                            {manualOrder.charge_now
-                                ? 'Consumo en salón. El pago se registra al abrir la mesa.'
-                                : 'Consumo en salón. El pago se registra al cerrar la mesa.'}
+                            Consumo en salón. Las mesas siempre se abren pendientes; el cobro se registra al cerrar.
                         </p>
                     ) : null}
                     {isRetiro ? (
@@ -694,6 +959,13 @@ const ClientForm = ({
                                 : 'Retiro en local. El pago se registra al cerrar el retiro.'}
                         </p>
                     ) : null}
+                    {isDelivery && openMesaMode ? (
+                        <p className={hintClass}>
+                            {manualOrder.charge_now
+                                ? 'Delivery. El pago se registra al abrir el delivery.'
+                                : 'Delivery. El pago se registra al cerrar el delivery.'}
+                        </p>
+                    ) : null}
                 </div>
 
             <div className={sectionCardClass}>
@@ -701,17 +973,17 @@ const ClientForm = ({
 
                 {isMesa ? (
                         <div className={`mb-3 grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
-                            <Button variant="default"
+                            <Button variant="outline"
                                 type="button"
-                                className={cn(toggleBaseClass, isMesero && selectedToggleActiveClass)}
+                                className={cn('manual-order-toggle', toggleBaseClass, isMesero && selectedToggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('mesero')}
                             >
                                 <User size={16} />
                                 Mesero
                             </Button>
-                            <Button variant="default"
+                            <Button variant="outline"
                                 type="button"
-                                className={cn(toggleBaseClass, !isMesero && selectedToggleActiveClass)}
+                                className={cn('manual-order-toggle', toggleBaseClass, !isMesero && selectedToggleActiveClass)}
                                 onClick={() => updateMesaPartyMode?.('cliente')}
                             >
                                 <User size={16} />
@@ -757,7 +1029,7 @@ const ClientForm = ({
 
     return (
         <div className="w-full">
-            <div className={`grid grid-cols-1 ${spacing.normal} lg:grid-cols-2`}>
+            <div className={`manual-order-client-form-grid grid grid-cols-1 ${spacing.normal} lg:grid-cols-2 lg:items-start`}>
             <div className={sectionCardClass}>
                 <SectionHeader icon={User} tone="accent">Datos cliente</SectionHeader>
                 <p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
@@ -765,9 +1037,9 @@ const ClientForm = ({
                 </p>
 
                 <div className="grid gap-3">
-                    <div className={fieldLabelClass}>
+                    <div className={cn(fieldLabelClass, 'manual-order-client-search')}>
                         <label htmlFor="manual-order-client-name">Nombre completo{requiredMark(customerRequirements.name)}</label>
-                        <div className="relative w-full" ref={clientSearchRef}>
+                        <div className="relative z-10 w-full" ref={clientSearchRef}>
                             <input
                                 id="manual-order-client-name"
                                 type="text"
@@ -785,10 +1057,10 @@ const ClientForm = ({
                                 aria-controls="manual-order-client-suggestions"
 								aria-activedescendant={activeSuggestionIndex >= 0 ? `manual-order-client-suggestions-option-${activeSuggestionIndex}` : undefined}
                                 style={{
-                                    paddingRight: manualOrder.client_name.length >= 3 ? '40px' : undefined,
+                                    paddingRight: manualOrder.client_name.length >= 2 ? '40px' : undefined,
                                 }}
                             />
-                            {manualOrder.client_name.length >= 3 && validationIcon}
+                            {manualOrder.client_name.length >= 2 && validationIcon}
                             {clientSuggestionsList('manual-order-client-suggestions')}
                         </div>
                     </div>
@@ -821,11 +1093,18 @@ const ClientForm = ({
                                 value={manualOrder.client_phone}
                                 onChange={handlePhoneChange}
                                 style={{
-									...(manualOrder.client_phone ? getInputStyle(phoneValid) : {}),
-									paddingRight: manualOrder.client_phone && phoneValid ? '40px' : undefined,
+									...(phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix)
+										? getInputStyle(phoneValid)
+										: {}),
+									paddingRight:
+										phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix) && phoneValid
+											? '40px'
+											: undefined,
                                 }}
                             />
-							{manualOrder.client_phone && phoneValid ? validationIcon : null}
+							{phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix) && phoneValid
+								? validationIcon
+								: null}
                         </div>
                     </label>
                     </div>
@@ -838,17 +1117,17 @@ const ClientForm = ({
                     </p>
 
                     <div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
-						{settingsFulfillments.pickup !== false ? <Button variant="default"
+						{settingsFulfillments.pickup !== false ? <Button variant="outline"
                             type="button"
-                            className={cn(toggleBaseClass, isPickup && selectedToggleActiveClass)}
+                            className={cn('manual-order-toggle', toggleBaseClass, isPickup && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('pickup')}
                         >
                             <Store size={16} />
                             Local / Retiro
 						</Button> : null}
-						{settingsFulfillments.delivery !== false ? <Button variant="default"
+						{settingsFulfillments.delivery !== false ? <Button variant="outline"
                             type="button"
-                            className={cn(toggleBaseClass, isDelivery && selectedToggleActiveClass)}
+                            className={cn('manual-order-toggle', toggleBaseClass, isDelivery && selectedToggleActiveClass)}
                             onClick={() => handleOrderTypeChange('delivery')}
                         >
                             <Truck size={16} />
@@ -856,6 +1135,7 @@ const ClientForm = ({
 						</Button> : null}
                     </div>
 
+                    <div className="mt-auto pt-1">
                     {deliveryFields}
 
 					{showQuickSalePaymentChoice ? (
@@ -865,17 +1145,17 @@ const ClientForm = ({
 							</p>
 							<div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
 								<Button
-									variant="default"
+									variant="outline"
 									type="button"
-									className={cn(toggleBaseClass, !quickSalePaymentActive && selectedToggleActiveClass)}
+									className={cn('manual-order-toggle', toggleBaseClass, !quickSalePaymentActive && selectedToggleActiveClass)}
 									onClick={() => onSelectQuickSaleUnpaid?.()}
 								>
 									No pagado
 								</Button>
 								<Button
-									variant="default"
+									variant="outline"
 									type="button"
-									className={cn(toggleBaseClass, quickSalePaymentActive && selectedToggleActiveClass)}
+									className={cn('manual-order-toggle', toggleBaseClass, quickSalePaymentActive && selectedToggleActiveClass)}
 									onClick={() => onSelectQuickSalePaid?.()}
 								>
 									<Banknote size={16} aria-hidden />
@@ -891,6 +1171,7 @@ const ClientForm = ({
 							)}
 						</div>
 					) : null}
+                    </div>
                 </div>
             </div>
         </div>

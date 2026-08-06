@@ -9,14 +9,19 @@ import AdminIconSlot from '../AdminIconSlot';
 import { cn } from '@/lib/utils';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { Button } from "@/components/ui/button";
-import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale, tileRadiusClass, activeStateClass } from './manualOrderStyles';
+import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale, toggleBaseClass } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
 import { parseMoneyInput, majorToMinor, minorToMajor, formatMinor } from '@/lib/money/minor-units';
 import { settlementToAccountingMinor, validatePaymentLines } from '../../domain/payment-methods';
+import DualCurrencyAmount from './DualCurrencyAmount';
 
-const sectionCardClass = 'manual-order-step-card rounded-[16px] border border-gc-border bg-gc-page p-4';
+const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 const inputClass =
-    'w-full rounded-[12px] border border-gc-border bg-gc-card px-3.5 py-3 text-sm text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15';
+    `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
+const hintClass =
+    `mt-2 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
+const billChipClass =
+    `rounded-[12px] border border-gc-border bg-gc-card px-2.5 py-1.5 ${textScale.micro} font-bold text-gc-text shadow-none transition-colors hover:!border-gc-accent hover:!text-gc-accent`;
 const confirmBtnClass = cn(
     primaryActionButtonClass,
     'manual-order-checkout-actions__confirm w-full flex-1',
@@ -153,22 +158,30 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className={`grid grid-cols-1 ${spacing.compact} sm:grid-cols-2`}>
                 {methods.map((method) => {
                     const active = lines.some((line) => line.methodId === method.id);
                     const conversionMissing = method.currency !== currency && !exchangeRate;
                     const meta = `${method.currency}${method.evidencePolicy === 'required' ? ' · comprobante' : ''}`;
                     return (
-                        <Button variant={active ? 'default' : 'outline'} type="button" key={method.id}
-                            className="h-auto min-h-[52px] min-w-0 flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left"
-                            onClick={() => toggleMethod(method)} disabled={conversionMissing || !quote}
+                        <Button
+                            variant="outline"
+                            type="button"
+                            key={method.id}
+                            className={cn(
+                                'manual-order-toggle h-auto min-h-[52px] min-w-0 flex-col items-start justify-center gap-0.5 px-3 py-2.5 text-left',
+                                toggleBaseClass,
+                                active && selectedToggleActiveClass,
+                            )}
+                            onClick={() => toggleMethod(method)}
+                            disabled={conversionMissing || !quote}
                             title={conversionMissing ? `Configura la tasa ${method.currency}/${currency}` : undefined}
                             aria-pressed={active}
                         >
                             <span className="w-full truncate text-sm font-semibold leading-tight">{method.label}</span>
                             <span className={cn(
                                 'w-full truncate text-xs font-normal leading-tight',
-                                active ? 'text-white/80' : 'text-gc-text-muted',
+                                active ? 'text-gc-accent/80' : 'text-gc-text-muted',
                             )}>
                                 {meta}
                             </span>
@@ -200,9 +213,9 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 							</label>
 						) : null}
 						{method.rail === 'cash' && Array.isArray(manualOrder.cashDenominations?.[foreign ? method.currency : currency]) ? (
-							<div className="mt-2 flex flex-wrap gap-2">
+							<div className={`mt-2 flex flex-wrap ${spacing.compact}`}>
 								{manualOrder.cashDenominations[foreign ? method.currency : currency].map((amount) => (
-									<Button key={amount} variant="outline" type="button" className="min-h-[44px] rounded-full"
+									<Button key={amount} variant="outline" type="button" className={billChipClass}
 										onClick={() => {
 											const tenderCurrency = method.currency;
 											const parsed = parseMoneyInput(String(amount), {
@@ -230,12 +243,20 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
                 );
             })}
             {quote ? (
-                <p role="status" aria-live="polite" className={cn(
-					'text-sm font-semibold',
-					paymentOptional && lines.length === 0
-						? 'text-gc-text-muted'
-						: validation.valid ? 'text-gc-success' : 'text-gc-danger',
-				)}>
+                <p
+					role="status"
+					aria-live="polite"
+					className={cn(
+						paymentOptional && lines.length === 0
+							? hintClass
+							: cn(
+								`rounded-[12px] border px-3 py-2.5 ${textScale.body} font-semibold`,
+								validation.valid
+									? 'border-gc-success/30 bg-gc-success/10 text-gc-success'
+									: 'border-gc-danger/30 bg-gc-danger/10 text-gc-danger',
+							),
+					)}
+				>
                     {paymentOptional && lines.length === 0
 						? 'Sin método seleccionado: el pedido quedará pendiente.'
 						: validation.valid
@@ -244,7 +265,7 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 								? `Falta ${formatMinor(remainingMinor, { currency, locale: manualOrder.locale, fractionDigits })}`
 								: `Sobra ${formatMinor(Math.abs(remainingMinor), { currency, locale: manualOrder.locale, fractionDigits })}`}
                 </p>
-            ) : <p role="status" className="text-sm text-gc-text-muted">Esperando cotización válida…</p>}
+            ) : <p role="status" className={hintClass}>Esperando cotización válida…</p>}
         </div>
     );
 }
@@ -385,10 +406,10 @@ const PaymentDetails = ({
     };
 
     const paymentBtnClass = (active) => cn(
-        `flex min-h-[78px] flex-col items-center justify-center gap-2 ${tileRadiusClass} p-3 ${textScale.body} font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45`,
-        active
-            ? activeStateClass
-            : 'bg-gc-muted text-gc-text-muted hover:bg-gc-border/60',
+        'manual-order-toggle manual-order-payment-method-toggle',
+        toggleBaseClass,
+        'min-h-[64px] flex-col gap-1.5 px-2 py-2.5',
+        active && selectedToggleActiveClass,
     );
 
     return (
@@ -417,58 +438,62 @@ const PaymentDetails = ({
 						/>
                 ) : <>
 				<div className={`grid grid-cols-1 ${spacing.compact} min-[430px]:grid-cols-3`}>
-                    <Button variant="default"
+                    <Button variant="outline"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tienda')}
                         onClick={() => handlePaymentTypeSelect('tienda')}
                         disabled={paymentMethodsDisabled}
+                        aria-pressed={!isMixed && manualOrder.payment_type === 'tienda'}
                     >
-                        <Store size={24} />
+                        <Store size={18} aria-hidden />
 						Efectivo {accountingCurrency}
                     </Button>
-                    <Button variant="default"
+                    <Button variant="outline"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'tarjeta')}
                         onClick={() => handlePaymentTypeSelect('tarjeta')}
                         disabled={paymentMethodsDisabled}
+                        aria-pressed={!isMixed && manualOrder.payment_type === 'tarjeta'}
                     >
-                        <CreditCard size={24} />
+                        <CreditCard size={18} aria-hidden />
 						Tarjeta {accountingCurrency}
                     </Button>
-                    <Button variant="default"
+                    <Button variant="outline"
                         type="button"
                         className={paymentBtnClass(!isMixed && manualOrder.payment_type === 'online')}
                         onClick={() => handlePaymentTypeSelect('online')}
                         disabled={paymentMethodsDisabled}
+                        aria-pressed={!isMixed && manualOrder.payment_type === 'online'}
                     >
-                        <ReceiptIcon size={24} />
+                        <ReceiptIcon size={18} aria-hidden />
 						{isReceipt ? 'Transf.' : 'Transferencia'} {accountingCurrency}
                     </Button>
                 </div>
-                <Button variant="default"
+                <Button variant="outline"
                     type="button"
                     className={cn(
-                        `mt-2.5 inline-flex min-h-[42px] w-full items-center justify-center ${spacing.compact} rounded-[12px] border border-dashed px-3 py-2 ${textScale.micro} font-semibold transition-colors`,
-                        isMixed
-                            ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
-                            : 'border-gc-border bg-transparent text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-accent',
+                        'manual-order-toggle mt-2.5 w-full',
+                        toggleBaseClass,
+                        'min-h-[42px] border-dashed',
+                        isMixed && selectedToggleActiveClass,
                     )}
                     onClick={handlePaymentModeToggle}
+                    aria-pressed={isMixed}
                 >
                     <Split size={16} aria-hidden />
                     {isReceipt ? 'Pago mixto' : 'Pago mixto (efectivo + tarjeta)'}
                 </Button>
-				{String(manualOrder.locale ?? '').toLowerCase().startsWith('es-ve') ? (
-					<p className="mt-2 text-xs leading-relaxed text-gc-text-muted">
-						Moneda contable: <strong>{accountingCurrency}</strong>. Los pagos en VES y su tasa aparecen al activar Pedidos V2 para la sucursal.
+				{manualOrder.v2Enabled && String(manualOrder.locale ?? '').toLowerCase().startsWith('es-ve') ? (
+					<p className={`mt-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+						Contable: {accountingCurrency}. Pagos en VES con Pedidos V2.
 					</p>
 				) : null}
 	                </>}
 					{paymentOptional && !manualOrder.v2Enabled
 						&& !['tienda', 'tarjeta', 'online'].includes(manualOrder.payment_type)
 						&& manualOrder.payment_mode !== 'mixed' ? (
-						<p className="mt-2 text-sm text-gc-text-muted" role="status">
-							Sin método seleccionado: el pedido quedará pendiente.
+						<p className={hintClass} role="status">
+							Sin método seleccionado: el pedido quedará pendiente para cobrar después.
 						</p>
 					) : null}
 	            </div>
@@ -485,7 +510,7 @@ const PaymentDetails = ({
 	                    </p>
 	                    <label
 	                        htmlFor="receipt-upload"
-	                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[4px] border border-dashed border-gc-border bg-gc-muted/50 p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
+	                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[12px] border border-dashed border-gc-border bg-gc-page p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
 	                    >
 	                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
 	                        <span className={`${textScale.body} font-medium text-gc-text-muted`}>
@@ -500,11 +525,11 @@ const PaymentDetails = ({
 	                        className="hidden"
 	                    />
 	                    {receiptPreview && (
-	                        <div className="relative mt-2.5 overflow-hidden rounded-[4px] border border-gc-border">
+	                        <div className="relative mt-2.5 overflow-hidden rounded-[12px] border border-gc-border">
 	                            <img src={receiptPreview} alt="Preview comprobante" className="block max-h-[150px] w-full object-cover" />
 	                            <Button variant="destructive"
 	                                type="button"
-	                                className={`absolute right-2 top-2 rounded-[4px] bg-gc-danger/90 px-2 py-1 ${textScale.micro} font-bold text-white`}
+	                                className={`absolute right-2 top-2 rounded-[12px] bg-gc-danger/90 px-2 py-1 ${textScale.micro} font-bold text-white`}
 	                                onClick={(e) => {
 	                                    e.preventDefault();
 	                                    removeReceipt();
@@ -588,7 +613,7 @@ const PaymentDetails = ({
                             <Button variant="outline"
                                 key={bill}
                                 type="button"
-                                className={`rounded-full border border-gc-border bg-gc-card px-2.5 py-1 ${textScale.micro} font-bold text-gc-text transition-colors hover:border-gc-accent hover:text-gc-accent`}
+                                className={billChipClass}
                                 onClick={() => handleBillShortcut(bill)}
                             >
 								{formatAccountingMoney(bill)}
@@ -598,7 +623,7 @@ const PaymentDetails = ({
                     {cashDue > 0 && manualOrder.cash_tendered !== '' ? (
                         <div
                             className={cn(
-                                'mt-2.5 flex items-center justify-between rounded-[4px] border px-3 py-2.5',
+                                'mt-2.5 flex items-center justify-between rounded-[12px] border px-3 py-2.5',
                                 paymentValidation.valid
                                     ? 'border-gc-success/45 bg-gc-success/10'
                                     : 'border-gc-danger/45 bg-gc-danger/10',
@@ -672,7 +697,17 @@ const PaymentDetails = ({
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
                     <span className={`${textScale.micro} font-extrabold uppercase tracking-wide text-gc-text-muted`}>Total a pagar</span>
-					<span className={`${textScale.price} font-black text-gc-price`}>{formatAccountingMoney(totalToPay)}</span>
+					<DualCurrencyAmount
+						amount={totalToPay}
+						currency={accountingCurrency}
+						exchangeRate={branchDeliveryCfg?.exchangeRate}
+						locale={manualOrder.locale}
+						formatPrimary={formatAccountingMoney}
+						layout="stack"
+						size="lg"
+						align="end"
+						primaryClassName="!text-gc-price"
+					/>
                 </div>
             </div>
             ) : hideCouponSection ? (

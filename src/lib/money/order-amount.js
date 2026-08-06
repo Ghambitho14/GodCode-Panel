@@ -1,12 +1,14 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { normalizeDeliverySettings } from '@/lib/delivery-settings';
 import {
 	isVenezuelaCountry,
 	resolveEffectiveCountry,
 	resolveEffectiveCurrency,
 } from '@/lib/geo/tenant-locale';
+import { getCachedBcvRate } from '@/lib/money/bcv-rate';
 import {
 	parseExchangeRate,
+	resolveCheckoutDualCurrency,
 	resolvePaymentAmountCopyValue,
 	resolvePaymentAmountDisplay,
 	resolvePaymentAmountMessageValue,
@@ -26,6 +28,25 @@ export function extractExchangeRateFromDeliverySettings(deliverySettingsRaw) {
 }
 
 /**
+ * Tasa para montos duales en ticket: configurada → cache BCV (mismo fallback que DualCurrencyAmount).
+ *
+ * @param {{
+ *   branch?: { country?: string | null; delivery_settings?: unknown } | null;
+ *   company?: { country?: string | null } | null;
+ *   exchangeRate?: unknown;
+ * }} [opts]
+ * @returns {number | null}
+ */
+export function resolveTicketExchangeRate(opts = {}) {
+	const configured = parseExchangeRate(opts.exchangeRate)
+		?? extractExchangeRateFromDeliverySettings(opts.branch?.delivery_settings);
+	if (configured != null) return configured;
+	const country = resolveEffectiveCountry(opts.branch, opts.company);
+	if (!isVenezuelaCountry(country)) return null;
+	return parseExchangeRate(getCachedBcvRate());
+}
+
+/**
  * @param {{
  *   amountUsd?: unknown;
  *   amount?: unknown;
@@ -33,7 +54,7 @@ export function extractExchangeRateFromDeliverySettings(deliverySettingsRaw) {
  *   company?: { country?: string | null; currency?: string | null } | null;
  *   paymentMethod?: unknown;
  *   exchangeRate?: unknown;
- *   context?: 'display' | 'copy' | 'whatsapp' | 'plain';
+ *   context?: 'display' | 'copy' | 'whatsapp' | 'plain' | 'ticket';
  *   order?: { payment_method_specific?: unknown; total?: unknown; currency?: unknown } | null;
  * }} opts
  * @returns {string}
@@ -49,6 +70,29 @@ export function formatOrderAmount(opts = {}) {
 		?? extractExchangeRateFromDeliverySettings(branch?.delivery_settings);
 	const context = opts.context ?? 'display';
 	const currency = resolveEffectiveCurrency(branch, company);
+
+	// Ticket: dual USD≈Bs. para VE (tasa configurada o BCV en cache).
+	// Se evalúa antes del early-return no-VE por si el country viene vacío
+	// pero ya hay tasa operativa (mismo criterio que DualCurrencyAmount).
+	if (context === 'ticket') {
+		const rate = resolveTicketExchangeRate({ branch, company, exchangeRate });
+		const isVe = isVenezuelaCountry(country);
+		const accountingIsUsd = currency === 'USD' || currency === 'US$';
+		const showDual = isVe || (rate != null && accountingIsUsd);
+		if (!showDual) {
+			const fmt = createMoneyFormatter({ currency });
+			return fmt.formatMoney(amountUsd);
+		}
+		const dual = resolveCheckoutDualCurrency({
+			amount: amountUsd,
+			country,
+			exchangeRate: rate,
+			currency: 'USD',
+			forceVenezuela: true,
+		});
+		if (!dual.secondary) return dual.primary;
+		return `${dual.primary} ≈ ${dual.secondary}`;
+	}
 
 	if (!isVenezuelaCountry(country)) {
 		const fmt = createMoneyFormatter({ currency });

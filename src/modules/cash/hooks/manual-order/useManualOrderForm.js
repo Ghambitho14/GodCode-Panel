@@ -177,10 +177,15 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
     const handlePhoneChange = useCallback((e) => {
         let input = e.target.value;
         const prefix = strategy.phonePrefix;
-        if (!input.startsWith(prefix.trim())) {
-            if (input.length < prefix.trim().length + 2) input = prefix;
+        const prefixTrim = prefix.trim();
+        if (!input.startsWith(prefixTrim)) {
+            if (input.length < prefixTrim.length + 2) input = prefix;
         }
         const cleaned = input;
+        const prefixDigits = prefixTrim.replace(/\D/g, '');
+        const valueDigits = cleaned.replace(/\D/g, '');
+        const isPrefixOnly = !valueDigits || valueDigits === prefixDigits;
+
         setForm((prev) => ({
             ...prev,
             client_phone: cleaned,
@@ -189,7 +194,8 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
             } : {}),
         }));
 
-        setPhoneValid(strategy.validatePhone(cleaned));
+        // Prefijo solo (+58) no cuenta como error; el campo sigue siendo opcional.
+        setPhoneValid(isPrefixOnly || strategy.validatePhone(cleaned));
     }, [strategy]);
 
     const applyClientRecord = useCallback(async (client) => {

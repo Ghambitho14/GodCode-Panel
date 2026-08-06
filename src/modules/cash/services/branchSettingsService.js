@@ -7,6 +7,7 @@ import {
 	parseLocalOrderChannels,
 	parseOrdersViewMode,
 } from '@/lib/delivery-settings';
+import { normalizeBranchOrigin } from '@/lib/geo';
 import { isTenantExternalDeliveryAllowed } from '@/lib/company-integration-policy';
 import { getBranchSettings, invalidateBranchSettings } from './branchSettingsCache';
 
@@ -242,9 +243,13 @@ async function fetchBranchSettingsBundle(branchId) {
 function parseBranchOrigin(branch) {
 	const olat = branch.origin_lat != null ? Number(branch.origin_lat) : null;
 	const olng = branch.origin_lng != null ? Number(branch.origin_lng) : null;
+	if (!Number.isFinite(olat) || !Number.isFinite(olng)) {
+		return { lat: null, lng: null };
+	}
+	const normalized = normalizeBranchOrigin(olat, olng, branch.country);
 	return {
-		lat: Number.isFinite(olat) ? olat : null,
-		lng: Number.isFinite(olng) ? olng : null,
+		lat: normalized.lat,
+		lng: normalized.lng,
 	};
 }
 

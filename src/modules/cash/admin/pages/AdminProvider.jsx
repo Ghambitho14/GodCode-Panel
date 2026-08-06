@@ -632,6 +632,8 @@ export const AdminProvider = ({
 		logoUrl,
 		companyName,
 		selectedBranch,
+		companyProfile,
+		branchExchangeRate,
 	});
 
 	useAdminBranchLoadEffects({

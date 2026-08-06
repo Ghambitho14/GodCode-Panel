@@ -90,7 +90,9 @@ export default function ManualOrderCheckoutVisualHarness() {
 	const continueButtonRef = useRef(null);
 	const compact = useCompactViewport();
 	const requestedStep = Number(new URLSearchParams(window.location.search).get('step'));
-	const orderStep = compact ? (requestedStep === 2 ? 2 : 3) : 2;
+	const orderStep = Number.isFinite(requestedStep) && requestedStep >= 1 && requestedStep <= 3
+		? requestedStep
+		: (compact ? 3 : 2);
 	const money = useMemo(() => createOrderMoneyFormatter({ branch, company: companyProfile }), []);
 	const setField = (key) => (value) => setManualOrder((current) => ({ ...current, [key]: value }));
 	const clientValid = manualOrder.client_name.trim().length >= 2;
@@ -168,7 +170,7 @@ export default function ManualOrderCheckoutVisualHarness() {
 		cartItemCount: 4,
 		goNextStep: () => {},
 		goPrevStep: () => {},
-		stepLabels: compact ? ['Productos', 'Cliente', 'Pago'] : ['Productos', 'Cliente y pago'],
+		stepLabels: ['Productos', 'Entrega', 'Pago opcional'],
 	};
 
 	return (
@@ -208,7 +210,7 @@ export default function ManualOrderCheckoutVisualHarness() {
 							<ManualOrderCheckout
 								orderStep={orderStep}
 								setOrderStep={() => {}}
-								wizardStepCount={compact ? 3 : 2}
+								wizardStepCount={3}
 								isCompactNav={compact}
 								isEditMode={false}
 								effectiveOpenMesaMode={false}

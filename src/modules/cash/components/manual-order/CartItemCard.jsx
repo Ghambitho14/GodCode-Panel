@@ -1,9 +1,9 @@
 import React from 'react';
-import { Minus, Plus, StickyNote, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Minus, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
-import { spacing, textScale } from './manualOrderStyles';
+import { textScale } from './manualOrderStyles';
 
 const CartItemCard = ({
     item,
@@ -13,13 +13,17 @@ const CartItemCard = ({
     isItemNoteOpen,
     toggleItemNote,
 	formatMoney: formatMoneyOverride,
+	compact = false,
+	readOnly = false,
 }) => {
 	const { formatMoney: fallbackFormatMoney } = useOrderMoney();
 	const formatMoney = formatMoneyOverride ?? fallbackFormatMoney;
     const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
     const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
     const subtotal = unit * Number(item.quantity || 1);
-    const noteOpen = isItemNoteOpen(item);
+    const noteOpen = !readOnly && isItemNoteOpen?.(item);
+	const noteText = String(item.note ?? '').trim();
+	const controlSize = compact ? 'h-9 w-9 min-h-9 min-w-9' : 'min-h-[40px] min-w-[40px] h-10 w-10';
 
     const handleMinus = (e) => {
         e.stopPropagation();
@@ -41,77 +45,105 @@ const CartItemCard = ({
     };
 
     return (
-        <div key={item.id} className="border-b border-dashed border-gc-border/60 py-2.5 last:border-b-0">
-            {/* Fila principal tipo recibo */}
-            <div className="flex items-center gap-3">
-                <UtensilsCrossed size={14} className="flex-shrink-0 text-gc-text-muted" aria-hidden />
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span className={`${textScale.body} truncate font-medium text-gc-text`} title={item.name}>
-                        {item.name}
-                    </span>
-                    <span className={`${textScale.body} text-gc-text-muted`}>x{item.quantity}</span>
+        <div
+			className={cn(
+				'gc-cart-item border-b border-dashed border-gc-border/50 last:border-b-0',
+				compact || readOnly ? 'py-2.5' : 'py-3',
+			)}
+		>
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className={cn(textScale.body, 'truncate font-semibold leading-snug text-gc-text')} title={item.name}>
+						{readOnly ? (
+							<>
+								<span className="tabular-nums text-gc-text-muted">{item.quantity}× </span>
+								{item.name}
+							</>
+						) : item.name}
+                    </p>
+					{hasDiscount ? (
+						<p className={cn(textScale.micro, 'mt-0.5 text-gc-accent')}>Oferta</p>
+					) : null}
+					{readOnly && noteText ? (
+						<p className={cn(textScale.micro, 'mt-0.5 line-clamp-2 text-gc-text-muted')}>{noteText}</p>
+					) : null}
                 </div>
-                <span className={`${textScale.body} font-bold text-gc-text`}>
+                <span className={cn(textScale.body, 'shrink-0 font-bold tabular-nums text-gc-text')}>
                     {formatMoney(subtotal)}
                 </span>
             </div>
 
-            {/* Controles compactos */}
-            <div className="mt-1.5 flex items-center justify-between pl-7">
-                <div className="flex items-center gap-1">
-                    <Button variant="outline"
+			{!readOnly ? (
+            <div className={cn('mt-2 flex items-center justify-between gap-2', compact && 'mt-1.5')}>
+                <div className="flex items-center gap-1.5 rounded-full border border-gc-border/80 bg-gc-card p-0.5">
+                    <Button
+						variant="outline"
                         type="button"
                         onClick={handleMinus}
-						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border-gc-border bg-gc-card p-0 text-gc-text transition-colors hover:bg-gc-muted"
+						className={cn(
+							'flex items-center justify-center rounded-full border-0 bg-transparent p-0 text-gc-text shadow-none transition-colors hover:bg-gc-muted',
+							controlSize,
+						)}
                         aria-label="Reducir cantidad"
                     >
-                        <Minus size={12} strokeWidth={2.5} />
+                        <Minus size={compact ? 13 : 14} strokeWidth={2.5} />
                     </Button>
-                    <span className={`min-w-[1.25rem] text-center ${textScale.body} font-bold text-gc-text tabular-nums`}>
+                    <span className={cn('min-w-[1.5rem] text-center font-bold tabular-nums text-gc-text', textScale.body)}>
                         {item.quantity}
                     </span>
-                    <Button variant="default"
+                    <Button
+						variant="default"
                         type="button"
                         onClick={handlePlus}
-						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-gc-accent p-0 text-sm leading-none text-white transition-colors hover:bg-gc-accent-hover"
+						className={cn(
+							'flex items-center justify-center rounded-full bg-gc-accent p-0 text-white shadow-none transition-colors hover:bg-gc-accent-hover',
+							controlSize,
+						)}
                         aria-label="Aumentar cantidad"
                     >
-                        <Plus size={12} strokeWidth={2.5} />
+                        <Plus size={compact ? 13 : 14} strokeWidth={2.5} />
                     </Button>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    <Button variant="outline"
+                <div className="flex items-center gap-0.5">
+                    <Button
+						variant="outline"
                         type="button"
                         onClick={(e) => { e.stopPropagation(); toggleItemNote(item.id); }}
                         className={cn(
-							`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border p-0 transition-colors`,
+							'flex items-center justify-center rounded-full border-0 bg-transparent p-0 shadow-none transition-colors',
+							controlSize,
                             (item.note ?? '').length > 0
-                                ? 'border-gc-accent bg-gc-accent/10 text-gc-accent'
-                                : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-accent/30 hover:text-gc-accent',
+                                ? 'text-gc-accent hover:bg-gc-accent/10'
+                                : 'text-gc-text-muted hover:bg-gc-muted hover:text-gc-accent',
                         )}
                         title={(item.note ?? '').length > 0 ? 'Editar comentario' : 'Agregar comentario para cocina'}
                         aria-label={(item.note ?? '').length > 0 ? 'Editar comentario' : 'Agregar comentario para cocina'}
                         aria-pressed={noteOpen}
                     >
-                        <StickyNote size={12} />
+                        <StickyNote size={compact ? 14 : 15} />
                     </Button>
-                    <Button variant="destructive"
+                    <Button
+						variant="destructive"
                         type="button"
                         onClick={handleRemove}
-						className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border-0 bg-gc-card p-0 text-gc-text-muted transition-colors hover:bg-gc-danger/10 hover:text-gc-danger"
+						className={cn(
+							'flex items-center justify-center rounded-full border-0 bg-transparent p-0 text-gc-text-muted shadow-none transition-colors hover:bg-gc-danger/10 hover:text-gc-danger',
+							controlSize,
+						)}
                         title="Eliminar ítem"
                         aria-label="Eliminar ítem"
                     >
-                        <Trash2 size={12} />
+                        <Trash2 size={compact ? 14 : 15} />
                     </Button>
                 </div>
             </div>
+			) : null}
 
-            {noteOpen && (
-                <div className="mt-2 pl-7">
+            {!readOnly && noteOpen && (
+                <div className="mt-2">
                     <textarea
-                        className={`w-full rounded-[4px] border border-gc-border bg-gc-card p-2 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/20`}
+                        className={`w-full rounded-xl border border-gc-border bg-gc-card p-2.5 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/20`}
                         value={item.note ?? ''}
                         onChange={(e) => updateItemNote(item.id, e.target.value)}
                         placeholder="Ej: sin cebolla, salsa aparte. Máx. 140 caracteres."

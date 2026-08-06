@@ -11,7 +11,7 @@ const FRIENDLY_ERRORS = {
 	order_not_found_or_not_allowed: 'El pedido no existe o no tienes acceso.',
 	invalid_delivery_area: 'La zona de delivery seleccionada ya no está disponible.',
 	delivery_minimum_subtotal: 'El subtotal no alcanza el mínimo configurado para delivery.',
-	invalid_item_price: 'El total del pedido no coincide con el catálogo y la tarifa de delivery configurada. Vuelve a cotizar.',
+	invalid_item_price: 'El total del pedido no coincide con el catálogo (precios o envío). Actualiza el carrito e intenta de nuevo.',
 };
 
 function normalizeRpcError(error) {

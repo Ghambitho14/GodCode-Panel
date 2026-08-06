@@ -35,7 +35,7 @@ export function createFmtOrder(printOptions = {}) {
 		exchangeRate,
 		amountUsd: amount,
 		paymentMethod: order?.payment_method_specific,
-		context: 'display',
+		context: 'ticket',
 	});
 }
 

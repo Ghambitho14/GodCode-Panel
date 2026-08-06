@@ -278,10 +278,53 @@ export function computeDeliveryFeeForForm(branchDeliveryCfg, subtotal, {
 		return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
 	}
 
+	if (pricing === 'external') return 0;
+
 	const kmRaw = deliveryKm === '' || deliveryKm == null ? 0 : Number(String(deliveryKm).replace(',', '.'));
 	const safeKm = Number.isFinite(kmRaw) && kmRaw >= 0 ? kmRaw : 0;
 	const r = computeDeliveryFee(branchDeliveryCfg, safeKm, safeSubtotal);
 	return r.fee >= 0 ? Math.round(r.fee * 100) / 100 : null;
+}
+
+/** Mensaje accionable para códigos de error de computeDeliveryFee (-1..-4). */
+export function describeDeliveryFeeError(feeCode, branchDeliveryCfg) {
+	const code = Number(feeCode);
+	if (code === -1) {
+		const maxKm = branchDeliveryCfg?.maxDeliveryKm;
+		return maxKm != null
+			? `La distancia supera el máximo permitido (${maxKm} km).`
+			: 'La distancia supera el máximo permitido para delivery.';
+	}
+	if (code === -2) {
+		const minOrder = branchDeliveryCfg?.minOrderSubtotal;
+		return minOrder != null
+			? `El pedido no alcanza el mínimo para delivery (${minOrder}).`
+			: 'El pedido no alcanza el mínimo para delivery.';
+	}
+	if (code === -3) return 'Selecciona la zona de entrega.';
+	if (code === -4) return 'La zona seleccionada ya no está disponible. Elige otra zona.';
+	return null;
+}
+
+/** Resultado crudo de cotización (fee >= 0 o código de error). */
+export function quoteDeliveryFeeRaw(branchDeliveryCfg, subtotal, {
+	orderType = 'pickup',
+	namedAreaId = '',
+	deliveryKm = '',
+} = {}) {
+	if (!branchDeliveryCfg || orderType !== 'delivery') {
+		return { fee: 0, waivedFreeShipping: false };
+	}
+	const safeSubtotal = Number(subtotal) || 0;
+	const pricing = effectiveDeliveryPricingMode(branchDeliveryCfg);
+	if (pricing === 'external') return { fee: 0, waivedFreeShipping: false };
+	const zoneId = String(namedAreaId ?? '').trim();
+	if (pricing === 'named') {
+		return computeDeliveryFee(branchDeliveryCfg, 0, safeSubtotal, { namedAreaId: zoneId || null });
+	}
+	const kmRaw = deliveryKm === '' || deliveryKm == null ? 0 : Number(String(deliveryKm).replace(',', '.'));
+	const safeKm = Number.isFinite(kmRaw) && kmRaw >= 0 ? kmRaw : 0;
+	return computeDeliveryFee(branchDeliveryCfg, safeKm, safeSubtotal);
 }
 
 /** La zona se elige explícitamente y representa el destino tarifario completo. */
@@ -342,6 +385,7 @@ export function validateManualDeliveryDetails(form, branchDeliveryCfg) {
 	const zoneId = String(form?.delivery_named_area_id ?? '').trim();
 	const address = sanitizeManualOrderInput(form?.delivery_address);
 	const reference = sanitizeManualOrderInput(form?.delivery_reference);
+	const subtotal = Number(form?.total ?? form?.items_subtotal ?? 0) || 0;
 
 	if (pricing === 'named') {
 		if (!zoneId) return 'Selecciona la zona de entrega.';
@@ -352,13 +396,21 @@ export function validateManualDeliveryDetails(form, branchDeliveryCfg) {
 			if (reference.length < 3) {
 				return 'Indica una referencia dentro de la zona: calle, número, casa o punto de referencia.';
 			}
-			return null;
+		} else if (address.length < 5) {
+			return 'La dirección de delivery es obligatoria.';
 		}
-		if (address.length < 5) return 'La dirección de delivery es obligatoria.';
-		return null;
+	} else if (address.length < 5) {
+		return 'La dirección de delivery es obligatoria.';
 	}
 
-	if (address.length < 5) return 'La dirección de delivery es obligatoria.';
+	const quote = quoteDeliveryFeeRaw(branchDeliveryCfg, subtotal, {
+		orderType: 'delivery',
+		namedAreaId: zoneId,
+		deliveryKm: form?.delivery_km,
+	});
+	const feeError = describeDeliveryFeeError(quote.fee, branchDeliveryCfg);
+	if (feeError) return feeError;
+
 	return null;
 }
 

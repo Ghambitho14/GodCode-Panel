@@ -33,4 +33,25 @@ describe('formatOrderAmount', () => {
 		expect(out).toContain('$10.00');
 		expect(out).toContain('Bs.');
 	});
+
+	it('ticket muestra USD ≈ Bs. cuando hay tasa', () => {
+		const out = formatOrderAmount({
+			amountUsd: 10,
+			branch: { country: 'VE' },
+			exchangeRate: 40,
+			context: 'ticket',
+		});
+		expect(out).toContain('≈');
+		expect(out).toContain('Bs.');
+	});
+
+	it('ticket sin tasa en VE queda solo USD', () => {
+		const out = formatOrderAmount({
+			amountUsd: 10,
+			branch: { country: 'VE' },
+			context: 'ticket',
+		});
+		expect(out).not.toContain('≈');
+		expect(out).not.toContain('Bs.');
+	});
 });

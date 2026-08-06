@@ -39,12 +39,16 @@ import {
 	resolveOpenMesaClientName,
 	buildManualDeliveryPayload,
 	sanitizeManualOrderInput,
+	validateManualDeliveryDetails,
 } from './manual-order/manualOrderShared';
 
 function hasMesaSessionClientName(manualOrder) {
+	if (isOpenMesaMeseroMode(manualOrder)) {
+		return String(manualOrder.client_name ?? '').trim().length >= 2;
+	}
 	return (
-		Boolean(String(manualOrder.selected_client_id ?? '').trim()) ||
-		Boolean(String(manualOrder.client_name ?? '').trim())
+		Boolean(String(manualOrder.selected_client_id ?? '').trim())
+		|| String(manualOrder.client_name ?? '').trim().length >= 2
 	);
 }
 
@@ -363,7 +367,16 @@ export const useOrderEdit = (
 	};
 
 	const handlePhoneChange = (e) => {
-		const cleaned = e.target.value;
+		let cleaned = e.target.value;
+		const prefix = strategy.phonePrefix;
+		const prefixTrim = String(prefix ?? '').trim();
+		if (prefixTrim && !cleaned.startsWith(prefixTrim) && cleaned.length < prefixTrim.length + 2) {
+			cleaned = prefix;
+		}
+		const prefixDigits = prefixTrim.replace(/\D/g, '');
+		const valueDigits = cleaned.replace(/\D/g, '');
+		const isPrefixOnly = !valueDigits || valueDigits === prefixDigits;
+
 		setManualOrder((prev) => ({
 			...prev,
 			client_phone: cleaned,
@@ -371,7 +384,7 @@ export const useOrderEdit = (
 				selected_client_id: '',
 			} : {}),
 		}));
-		setPhoneValid(normalizeInternationalPhone(cleaned, countryProfile.countryCode).valid);
+		setPhoneValid(isPrefixOnly || normalizeInternationalPhone(cleaned, countryProfile.countryCode).valid);
 	};
 
 	const handleFileChange = (e) => {
@@ -572,11 +585,18 @@ export const useOrderEdit = (
 			}
 		} else if (
 			!manualOrder.client_name ||
-			manualOrder.client_name.trim().length < 3 ||
+			manualOrder.client_name.trim().length < 2 ||
 			manualOrder.items.length === 0
 		) {
 			showNotify?.('Faltan datos obligatorios (nombre o items).', 'error');
 			return;
+		}
+		if (manualOrder.order_type === 'delivery') {
+			const deliveryError = validateManualDeliveryDetails(manualOrder, branchDeliveryCfg);
+			if (deliveryError) {
+				showNotify?.(deliveryError, 'error');
+				return;
+			}
 		}
 		const phoneRaw = String(manualOrder.client_phone || '').trim();
 		if (phoneRaw && !normalizeInternationalPhone(phoneRaw, countryProfile.countryCode).valid) {
@@ -645,6 +665,7 @@ export const useOrderEdit = (
 				? normalizePaymentBreakdown(initialOrder.payment_breakdown)
 				: null;
 
+			const deliveryPayload = buildManualDeliveryPayload(manualOrder, branchDeliveryCfg);
 			const sanitizedPatch = {
 				client_name: clientName,
 				client_phone: isLocalSession
@@ -667,22 +688,14 @@ export const useOrderEdit = (
 				delivery_address_base:
 					manualOrder.order_type === 'delivery' ? initialOrder.delivery_address : null,
 				delivery_address:
-					manualOrder.order_type === 'delivery'
-						? sanitizeManualOrderInput(manualOrder.delivery_address) || ''
-						: '',
+					manualOrder.order_type === 'delivery' ? (deliveryPayload.address || '') : '',
 				delivery_reference:
-					manualOrder.order_type === 'delivery'
-						? sanitizeManualOrderInput(manualOrder.delivery_reference) || ''
-						: '',
+					manualOrder.order_type === 'delivery' ? (deliveryPayload.reference || '') : '',
 				delivery_named_area_id:
-					manualOrder.order_type === 'delivery'
-						? String(manualOrder.delivery_named_area_id ?? '').trim() || null
-						: null,
+					manualOrder.order_type === 'delivery' ? deliveryPayload.zoneId : null,
 				delivery_fee: manualOrder.order_type === 'delivery' ? Number(manualOrder.delivery_fee) || 0 : 0,
 				delivery_km:
-					manualOrder.order_type === 'delivery' && manualOrder.delivery_km !== ''
-						? Number(String(manualOrder.delivery_km).replace(',', '.'))
-						: null,
+					manualOrder.order_type === 'delivery' ? deliveryPayload.km : null,
 				coupon_code: sanitizeManualOrderInput(manualOrder.coupon_code) || '',
 				payment_breakdown: isLocalSession
 					? initialBreakdown

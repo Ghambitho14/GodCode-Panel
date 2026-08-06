@@ -339,6 +339,9 @@ export const ordersService = {
                 const discountPrice = Number(dbPriceRow.discount_price || 0);
                 const hasDiscount = Boolean(dbPriceRow.has_discount) && discountPrice > 0;
                 const effectivePrice = hasDiscount ? discountPrice : basePrice;
+                // El RPC valida `price` contra el precio de lista (no el efectivo).
+                // Hay que mandar base + flags de descuento; el total sí usa el efectivo.
+                if (!Number.isFinite(basePrice) || basePrice < 0) continue;
                 if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) continue;
 
                 const requested = requestedMap.get(productId);
@@ -348,9 +351,9 @@ export const ordersService = {
                     id: productId,
                     name: String(productNames.get(productId) || 'Producto'),
                     quantity: requested.quantity,
-                    price: effectivePrice,
-                    has_discount: false,
-                    discount_price: null,
+                    price: basePrice,
+                    has_discount: hasDiscount,
+                    discount_price: hasDiscount ? discountPrice : null,
                     description: requested.description,
                     note: requested.note,
                     manual_order_source: null,

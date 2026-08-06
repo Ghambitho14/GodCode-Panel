@@ -188,8 +188,15 @@ export const useManualOrder = (
 	const handleUpdateDeliveryNamedAreaId = useCallback((value) => {
 		updateDeliveryNamedAreaId(value);
 		if (!branchDeliveryCfg || form.order_type !== 'delivery') return;
-		const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, { orderType: 'delivery', namedAreaId: value, deliveryKm: form.delivery_km });
-		updateDeliveryFee(fee ?? 0);
+		const fee = computeDeliveryFeeForForm(branchDeliveryCfg, total, {
+			orderType: 'delivery',
+			namedAreaId: value,
+			deliveryKm: form.delivery_km,
+		});
+		// No forzar 0 cuando la cotización falla (mínimo, zona inválida, etc.):
+		// se deja el fee previo y validateManualDeliveryDetails bloquea el avance.
+		if (fee != null) updateDeliveryFee(fee);
+		else if (!String(value ?? '').trim()) updateDeliveryFee(0);
 	}, [updateDeliveryNamedAreaId, updateDeliveryFee, branchDeliveryCfg, form.order_type, form.delivery_km, total]);
 
 	const handleUpdateDeliveryKm = useCallback((value) => {

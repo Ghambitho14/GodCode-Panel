@@ -11,6 +11,7 @@ import { invalidateBranchSettings } from "@/modules/cash/services/branchSettings
 import { subscribeBranchUpdate } from "@/modules/cash/services/branchRealtimeHub";
 import { createMoneyFormatter } from "@/shared/utils/money";
 import { isVenezuelaCountry, resolveEffectiveCountry } from "@/lib/geo/tenant-locale";
+import { normalizeBranchOrigin } from "@/lib/geo";
 import { fetchBcvRate } from "@/lib/money/bcv-rate";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import AdminDeliveryZonesPanel from "@/modules/cash/admin/menu/delivery/AdminDeliveryZonesPanel";
@@ -324,13 +325,32 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 			};
 			const olat = draft.originLat.trim();
 			const olng = draft.originLng.trim();
-			payload.originLat = olat === "" ? null : Number(olat);
-			payload.originLng = olng === "" ? null : Number(olng);
-			if (olat !== "" && !Number.isFinite(payload.originLat)) {
-				delete payload.originLat;
-			}
-			if (olng !== "" && !Number.isFinite(payload.originLng)) {
-				delete payload.originLng;
+			if (olat !== "" || olng !== "") {
+				const country = resolveEffectiveCountry(selectedBranch, companyProfile);
+				const normalized = normalizeBranchOrigin(
+					olat === "" ? NaN : Number(olat),
+					olng === "" ? NaN : Number(olng),
+					country,
+				);
+				if (normalized.warning && !normalized.fixed && (normalized.lat == null || normalized.lng == null)) {
+					showNotify(normalized.warning, "error");
+					return;
+				}
+				if (normalized.fixed && normalized.lat != null && normalized.lng != null) {
+					setDraft((d) => ({
+						...d,
+						originLat: String(normalized.lat),
+						originLng: String(normalized.lng),
+					}));
+					showNotify(normalized.warning || "Se corrigió la ubicación del local.", "warning");
+				} else if (normalized.warning) {
+					showNotify(normalized.warning, "warning");
+				}
+				payload.originLat = normalized.lat;
+				payload.originLng = normalized.lng;
+			} else {
+				payload.originLat = null;
+				payload.originLng = null;
 			}
 			const payKeys = buildDefaultDeliveryPaymentKeys(selectedBranch?.payment_methods);
 			// Usar ref para evitar estado "stale" si el usuario toca chip y guarda muy rápido.

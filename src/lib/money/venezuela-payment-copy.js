@@ -162,4 +162,44 @@ export function resolvePaymentAmountMessageValue(opts = {}) {
 	return usdLabel;
 }
 
+/**
+ * Dual USD + Bs. para totales de checkout (VE).
+ * El primario es siempre la moneda contable; el secundario es VES si hay tasa.
+ * Si hay tasa operativa (Bs/USD) y la contabilidad es USD, mostramos dual
+ * aunque el country code venga vacío o mal tipado.
+ *
+ * @param {{
+ *   amount?: unknown;
+ *   country?: unknown;
+ *   exchangeRate?: unknown;
+ *   currency?: unknown;
+ *   formatPrimary?: ((amount: unknown) => string) | null;
+ *   forceVenezuela?: boolean;
+ * }} [opts]
+ * @returns {{ primary: string, secondary: string | null }}
+ */
+export function resolveCheckoutDualCurrency(opts = {}) {
+	const amount = opts.amount ?? 0;
+	const currency = String(opts.currency ?? 'USD').trim().toUpperCase() || 'USD';
+	const primary = typeof opts.formatPrimary === 'function'
+		? opts.formatPrimary(amount)
+		: formatCartMoney(amount, currency);
+
+	const vesAmount = convertUsdToVes(amount, opts.exchangeRate);
+	if (vesAmount == null) {
+		return { primary, secondary: null };
+	}
+
+	const isVe = opts.forceVenezuela === true || isVenezuelaCountry(opts.country);
+	const accountingIsUsd = currency === 'USD' || currency === 'US$';
+	if (!isVe && !accountingIsUsd) {
+		return { primary, secondary: null };
+	}
+
+	return {
+		primary,
+		secondary: formatCartMoney(vesAmount, 'VES'),
+	};
+}
+
 export { isVenezuelaCountry };

@@ -6,7 +6,7 @@ import { normalizeCurrencyCode } from '@/shared/utils/money';
  */
 export function isVenezuelaCountry(country) {
 	const c = String(country ?? '').trim().toLowerCase();
-	return c === 've' || c === 'venezuela';
+	return c === 've' || c === 'ven' || c === 'venezuela';
 }
 
 /**

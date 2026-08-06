@@ -68,6 +68,8 @@ export function useAdminOrdersRealtime({
 	logoUrl = null,
 	companyName = null,
 	selectedBranch = null,
+	companyProfile = null,
+	branchExchangeRate = null,
 }) {
 	const inventoryRefreshTimerRef = useRef(null);
 	const handleRealtimeEventRef = useRef(/** @type {(payload: unknown) => void} */ (() => {}));
@@ -128,6 +130,9 @@ export function useAdminOrdersRealtime({
 								variant: 'cashier',
 								branchAddress: selectedBranch?.address ?? null,
 								companyName: companyName ?? null,
+								branch: selectedBranch,
+								company: companyProfile,
+								exchangeRate: branchExchangeRate,
 							},
 						);
 					} catch (err) {
@@ -221,6 +226,8 @@ export function useAdminOrdersRealtime({
 		logoUrl,
 		companyName,
 		selectedBranch,
+		companyProfile,
+		branchExchangeRate,
 	]);
 
 	useEffect(() => {

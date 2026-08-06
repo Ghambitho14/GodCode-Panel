@@ -102,6 +102,20 @@ function scrollWithinCatalog(el, offsetTop = 12) {
     scrollParent.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
 }
 
+function scrollChipIntoNav(chip, nav) {
+    if (!chip || !nav) return;
+    const navRect = nav.getBoundingClientRect();
+    const chipRect = chip.getBoundingClientRect();
+    const edgePad = 12;
+    const fullyVisible =
+        chipRect.left >= navRect.left + edgePad &&
+        chipRect.right <= navRect.right - edgePad;
+    if (fullyVisible) return;
+
+    const targetLeft = chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2;
+    nav.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+}
+
 const ManualOrderCatalog = ({
     products = [],
     categories = [],
@@ -124,6 +138,8 @@ const ManualOrderCatalog = ({
     const beveragesSectionRef = useRef(null);
     const extrasSectionRef = useRef(null);
     const categoryRefsRef = useRef(new Map());
+    const programmaticScrollLockRef = useRef(false);
+    const programmaticScrollTimerRef = useRef(0);
 
     const setCategoryRef = (key) => (el) => {
         if (el) categoryRefsRef.current.set(key, el);
@@ -239,7 +255,12 @@ const ManualOrderCatalog = ({
             const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
             el = scrollParent.querySelector(`[data-category-key="${escaped}"]`);
         }
-        scrollWithinCatalog(el, 80);
+        programmaticScrollLockRef.current = true;
+        window.clearTimeout(programmaticScrollTimerRef.current);
+        scrollWithinCatalog(el, 12);
+        programmaticScrollTimerRef.current = window.setTimeout(() => {
+            programmaticScrollLockRef.current = false;
+        }, 450);
     };
 
     const scrollToSection = (sectionRef) => {
@@ -253,37 +274,32 @@ const ManualOrderCatalog = ({
         }
     }, [sidebarCategories, activeCategory]);
 
-    // Mantener el chip activo visible en la nav horizontal al hacer scroll del catálogo.
+    // Mantener el chip activo visible en la nav horizontal (solo scroll X del nav).
     useEffect(() => {
         if (!activeCategory || searchPhase !== 'closed') return;
         const chip = categoryChipRefsRef.current.get(activeCategory);
         const nav = categoriesNavRef.current;
-        if (!chip || !nav) return;
-
-        const navRect = nav.getBoundingClientRect();
-        const chipRect = chip.getBoundingClientRect();
-        const edgePad = 16;
-        const fullyVisible =
-            chipRect.left >= navRect.left + edgePad &&
-            chipRect.right <= navRect.right - edgePad;
-        if (fullyVisible) return;
-
-        chip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        scrollChipIntoNav(chip, nav);
     }, [activeCategory, searchPhase]);
 
 	useEffect(() => {
 		const root = catalogScrollRef.current;
 		if (!root || typeof IntersectionObserver === 'undefined') return undefined;
 		const observer = new IntersectionObserver((entries) => {
+			if (programmaticScrollLockRef.current) return;
 			const visible = entries
 				.filter((entry) => entry.isIntersecting)
 				.sort((a, b) => b.intersectionRatio - a.intersectionRatio || a.boundingClientRect.top - b.boundingClientRect.top);
 			const key = visible[0]?.target?.dataset?.categoryKey;
 			if (key) setActiveCategory(key);
-		}, { root, rootMargin: '-72px 0px -55% 0px', threshold: [0.05, 0.25, 0.6] });
+		}, { root, rootMargin: '-12px 0px -55% 0px', threshold: [0.08, 0.25, 0.55] });
 		for (const element of categoryRefsRef.current.values()) observer.observe(element);
 		return () => observer.disconnect();
 	}, [sidebarCategories, query]);
+
+	useEffect(() => () => {
+		window.clearTimeout(programmaticScrollTimerRef.current);
+	}, []);
 
     const renderCatalogSection = (catalog, variant = 'products') => {
         if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
@@ -372,7 +388,6 @@ const ManualOrderCatalog = ({
     }, [searchPhase]);
 
     const hasActiveSearch = Boolean(searchQuery.trim());
-    const mobileSearchInputId = `${searchInputId}-mobile`;
     const searchVisible = searchPhase === 'open' || searchPhase === 'closing';
 
     const openMobileSearch = () => setSearchPhase('open');
@@ -389,45 +404,10 @@ const ManualOrderCatalog = ({
 
     return (
         <div className="flex h-full flex-col">
-            {/* Escritorio: título + búsqueda fija. Móvil: header oculto. */}
-            <div className="manual-order-catalog-header mb-3 rounded-[18px] border border-gc-border bg-gc-card p-3.5 shadow-sm sm:mb-4 sm:p-4">
-                <div className="manual-order-catalog-header__title mb-3 min-w-0">
-                    <h2 className={`${textScale.emphasis} font-bold leading-tight text-gc-text`}>Productos disponibles</h2>
-                    <p className={`mt-1 ${textScale.micro} font-medium text-gc-text-muted`} aria-hidden="true">
-                        {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
-                        {query ? ' encontrados' : ' en el catálogo'}
-                    </p>
-                </div>
-                <p className="sr-only" aria-live="polite">
-                    {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
-                    {query ? ' encontrados' : ' en el catálogo'}
-                </p>
-
-                <div className="manual-order-catalog-header__search flex items-center" role="search">
-                    <div className={`manual-order-catalog-header__field relative flex h-11 min-w-0 flex-1 items-center ${pillRadiusClass} border border-transparent bg-gc-muted transition-all focus-within:border-gc-accent/30 focus-within:bg-gc-card focus-within:ring-2 focus-within:ring-gc-accent/10`}>
-                        <label htmlFor={searchInputId} className="sr-only">Buscar productos</label>
-                        <Search size={17} className="pointer-events-none absolute left-3.5 text-gc-text-muted" aria-hidden="true" />
-                        <input
-                            id={searchInputId}
-                            type="search"
-                            placeholder="Buscar producto..."
-                            className={`h-full w-full min-w-0 bg-transparent pl-10 pr-10 ${textScale.body} text-gc-text outline-none placeholder:text-gc-text-muted [&::-webkit-search-cancel-button]:hidden`}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {hasActiveSearch ? (
-                            <button
-                                type="button"
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-1.5 flex h-8 w-8 items-center justify-center rounded-full text-gc-text-muted transition-colors hover:bg-gc-border/60 hover:text-gc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent/30"
-                                aria-label="Limpiar búsqueda"
-                            >
-                                <X size={15} aria-hidden="true" />
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
-            </div>
+            <p className="sr-only" aria-live="polite">
+                {totalItems} {totalItems === 1 ? 'producto' : 'productos'}
+                {query ? ' encontrados' : ' en el catálogo'}
+            </p>
 
             <div className={`manual-order-catalog-body flex min-h-0 flex-1 flex-col ${spacing.normal}`}>
                 <div
@@ -445,11 +425,11 @@ const ManualOrderCatalog = ({
                             role="search"
                             onAnimationEnd={handleSearchAnimationEnd}
                         >
-                            <label htmlFor={mobileSearchInputId} className="sr-only">Buscar productos</label>
+                            <label htmlFor={searchInputId} className="sr-only">Buscar productos</label>
                             <Search size={16} className="pointer-events-none absolute left-3 text-gc-accent" aria-hidden="true" />
                             <input
                                 ref={searchInputRef}
-                                id={mobileSearchInputId}
+                                id={searchInputId}
                                 type="search"
                                 placeholder="Buscar producto..."
                                 className={`h-full w-full min-w-0 bg-transparent pl-9 pr-10 ${textScale.body} text-gc-text outline-none placeholder:text-gc-text-muted [&::-webkit-search-cancel-button]:hidden`}
@@ -472,6 +452,12 @@ const ManualOrderCatalog = ({
                         </div>
                     ) : (
                         <>
+                            <span
+                                className={`manual-order-catalog-count shrink-0 ${textScale.micro} font-semibold tabular-nums text-gc-text-muted`}
+                                title={`${totalItems} ${totalItems === 1 ? 'producto' : 'productos'}${query ? ' encontrados' : ''}`}
+                            >
+                                {totalItems}
+                            </span>
                             {sidebarCategories.length > 0 ? (
                                 <nav
                                     ref={categoriesNavRef}
@@ -489,8 +475,8 @@ const ManualOrderCatalog = ({
                                                 className={cn(
                                                     `manual-order-catalog-category-chip shrink-0 snap-start whitespace-nowrap border px-3.5 py-2 sm:py-1.5 ${pillRadiusClass} ${textScale.body} leading-snug transition-all`,
                                                     isActive
-                                                        ? 'border-gc-text bg-gc-text font-semibold text-white shadow-sm'
-                                                        : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-muted hover:text-gc-text',
+                                                        ? 'border-gc-accent bg-gc-accent font-semibold text-white shadow-sm'
+                                                        : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-accent/25 hover:bg-gc-accent/5 hover:text-gc-text',
                                                 )}
                                                 aria-current={isActive ? 'true' : undefined}
                                             >
@@ -525,37 +511,39 @@ const ManualOrderCatalog = ({
                         </>
                     )}
                 </div>
-                <div
-                    ref={catalogScrollRef}
-                    className="manual-order-categories-scroll flex-1 overflow-y-auto rounded-[22px] border border-gc-border bg-gc-muted px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
-                >
-                    {!hasAnyResults ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gc-muted">
-                                <PackageX size={28} className="text-gc-text-muted" />
-                            </div>
-                            <div>
-                                <p className={`${textScale.emphasis} font-bold text-gc-text`}>No se encontraron productos</p>
-                                <p className={`${textScale.body} text-gc-text-muted`}>Probá con otra búsqueda o categoría.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div ref={productsSectionRef}>
-                                {renderCatalogSection(groupedBaseCatalog, 'products')}
-                            </div>
-                            {hasBeveragesSection ? (
-                                <div ref={beveragesSectionRef}>
-                                    {renderCatalogSection(groupedBeverageCatalog, 'beverages')}
+                <div className="manual-order-categories-scroll-shell min-h-0 flex-1 overflow-hidden rounded-[22px] border border-gc-border bg-gc-muted">
+                    <div
+                        ref={catalogScrollRef}
+                        className="manual-order-categories-scroll h-full min-h-0 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+                    >
+                        {!hasAnyResults ? (
+                            <div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
+                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gc-muted">
+                                    <PackageX size={28} className="text-gc-text-muted" />
                                 </div>
-                            ) : null}
-                            {hasExtrasSection ? (
-                                <div ref={extrasSectionRef}>
-                                    {renderCatalogSection(groupedExtrasCatalog, 'extras')}
+                                <div>
+                                    <p className={`${textScale.emphasis} font-bold text-gc-text`}>No se encontraron productos</p>
+                                    <p className={`${textScale.body} text-gc-text-muted`}>Probá con otra búsqueda o categoría.</p>
                                 </div>
-                            ) : null}
-                        </>
-                    )}
+                            </div>
+                        ) : (
+                            <>
+                                <div ref={productsSectionRef}>
+                                    {renderCatalogSection(groupedBaseCatalog, 'products')}
+                                </div>
+                                {hasBeveragesSection ? (
+                                    <div ref={beveragesSectionRef}>
+                                        {renderCatalogSection(groupedBeverageCatalog, 'beverages')}
+                                    </div>
+                                ) : null}
+                                {hasExtrasSection ? (
+                                    <div ref={extrasSectionRef}>
+                                        {renderCatalogSection(groupedExtrasCatalog, 'extras')}
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

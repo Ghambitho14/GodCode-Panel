@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import AdminHelpTip from "../../../components/AdminHelpTip";
 import DeliveryPlaceSuggestInput from "../../../components/DeliveryPlaceSuggestInput";
 import { DELIVERY_TOOLTIPS } from "./deliveryZoneHelpers";
 import { Button } from "@/components/ui/button";
+import { normalizeBranchOrigin } from "@/lib/geo";
+import { isVenezuelaCountry } from "@/lib/geo/tenant-locale";
 
 export default function AdminDeliveryZonesPanel({
 	lockOptions,
@@ -22,6 +24,24 @@ export default function AdminDeliveryZonesPanel({
 	setShowExternalDeliveryFee,
 	selectedBranch,
 }) {
+	const originCheck = useMemo(() => {
+		if (!String(draft.originLat ?? "").trim() && !String(draft.originLng ?? "").trim()) {
+			return null;
+		}
+		return normalizeBranchOrigin(
+			draft.originLat,
+			draft.originLng,
+			selectedBranch?.country,
+		);
+	}, [draft.originLat, draft.originLng, selectedBranch?.country]);
+
+	const latPlaceholder = isVenezuelaCountry(selectedBranch?.country)
+		? "Ej: 11.0208"
+		: "Ej: -33.4489";
+	const lngPlaceholder = isVenezuelaCountry(selectedBranch?.country)
+		? "Ej: -63.8937 (negativa)"
+		: "Ej: -70.6693";
+
 	return (
 		<details className="admin-delivery-fold">
 			<summary className="admin-delivery-fold__summary">
@@ -127,7 +147,7 @@ export default function AdminDeliveryZonesPanel({
 									type="text"
 									inputMode="decimal"
 									className="form-input"
-									placeholder="Ej: -33.4489"
+									placeholder={latPlaceholder}
 									disabled={lockOptions}
 									value={draft.originLat}
 									onChange={(ev) =>
@@ -145,7 +165,7 @@ export default function AdminDeliveryZonesPanel({
 									type="text"
 									inputMode="decimal"
 									className="form-input"
-									placeholder="Ej: -70.6693"
+									placeholder={lngPlaceholder}
 									disabled={lockOptions}
 									value={draft.originLng}
 									onChange={(ev) =>
@@ -153,6 +173,22 @@ export default function AdminDeliveryZonesPanel({
 									}
 								/>
 							</div>
+							{originCheck?.warning ? (
+								<p
+									className="admin-menu-options-card-desc"
+									style={{
+										gridColumn: "1 / -1",
+										marginTop: 0,
+										color: originCheck.fixed ? "#b45309" : "#b91c1c",
+									}}
+									role="status"
+								>
+									{originCheck.warning}
+									{originCheck.fixed && originCheck.lng != null
+										? ` Usa longitud ${originCheck.lng}.`
+										: ""}
+								</p>
+							) : null}
 						</div>
 						<div className="admin-branch-delivery-zones" style={{ marginTop: 8 }}>
 							<p
