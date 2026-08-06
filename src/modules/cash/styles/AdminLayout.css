@@ -947,7 +947,7 @@
 		overflow-x: hidden;
 		max-width: 100%;
 		min-height: var(--app-vh, 100dvh);
-		height: var(--app-vh, 100dvh);
+		height: auto;
 	}
 
 	.admin-content {
@@ -958,6 +958,13 @@
 		margin-left: 0;
 		box-sizing: border-box;
 		overflow-x: hidden;
+		flex: 0 1 auto;
+		min-height: auto;
+	}
+
+	/* Pedidos / mesas: el contenido sí debe ocupar el alto disponible */
+	.admin-layout .admin-content:has(.kanban-board),
+	.admin-layout .admin-content:has(.admin-tables-grid) {
 		flex: 1 1 auto;
 		min-height: 0;
 	}

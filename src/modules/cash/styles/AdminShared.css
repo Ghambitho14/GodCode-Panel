@@ -617,9 +617,9 @@
 }
 
 .admin-layout .status-badge.success {
-	background: rgba(22, 163, 74, 0.1);
+	background: rgba(22, 163, 74, 0.14);
 	color: #15803d;
-	border-color: rgba(22, 163, 74, 0.22);
+	border-color: rgba(22, 163, 74, 0.35);
 }
 
 .admin-layout .status-badge.warning {

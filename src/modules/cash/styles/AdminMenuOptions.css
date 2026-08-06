@@ -382,19 +382,78 @@
 
 @media (max-width: 640px) {
 	.admin-menu-options-card-head--delivery {
-		align-items: flex-start;
+		align-items: stretch;
+		gap: 10px;
+		margin-bottom: 12px;
+	}
+
+	.admin-menu-options-card-head--delivery .admin-menu-options-card-head__main {
+		flex: 1 1 auto;
 	}
 
 	.admin-menu-options-delivery-head-toggle {
 		width: 100%;
 		justify-content: space-between;
 		max-width: none;
+		padding: 10px 12px;
+		border-radius: 12px;
+		border: 1px solid var(--admin-border, #e8ecf1);
+		background: var(--admin-icon-bg, #f8fafc);
+		box-sizing: border-box;
 	}
 
 	.admin-menu-options-delivery-head-toggle__text {
 		text-align: left;
 		flex: 1;
 		min-width: 0;
+	}
+
+	.admin-menu-options-delivery .menu-carousel-switch.is-on {
+		background: #22c55e;
+		border-color: #16a34a;
+	}
+
+	.admin-menu-options-delivery .menu-carousel-switch.is-on .menu-carousel-switch-knob {
+		background: #ffffff;
+	}
+
+	.admin-delivery-options-stack {
+		gap: 12px;
+	}
+
+	.admin-delivery-footer {
+		flex-direction: column;
+		align-items: stretch;
+		justify-content: flex-start;
+		gap: 8px;
+		padding: 10px 12px;
+	}
+
+	.admin-delivery-footer__preview {
+		flex: 0 0 auto;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.admin-delivery-footer__save {
+		width: 100%;
+		flex: 0 0 auto;
+	}
+
+	.admin-delivery-fold__summary {
+		padding: 8px 10px;
+	}
+
+	.admin-delivery-fold__body {
+		padding: 8px 10px 10px;
+	}
+
+	.admin-menu-options.admin-branch-options {
+		gap: 10px;
+	}
+
+	.admin-branch-options__subtabs.admin-menu-options-subtabs {
+		padding-bottom: 8px;
 	}
 }
 
@@ -404,6 +463,9 @@
 	flex-direction: column;
 	gap: 16px;
 	min-width: 0;
+	flex: 0 1 auto;
+	height: auto;
+	align-items: stretch;
 }
 
 .admin-delivery-options-stack--locked {
@@ -706,10 +768,19 @@
 	.admin-delivery-footer {
 		flex-direction: column;
 		align-items: stretch;
+		justify-content: flex-start;
+		gap: 8px;
+	}
+
+	.admin-delivery-footer__preview {
+		flex: 0 0 auto;
+		width: 100%;
+		min-width: 0;
 	}
 
 	.admin-delivery-footer__save {
 		width: 100%;
+		flex: 0 0 auto;
 	}
 
 	.admin-delivery-switch {
@@ -1063,12 +1134,16 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
+	align-content: flex-start;
 	gap: 10px 14px;
 	margin-top: 2px;
 	padding: 12px 14px;
 	border-radius: 12px;
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	background: rgba(0, 0, 0, 0.1);
+	height: auto;
+	min-height: 0;
+	flex: 0 0 auto;
 }
 
 .admin-layout .admin-delivery-footer {
@@ -1078,8 +1153,9 @@
 
 .admin-delivery-footer__preview {
 	margin: 0;
-	flex: 1 1 200px;
-	min-width: 0;
+	flex: 1 1 auto;
+	min-width: min(100%, 200px);
+	max-width: 100%;
 	font-size: 12.5px;
 	line-height: 1.45;
 	opacity: 0.85;
