@@ -8,6 +8,8 @@ html.pwa-standalone {
 	--pwa-safe-right: env(safe-area-inset-right, 0px);
 	--pwa-safe-bottom: env(safe-area-inset-bottom, 0px);
 	--pwa-safe-left: env(safe-area-inset-left, 0px);
+	/* Margen extra sobre la barra inferior para labels del menú y tabs del kanban */
+	--pwa-bottom-stack-gap: 14px;
 }
 
 @media (max-width: 1024px) {
@@ -21,22 +23,32 @@ html.pwa-standalone {
 	html.pwa-standalone .admin-layout .admin-content {
 		padding-left: max(14px, var(--pwa-safe-left));
 		padding-right: max(14px, var(--pwa-safe-right));
-		padding-bottom: calc(96px + var(--pwa-safe-bottom));
+		padding-bottom: calc(96px + var(--pwa-safe-bottom) + var(--pwa-bottom-stack-gap));
 	}
 
 	html.pwa-standalone .admin-layout .admin-sidebar,
 	html.pwa-standalone .admin-layout .admin-sidebar:hover {
-		padding-bottom: max(8px, var(--pwa-safe-bottom));
+		padding-bottom: calc(var(--pwa-safe-bottom) + var(--pwa-bottom-stack-gap));
 		padding-left: max(8px, var(--pwa-safe-left));
 		padding-right: max(8px, var(--pwa-safe-right));
 	}
 
+	html.pwa-standalone .admin-layout .mobile-tabs {
+		margin-bottom: calc(16px + var(--pwa-bottom-stack-gap) * 0.35);
+	}
+
 	html.pwa-standalone .admin-layout .kanban-board {
-		height: calc(100dvh - 190px - var(--pwa-safe-top) - var(--pwa-safe-bottom));
+		height: calc(
+			100dvh - 190px - var(--pwa-safe-top) - var(--pwa-safe-bottom) - var(--pwa-bottom-stack-gap)
+		);
 		min-height: min(
 			520px,
-			calc(100dvh - 240px - var(--pwa-safe-top) - var(--pwa-safe-bottom))
+			calc(100dvh - 240px - var(--pwa-safe-top) - var(--pwa-safe-bottom) - var(--pwa-bottom-stack-gap))
 		);
+	}
+
+	html.pwa-standalone .admin-layout .kanban-board .column-body {
+		padding-bottom: calc(10px + var(--pwa-safe-bottom) + var(--pwa-bottom-stack-gap) * 0.5);
 	}
 }
 
