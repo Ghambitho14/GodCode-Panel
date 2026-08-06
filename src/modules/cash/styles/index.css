@@ -5,6 +5,10 @@
   --border-subtle: #e5e5ea;
   --text-heading: #1d1d1f;
   --text-body-muted: #6e6e73;
+  /* Altura real del dispositivo (visualViewport); fallback a unidades dinámicas */
+  --app-vh: 100dvh;
+  --app-vw: 100vw;
+  --app-vv-offset-top: 0px;
 
   --bg-primary: var(--surface-page);
   --bg-secondary: #f5f5f7;
@@ -62,11 +66,22 @@ body {
   line-height: 1.5;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  min-height: 100%;
+  min-height: var(--app-vh, 100dvh);
+  touch-action: manipulation;
 }
 
 html, body, #app {
   height: 100%;
+  min-height: var(--app-vh, 100dvh);
+}
+
+/* iOS Safari hace zoom al enfocar campos con font-size < 16px */
+@media (max-width: 1024px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* =========================================

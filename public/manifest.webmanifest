@@ -1,0 +1,25 @@
+{
+  "name": "GodCode Caja",
+  "short_name": "Caja",
+  "description": "Acceso de caja y operación diaria del local con GodCode.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbfbfd",
+  "theme_color": "#4F5BFF",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/Gcode-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAntiZoom } from "./use-anti-zoom";
+import { useAntiZoom, syncMobileViewportVars } from "./use-anti-zoom";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -17,6 +17,13 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
   useAntiZoom();
+
+  useEffect(() => {
+    const sync = () => syncMobileViewportVars();
+    const shell = document.querySelector(".tenant-shell-root");
+    shell?.addEventListener("scroll", sync, { passive: true });
+    return () => shell?.removeEventListener("scroll", sync);
+  }, []);
 
   useEffect(() => {
     if (!bgLayerRef.current) return;

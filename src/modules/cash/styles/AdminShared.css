@@ -185,6 +185,16 @@
 		margin-left: 0;
 		width: 100%;
 	}
+
+	/* 16px evita zoom automático de iOS al enfocar */
+	.admin-layout input:not([type="checkbox"]):not([type="radio"]),
+	.admin-layout textarea,
+	.admin-layout select,
+	.admin-layout .search-box input,
+	.admin-layout .filter-box select,
+	.admin-layout .admin-toolbar select {
+		font-size: 16px;
+	}
 }
 
 .admin-layout .stats-mini {

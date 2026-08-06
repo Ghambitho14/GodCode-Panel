@@ -946,6 +946,8 @@
 		flex-direction: column;
 		overflow-x: hidden;
 		max-width: 100%;
+		min-height: var(--app-vh, 100dvh);
+		height: var(--app-vh, 100dvh);
 	}
 
 	.admin-content {
@@ -956,6 +958,8 @@
 		margin-left: 0;
 		box-sizing: border-box;
 		overflow-x: hidden;
+		flex: 1 1 auto;
+		min-height: 0;
 	}
 
 	.admin-layout .content-header {
