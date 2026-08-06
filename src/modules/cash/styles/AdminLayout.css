@@ -1100,13 +1100,13 @@
 		display: none !important;
 	}
 
-	/* Pedidos móvil: fila 1 = iconos | reloj | sucursal (mínima, truncada); fila 2 = acciones */
+	/* Pedidos móvil: fila 1 = iconos | reloj | sucursal; fila 2 = acciones */
 	.admin-layout .header-actions.header-actions--mobile-toolbar:has(.header-actions-orders-row) {
 		display: grid;
-		grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, min(22vw, 88px));
+		grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
 		grid-template-rows: auto auto;
 		align-items: center;
-		column-gap: 6px;
+		column-gap: 8px;
 		row-gap: 8px;
 		width: 100%;
 		flex-wrap: unset;
@@ -1130,11 +1130,12 @@
 	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-action-branch.admin-branch-select {
 		grid-column: 3;
 		grid-row: 1;
-		width: 100%;
-		max-width: min(22vw, 88px);
+		width: auto;
+		max-width: min(42vw, 160px);
 		min-width: 0;
 		margin-left: 0;
 		flex: unset;
+		justify-self: end;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-actions-orders-row {
@@ -1304,32 +1305,6 @@
 		width: 100%;
 		max-width: 100%;
 		min-width: 0;
-	}
-
-	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-action-branch .admin-branch-select__trigger {
-		padding: 2px 4px 2px 3px;
-		gap: 2px;
-		font-size: clamp(0.6rem, 1.4vw + 0.28rem, 0.7rem);
-		min-height: 36px;
-		height: 36px;
-		border-radius: 10px;
-	}
-
-	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-action-branch .admin-branch-select__pin.nav-icon-slot {
-		width: 20px;
-		height: 20px;
-		min-width: 20px;
-		min-height: 20px;
-		border-radius: 6px;
-	}
-
-	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-action-branch .admin-branch-select__pin.nav-icon-slot svg.lucide {
-		width: 13px;
-		height: 13px;
-	}
-
-	.admin-layout .header-actions--mobile-toolbar:has(.header-actions-orders-row) .header-action-branch .admin-branch-select__chevron {
-		display: none;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-action-branch .admin-branch-select__pin.nav-icon-slot {

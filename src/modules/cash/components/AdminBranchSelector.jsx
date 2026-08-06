@@ -49,10 +49,17 @@ export default function AdminBranchSelector({
 		const el = triggerRef.current;
 		if (!el || typeof el.getBoundingClientRect !== "function") return;
 		const r = el.getBoundingClientRect();
+		const vv = window.visualViewport;
+		const viewportWidth = vv?.width ?? window.innerWidth;
+		const offsetLeft = vv?.offsetLeft ?? 0;
+		const menuMinWidth = 220;
+		const viewportPad = 12;
+		const minWidth = Math.max(r.width, menuMinWidth);
+		const right = Math.max(viewportPad, viewportWidth + offsetLeft - r.right);
 		setMenuPos({
 			top: r.bottom + 6,
-			left: r.left,
-			minWidth: r.width,
+			right,
+			minWidth,
 		});
 	}, []);
 
@@ -151,7 +158,8 @@ export default function AdminBranchSelector({
 							className="admin-branch-select__menu-portal"
 						style={{
 							top: menuPos.top,
-							left: menuPos.left,
+							right: menuPos.right,
+							left: "auto",
 							minWidth: menuPos.minWidth,
 						}}
 						>
