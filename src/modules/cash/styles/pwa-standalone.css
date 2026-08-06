@@ -1,0 +1,60 @@
+/**
+ * Safe areas solo en app instalada (PWA / Añadir a pantalla de inicio).
+ * Requiere viewport-fit=cover en el meta viewport.
+ */
+
+html.pwa-standalone {
+	--pwa-safe-top: env(safe-area-inset-top, 0px);
+	--pwa-safe-right: env(safe-area-inset-right, 0px);
+	--pwa-safe-bottom: env(safe-area-inset-bottom, 0px);
+	--pwa-safe-left: env(safe-area-inset-left, 0px);
+}
+
+@media (max-width: 1024px) {
+	html.pwa-standalone .admin-layout .content-header {
+		top: var(--pwa-safe-top);
+		padding-top: 8px;
+		padding-left: max(0px, var(--pwa-safe-left));
+		padding-right: max(0px, var(--pwa-safe-right));
+	}
+
+	html.pwa-standalone .admin-layout .admin-content {
+		padding-left: max(14px, var(--pwa-safe-left));
+		padding-right: max(14px, var(--pwa-safe-right));
+		padding-bottom: calc(96px + var(--pwa-safe-bottom));
+	}
+
+	html.pwa-standalone .admin-layout .admin-sidebar,
+	html.pwa-standalone .admin-layout .admin-sidebar:hover {
+		padding-bottom: max(8px, var(--pwa-safe-bottom));
+		padding-left: max(8px, var(--pwa-safe-left));
+		padding-right: max(8px, var(--pwa-safe-right));
+	}
+
+	html.pwa-standalone .admin-layout .kanban-board {
+		height: calc(100dvh - 190px - var(--pwa-safe-top) - var(--pwa-safe-bottom));
+		min-height: min(
+			520px,
+			calc(100dvh - 240px - var(--pwa-safe-top) - var(--pwa-safe-bottom))
+		);
+	}
+}
+
+html.pwa-standalone .login-shell.login-shell--split {
+	padding-top: max(20px, var(--pwa-safe-top));
+	padding-left: max(20px, var(--pwa-safe-left));
+	padding-right: max(20px, var(--pwa-safe-right));
+	padding-bottom: max(20px, var(--pwa-safe-bottom));
+}
+
+html.pwa-standalone .modal-overlay,
+html.pwa-standalone .order-detail-overlay {
+	padding: var(--pwa-safe-top) var(--pwa-safe-right) var(--pwa-safe-bottom) var(--pwa-safe-left);
+	box-sizing: border-box;
+}
+
+html.pwa-standalone .payment-receipt-panel__overlay,
+html.pwa-standalone .menu-carousel-editor-overlay {
+	padding: var(--pwa-safe-top) var(--pwa-safe-right) var(--pwa-safe-bottom) var(--pwa-safe-left);
+	box-sizing: border-box;
+}

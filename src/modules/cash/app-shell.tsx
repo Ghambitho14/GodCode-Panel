@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAntiZoom, syncMobileViewportVars } from "./use-anti-zoom";
 import { PwaInstallHint } from "./components/PwaInstallHint";
+import { isStandaloneDisplayMode } from "./utils/pwa-install";
+import "./styles/pwa-standalone.css";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,6 +20,17 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
   useAntiZoom();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const apply = () => {
+      if (isStandaloneDisplayMode()) root.classList.add("pwa-standalone");
+      else root.classList.remove("pwa-standalone");
+    };
+    apply();
+    window.addEventListener("visibilitychange", apply);
+    return () => window.removeEventListener("visibilitychange", apply);
+  }, []);
 
   useEffect(() => {
     const sync = () => syncMobileViewportVars();
