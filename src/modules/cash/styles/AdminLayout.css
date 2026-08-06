@@ -247,10 +247,6 @@
 	min-width: 0;
 }
 
-.admin-layout .admin-branch-select.header-action-branch {
-	max-width: min(100%, 220px);
-}
-
 .admin-layout .admin-branch-select__trigger {
 	display: inline-flex;
 	align-items: center;
@@ -464,8 +460,8 @@
 .admin-layout .header-actions-cluster > .header-action-clock.admin-header-clock {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	text-align: center;
+	align-items: flex-end;
+	text-align: right;
 	justify-content: center;
 	flex-shrink: 0;
 	min-width: 0;
@@ -864,6 +860,18 @@
 		justify-content: center;
 	}
 
+	/* Pedidos sin título visible: centrar la barra (no space-between → derecha) */
+	.admin-layout .content-header:has(.content-header-title-block--visually-collapsed) {
+		justify-content: center;
+	}
+
+	.admin-layout .content-header:has(.content-header-title-block--visually-collapsed) .header-actions {
+		flex: 0 1 auto;
+		width: auto;
+		max-width: 100%;
+		justify-content: center;
+	}
+
 	.admin-layout .header-actions-cluster {
 		display: inline-flex;
 		flex-wrap: wrap;
@@ -909,35 +917,21 @@
 		border-radius: 8px;
 	}
 
-	/* En desktop: toolbar → reloj → selector → acciones; en mobile se respeta el orden del DOM */
-	.admin-layout .header-actions-cluster .header-actions-toolbar-row {
-		order: 0;
+	/* Escritorio: sucursal antes que reloj (reloj en el slot del selector) */
+	.admin-layout .header-actions-cluster .header-action-branch {
+		order: 1;
+		min-width: 0;
+		max-width: min(240px, 28vw);
+		flex: 0 1 auto;
 	}
 
 	.admin-layout .header-actions-cluster .header-action-clock {
-		order: 1;
-	}
-
-	.admin-layout .header-actions-cluster .header-action-branch {
 		order: 2;
-		min-width: 0;
-		max-width: min(220px, 28vw);
-		flex: 0 1 auto;
-		width: min(220px, 100%);
 	}
 
 	.admin-layout .header-actions-cluster .header-actions-orders-row,
 	.admin-layout .header-actions-cluster .header-action-generic {
 		order: 3;
-	}
-
-	/* En Cocina/Pedidos el selector de sucursal va a la izquierda del reloj */
-	.admin-layout .header-actions-cluster--orders .header-action-branch {
-		order: 1;
-	}
-
-	.admin-layout .header-actions-cluster--orders .header-action-clock {
-		order: 2;
 	}
 }
 
@@ -1114,6 +1108,7 @@
 		min-height: clamp(36px, 10vw, 44px);
 		padding: clamp(2px, 1vw, 4px) clamp(4px, 1.5vw, 8px);
 		min-width: 0;
+		margin-left: 0;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-action-clock .admin-header-clock__time {
@@ -1140,8 +1135,8 @@
 
 	.admin-layout .header-actions--mobile-toolbar .header-action-branch.admin-branch-select {
 		width: auto;
-		max-width: 100%;
 		min-width: 0;
+		max-width: min(42vw, 160px);
 		margin-left: auto;
 	}
 
