@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Truck } from "lucide-react";
+import { Check, Truck } from "lucide-react";
 import {
 	buildDefaultDeliveryPaymentKeys,
 	computeDeliveryFee,
@@ -403,11 +403,12 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 	if (!branchId) {
 		return (
 			<section className="glass animate-fade admin-menu-options-card admin-menu-options-delivery">
-				<p className="admin-menu-options-card-desc" style={{ margin: 0 }}>
-					Selecciona una <strong style={{ color: "white" }}>sucursal</strong> en el encabezado para
-					configurar <strong>delivery</strong> y tarifas por kilómetro en esa fila de{" "}
-					<strong>branches.delivery_settings</strong>.
-				</p>
+				<div className="admin-branch-options__empty admin-delivery-empty">
+					<p>
+						Selecciona una <strong>sucursal</strong> en el encabezado para configurar el envío a
+						domicilio, tarifas y métodos de pago de esa ubicación.
+					</p>
+				</div>
 			</section>
 		);
 	}
@@ -431,16 +432,19 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					<div className="admin-menu-options-card-icon" aria-hidden>
 						<Truck size={20} />
 					</div>
-					<div>
-						<h3 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
-							Delivery{branchLabel}
-						</h3>
+					<div className="admin-delivery-head-copy">
+						<div className="admin-delivery-head-title-row">
+							<h3 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
+								Delivery{branchLabel}
+							</h3>
+							<span
+								className={`status-badge ${deliveryEnabled && !loading ? "success" : "neutral"}`}
+							>
+								{loading ? "…" : deliveryEnabled ? "Activo" : "Inactivo"}
+							</span>
+						</div>
 						<p className="admin-menu-options-card-desc">
-							Activa el envío y elige <strong>una forma de cobrar</strong>: por distancia, por zonas con
-							nombre (comunas/barrios) o <strong>consultar / Uber Direct</strong>. En modo externo puedes
-							activar cotización en vivo con Uber (Store ID por sucursal + credenciales OAuth configuradas
-							por GodCode a nivel empresa). La tarifa por zona es el envío completo de esa zona (no se suma
-							el cargo fijo ni el precio por km de la modalidad por distancia).
+							Activa el envío y elige cómo cobras: por distancia, por zonas o externo (Uber Direct).
 						</p>
 					</div>
 				</div>
@@ -458,7 +462,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 									: "Solo retiro o consumo en local; las opciones de abajo están desactivadas."}
 						</span>
 					</div>
-					<Button variant="default"
+					<button
 						type="button"
 						className={`menu-carousel-switch ${deliveryEnabled ? "is-on" : ""}`}
 						role="switch"
@@ -468,41 +472,43 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						onClick={() => void toggle(!deliveryEnabled)}
 					>
 						<span className="menu-carousel-switch-knob" />
-					</Button>
+					</button>
 				</div>
 			</div>
 
 			{isVenezuela ? (
-				<div className="admin-delivery-ve-exchange" style={{ marginBottom: 16 }}>
-					<p className="admin-menu-options-section-label" style={{ marginBottom: 8 }}>
-						Tasa de cambio (Bs. por USD)
-					</p>
-					<p className="admin-menu-options-card-desc" style={{ marginBottom: 10 }}>
-						Respaldo manual si el BCV no responde en el carrito del menú.
-						{bcvRate != null ? (
-							<>
-								{" "}
-								Referencia BCV actual: <strong>{bcvRate.toLocaleString("es-VE")}</strong> Bs./USD.
-							</>
-						) : null}
-					</p>
-					<div className="admin-delivery-inline-row">
-						<label className="admin-menu-options-field">
+				<div className="admin-delivery-ve-exchange">
+					<div className="admin-delivery-ve-exchange__copy">
+						<p className="admin-delivery-ve-exchange__title">Tasa de cambio</p>
+						<p className="admin-delivery-ve-exchange__hint">
+							Bs. por USD · respaldo si el BCV no responde
+							{bcvRate != null ? (
+								<>
+									{" "}
+									· BCV ahora: <strong>{bcvRate.toLocaleString("es-VE")}</strong>
+								</>
+							) : null}
+						</p>
+					</div>
+					<div className="admin-delivery-ve-exchange__controls">
+						<label className="admin-menu-options-field admin-delivery-ve-exchange__field">
 							<span className="admin-menu-options-field-label">Tasa manual</span>
 							<input
 								type="number"
 								min="0"
 								step="0.001"
-								className="admin-menu-options-input"
+								className="form-input"
 								value={draft.exchangeRate}
 								onChange={(e) => setDraft((prev) => ({ ...prev, exchangeRate: e.target.value }))}
 								placeholder="Ej. 639.703"
 								disabled={loading || savingExchangeRate}
 							/>
 						</label>
-						<Button variant="default"
+						<Button
+							variant="secondary"
+							size="sm"
 							type="button"
-							className=""
+							className="admin-delivery-ve-exchange__save"
 							disabled={loading || savingExchangeRate || !branchId}
 							onClick={() => void saveExchangeRate()}
 						>
@@ -539,51 +545,46 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						selectedBranch={selectedBranch}
 					/>
 
-					<details className="admin-delivery-fold">
-						<summary className="admin-delivery-fold__summary">
-							<div className="admin-delivery-fold__summary-text">
-								<span className="admin-delivery-fold__eyebrow">Pagos</span>
-								<span className="admin-delivery-fold__title">Métodos de pago (delivery)</span>
-							</div>
-						</summary>
-						<div className="admin-delivery-fold__body">
-							<p className="admin-delivery-fold__lead admin-delivery-inline-tip">
-								Qué medios puede usar el cliente cuando el pedido es envío a domicilio (subconjunto de lo
-								activo en <strong>Métodos de pago</strong> más efectivo y tarjeta al recibir). Si activas
-								todos, no hay restricción extra.{" "}
-								<AdminHelpTip text={DELIVERY_TOOLTIPS.paymentSection} />
-							</p>
-							<div className="admin-delivery-payment-grid">
-								{deliveryPaymentKeys.map((key) => {
-									const on = deliveryPaymentChecked[key] !== false;
-									return (
-										<Button variant="default"
-											key={key}
-											type="button"
-											role="checkbox"
-											aria-checked={on}
-											disabled={lockOptions}
-											className={`admin-delivery-pay-chip admin-tooltip-btn-hover ${on ? "is-on" : ""}`}
-											onClick={() => {
-												setDeliveryPaymentChecked((prev) => {
-													const currOn = prev[key] !== false;
-													const next = { ...prev, [key]: !currOn };
-													deliveryPaymentCheckedRef.current = next;
-													return next;
-												});
-											}}
-										>
-											{DELIVERY_PAYMENT_LABELS[key] ?? key}
-											<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-												{DELIVERY_PAYMENT_CHIP_TITLE[key] ??
-													`Permitir ${DELIVERY_PAYMENT_LABELS[key] ?? key} en pedidos delivery.`}
-											</span>
-										</Button>
-									);
-								})}
-							</div>
+					<section className="admin-delivery-section admin-delivery-payments" aria-labelledby="adm-del-pay-title">
+						<p id="adm-del-pay-title" className="admin-delivery-section__title">
+							Métodos de pago (delivery)
+							<AdminHelpTip text={DELIVERY_TOOLTIPS.paymentSection} />
+						</p>
+						<p className="admin-delivery-section__lead admin-delivery-inline-tip">
+							Medios permitidos en envíos. Si estánes todos activos, no hay restricción extra.
+						</p>
+						<div className="admin-delivery-payment-grid">
+							{deliveryPaymentKeys.map((key) => {
+								const on = deliveryPaymentChecked[key] !== false;
+								const tip =
+									DELIVERY_PAYMENT_CHIP_TITLE[key] ??
+									`Permitir ${DELIVERY_PAYMENT_LABELS[key] ?? key} en pedidos delivery.`;
+								return (
+									<button
+										key={key}
+										type="button"
+										role="checkbox"
+										aria-checked={on}
+										aria-label={tip}
+										title={tip}
+										disabled={lockOptions}
+										className={`admin-delivery-pay-chip${on ? " is-on" : ""}`}
+										onClick={() => {
+											setDeliveryPaymentChecked((prev) => {
+												const currOn = prev[key] !== false;
+												const next = { ...prev, [key]: !currOn };
+												deliveryPaymentCheckedRef.current = next;
+												return next;
+											});
+										}}
+									>
+										{on ? <Check size={14} strokeWidth={2.25} aria-hidden /> : null}
+										{DELIVERY_PAYMENT_LABELS[key] ?? key}
+									</button>
+								);
+							})}
 						</div>
-					</details>
+					</section>
 
 					<details className="admin-delivery-fold">
 						<summary className="admin-delivery-fold__summary">
@@ -597,7 +598,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								En el tablero, el botón de WhatsApp abre el mensaje del envío y eliges al destinatario en la
 								app. <AdminHelpTip text={DELIVERY_TOOLTIPS.driverWhatsApp} />
 							</p>
-							<div className="form-group" style={{ maxWidth: "22rem" }}>
+							<div className="form-group admin-delivery-field--narrow">
 								<label htmlFor="adm-del-driver-wa">
 									WhatsApp repartidor (opcional)
 									<AdminHelpTip text={DELIVERY_TOOLTIPS.driverWhatsApp} />
@@ -614,17 +615,14 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 										setDraft((d) => ({ ...d, trustedDriverWhatsApp: ev.target.value }))
 									}
 								/>
-								<p className="admin-menu-options-card-desc" style={{ marginTop: 6, marginBottom: 0 }}>
+								<p className="admin-delivery-field-hint">
 									Se guarda al pulsar <strong>Guardar tarifas y opciones</strong>. Déjalo vacío para quitar.
 								</p>
 							</div>
 						</div>
 					</details>
 
-					<details
-						className="admin-delivery-fold admin-delivery-fold--advanced"
-						style={{ marginTop: 18 }}
-					>
+					<details className="admin-delivery-fold admin-delivery-fold--advanced">
 						<summary className="admin-delivery-fold__summary">
 							<div className="admin-delivery-fold__summary-text">
 								<span className="admin-delivery-fold__eyebrow">Avanzado</span>
@@ -632,7 +630,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							</div>
 						</summary>
 						<div className="admin-delivery-fold__body">
-							<div className="admin-branch-delivery-grid" style={{ marginTop: 0 }}>
+							<div className="admin-branch-delivery-grid">
 							<div className="form-group">
 								<label htmlFor="adm-del-minfee">
 									Mínimo envío (opcional)
@@ -793,24 +791,24 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 							</div>
 						</div>
 					</details>
-					<p
-						className="admin-menu-options-card-desc admin-delivery-inline-tip"
-						style={{ marginTop: 10, marginBottom: 12 }}
-					>
-						<strong>Vista previa:</strong> {previewText}{" "}
-						<AdminHelpTip text={DELIVERY_TOOLTIPS.preview} />
-					</p>
-					<Button variant="default"
-						type="button"
-						className=""
-						disabled={lockOptions}
-						onClick={() => void saveTariffs()}
-					>
-						{savingFields ? "Guardando…" : "Guardar tarifas y opciones"}
-						<span className="admin-tooltip-btn-hover__panel" aria-hidden="true">
-							{DELIVERY_TOOLTIPS.saveButton}
-						</span>
-					</Button>
+
+					<div className="admin-delivery-footer">
+						<p className="admin-delivery-footer__preview admin-delivery-inline-tip">
+							<strong>Vista previa:</strong> {previewText}{" "}
+							<AdminHelpTip text={DELIVERY_TOOLTIPS.preview} />
+						</p>
+						<Button
+							variant="default"
+							size="sm"
+							type="button"
+							className="admin-delivery-footer__save"
+							disabled={lockOptions}
+							title={DELIVERY_TOOLTIPS.saveButton}
+							onClick={() => void saveTariffs()}
+						>
+							{savingFields ? "Guardando…" : "Guardar tarifas y opciones"}
+						</Button>
+					</div>
 				</div>
 			) : null}
 		</section>

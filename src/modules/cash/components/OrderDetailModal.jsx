@@ -466,14 +466,14 @@ const OrderDetailModal = ({
                                     ) : null}
                                 </div>
                             </div>
-                            <Button variant="default"
+                            <button
                                 type="button"
                                 className="table-session-receipt__icon-btn"
                                 onClick={onClose}
                                 aria-label="Cerrar detalle"
                             >
                                 <X size={18} strokeWidth={1.75} />
-                            </Button>
+                            </button>
                         </header>
 
                         <div className="table-session-receipt__scroll">
@@ -552,8 +552,9 @@ const OrderDetailModal = ({
                                     {fulfillmentLabel}
                                 </div>
                                 {canMarkPaid ? (
-                                    <Button variant="default"
+                                    <Button variant="secondary"
                                         type="button"
+                                        size="sm"
                                         className="table-session-receipt__cta order-detail-mark-paid-btn"
                                         onClick={() => onMarkPaid(liveOrder)}
                                     >
@@ -753,7 +754,7 @@ const OrderDetailModal = ({
 
 							{highlightReceipt && (hasReceiptFile || liveOrder.payment_evidence_status === 'uploaded') ? (
                                 <section className={`table-session-receipt__section${highlightReceipt ? ' table-session-receipt__section--receipt-highlight' : ''}`}>
-									<Button variant="default" type="button"
+									<Button variant="secondary" type="button" size="sm"
 										onClick={() => { setReceiptModalOrder?.(liveOrder); onClose?.(); }}
                                         className="table-session-receipt__link"
                                     >
@@ -794,8 +795,9 @@ const OrderDetailModal = ({
 
                         <footer className="table-session-receipt__foot order-detail-receipt__foot">
                             <div className="order-detail-receipt-actions">
-                                <Button variant="default"
+                                <Button variant="secondary"
                                     type="button"
+                                    size="sm"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
                                         printOrderTicket(liveOrder, branch?.name, logoUrl ?? null, ticketPrintOpts('kitchen'));
@@ -804,8 +806,9 @@ const OrderDetailModal = ({
                                     <ChefHat size={16} aria-hidden />
                                     Ticket cocina
                                 </Button>
-                                <Button variant="default"
+                                <Button variant="secondary"
                                     type="button"
+                                    size="sm"
                                     className="order-detail-receipt-action"
                                     onClick={() => {
                                         printOrderTicket(liveOrder, branch?.name, logoUrl ?? null, ticketPrintOpts('cashier'));
@@ -814,8 +817,9 @@ const OrderDetailModal = ({
                                     <Banknote size={16} aria-hidden />
                                     Ticket caja
                                 </Button>
-                                <Button variant="default"
+                                <Button variant="secondary"
                                     type="button"
+                                    size="sm"
                                     className="order-detail-receipt-action"
                                     onClick={() => void handleCopyShare()}
                                 >
@@ -834,8 +838,9 @@ const OrderDetailModal = ({
                                     </a>
                                 ) : null}
                                 {isDelivery ? (
-                                    <Button variant="default"
+                                    <Button variant="secondary"
                                         type="button"
+                                        size="sm"
                                         className="order-detail-receipt-action"
                                         onClick={() => void handleDeliveryWhatsApp()}
                                     >
@@ -844,8 +849,9 @@ const OrderDetailModal = ({
                                     </Button>
                                 ) : null}
 								{highlightReceipt && setReceiptModalOrder ? (
-                                    <Button variant="default"
+                                    <Button variant="secondary"
                                         type="button"
+                                        size="sm"
                                         className="order-detail-receipt-action"
                                         onClick={() => {
                                             setReceiptModalOrder(liveOrder);
@@ -857,7 +863,7 @@ const OrderDetailModal = ({
                                     </Button>
                                 ) : null}
                             </div>
-                            <Button variant="default" type="button" className="table-session-receipt__cta" onClick={onClose}>
+                            <Button variant="default" type="button" size="sm" className="table-session-receipt__cta" onClick={onClose}>
                                 Cerrar
                             </Button>
                         </footer>

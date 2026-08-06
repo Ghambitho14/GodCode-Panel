@@ -103,10 +103,14 @@ export default function AdminCategoriesTab() {
 									}, 0);
 								}, 0);
 
+							const catalogShare = products.length > 0
+								? Math.round((categoryProducts.length / products.length) * 100)
+								: 0;
+
 							return (
 								<div
 									key={c.id}
-									className={`cat-card glass${dragCategoryId === c.id ? ' is-dragging' : ''}${dragOverCategoryId === c.id ? ' is-drop-target' : ''}`}
+									className={`cat-card${dragCategoryId === c.id ? ' is-dragging' : ''}${dragOverCategoryId === c.id ? ' is-drop-target' : ''}${c.is_active ? '' : ' is-inactive'}`}
 									draggable={dragEnabled}
 									onDragStart={dragEnabled ? () => handleDragStart(c.id) : undefined}
 									onDragEnd={dragEnabled ? () => { setDragCategoryId(null); setDragOverCategoryId(null); } : undefined}
@@ -115,12 +119,14 @@ export default function AdminCategoriesTab() {
 									onDrop={dragEnabled ? (event) => handleDrop(event, c.id) : undefined}
 								>
 									<div className="cat-card-header">
-										<div className="cat-icon-wrapper">
-											<Tag size={24} />
+										<div className="cat-icon-wrapper" aria-hidden>
+											<Tag size={20} />
 										</div>
-										<Button variant="default"
+										<Button
 											type="button"
-											className="cat-status-badge cat-status-button"
+											variant="secondary"
+											size="sm"
+											className={`cat-status-badge cat-status-button${c.is_active ? ' is-active' : ' is-inactive'}`}
 											onClick={(event) => {
 												event.stopPropagation();
 												toggleCategoryActive(c.id, !c.is_active);
@@ -131,11 +137,15 @@ export default function AdminCategoriesTab() {
 											<span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
 										</Button>
 									</div>
+
 									<div className="cat-card-body">
 										<div className="cat-name-row">
 											<h3 className="cat-name">{c.name}</h3>
-											<span className="cat-order-badge">#{Number(c.order) || 0}</span>
+											<span className="cat-order-badge" title="Orden en el menú">
+												#{Number(c.order) || 0}
+											</span>
 										</div>
+
 										<div className="cat-stats">
 											<div className="cat-stat">
 												<span className="cat-stat-label">Productos</span>
@@ -146,40 +156,56 @@ export default function AdminCategoriesTab() {
 												<span className="cat-stat-value">{activeProducts.length}</span>
 											</div>
 										</div>
+
 										<div className="cat-revenue">
-											<span className="cat-revenue-label">Ingresos totales</span>
-											<span className="cat-revenue-value">{formatBranchMoney(totalRevenue)}</span>
+											<span className="cat-revenue-label">Ingresos</span>
+											<strong className="cat-revenue-value">{formatBranchMoney(totalRevenue)}</strong>
 										</div>
+
 										<div className="cat-progress-wrapper">
-											<div className="cat-progress-bar">
+											<div className="cat-progress-bar" aria-hidden>
 												<div
 													className="cat-progress-fill"
-													style={{ width: `${products.length > 0 ? (categoryProducts.length / products.length) * 100 : 0}%` }}
+													style={{ width: `${catalogShare}%` }}
 												/>
 											</div>
-											<span className="cat-progress-text">
-												{products.length > 0 ? Math.round((categoryProducts.length / products.length) * 100) : 0}% del catálogo
-											</span>
+											<span className="cat-progress-text">{catalogShare}% del catálogo</span>
 										</div>
 									</div>
+
 									<div className="cat-card-footer">
-										<Button variant="default" type="button" onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true); }} className="cat-btn-edit">
-											<Edit size={16} />
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											className="cat-btn cat-btn-edit"
+											onClick={() => { setEditingCategory(c); setIsCategoryModalOpen(true); }}
+										>
+											<Edit size={14} aria-hidden />
 											Editar
 										</Button>
-										<Button variant="default"
+										<Button
 											type="button"
+											variant="outline"
+											size="sm"
+											className="cat-btn cat-btn-view"
 											onClick={() => {
-												setFilterCategory(c.id);
+												setFilterCategory(String(c.id));
 												setActiveTab('products');
 											}}
-											className="cat-btn-view"
 										>
-											<ShoppingBag size={16} />
-											Ver productos
+											<ShoppingBag size={14} aria-hidden />
+											Productos
 										</Button>
-										<Button variant="default" type="button" onClick={() => deleteCategory(c)} className="cat-btn-delete" title="Eliminar categoría">
-											<Trash2 size={16} />
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											className="cat-btn cat-btn-delete"
+											onClick={() => deleteCategory(c)}
+											title="Eliminar categoría"
+										>
+											<Trash2 size={14} aria-hidden />
 											Borrar
 										</Button>
 									</div>

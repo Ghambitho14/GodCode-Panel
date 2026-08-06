@@ -264,7 +264,7 @@ const AdminHistoryTable = ({
 														<span className={`status-badge ${st.className}`}>{st.label}</span>
 													</td>
 													<td data-label="Acciones" className="admin-history-actions">
-														<Button variant="default" type="button" className="">
+														<Button variant="secondary" type="button" size="sm" className="btn-icon-text">
 															{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
 															{isExpanded ? "Cerrar" : "Detalles"}
 														</Button>
@@ -333,15 +333,16 @@ const AdminHistoryTable = ({
 																		<div>
 													{isStorageObjectReference(o.payment_ref, 'receipts') || o.payment_evidence_status === 'uploaded' ? (
 														<div className="admin-history-receipt-actions">
-															<Button variant="default" type="button"
+															<Button variant="secondary" type="button" size="sm"
 																onClick={(e) => { e.stopPropagation(); setReceiptModalOrder?.(o); }}
 																className="admin-history-receipt-link"
 															>
 																<Eye size={16} /> Ver Recibo Guardado
 															</Button>
 																					{setReceiptModalOrder ? (
-																						<Button variant="default"
+																						<Button variant="ghost"
 																							type="button"
+																							size="sm"
 																							onClick={(e) => {
 																								e.stopPropagation();
 																								setReceiptModalOrder(o);
@@ -358,8 +359,9 @@ const AdminHistoryTable = ({
 																						No hay comprobante subido
 																					</span>
 																					{setReceiptModalOrder ? (
-																						<Button variant="default"
+																						<Button variant="secondary"
 																							type="button"
+																							size="sm"
 																							onClick={(e) => {
 																								e.stopPropagation();
 																								setReceiptModalOrder(o);
@@ -383,8 +385,9 @@ const AdminHistoryTable = ({
 																			</span>
 																			{o.status !== 'cancelled' ? (
 																				<Button
-																					variant="default"
+																					variant="secondary"
 																					type="button"
+																					size="sm"
 																					onClick={(event) => {
 																						event.stopPropagation();
 																						setPaymentOrder(o);

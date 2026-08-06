@@ -57,28 +57,6 @@
 .admin-layout .text-warning { color: #facc15; }
 .admin-layout .text-danger { color: #f87171; }
 
-.admin-layout .search-inventory {
-    margin-left: auto;
-    width: 300px;
-    background: white;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    height: 36px;
-    min-width: 220px;
-}
-
-.admin-layout .search-inventory input {
-    border: none;
-    background: transparent;
-    width: 100%;
-    margin-left: 8px;
-    outline: none;
-    color: var(--admin-text);
-    font-size: 0.9rem;
-}
-
 /* TABLE */
 .admin-layout .inventory-table-container {
     background: var(--admin-card-bg);
@@ -90,12 +68,12 @@
 .admin-layout .inventory-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 900px;
+    min-width: 780px;
 }
 
 .admin-layout .inventory-table th {
     text-align: left;
-    padding: 12px 20px;
+    padding: 10px 16px;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -105,62 +83,81 @@
 }
 
 .admin-layout .inventory-table td {
-    padding: 12px 20px;
+    padding: 10px 16px;
     font-size: 0.9rem;
     color: var(--admin-text);
     border-bottom: 1px solid var(--admin-border);
     vertical-align: middle;
 }
 
-.admin-layout .inventory-table tr:hover td {
-    background: var(--admin-card-bg);
+.admin-layout .inventory-table tbody tr:hover td {
+    background: var(--admin-icon-bg, #f8fafc);
 }
 
 .admin-layout .inventory-table tr:last-child td {
     border-bottom: none;
 }
 
-/* CONTROLS */
+/* CONTROLS — switch (scoped; bolita anclada con left/right, no translate frágil) */
 .admin-layout .switch-control {
     position: relative;
     display: inline-block;
-    width: 40px;
-    height: 20px;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
-.admin-layout .switch-control input { 
+.admin-layout .switch-control input {
     opacity: 0;
     width: 0;
     height: 0;
+    position: absolute;
 }
 
-.admin-layout .slider {
+.admin-layout .switch-control .slider {
     position: absolute;
     cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #4b5563; /* Gray closed */
-    transition: .4s;
-    border-radius: 20px;
+    inset: 0;
+    width: auto;
+    height: auto;
+    background-color: #94a3b8;
+    transition: background-color 0.2s ease;
+    border-radius: 999px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
-.admin-layout .slider:before {
+.admin-layout .switch-control .slider:before {
     position: absolute;
     content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
+    height: 18px;
+    width: 18px;
+    top: 3px;
+    left: 3px;
+    right: auto;
+    bottom: auto;
+    background-color: #fff;
+    transition: left 0.2s ease, right 0.2s ease;
     border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+    box-sizing: border-box;
+    transform: none;
 }
 
-.admin-layout input:checked + .slider {
-    background-color: var(--admin-accent);
+.admin-layout .switch-control input:checked + .slider {
+    background-color: var(--admin-accent, #2563eb);
 }
 
-.admin-layout input:checked + .slider:before {
-    transform: translateX(20px);
+.admin-layout .switch-control input:checked + .slider:before {
+    left: auto;
+    right: 3px;
+    transform: none;
+}
+
+.admin-layout .switch-control input:disabled + .slider {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .admin-layout .inventory-enforce-panel {
@@ -200,30 +197,34 @@
     flex-shrink: 0;
 }
 
-/* DISPONIBILIDAD BADGE/SELECT */
+/* DISPONIBILIDAD BADGE/SELECT — legibles en tema claro */
 .admin-layout .stock-badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    white-space: nowrap;
 }
 
 .admin-layout .stock-badge.available {
-    background: rgba(37, 211, 102, 0.2);
-    color: #4ade80;
+    background: rgba(34, 197, 94, 0.12);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.28);
 }
 
 .admin-layout .stock-badge.low {
-    background: rgba(250, 204, 21, 0.2);
-    color: #facc15;
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .admin-layout .stock-badge.out {
-    background: rgba(248, 113, 113, 0.2);
-    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.28);
 }
 
 /* INPUTS DE STOCK */
@@ -399,11 +400,11 @@
 
 .admin-layout .summary-card--actions {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: center;
     gap: 14px;
-    background: var(--admin-card-bg);
-    border-style: dashed;
+    background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 70%, var(--admin-card-bg, #fff));
+    border-style: solid;
 }
 
 .admin-layout .summary-card--actions .summary-card__hint {
@@ -414,11 +415,70 @@
     font-weight: 500;
 }
 
+.admin-layout .summary-card--actions .summary-card__hint strong {
+    color: var(--admin-text, #0f172a);
+    font-weight: 700;
+}
+
 .admin-layout .summary-card__actions-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+}
+
+.admin-layout .summary-card__action-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    margin: 0;
+    border-radius: 10px;
+    border: 1px solid var(--admin-border, #e2e8f0);
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text, #0f172a);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    box-shadow: none;
+    box-sizing: border-box;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-layout .summary-card__action-btn:hover {
+    background: var(--admin-icon-bg, #f8fafc);
+    border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 35%, var(--admin-border, #e2e8f0));
+    color: var(--admin-accent, #2563eb);
+}
+
+.admin-layout .summary-card__action-btn--primary {
+    background: var(--admin-accent, #2563eb);
+    border-color: transparent;
+    color: #fff;
+}
+
+.admin-layout .summary-card__action-btn--primary:hover {
+    filter: brightness(1.05);
+    background: var(--admin-accent, #2563eb);
+    color: #fff;
+    border-color: transparent;
+}
+
+.admin-layout .summary-card__action-btn:focus-visible {
+    outline: 2px solid var(--admin-accent, #2563eb);
+    outline-offset: 2px;
+}
+
+@media (max-width: 420px) {
+    .admin-layout .summary-card__actions-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .admin-layout .inventory-toolbar {
@@ -438,13 +498,14 @@
     justify-content: flex-start;
 }
 
-.admin-layout .inventory-toolbar .search-inventory {
+.admin-layout .inventory-toolbar .search-box {
     margin-left: auto;
     flex: 0 1 320px;
     max-width: 420px;
+    min-width: 0;
 }
 
-.admin-layout .inventory-toolbar--recipes .search-inventory {
+.admin-layout .inventory-toolbar--recipes .search-box {
     margin-left: 0;
     flex: 1 1 min(280px, 100%);
     max-width: 440px;
@@ -460,6 +521,11 @@
 }
 
 .admin-layout .inventory-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 0;
     padding: 6px 16px;
     margin: 0;
     border-radius: 20px;
@@ -472,6 +538,8 @@
     cursor: pointer;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     white-space: nowrap;
+    box-shadow: none;
+    line-height: 1.25;
 }
 
 .admin-layout .inventory-chip:hover {
@@ -484,11 +552,6 @@
     border-color: color-mix(in srgb, var(--accent-primary, var(--admin-accent)) 50%, transparent);
     color: var(--admin-text);
     font-weight: 700;
-}
-
-.admin-layout .inventory-search-icon {
-    color: var(--admin-text-muted);
-    flex-shrink: 0;
 }
 
 .admin-layout .inventory-loading,
@@ -553,18 +616,29 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     padding: 0;
-    border: none;
-    border-radius: 8px;
-    background: var(--admin-icon-bg);
-    color: var(--admin-text);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--admin-icon-bg, #f8fafc);
+    color: var(--admin-text-muted, #64748b);
     cursor: pointer;
+    box-shadow: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .admin-layout .inventory-expand-btn:hover {
-    background: var(--admin-icon-bg);
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-accent, #2563eb);
+    border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 35%, var(--admin-border, #e2e8f0));
+}
+
+.admin-layout .inventory-expand-btn:focus-visible {
+    outline: 2px solid var(--admin-accent, #2563eb);
+    outline-offset: 2px;
 }
 
 .admin-layout .inventory-expand-panel {
@@ -630,11 +704,15 @@
 }
 
 .admin-layout .inventory-row--open td {
-    background: color-mix(in srgb, var(--admin-accent) 10%, transparent);
+    background: color-mix(in srgb, var(--admin-accent) 8%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .inventory-table tbody tr.inventory-row--open:hover td {
+    background: color-mix(in srgb, var(--admin-accent) 12%, var(--admin-card-bg, #fff));
 }
 
 .admin-layout .inventory-expand-row td {
-    padding: 0 20px 16px !important;
+    padding: 0 16px 14px !important;
 }
 
 .admin-layout .inventory-movements {
@@ -658,42 +736,52 @@
     min-width: 0;
 }
 
-.admin-layout .inventory-recipes__lead {
-    padding: clamp(16px, 4.5vw, 22px) clamp(18px, 5vw, 26px) clamp(16px, 4.5vw, 22px)
-        clamp(20px, 5.5vw, 28px);
-    border-radius: 14px;
-    margin: 0;
-    font-size: clamp(0.875rem, 2.6vw, 0.9375rem);
-    line-height: 1.55;
-    font-weight: 500;
-    color: var(--admin-text-muted);
-    border: 1px solid var(--admin-border);
-    border-left: 4px solid var(--accent-primary, var(--admin-accent));
-    background: var(--admin-card-bg);
+.admin-layout .inventory-lead {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 clamp(12px, 3vw, 16px);
+    padding: 12px 14px;
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--admin-accent, #2563eb) 18%, var(--admin-border, #e2e8f0));
+    background: color-mix(in srgb, var(--admin-accent, #2563eb) 6%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .inventory-lead__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    color: var(--admin-accent, #2563eb);
+    background: color-mix(in srgb, var(--admin-accent, #2563eb) 12%, transparent);
+}
+
+.admin-layout .inventory-lead__text {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    padding-top: 5px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 500;
+    color: var(--admin-text-muted, #64748b);
     overflow-wrap: anywhere;
-    word-break: break-word;
     text-wrap: pretty;
 }
 
-.admin-layout .inventory-context-hint {
-    margin: 0 0 clamp(12px, 3vw, 16px);
-    padding: clamp(12px, 3vw, 14px) clamp(14px, 3.5vw, 18px);
-    border-radius: 12px;
-    font-size: clamp(0.8125rem, 2.4vw, 0.875rem);
-    line-height: 1.5;
-    font-weight: 500;
-    color: var(--admin-text-muted);
-    background: var(--admin-card-bg);
-    border: 1px solid var(--admin-border);
-    max-width: 100%;
-    box-sizing: border-box;
+.admin-layout .inventory-lead__text strong {
+    color: var(--admin-text, #0f172a);
+    font-weight: 700;
 }
 
-.admin-layout .inventory-context-hint strong {
-    color: var(--admin-text);
-    font-weight: 700;
+.admin-layout .inventory-recipes > .inventory-lead {
+    margin-bottom: 0;
 }
 
 .admin-layout .inventory-cart-unlinked-banner {
@@ -914,10 +1002,9 @@
 }
 
 .admin-layout .inventory-type-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     color: var(--admin-text-muted);
 }
 
@@ -946,22 +1033,32 @@
 
 .admin-layout .inventory-recipe-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 212px), 1fr));
-    gap: clamp(10px, 2.5vw, 14px);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+    gap: clamp(12px, 2.5vw, 16px);
+    align-items: stretch;
 }
 
 .admin-layout .inventory-recipe-card {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    justify-content: flex-start;
     gap: 8px;
-    padding: 18px 20px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 16px 18px;
     border-radius: 14px;
     text-align: left;
     cursor: pointer;
     border: 1px solid var(--admin-border);
     background: var(--admin-card-bg, #fff);
     color: var(--admin-text);
+    font-family: inherit;
+    line-height: 1.35;
+    white-space: normal;
+    box-sizing: border-box;
+    overflow: hidden;
     transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -970,15 +1067,25 @@
     background: var(--admin-icon-bg, #f8fafc);
 }
 
+.admin-layout .inventory-recipe-card:focus-visible {
+    outline: 2px solid var(--admin-accent, #2563eb);
+    outline-offset: 2px;
+}
+
 .admin-layout .inventory-recipe-card strong {
+    display: block;
     font-size: 0.95rem;
+    font-weight: 700;
     color: var(--admin-text);
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .admin-layout .inventory-recipe-card__meta {
     font-size: 0.8rem;
     color: var(--admin-text-muted);
     font-weight: 600;
+    white-space: normal;
 }
 
 .admin-layout .inventory-recipe-card__head {
@@ -990,12 +1097,16 @@
 }
 
 .admin-layout .inventory-recipe-card__title-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
     min-width: 0;
     flex: 1;
 }
 
 .admin-layout .inventory-recipe-card__icon {
     flex-shrink: 0;
+    margin-top: 2px;
     color: var(--admin-text-muted);
     opacity: 0.9;
 }
@@ -1008,11 +1119,13 @@
 .admin-layout .inventory-recipe-card__badge {
     display: inline-flex;
     align-items: center;
-    margin-top: 6px;
+    flex-shrink: 0;
+    margin-top: 0;
     padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    white-space: nowrap;
 }
 
 .admin-layout .inventory-recipe-card__badge--empty {
@@ -1264,11 +1377,59 @@
     text-align: right;
 }
 
+.admin-layout .inventory-th-actions {
+    text-align: right;
+}
+
 .admin-layout .inventory-row-actions {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     justify-content: flex-end;
+}
+
+.admin-layout .inventory-row-actions .btn-edit-sm,
+.admin-layout .inventory-row-actions .btn-trash-sm {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border-radius: 10px;
+    box-shadow: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, filter 0.15s ease;
+}
+
+.admin-layout .inventory-row-actions .btn-edit-sm {
+    background: var(--admin-accent, #2563eb);
+    border: 1px solid transparent;
+    color: #fff;
+}
+
+.admin-layout .inventory-row-actions .btn-edit-sm:hover {
+    filter: brightness(1.05);
+}
+
+.admin-layout .inventory-row-actions .btn-trash-sm {
+    background: var(--admin-icon-bg, #f8fafc);
+    border: 1px solid var(--admin-border, #e2e8f0);
+    color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .inventory-row-actions .btn-trash-sm:hover {
+    background: rgba(220, 38, 38, 0.08);
+    color: var(--admin-danger, #ef4444);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+.admin-layout .inventory-row-actions .btn-edit-sm:focus-visible,
+.admin-layout .inventory-row-actions .btn-trash-sm:focus-visible {
+    outline: 2px solid var(--admin-accent, #2563eb);
+    outline-offset: 2px;
 }
 
 .admin-layout .inventory-movement-delta {
@@ -1340,6 +1501,8 @@
     align-items: center;
     gap: 8px 12px;
     width: 100%;
+    height: auto;
+    min-height: 0;
     padding: 12px 14px;
     border-radius: 10px;
     border: 1px solid var(--admin-border);
@@ -1348,6 +1511,8 @@
     text-align: left;
     cursor: pointer;
     font-family: inherit;
+    white-space: normal;
+    box-sizing: border-box;
     transition: border-color 0.15s ease;
 }
 
@@ -1416,10 +1581,14 @@
         flex-direction: column;
         align-items: stretch;
     }
-    .admin-layout .search-inventory {
+    .admin-layout .inventory-toolbar .search-box,
+    .admin-layout .inventory-toolbar--recipes .search-box {
         width: 100%;
-        margin-top: 10px;
+        max-width: none;
         margin-left: 0;
+        margin-top: 0;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     .admin-layout .inventory-header h1 {
@@ -1447,14 +1616,12 @@
         gap: clamp(10px, 2.5vw, 15px);
     }
 
-    .admin-layout .inventory-toolbar .search-inventory {
+    .admin-layout .inventory-toolbar .search-box {
         max-width: none;
         width: 100%;
-        flex: 0 1 auto;
-        flex-grow: 0;
+        flex: 1 1 auto;
+        margin-left: 0;
         min-width: 0;
-        height: 36px;
-        min-height: 36px;
     }
 
     .admin-layout .inventory-view {

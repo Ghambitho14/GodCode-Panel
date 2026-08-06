@@ -371,11 +371,13 @@
   width: 44px;
   height: 24px;
   background-color: #333;
-  border-radius: 20px;
+  border-radius: 999px;
   position: relative;
-  transition: .3s;
+  transition: background-color 0.2s ease;
   flex-shrink: 0;
   display: block;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .slider:before {
@@ -383,12 +385,16 @@
   position: absolute;
   height: 18px;
   width: 18px;
+  top: 3px;
   left: 3px;
-  bottom: 3px;
+  right: auto;
+  bottom: auto;
   background-color: white;
   border-radius: 50%;
-  transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: left 0.2s ease, right 0.2s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+  transform: none;
 }
 
 /* Switch Content (Texto) */
@@ -431,9 +437,11 @@
   background-color: #25d366;
 }
 
-/* Movimiento de la bolita */
+/* Movimiento de la bolita — anclado al borde, sin translateX frágil */
 .custom-switch input:checked + .slider:before {
-  transform: translateX(20px);
+  left: auto;
+  right: 3px;
+  transform: none;
 }
 
 /* --- ANIMACIONES --- */

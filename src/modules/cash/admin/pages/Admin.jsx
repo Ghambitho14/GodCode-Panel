@@ -47,6 +47,7 @@ import { Toaster } from 'sileo';
 import 'sileo/styles.css';
 import '../../styles/AdminSileo.css';
 import { Button } from "@/components/ui/button";
+import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 
 export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
   const {
@@ -586,7 +587,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         )}
 
         {activeTab === 'menu_options' && (
-          <AdminErrorBoundary tabLabel={tabLabels.menu_options || 'Opciones de menú'} onRetry={() => void refreshBranches()}>
+          <AdminErrorBoundary tabLabel={tabLabels.menu_options || 'Opciones de sucursal'} onRetry={() => void refreshBranches()}>
             <React.Suspense fallback={<AdminTabFallback />}>
               <AdminMenuOptions
                 showNotify={showNotify}
@@ -668,7 +669,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
         {activeDynamicModule && activeDynamicModule.tabId === 'module:tickets' && (
           <AdminErrorBoundary tabLabel={tabLabels['module:tickets'] || activeDynamicModule.label || 'Soporte'} onRetry={() => refreshAllData()}>
-            <TenantTicketsPanel showNotify={showNotify} primaryColor={primaryColor} />
+            <TenantTicketsPanel showNotify={showNotify} />
           </AdminErrorBoundary>
         )}
 
@@ -737,6 +738,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             setReceiptModalOrder={setReceiptModalOrder}
             onOrderClick={(order) => setClientOrderDetail(order)}
             orderDetailOpen={Boolean(clientOrderDetail)}
+            formCountry={resolveEffectiveCountry(selectedBranch, companyProfile)}
           />
         </React.Suspense>
       )}

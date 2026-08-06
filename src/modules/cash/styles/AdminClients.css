@@ -1,10 +1,10 @@
 /* ADMIN CLIENTS — tema claro (.admin-layout). Fuente de verdad para tenant.css */
 
 .admin-layout .clients-container {
-	padding: 20px;
+	padding: 16px;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 14px;
 	animation: fadeIn 0.4s ease;
 	color: var(--admin-text, #1a1d21);
 }
@@ -15,7 +15,7 @@
 	justify-content: space-between;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 20px;
+	gap: 12px;
 }
 
 .admin-layout .clients-header--toolbar-only {
@@ -38,54 +38,40 @@
 
 .admin-layout .clients-actions {
 	display: flex;
-	gap: 10px;
+	gap: 8px;
 	align-items: center;
 	flex-wrap: wrap;
 }
 
 .admin-layout .clients-container .search-box,
 .admin-layout .history-view .search-box {
-	display: flex;
-	align-items: center;
-	background: var(--admin-card-bg, #fff);
-	border: 1px solid var(--admin-border, #cbd5e1);
-	border-radius: 8px;
-	padding: 0 12px;
-	height: 40px;
 	width: 250px;
-}
-
-.admin-layout .clients-container .search-box input,
-.admin-layout .history-view .search-box input {
-	border: none;
-	outline: none;
-	background: transparent;
-	margin-left: 8px;
-	width: 100%;
-	color: var(--admin-text, #0f172a);
-	font-size: 0.9rem;
-	font-weight: 500;
-}
-
-.admin-layout .clients-container .search-box input::placeholder,
-.admin-layout .history-view .search-box input::placeholder {
-	color: var(--admin-text-muted, #64748b);
-	opacity: 1;
+	max-width: 100%;
+	height: 36px;
+	min-height: 36px;
 }
 
 .admin-layout .clients-container .btn-icon-text,
 .admin-layout .history-view .btn-icon-text {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 16px;
+	gap: 6px;
+	padding: 6px 12px;
 	border-radius: 8px;
 	font-weight: 600;
-	font-size: 0.9rem;
+	font-size: 0.8125rem;
 	cursor: pointer;
 	border: none;
-	transition: all 0.2s;
-	height: 40px;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+	height: 36px;
+	min-height: 36px;
+	box-shadow: none;
+}
+
+.admin-layout .clients-actions .btn,
+.admin-layout .clients-actions button[data-slot="button"] {
+	height: 36px;
+	min-height: 36px;
 }
 
 .admin-layout .clients-container .btn-white,
@@ -121,30 +107,33 @@
 	stroke-width: 2;
 }
 
-/* Botón WhatsApp: solo logo, proporcionado al kebab (~34px) */
+/* Botón WhatsApp: quieto, alineado al kebab */
 .admin-layout .clients-whatsapp-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
-	min-width: 36px;
-	min-height: 36px;
+	width: 32px;
+	height: 32px;
+	min-width: 32px;
+	min-height: 32px;
 	padding: 0;
-	border: none;
+	border: 1px solid rgba(37, 211, 102, 0.35);
 	border-radius: 10px;
 	cursor: pointer;
 	font-family: inherit;
-	color: #fff;
-	background: #25d366;
-	box-shadow: 0 2px 8px rgba(37, 211, 102, 0.32);
-	transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+	color: #15803d;
+	background: rgba(37, 211, 102, 0.12);
+	box-shadow: none;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 	flex-shrink: 0;
 }
 
 .admin-layout .clients-whatsapp-btn:hover {
-	filter: brightness(1.05);
-	box-shadow: 0 4px 14px rgba(37, 211, 102, 0.45);
+	filter: none;
+	background: rgba(37, 211, 102, 0.2);
+	border-color: rgba(37, 211, 102, 0.5);
+	color: #166534;
+	box-shadow: none;
 }
 
 .admin-layout .clients-whatsapp-btn:active {
@@ -152,37 +141,46 @@
 }
 
 .admin-layout .clients-whatsapp-btn:focus-visible {
-	outline: 2px solid color-mix(in srgb, #25d366 55%, #000 20%);
+	outline: 2px solid color-mix(in srgb, #25d366 45%, #2563eb 20%);
 	outline-offset: 2px;
 }
 
 .admin-layout .clients-whatsapp-btn__glyph {
 	flex-shrink: 0;
-	width: 20px;
-	height: 20px;
+	width: 16px;
+	height: 16px;
 }
 
 /* FILTERS TABS */
 .admin-layout .clients-filters {
 	display: flex;
 	align-items: center;
-	gap: 15px;
-	padding-bottom: 15px;
+	gap: 10px;
+	padding-bottom: 12px;
 	border-bottom: 1px solid var(--admin-border, #e8ecf1);
 	overflow-x: auto;
 }
 
 .admin-layout .filter-chip {
-	padding: 6px 16px;
-	border-radius: 20px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: auto;
+	min-height: 0;
+	padding: 6px 14px;
+	margin: 0;
+	border-radius: 999px;
 	border: 1px solid var(--admin-border, #e8ecf1);
 	color: var(--admin-text, #334155);
-	font-size: 0.875rem;
+	font-family: inherit;
+	font-size: 0.8125rem;
 	font-weight: 600;
+	line-height: 1.25;
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 	white-space: nowrap;
 	background: var(--admin-card-bg, #fff);
+	box-shadow: none;
 }
 
 .admin-layout .filter-chip:hover {
@@ -192,9 +190,9 @@
 }
 
 .admin-layout .filter-chip.active {
-	background: color-mix(in srgb, var(--accent-primary) 12%, var(--admin-card-bg, #fff));
-	color: var(--accent-primary);
-	border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--admin-border));
+	background: color-mix(in srgb, var(--accent-primary, #2563eb) 14%, var(--admin-card-bg, #fff));
+	color: var(--admin-text, #0f172a);
+	border-color: color-mix(in srgb, var(--accent-primary, #2563eb) 40%, var(--admin-border));
 	font-weight: 700;
 }
 
@@ -437,29 +435,29 @@
 }
 
 .admin-layout .segment-badge {
-	padding: 4px 10px;
-	border-radius: 12px;
-	font-size: 0.75rem;
-	font-weight: 600;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
 	border: 1px solid transparent;
 }
 
 .admin-layout .segment-elite {
-	background: rgba(59, 130, 246, 0.18);
-	color: #1e40af;
-	border-color: rgba(59, 130, 246, 0.45);
+	background: rgba(37, 99, 235, 0.1);
+	color: #1d4ed8;
+	border-color: rgba(37, 99, 235, 0.22);
 }
 
 .admin-layout .segment-top {
-	background: rgba(168, 85, 247, 0.18);
-	color: #6b21a8;
-	border-color: rgba(168, 85, 247, 0.45);
+	background: rgba(124, 58, 237, 0.1);
+	color: #6d28d9;
+	border-color: rgba(124, 58, 237, 0.22);
 }
 
 .admin-layout .segment-frequent {
-	background: rgba(34, 197, 94, 0.18);
-	color: #166534;
-	border-color: rgba(34, 197, 94, 0.42);
+	background: rgba(22, 163, 74, 0.1);
+	color: #15803d;
+	border-color: rgba(22, 163, 74, 0.22);
 }
 
 .admin-layout .segment-buyer {
@@ -491,7 +489,7 @@
 	flex-shrink: 0;
 }
 
-.admin-layout .dot.active { background: #25d366; box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.25); }
+.admin-layout .dot.active { background: #16a34a; box-shadow: none; }
 .admin-layout .dot.risk { background: #ef4444; }
 .admin-layout .dot.inactive { background: #64748b; }
 .admin-layout .dot.sleeping { background: #ca8a04; }
@@ -510,8 +508,8 @@
 	justify-content: flex-end;
 	align-items: center;
 	gap: 10px;
-	margin-top: 20px;
-	padding: 0 10px;
+	margin-top: 16px;
+	padding: 0 4px;
 }
 
 .pagination-info {
@@ -521,7 +519,35 @@
 
 .pagination-buttons {
 	display: flex;
-	gap: 5px;
+	gap: 6px;
+}
+
+.admin-layout .clients-pagination-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	min-width: 36px;
+	padding: 0;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	cursor: pointer;
+	box-shadow: none;
+	transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-layout .clients-pagination-btn:hover:not(:disabled) {
+	background: var(--admin-icon-bg, #f8fafc);
+	border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 35%, var(--admin-border));
+	color: var(--admin-accent, #2563eb);
+}
+
+.admin-layout .clients-pagination-btn:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
 }
 
 .text-center { text-align: center; }
@@ -603,7 +629,8 @@
 	stroke-width: 1.5;
 }
 
-.admin-layout .clients-kebab-menu__item {
+.admin-layout .clients-kebab-menu__item,
+.clients-kebab-menu--portal .clients-kebab-menu__item {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -617,27 +644,36 @@
 	text-align: left;
 	cursor: pointer;
 	font-family: inherit;
+	box-shadow: none;
+	border-radius: 0;
+	height: auto;
+	min-height: 0;
 }
 
-.admin-layout .clients-kebab-menu__item:hover {
+.admin-layout .clients-kebab-menu__item:hover,
+.clients-kebab-menu--portal .clients-kebab-menu__item:hover {
 	background: var(--admin-icon-bg, #f0f2f6);
 }
 
-.admin-layout .clients-kebab-menu__item:disabled {
+.admin-layout .clients-kebab-menu__item:disabled,
+.clients-kebab-menu--portal .clients-kebab-menu__item:disabled {
 	opacity: 0.55;
 	cursor: not-allowed;
 	pointer-events: none;
 }
 
-.admin-layout .clients-kebab-menu__item--danger {
+.admin-layout .clients-kebab-menu__item--danger,
+.clients-kebab-menu--portal .clients-kebab-menu__item--danger {
 	color: #ef4444;
 }
 
-.admin-layout .clients-kebab-menu__item--danger .clients-kebab-menu__icon {
+.admin-layout .clients-kebab-menu__item--danger .clients-kebab-menu__icon,
+.clients-kebab-menu--portal .clients-kebab-menu__item--danger .clients-kebab-menu__icon {
 	color: #ef4444;
 }
 
-.admin-layout .clients-kebab-menu__item--danger:hover:not(:disabled) {
+.admin-layout .clients-kebab-menu__item--danger:hover:not(:disabled),
+.clients-kebab-menu--portal .clients-kebab-menu__item--danger:hover:not(:disabled) {
 	background: #fef2f2;
 }
 

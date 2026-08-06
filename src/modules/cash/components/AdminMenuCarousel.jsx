@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, Star, MoreVertical,
-	MonitorSmartphone, Calendar, GripVertical, ExternalLink, Sparkles, WandSparkles,
+	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, MoreVertical,
+	GripVertical, ExternalLink, WandSparkles,
+	Images, X,
 } from 'lucide-react';
 import {
 	uploadCompanyImage,
@@ -10,7 +12,9 @@ import {
 	IMAGE_STORAGE_CONTEXTS,
 	MENU_IMAGE_MAX_SIZE_MB,
 	getSignedImageUrl,
+	extractStoragePath,
 } from '@/shared/utils/supabaseStorage';
+import { supabase } from '@/integrations/supabase';
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -30,36 +34,12 @@ import {
 	fitCropRect,
 	canvasFromCrop,
 	autoFitCarouselImage,
+	computeEditorView,
 } from '../utils/carouselImageFit';
+import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import AdminIconSlot from './AdminIconSlot';
 import '../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
-
-const shortUrlSnippet = (url) => {
-	if (!url) return '—';
-	try {
-		if (url.startsWith('http://') || url.startsWith('https://')) {
-			const u = new URL(url);
-			const parts = u.pathname.split('/').filter(Boolean);
-			const last = parts[parts.length - 1] || u.hostname;
-			return last.length > 40 ? `${last.slice(0, 38)}…` : last;
-		}
-	} catch {
-		/* ignore */
-	}
-	const t = url.replace(/^https?:\/\//, '');
-	return t.length > 44 ? `${t.slice(0, 42)}…` : t;
-};
-
-const getImageSource = (url) => {
-	if (typeof url !== 'string' || !url.trim()) return { label: 'Sin imagen', accent: false };
-	if (!/^https?:\/\//i.test(url) || url.includes('/storage/v1/object/')) {
-		return { label: 'Supabase Storage', accent: true };
-	}
-	return { label: 'URL externa', accent: false };
-};
-
-const humanSize = (n) => `${Math.round(n).toLocaleString('es-CL')}px`;
 
 const filenameFromUrl = (url) => {
 	const raw = String(url || '').split('?')[0];
@@ -72,6 +52,25 @@ const filenameFromUrl = (url) => {
 	} catch {
 		return `carousel-${Date.now()}.jpg`;
 	}
+};
+
+const humanSize = (value) => {
+	const n = Math.round(Number(value) || 0);
+	return n > 0 ? String(n) : '—';
+};
+
+const loadBannerImageBlob = async (imagePath) => {
+	const storagePath = extractStoragePath(imagePath, 'menu');
+	if (storagePath && !/^https?:\/\//i.test(storagePath)) {
+		const { data, error } = await supabase.storage.from('menu').download(storagePath);
+		if (!error && data) return data;
+	}
+
+	const signedUrl = await getSignedImageUrl(imagePath, 'menu');
+	if (!signedUrl) throw new Error('No se encontró la imagen del banner.');
+	const res = await fetch(signedUrl);
+	if (!res.ok) throw new Error('No se pudo cargar la imagen para editar.');
+	return res.blob();
 };
 
 const CarouselSlideThumbnail = ({ imagePath, index }) => {
@@ -143,14 +142,42 @@ export default function AdminMenuCarousel({
 	const [intervalSec, setIntervalSec] = useState(5);
 	const [maxSlides, setMaxSlides] = useState(10);
 	const [menuOpenId, setMenuOpenId] = useState(null);
+	const [kebabMenuPos, setKebabMenuPos] = useState(null);
 	const [pendingUpload, setPendingUpload] = useState(null);
 	const [editorZoom, setEditorZoom] = useState(1);
 	const [editorOffsetX, setEditorOffsetX] = useState(0.5);
 	const [editorOffsetY, setEditorOffsetY] = useState(0.5);
 	const [editorMode, setEditorMode] = useState('cover');
 	const [editing, setEditing] = useState(false);
+	const fileInputRef = useRef(null);
 
 	const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : null;
+
+	const closeKebabMenu = useCallback(() => {
+		setMenuOpenId(null);
+		setKebabMenuPos(null);
+	}, []);
+
+	const updateKebabMenuPosFromButton = useCallback((buttonEl) => {
+		if (!buttonEl || typeof buttonEl.getBoundingClientRect !== 'function') return;
+		const r = buttonEl.getBoundingClientRect();
+		const margin = 10;
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+		const menuW = Math.min(11.5 * remPx, vw - margin * 2);
+		const menuH = 220;
+
+		let left = r.right - menuW;
+		left = Math.max(margin, Math.min(left, vw - menuW - margin));
+
+		let top = r.bottom + 6;
+		if (top + menuH > vh - margin) {
+			top = Math.max(margin, r.top - menuH - 6);
+		}
+
+		setKebabMenuPos({ top, left });
+	}, []);
 
 	const load = useCallback(async () => {
 		if (!branchId) {
@@ -182,16 +209,79 @@ export default function AdminMenuCarousel({
 		void load();
 	}, [load]);
 
+	useLayoutEffect(() => {
+		if (!menuOpenId) return undefined;
+		const idEscaped = String(menuOpenId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+		let rafId = null;
+		const runReposition = () => {
+			const btn = document.querySelector(`[data-carousel-kebab-id="${idEscaped}"]`);
+			if (btn) updateKebabMenuPosFromButton(btn);
+		};
+
+		const scheduleReposition = () => {
+			if (rafId != null) return;
+			rafId = requestAnimationFrame(() => {
+				rafId = null;
+				runReposition();
+			});
+		};
+
+		runReposition();
+
+		const btn = document.querySelector(`[data-carousel-kebab-id="${idEscaped}"]`);
+		const scrollRoots = btn ? getScrollableAncestors(btn) : [];
+		const mainContent = typeof document !== 'undefined'
+			? document.querySelector('.admin-layout main.admin-content')
+			: null;
+		const extraScrollRoots = mainContent && !scrollRoots.includes(mainContent) ? [mainContent] : [];
+
+		scrollRoots.forEach((el) => {
+			el.addEventListener('scroll', runReposition, { passive: true });
+		});
+		extraScrollRoots.forEach((el) => {
+			el.addEventListener('scroll', runReposition, { passive: true });
+		});
+		window.addEventListener('scroll', runReposition, true);
+		window.addEventListener('resize', scheduleReposition);
+
+		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+		if (vv) {
+			vv.addEventListener('scroll', runReposition);
+			vv.addEventListener('resize', scheduleReposition);
+		}
+
+		return () => {
+			if (rafId != null) cancelAnimationFrame(rafId);
+			scrollRoots.forEach((el) => {
+				el.removeEventListener('scroll', runReposition);
+			});
+			extraScrollRoots.forEach((el) => {
+				el.removeEventListener('scroll', runReposition);
+			});
+			window.removeEventListener('scroll', runReposition, true);
+			window.removeEventListener('resize', scheduleReposition);
+			if (vv) {
+				vv.removeEventListener('scroll', runReposition);
+				vv.removeEventListener('resize', scheduleReposition);
+			}
+		};
+	}, [menuOpenId, updateKebabMenuPosFromButton]);
+
 	useEffect(() => {
 		if (!menuOpenId) return undefined;
 		const onKey = (e) => {
-			if (e.key === 'Escape') setMenuOpenId(null);
+			if (e.key === 'Escape') closeKebabMenu();
 		};
 		document.addEventListener('keydown', onKey);
-		/** Evita que el mismo clic que abre el menú dispare el cierre en fase burbuja. */
 		const onDoc = (e) => {
-			if (e.target instanceof Element && e.target.closest('.menu-carousel-kebab-wrap')) return;
-			setMenuOpenId(null);
+			if (!(e.target instanceof Element)) {
+				closeKebabMenu();
+				return;
+			}
+			if (e.target.closest('.menu-carousel-kebab-menu--portal')) return;
+			if (e.target.closest('[data-carousel-kebab-id]')) return;
+			closeKebabMenu();
 		};
 		const t = window.setTimeout(() => {
 			document.addEventListener('click', onDoc);
@@ -201,7 +291,7 @@ export default function AdminMenuCarousel({
 			document.removeEventListener('click', onDoc);
 			document.removeEventListener('keydown', onKey);
 		};
-	}, [menuOpenId]);
+	}, [menuOpenId, closeKebabMenu]);
 
 	const persistReorder = async (nextList) => {
 		if (!branchId || !companyId) return;
@@ -316,7 +406,7 @@ export default function AdminMenuCarousel({
 			showNotify('Falta identificar la empresa', 'error');
 			return;
 		}
-		setMenuOpenId(null);
+		closeKebabMenu();
 		try {
 			await deleteBanner({ bannerId: banner.id, companyId });
 			await deleteCompanyImage(
@@ -466,14 +556,10 @@ export default function AdminMenuCarousel({
 
 	const openEditorForBanner = async (banner) => {
 		if (!banner?.image_url) return;
-		setMenuOpenId(null);
+		closeKebabMenu();
 		setEditing(true);
 		try {
-			const signedUrl = await getSignedImageUrl(banner.image_url, 'menu');
-			if (!signedUrl) throw new Error('No se encontró la imagen del banner.');
-			const res = await fetch(signedUrl, { mode: 'cors' });
-			if (!res.ok) throw new Error('No se pudo cargar la imagen para editar.');
-			const blob = await res.blob();
+			const blob = await loadBannerImageBlob(banner.image_url);
 			const fallbackType = blob.type || 'image/jpeg';
 			const file = new File([blob], filenameFromUrl(banner.image_url), { type: fallbackType });
 			const dimensions = await readImageDimensions(file);
@@ -518,28 +604,39 @@ export default function AdminMenuCarousel({
 		}
 	};
 
-	const editorView = pendingUpload && (() => {
-		const dims = pendingUpload.dimensions;
-		const ratio = dims.width / Math.max(1, dims.height);
-		const minZoom = Math.max(TARGET_RATIO / ratio, 1);
-		const maxZoom = editorMode === 'contain' ? 2.2 : 4;
-		const currentZoom = Math.min(maxZoom, Math.max(minZoom, Number(editorZoom) || minZoom));
-		const cropWidth = dims.width / currentZoom;
-		const cropHeight = cropWidth / TARGET_RATIO;
-		const safeX = Math.min(Math.max(editorOffsetX, 0), 1);
-		const safeY = Math.min(Math.max(editorOffsetY, 0), 1);
-		const x = (dims.width - cropWidth) * safeX;
-		const y = (dims.height - cropHeight) * safeY;
-		const crop = fitCropRect(dims, { x, y, width: cropWidth, height: cropHeight });
-		return { minZoom, maxZoom, currentZoom, crop };
-	})();
+	const openFilePicker = () => {
+		if (uploading) return;
+		fileInputRef.current?.click();
+	};
+
+	const editorView = pendingUpload
+		? computeEditorView(
+			pendingUpload.dimensions,
+			editorMode,
+			editorZoom,
+			editorOffsetX,
+			editorOffsetY,
+		)
+		: null;
+
+	const kebabOpenBanner = menuOpenId ? banners.find((b) => b.id === menuOpenId) ?? null : null;
+	const kebabOpenIdx = kebabOpenBanner ? banners.findIndex((b) => b.id === kebabOpenBanner.id) : -1;
+	const kebabPortalTarget = typeof document !== 'undefined' ? document.body : null;
+	const editorPortalTarget = kebabPortalTarget;
+
+	useEffect(() => {
+		if (!menuOpenId || kebabOpenBanner) return undefined;
+		closeKebabMenu();
+		return undefined;
+	}, [menuOpenId, kebabOpenBanner, closeKebabMenu]);
 
 	if (!branchId) {
 		return (
-			<div className="glass animate-fade menu-carousel-panel menu-carousel-panel-inner">
-				<div className="menu-carousel-branch-hint">
+			<div className="admin-branch-options menu-carousel glass animate-fade menu-carousel-panel menu-carousel-panel-inner">
+				<div className="menu-carousel-branch-hint admin-branch-options__empty">
+					<Images size={36} strokeWidth={1.4} aria-hidden className="menu-carousel-empty-icon" />
 					<p className="menu-carousel-hint">
-						Selecciona una <strong className="text-accent">sucursal</strong> en el encabezado para editar el carrusel del menú (cada local tiene su propia lista de imágenes).
+						Elige una sucursal en la barra superior para ver y editar las imágenes de su carrusel.
 					</p>
 				</div>
 			</div>
@@ -548,7 +645,7 @@ export default function AdminMenuCarousel({
 
 	if (loading) {
 		return (
-			<div className="glass animate-fade menu-carousel-panel menu-carousel-panel-inner menu-carousel-loading">
+			<div className="admin-branch-options menu-carousel glass animate-fade menu-carousel-panel menu-carousel-panel-inner menu-carousel-loading">
 				<AdminIconSlot Icon={Loader2} slotSize="lg" className="animate-spin" />
 			</div>
 		);
@@ -556,23 +653,281 @@ export default function AdminMenuCarousel({
 
 	const branchLabel = selectedBranch?.name ? ` · ${selectedBranch.name}` : '';
 
+	const editorModal = pendingUpload && editorPortalTarget
+		? createPortal(
+			<div
+				className="menu-carousel-editor-overlay"
+				role="presentation"
+				onClick={() => {
+					if (!uploading && !editing) dismissPendingUpload();
+				}}
+			>
+				<div
+					className="menu-carousel-editor-modal"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="menu-carousel-editor-title"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="menu-carousel-editor-header">
+						<div className="menu-carousel-editor-header-text">
+							<h3 id="menu-carousel-editor-title">Ajustar imagen</h3>
+							<p className="menu-carousel-editor-header-hint">
+								Formato 2.35:1 · mín. {OUTPUT_WIDTH}×{OUTPUT_HEIGHT}.
+								Actual: {humanSize(pendingUpload.dimensions.width)} × {humanSize(pendingUpload.dimensions.height)}.
+							</p>
+						</div>
+						<button
+							type="button"
+							className="menu-carousel-editor-close"
+							aria-label="Cerrar"
+							disabled={uploading || editing}
+							onClick={dismissPendingUpload}
+						>
+							<X size={18} />
+						</button>
+					</div>
+
+					<div className="menu-carousel-editor-body">
+						<div className="menu-carousel-editor-preview-wrap">
+							<div className="menu-carousel-editor-preview">
+								<img
+									src={pendingUpload.previewUrl}
+									alt="Vista previa para edición"
+									className="menu-carousel-editor-preview-image"
+									style={editorView.previewImageStyle}
+									draggable={false}
+								/>
+							</div>
+						</div>
+						<div className="menu-carousel-editor-controls">
+							<div className="menu-carousel-editor-mode-toggle" role="radiogroup" aria-label="Modo de ajuste">
+								<button
+									type="button"
+									className={`menu-carousel-editor-mode-btn${editorMode === 'cover' ? ' is-active' : ''}`}
+									onClick={() => {
+										setEditorMode('cover');
+										const ratio = pendingUpload.dimensions.width / Math.max(1, pendingUpload.dimensions.height);
+										setEditorZoom(Math.max(TARGET_RATIO / ratio, 1));
+										setEditorOffsetX(0.5);
+										setEditorOffsetY(0.5);
+									}}
+								>
+									Recortar
+								</button>
+								<button
+									type="button"
+									className={`menu-carousel-editor-mode-btn${editorMode === 'contain' ? ' is-active' : ''}`}
+									onClick={() => {
+										setEditorMode('contain');
+										setEditorZoom(1);
+										setEditorOffsetX(0.5);
+										setEditorOffsetY(0.5);
+									}}
+								>
+									Ajustar completa
+								</button>
+							</div>
+							<button
+								type="button"
+								className="menu-carousel-editor-reset-btn"
+								onClick={() => {
+									setEditorZoom(editorView.minZoom);
+									setEditorOffsetX(0.5);
+									setEditorOffsetY(0.5);
+								}}
+							>
+								Reset vista
+							</button>
+							<label htmlFor="menu-carousel-editor-zoom">
+								{editorMode === 'contain' ? 'Escala' : 'Zoom'}
+								<input
+									id="menu-carousel-editor-zoom"
+									type="range"
+									min={editorView.minZoom}
+									max={editorView.maxZoom}
+									step={0.01}
+									value={editorView.currentZoom}
+									onChange={(ev) => setEditorZoom(Number(ev.target.value))}
+								/>
+							</label>
+							<label
+								htmlFor="menu-carousel-editor-x"
+								className={!editorView.canPanX ? 'menu-carousel-editor-control--disabled' : undefined}
+							>
+								Horizontal
+								<input
+									id="menu-carousel-editor-x"
+									type="range"
+									min={0}
+									max={1}
+									step={0.01}
+									value={editorView.safeX}
+									disabled={!editorView.canPanX}
+									onChange={(ev) => setEditorOffsetX(Number(ev.target.value))}
+								/>
+							</label>
+							<label
+								htmlFor="menu-carousel-editor-y"
+								className={!editorView.canPanY ? 'menu-carousel-editor-control--disabled' : undefined}
+							>
+								Vertical
+								<input
+									id="menu-carousel-editor-y"
+									type="range"
+									min={0}
+									max={1}
+									step={0.01}
+									value={editorView.safeY}
+									disabled={!editorView.canPanY}
+									onChange={(ev) => setEditorOffsetY(Number(ev.target.value))}
+								/>
+							</label>
+						</div>
+						{!editorView.canPanX && !editorView.canPanY && editorMode === 'cover' ? (
+							<p className="menu-carousel-editor-contain-hint">
+								Acerca más con Zoom para poder mover la imagen horizontal o verticalmente.
+							</p>
+						) : null}
+						{editorMode === 'contain' ? (
+							<p className="menu-carousel-editor-contain-hint">
+								Modo ajustar completa: evita franjas y rellena todo el formato (puede recortar un poco los bordes).
+							</p>
+						) : null}
+					</div>
+
+					<div className="menu-carousel-editor-footer">
+						<Button
+							variant="secondary"
+							type="button"
+							size="sm"
+							onClick={dismissPendingUpload}
+							disabled={uploading || editing}
+						>
+							Cancelar
+						</Button>
+						<Button
+							variant="default"
+							type="button"
+							size="sm"
+							onClick={() => void saveEditedImage()}
+							disabled={uploading || editing}
+						>
+							{editing ? 'Aplicando…' : 'Guardar'}
+						</Button>
+					</div>
+				</div>
+			</div>,
+			editorPortalTarget,
+		)
+		: null;
+
+	const kebabMenu = menuOpenId && kebabOpenBanner && kebabMenuPos && kebabPortalTarget
+		? createPortal(
+			<div
+				id="menu-carousel-kebab-menu-popover"
+				className="menu-carousel-kebab-menu menu-carousel-kebab-menu--portal"
+				style={{ top: kebabMenuPos.top, left: kebabMenuPos.left }}
+				role="menu"
+				tabIndex={-1}
+				onClick={(e) => e.stopPropagation()}
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') closeKebabMenu();
+				}}
+			>
+				<button
+					type="button"
+					role="menuitem"
+					className="menu-carousel-kebab-item"
+					onClick={(e) => {
+						e.stopPropagation();
+						void openEditorForBanner(kebabOpenBanner);
+					}}
+				>
+					<AdminIconSlot Icon={WandSparkles} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
+					Ajustar diseño
+				</button>
+				{kebabOpenIdx > 0 ? (
+					<button
+						type="button"
+						role="menuitem"
+						className="menu-carousel-kebab-item"
+						onClick={() => { void move(kebabOpenIdx, -1); closeKebabMenu(); }}
+					>
+						<AdminIconSlot Icon={ChevronUp} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
+						Subir
+					</button>
+				) : null}
+				{kebabOpenIdx >= 0 && kebabOpenIdx < banners.length - 1 ? (
+					<button
+						type="button"
+						role="menuitem"
+						className="menu-carousel-kebab-item"
+						onClick={() => { void move(kebabOpenIdx, 1); closeKebabMenu(); }}
+					>
+						<AdminIconSlot Icon={ChevronDown} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
+						Bajar
+					</button>
+				) : null}
+				<button
+					type="button"
+					role="menuitem"
+					className="menu-carousel-kebab-item"
+					onClick={() => { void toggleActive(kebabOpenBanner); closeKebabMenu(); }}
+				>
+					{kebabOpenBanner.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
+				</button>
+			</div>,
+			kebabPortalTarget,
+		)
+		: null;
+
 	return (
-		<div className="glass animate-fade menu-carousel-panel menu-carousel-panel-inner">
-			<header className="menu-carousel-header">
-				<p className="menu-carousel-eyebrow">Menú público · Carrusel</p>
-				<h2 className="menu-carousel-title">
-					Imágenes del carrusel{branchLabel}
-				</h2>
-				<p className="menu-carousel-sub">
-					Configura el orden y la visibilidad de cada diapositiva. El intervalo entre fotos y cuántas rotan a la vez se aplican a toda la empresa en el menú público.
+		<div className="admin-branch-options menu-carousel glass animate-fade menu-carousel-panel menu-carousel-panel-inner">
+			<input
+				ref={fileInputRef}
+				type="file"
+				accept="image/jpeg,image/png,image/webp"
+				className="menu-carousel-file-input"
+				disabled={uploading}
+				onChange={(ev) => void onPickFile(ev)}
+				tabIndex={-1}
+				aria-hidden
+			/>
+
+			<header className="admin-branch-options__toolbar menu-carousel-header">
+				<div className="admin-branch-options__toolbar-title">
+					<Images size={20} strokeWidth={1.75} aria-hidden />
+					<h2>Carrusel{branchLabel}</h2>
+				</div>
+				<p className="admin-branch-options__toolbar-hint">
+					Fotos del menú digital por sucursal.
 				</p>
 			</header>
 
-			<section className="menu-carousel-settings-block" aria-labelledby="carousel-settings-heading">
-				<h3 id="carousel-settings-heading">Comportamiento en el menú</h3>
+			<section className="menu-carousel-specs" aria-label="Recomendaciones para imágenes del carrusel">
+				<p className="menu-carousel-specs__lead">
+					<strong>Tamaño recomendado:</strong>{' '}
+					{OUTPUT_WIDTH} × {OUTPUT_HEIGHT} px · panorámica {TARGET_RATIO}:1
+				</p>
+				<ul className="menu-carousel-specs__list">
+					<li>
+						Misma proporción en otras resoluciones (ej. 2350 × 1000 px) también se ve bien.
+					</li>
+					<li>
+						Dejá margen en los bordes: al encajar 2.35:1 puede recortarse un poco arriba o abajo.
+					</li>
+					<li>
+						JPG, PNG o WebP · máx. {MENU_IMAGE_MAX_SIZE_MB} MB. Tras subir, usá <strong>Ajustar diseño</strong> si hace falta.
+					</li>
+				</ul>
+			</section>
+
+			<section className="admin-branch-options__card menu-carousel-settings-block" aria-labelledby="carousel-settings-heading">
+				<h3 id="carousel-settings-heading" className="admin-branch-options__block-title">Rotación</h3>
 				<div className="menu-carousel-settings">
-					<div className="form-group">
-						<label htmlFor="carousel-interval">Segundos entre fotos</label>
+					<div className="form-group menu-carousel-settings__field">
+						<label htmlFor="carousel-interval">Intervalo (s)</label>
 						<input
 							id="carousel-interval"
 							type="number"
@@ -583,8 +938,8 @@ export default function AdminMenuCarousel({
 							className="form-input"
 						/>
 					</div>
-					<div className="form-group">
-						<label htmlFor="carousel-max">Máximo en rotación</label>
+					<div className="form-group menu-carousel-settings__field">
+						<label htmlFor="carousel-max">Máx. fotos</label>
 						<input
 							id="carousel-max"
 							type="number"
@@ -596,49 +951,70 @@ export default function AdminMenuCarousel({
 						/>
 					</div>
 					<div className="form-group menu-carousel-save-wrap">
-						<Button variant="default"
+						<Button
+							variant="default"
 							type="button"
+							size="sm"
 							className="menu-carousel-settings-save-btn"
 							onClick={() => void saveSettings()}
 							disabled={savingSettings}
 						>
-							{savingSettings ? 'Guardando…' : 'Guardar ajustes'}
+							{savingSettings ? 'Guardando…' : 'Guardar'}
 						</Button>
 					</div>
 				</div>
 			</section>
 
 			<div className="menu-carousel-toolbar">
-				<h3>
-					Lista de diapositivas
-					<span className="menu-carousel-count">{banners.length === 0 ? '(vacía)' : `(${banners.length})`}</span>
-				</h3>
-				<div>
-					<label className="menu-carousel-upload-inline" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+				<div className="menu-carousel-toolbar-head">
+					<h3>
+						Diapositivas
+						<span className="menu-carousel-count">
+							{banners.length === 0 ? '0' : banners.length}
+						</span>
+					</h3>
+					<Button
+						variant="default"
+						type="button"
+						size="sm"
+						className="menu-carousel-upload-btn"
+						disabled={uploading}
+						onClick={openFilePicker}
+					>
 						{uploading ? (
-							<AdminIconSlot Icon={Loader2} slotSize="sm" className="animate-spin" />
+							<Loader2 size={14} className="animate-spin" aria-hidden />
 						) : (
-							<AdminIconSlot Icon={ImagePlus} slotSize="sm" tone="accent" />
+							<ImagePlus size={14} aria-hidden />
 						)}
-						{uploading ? 'Subiendo…' : 'Añadir imagen'}
-						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
-					</label>
-					<span className="menu-carousel-upload-hint"> · Cualquier JPG, PNG o WebP (máx. 20 MB). Se ajusta automáticamente al formato del carrusel.</span>
+						{uploading ? 'Subiendo…' : 'Subir imagen'}
+					</Button>
 				</div>
+				<p className="menu-carousel-upload-hint">
+					Ideal {OUTPUT_WIDTH}×{OUTPUT_HEIGHT} px · JPG, PNG o WebP · máx. {MENU_IMAGE_MAX_SIZE_MB} MB
+				</p>
 			</div>
 
 			{banners.length === 0 ? (
 				<div className="menu-carousel-empty">
-					<p>Aún no hay diapositivas para esta sucursal. Sube imágenes promocionales o del menú; aparecerán en el carrusel del menú público cuando estén activas.</p>
-					<label className="" style={{ cursor: uploading ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+					<Images size={36} strokeWidth={1.4} aria-hidden className="menu-carousel-empty-icon" />
+					<p>Aún no hay imágenes en esta sucursal.</p>
+					<p className="menu-carousel-empty-spec">
+						Subí fotos {OUTPUT_WIDTH}×{OUTPUT_HEIGHT} px (2.35:1) para mejor resultado en el menú.
+					</p>
+					<Button
+						variant="default"
+						type="button"
+						size="sm"
+						disabled={uploading}
+						onClick={openFilePicker}
+					>
 						{uploading ? (
-							<Loader2 size={18} color="#fff" className="animate-spin" aria-hidden />
+							<Loader2 size={14} className="animate-spin" aria-hidden />
 						) : (
-							<ImagePlus size={18} color="#fff" aria-hidden />
+							<ImagePlus size={14} aria-hidden />
 						)}
-						{uploading ? 'Subiendo…' : 'Subir primera imagen'}
-						<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={uploading} onChange={(ev) => void onPickFile(ev)} />
-					</label>
+						{uploading ? 'Subiendo…' : 'Subir'}
+					</Button>
 				</div>
 			) : (
 				<div className="menu-carousel-table-outer">
@@ -647,7 +1023,7 @@ export default function AdminMenuCarousel({
 							const created = b.created_at ? new Date(b.created_at) : null;
 							const dateStr = created && Number.isFinite(created.getTime())
 								? created.toLocaleDateString('es-CL')
-								: '—';
+								: null;
 							return (
 								<li
 									key={b.id}
@@ -657,59 +1033,70 @@ export default function AdminMenuCarousel({
 									<div className="menu-carousel-slide-card-main">
 										<div className="menu-carousel-slide-card-head">
 											<div className="menu-carousel-slide-titles">
-												<p className="menu-carousel-slide-eyebrow">
-													<AdminIconSlot Icon={GripVertical} slotSize="xxs" className="menu-carousel-slide-eyebrow-slot" />
-													Diapositiva {idx + 1}
-												</p>
-												<h4 className="menu-carousel-slide-filename" title={b.image_url}>
-													{shortUrlSnippet(b.image_url)}
-												</h4>
-											</div>
-											<span
-												className={`menu-carousel-chip menu-carousel-chip--status ${b.is_active ? 'menu-carousel-chip--on' : ''}`}
-											>
-												<span className="menu-carousel-chip-dot" aria-hidden />
-												{b.is_active ? 'Visible en menú' : 'Oculta'}
-											</span>
-										</div>
-										<div className="menu-carousel-slide-meta">
-											<span className="menu-carousel-chip menu-carousel-chip--neutral">
-												<AdminIconSlot Icon={Star} slotSize="xxs" />
-												Orden {b.sort_order ?? idx}
-											</span>
-											{(() => {
-												const source = getImageSource(b.image_url);
-												return (
-													<span className={`menu-carousel-chip ${source.accent ? 'menu-carousel-chip--accent' : 'menu-carousel-chip--neutral'}`}>
-														{source.label}
+												<h4 className="menu-carousel-slide-title">
+													<span className="menu-carousel-slide-drag" aria-hidden>
+														<GripVertical size={14} strokeWidth={1.75} />
 													</span>
-												);
-											})()}
-											<span className="menu-carousel-chip menu-carousel-chip--neutral">
-												<AdminIconSlot Icon={Calendar} slotSize="xxs" />
-												{dateStr}
-											</span>
-											<span className="menu-carousel-chip menu-carousel-chip--neutral menu-carousel-chip--hide-sm">
-												<AdminIconSlot Icon={MonitorSmartphone} slotSize="xxs" />
-												Menú digital
-											</span>
+													Diapositiva {idx + 1}
+												</h4>
+												{dateStr ? (
+													<p className="menu-carousel-slide-sub">{dateStr}</p>
+												) : null}
+											</div>
+											<div className="menu-carousel-slide-card-meta">
+												<span className={`status-badge ${b.is_active ? 'success' : 'neutral'}`}>
+													{b.is_active ? 'Visible' : 'Oculta'}
+												</span>
+												<div className="menu-carousel-slide-card-actions">
+													<button
+														type="button"
+														className="admin-icon-btn admin-icon-btn--sm menu-carousel-btn-delete"
+														aria-label="Eliminar imagen del carrusel"
+														onClick={(e) => {
+															e.stopPropagation();
+															void removeBanner(b);
+														}}
+													>
+														<Trash2 size={15} aria-hidden />
+													</button>
+													<div className="menu-carousel-kebab-wrap">
+														<button
+															type="button"
+															className="admin-icon-btn admin-icon-btn--sm menu-carousel-kebab-trigger"
+															data-carousel-kebab-id={b.id}
+															aria-expanded={menuOpenId === b.id}
+															aria-haspopup="menu"
+															aria-controls={menuOpenId === b.id ? 'menu-carousel-kebab-menu-popover' : undefined}
+															aria-label="Más opciones"
+															onClick={(e) => {
+																e.stopPropagation();
+																if (menuOpenId === b.id) {
+																	closeKebabMenu();
+																	return;
+																}
+																updateKebabMenuPosFromButton(e.currentTarget);
+																setMenuOpenId(b.id);
+															}}
+														>
+															<MoreVertical size={16} aria-hidden />
+														</button>
+													</div>
+												</div>
+											</div>
 										</div>
 										<div className="menu-carousel-slide-promo-block">
-											<div className="menu-carousel-slide-promo-label">
-												<AdminIconSlot Icon={Sparkles} slotSize="xs" tone="accent" className="menu-carousel-promo-icon-slot" />
-												<span>Promo con duración</span>
-											</div>
+											<span className="menu-carousel-slide-promo-label">Caducidad</span>
 											<div className="menu-carousel-row-promo menu-carousel-row-promo--card">
-												<Button variant="default"
+												<button
 													type="button"
 													className={`menu-carousel-switch menu-carousel-switch--sm ${bannerPromoOn(b) ? 'is-on' : ''}`}
 													role="switch"
 													aria-checked={bannerPromoOn(b)}
-													aria-label={bannerPromoOn(b) ? 'Quitar duración de promoción en esta imagen' : 'Activar duración de promoción en esta imagen'}
+													aria-label={bannerPromoOn(b) ? 'Quitar duración de promoción' : 'Activar duración de promoción'}
 													onClick={() => void toggleBannerPromo(b)}
 												>
 													<span className="menu-carousel-switch-knob" />
-												</Button>
+												</button>
 												{bannerPromoOn(b) ? (
 													<div className="menu-carousel-promo-days-wrap">
 														<label className="menu-carousel-promo-days-label" htmlFor={`promo-days-${b.id}`}>Días</label>
@@ -726,85 +1113,9 @@ export default function AdminMenuCarousel({
 														/>
 													</div>
 												) : (
-													<span className="menu-carousel-promo-off-hint">Sin caducidad automática</span>
+													<span className="menu-carousel-promo-off-hint">Sin límite</span>
 												)}
 											</div>
-										</div>
-									</div>
-									<div className="menu-carousel-slide-card-actions">
-										<Button variant="default"
-											type="button"
-											className="menu-carousel-btn-delete"
-											aria-label="Eliminar imagen del carrusel"
-											onClick={(e) => {
-												e.stopPropagation();
-												void removeBanner(b);
-											}}
-										>
-											<Trash2 size={18} aria-hidden />
-											<span className="menu-carousel-delete-label">Eliminar</span>
-										</Button>
-										<div className="menu-carousel-kebab-wrap">
-											<Button variant="default"
-												type="button"
-												className="admin-icon-btn--sm menu-carousel-kebab-trigger"
-												aria-expanded={menuOpenId === b.id}
-												aria-haspopup="menu"
-												aria-label="Más opciones"
-												onClick={(e) => {
-													e.stopPropagation();
-													setMenuOpenId((prev) => (prev === b.id ? null : b.id));
-												}}
-											>
-												<MoreVertical size={18} aria-hidden />
-											</Button>
-											{menuOpenId === b.id ? (
-												<div
-													className="menu-carousel-kebab-menu"
-													role="menu"
-													tabIndex={-1}
-													onClick={(e) => e.stopPropagation()}
-													onKeyDown={(e) => {
-														if (e.key === 'Escape') setMenuOpenId(null);
-													}}
-												>
-													<Button variant="default"
-														type="button"
-														role="menuitem"
-														onClick={() => { void openEditorForBanner(b); }}
-													>
-														<AdminIconSlot Icon={WandSparkles} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
-														Ajustar diseño
-													</Button>
-													{idx > 0 ? (
-														<Button variant="default"
-															type="button"
-															role="menuitem"
-															onClick={() => { void move(idx, -1); setMenuOpenId(null); }}
-														>
-															<AdminIconSlot Icon={ChevronUp} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
-															Subir
-														</Button>
-													) : null}
-													{idx < banners.length - 1 ? (
-														<Button variant="default"
-															type="button"
-															role="menuitem"
-															onClick={() => { void move(idx, 1); setMenuOpenId(null); }}
-														>
-															<AdminIconSlot Icon={ChevronDown} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
-															Bajar
-														</Button>
-													) : null}
-													<Button variant="default"
-														type="button"
-														role="menuitem"
-														onClick={() => { void toggleActive(b); setMenuOpenId(null); }}
-													>
-														{b.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
-													</Button>
-												</div>
-											) : null}
 										</div>
 									</div>
 								</li>
@@ -813,110 +1124,8 @@ export default function AdminMenuCarousel({
 					</ul>
 				</div>
 			)}
-			{pendingUpload ? (
-				<div className="menu-carousel-editor-overlay" role="dialog" aria-modal="true" aria-label="Editor de imagen carrusel">
-					<div className="menu-carousel-editor-modal">
-						<div className="menu-carousel-editor-head">
-							<h4>Editor opcional de imagen</h4>
-							<p>
-								Objetivo: 2.35:1, mínimo {OUTPUT_WIDTH}x{OUTPUT_HEIGHT}.
-								Actual: {humanSize(pendingUpload.dimensions.width)} x {humanSize(pendingUpload.dimensions.height)}.
-							</p>
-						</div>
-						<div className="menu-carousel-editor-preview-wrap">
-							<div className="menu-carousel-editor-preview">
-								<img
-									src={pendingUpload.previewUrl}
-									alt="Vista previa para edición"
-									className={`menu-carousel-editor-preview-image ${editorMode === 'contain' ? 'is-contain' : 'is-cover'}`}
-									style={{
-										objectPosition: `${Math.round(Math.min(Math.max(editorOffsetX, 0), 1) * 100)}% ${Math.round(Math.min(Math.max(editorOffsetY, 0), 1) * 100)}%`,
-										transform: `scale(${editorView.currentZoom})`,
-									}}
-								/>
-							</div>
-						</div>
-						<div className="menu-carousel-editor-controls">
-							<div className="menu-carousel-editor-mode-toggle" role="radiogroup" aria-label="Modo de ajuste">
-								<Button variant="default"
-									type="button"
-									className={`btn btn-secondary ${editorMode === 'cover' ? 'is-active' : ''}`}
-									onClick={() => setEditorMode('cover')}
-								>
-									Recortar
-								</Button>
-								<Button variant="default"
-									type="button"
-									className={`btn btn-secondary ${editorMode === 'contain' ? 'is-active' : ''}`}
-									onClick={() => setEditorMode('contain')}
-								>
-									Ajustar completa
-								</Button>
-							</div>
-							<Button variant="ghost"
-								type="button"
-								className="menu-carousel-editor-reset-btn"
-								onClick={() => {
-									setEditorZoom(editorView.minZoom);
-									setEditorOffsetX(0.5);
-									setEditorOffsetY(0.5);
-								}}
-							>
-								Reset vista
-							</Button>
-							<label htmlFor="menu-carousel-editor-zoom">
-								{editorMode === 'contain' ? 'Escala' : 'Zoom'}
-								<input
-									id="menu-carousel-editor-zoom"
-									type="range"
-									min={editorView.minZoom}
-									max={editorView.maxZoom}
-									step={0.01}
-									value={editorView.currentZoom}
-									onChange={(ev) => setEditorZoom(Number(ev.target.value))}
-								/>
-							</label>
-							<label htmlFor="menu-carousel-editor-x">
-								Horizontal
-								<input
-									id="menu-carousel-editor-x"
-									type="range"
-									min={0}
-									max={1}
-									step={0.01}
-									value={editorOffsetX}
-									onChange={(ev) => setEditorOffsetX(Number(ev.target.value))}
-								/>
-							</label>
-							<label htmlFor="menu-carousel-editor-y">
-								Vertical
-								<input
-									id="menu-carousel-editor-y"
-									type="range"
-									min={0}
-									max={1}
-									step={0.01}
-									value={editorOffsetY}
-									onChange={(ev) => setEditorOffsetY(Number(ev.target.value))}
-								/>
-							</label>
-						</div>
-						{editorMode === 'contain' ? (
-							<p className="menu-carousel-editor-contain-hint">
-								Modo ajustar completa: evita franjas y rellena todo el formato (puede recortar un poco los bordes).
-							</p>
-						) : null}
-						<div className="menu-carousel-editor-actions">
-							<Button variant="ghost" type="button" className="" onClick={dismissPendingUpload} disabled={uploading || editing}>
-								Cancelar
-							</Button>
-							<Button variant="default" type="button" className="" onClick={() => void saveEditedImage()} disabled={uploading || editing}>
-								{editing ? 'Aplicando…' : 'Guardar ajustes'}
-							</Button>
-						</div>
-					</div>
-				</div>
-			) : null}
+			{kebabMenu}
+			{editorModal}
 		</div>
 	);
 }

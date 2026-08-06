@@ -2737,15 +2737,15 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .admin-layout .order-detail-receipt-dl__row {
     display: grid;
-    grid-template-columns: minmax(80px, 96px) 1fr;
-    gap: 8px 12px;
+    grid-template-columns: minmax(72px, 92px) 1fr;
+    gap: 6px 10px;
     align-items: start;
-    font-size: 0.86rem;
+    font-size: 0.8125rem;
 }
 
 .admin-layout .order-detail-receipt-dl__row dt {
@@ -2788,17 +2788,17 @@
 }
 
 .admin-layout .order-detail-receipt__foot {
-    gap: 10px;
+    gap: 8px;
 }
 
 .admin-layout .order-detail-receipt-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
 }
 
 .admin-layout .order-detail-panel--receipt .order-detail-receipt-action {
-    border-radius: var(--receipt-btn-radius-md, 5px);
+    border-radius: 10px;
 }
 
 .admin-layout .order-detail-receipt-action {
@@ -2806,9 +2806,10 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    flex: 1 1 calc(50% - 4px);
-    min-height: 40px;
-    padding: 8px 10px;
+    flex: 1 1 calc(50% - 3px);
+    min-height: 36px;
+    height: auto;
+    padding: 6px 10px;
     border: 1px solid var(--admin-border);
     border-radius: 10px;
     background: var(--admin-card-bg, #fff);
@@ -2818,6 +2819,7 @@
     color: var(--admin-text);
     cursor: pointer;
     text-decoration: none;
+    box-shadow: none;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 
@@ -2827,9 +2829,9 @@
 }
 
 .admin-layout .order-detail-receipt-action--whatsapp {
-    color: #128c7e;
-    border-color: rgba(18, 140, 126, 0.35);
-    background: rgba(37, 211, 102, 0.08);
+    color: #15803d;
+    border-color: rgba(37, 211, 102, 0.35);
+    background: rgba(37, 211, 102, 0.1);
 }
 
 .admin-layout .order-detail-panel--receipt .order-detail-fulfillment {
@@ -2847,37 +2849,50 @@
     gap: 8px;
     margin-top: 10px;
     width: 100%;
-    min-height: 40px;
-    font-size: 0.85rem;
-    border-radius: var(--receipt-btn-radius-lg, 6px);
+    min-height: 36px;
+    height: auto;
+    font-size: 0.8125rem;
+    border-radius: 10px;
+    box-shadow: none;
 }
 
 .admin-layout .order-detail-panel--receipt .table-session-receipt__cta {
-    border-radius: var(--receipt-btn-radius-lg, 6px);
+    border-radius: 10px;
+    background: #2563eb;
+    min-height: 40px;
+}
+
+.admin-layout .order-detail-panel--receipt .table-session-receipt__cta:hover:not(:disabled) {
+    background: #1d4ed8;
 }
 
 .admin-layout .order-detail-panel--receipt .order-detail-status-chip {
     font-size: 0.72rem;
     padding: 3px 9px;
+    background: var(--admin-icon-bg, #f8fafc);
+    border: 1px solid var(--admin-border, #e8ecf1);
+    color: var(--admin-text, #0f172a);
+    font-weight: 700;
 }
+
 .order-line-lifecycle {
   display: grid;
-  gap: 0.4rem;
-  margin-top: 0.55rem;
-  padding: 0.65rem;
-  border: 1px solid var(--gc-border, #e5e7eb);
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--gc-surface, #fff) 88%, #eef4ff);
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--admin-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--admin-icon-bg, #f8fafc);
 }
 
 .order-line-lifecycle__status {
   width: fit-content;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
   font-size: 0.72rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .order-line-lifecycle__status.is-preparing {

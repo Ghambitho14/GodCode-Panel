@@ -114,34 +114,44 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                 )}
 
                 <div className="inv-actions">
-                    {/* En modo lista, el toggle está aquí abajo */}
-                    {viewMode === 'list' && (
-                         <Button variant="default" 
-                            className={`btn-icon-sm ${product.is_active ? 'text-success' : 'text-muted'}`} 
-                            onClick={handleToggleClick}
-                            title={product.is_active ? "Pausar" : "Activar"}
-                            style={{ marginRight: 8 }}
-                        >
-                            {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
-                        </Button>
-                    )}
+                    <span className={`status-badge ${product.is_active ? 'active' : 'paused'}`}>
+                        {product.is_active ? 'Disponible' : 'Pausado'}
+                    </span>
 
-                    {viewMode === 'grid' && (
-                        <span className={`status-badge ${product.is_active ? 'active' : 'paused'}`}>
-                            {product.is_active ? 'Disponible' : 'Pausado'}
-                        </span>
-                    )}
-                    
                     <div className="action-buttons">
-                        {/* Botón visual de editar (ayuda UX) */}
-                        <Button variant="default" className="" title="Editar">
+                        {viewMode === 'list' ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon"
+                                className={`btn-icon-sm ${product.is_active ? 'text-success' : 'text-muted'}`}
+                                onClick={handleToggleClick}
+                                title={product.is_active ? 'Pausar' : 'Activar'}
+                                aria-label={product.is_active ? 'Pausar venta' : 'Activar venta'}
+                            >
+                                {product.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
+                            </Button>
+                        ) : null}
+
+                        <Button
+                            type="button"
+                            variant="default"
+                            size="icon"
+                            className="btn-edit-sm"
+                            title="Editar"
+                            aria-label="Editar producto"
+                        >
                             <Edit3 size={14} />
                         </Button>
-                        
-                        <Button variant="default" 
-                            onClick={handleDeleteClick} 
+
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            onClick={handleDeleteClick}
                             className="btn-trash-sm"
                             title="Eliminar producto"
+                            aria-label="Eliminar producto"
                         >
                             <Trash size={14} />
                         </Button>

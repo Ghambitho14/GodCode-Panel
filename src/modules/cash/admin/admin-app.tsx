@@ -33,6 +33,7 @@ import "../styles/CategoryModal.css";
 import "../styles/InventoryCard.css";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
+import "../styles/AdminCartUpsell.css";
 import "../styles/TenantTicketsPanel.css";
 import "../styles/CashSystem.css";
 import { AdminPage } from "./pages/Admin";

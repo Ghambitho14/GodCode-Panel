@@ -16,6 +16,7 @@ import {
 	Link2Off,
 	X,
 	Save,
+	Info,
 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from "@/shared/utils/fetchAllPaginated";
@@ -768,12 +769,22 @@ const AdminInventory = ({
 							catálogo. Si usas carrito de bebidas o extras, también puedes vincular esos ítems a un artículo.
 						</p>
 						<div className="summary-card__actions-row">
-							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("supplies")}>
-								<List size={16} /> Ver artículos
-							</Button>
-							<Button variant="secondary" type="button" className="" onClick={() => setSubTab("recipes")}>
-								<ChefHat size={16} /> Consumo por venta
-							</Button>
+							<button
+								type="button"
+								className="summary-card__action-btn summary-card__action-btn--primary"
+								onClick={() => setSubTab("supplies")}
+							>
+								<List size={16} aria-hidden />
+								Ver artículos
+							</button>
+							<button
+								type="button"
+								className="summary-card__action-btn"
+								onClick={() => setSubTab("recipes")}
+							>
+								<ChefHat size={16} aria-hidden />
+								Consumo por venta
+							</button>
 						</div>
 					</div>
 				</div>
@@ -792,12 +803,17 @@ const AdminInventory = ({
 						</div>
 					</div>
 
-					<p className="inventory-context-hint">
-						<strong>Artículos = stock físico.</strong> Usa el <strong>tipo</strong> (General, Bebida, Extra) para
-						ordenar. El consumo al vender un producto del catálogo se configura en{" "}
-						<strong>Recetas / Consumo</strong>. Si un ítem del carrito no tiene artículo vinculado, usa{" "}
-						<strong>Registrar en inventario</strong> abajo.
-					</p>
+					<div className="inventory-lead" role="note">
+						<span className="inventory-lead__icon" aria-hidden>
+							<Info size={18} strokeWidth={2} />
+						</span>
+						<p className="inventory-lead__text">
+							<strong>Artículos = stock físico.</strong> Usa el <strong>tipo</strong> (General, Bebida, Extra) para
+							ordenar. El consumo al vender un producto del catálogo se configura en{" "}
+							<strong>Recetas / Consumo</strong>. Si un ítem del carrito no tiene artículo vinculado, usa{" "}
+							<strong>Registrar en inventario</strong> abajo.
+						</p>
+					</div>
 
 					{branchId !== "all" && (unlinkedBeverages.length > 0 || unlinkedExtras.length > 0) ? (
 						<div className="inventory-cart-unlinked-banner" role="region" aria-label="Ítems del carrito sin artículo">
@@ -890,14 +906,14 @@ const AdminInventory = ({
 								{ id: "low", label: "Bajo" },
 								{ id: "out", label: "Agotado" },
 							].map((c) => (
-								<Button variant="default"
+								<button
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${statusFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setStatusFilter(c.id)}
 								>
 									{c.label}
-								</Button>
+								</button>
 							))}
 						</div>
 						<div className="inventory-toolbar__chips inventory-toolbar__chips--wrap">
@@ -909,18 +925,18 @@ const AdminInventory = ({
 								{ id: "sellable_extra", label: "Extra" },
 								{ id: "other", label: "Otro" },
 							].map((c) => (
-								<Button variant="default"
+								<button
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${itemTypeFilter === c.id ? "inventory-chip--active" : ""}`}
 									onClick={() => setItemTypeFilter(c.id)}
 								>
 									{c.label}
-								</Button>
+								</button>
 							))}
 						</div>
-						<div className="search-inventory">
-							<Search size={18} className="inventory-search-icon" aria-hidden />
+						<div className="search-box">
+							<Search size={18} aria-hidden />
 							<input
 								type="search"
 								placeholder="Buscar artículo o categoría…"
@@ -949,19 +965,19 @@ const AdminInventory = ({
 									<tr>
 										<th className="inventory-th-expand" aria-hidden />
 										<th>
-											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
+											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("name")}>
 												Artículo {sortKey === "name" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</Button>
+											</button>
 										</th>
 										<th>Tipo</th>
 										<th>
-											<Button variant="default" type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
+											<button type="button" className="inventory-th-sort" onClick={() => toggleSort("stock")}>
 												Stock {sortKey === "stock" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-											</Button>
+											</button>
 										</th>
 										<th>Unidad</th>
 										<th>Estado</th>
-										<th style={{ textAlign: "right" }}>Acciones</th>
+										<th className="inventory-th-actions">Acciones</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -979,7 +995,7 @@ const AdminInventory = ({
 												<tr className={expanded ? "inventory-row--open" : ""}>
 													<td className="inventory-td-expand">
 														{branchId !== "all" ? (
-															<Button variant="default"
+															<button
 																type="button"
 																className="inventory-expand-btn"
 																aria-expanded={expanded}
@@ -994,7 +1010,7 @@ const AdminInventory = ({
 																title="Últimos movimientos"
 															>
 																{expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-															</Button>
+															</button>
 														) : null}
 													</td>
 													<td className="inventory-td-name">
@@ -1021,22 +1037,22 @@ const AdminInventory = ({
 													<td>{statusBadge}</td>
 													<td className="inventory-td-actions">
 														<div className="inventory-row-actions">
-															<Button variant="default"
-																className=""
+															<button
 																type="button"
+																className="btn-edit-sm"
 																onClick={() => handleEdit(item)}
 																title="Editar"
 															>
 																<Edit size={16} />
-															</Button>
-															<Button variant="default"
-																className="btn-trash-sm"
+															</button>
+															<button
 																type="button"
+																className="btn-trash-sm"
 																onClick={() => handleDelete(item.id)}
 																title="Eliminar"
 															>
 																<Trash2 size={16} />
-															</Button>
+															</button>
 														</div>
 													</td>
 												</tr>
@@ -1137,17 +1153,22 @@ const AdminInventory = ({
 
 			{subTab === "recipes" && (
 				<div className="inventory-recipes">
-					<p className="inventory-recipes__lead">
-						Asocia cada <strong>producto del catálogo</strong> con los <strong>artículos</strong> que se consumen por
-						venta. Al confirmar un pedido, el sistema descontará el stock según las cantidades definidas aquí.
-					</p>
+					<div className="inventory-lead" role="note">
+						<span className="inventory-lead__icon" aria-hidden>
+							<Info size={18} strokeWidth={2} />
+						</span>
+						<p className="inventory-lead__text">
+							Asocia cada <strong>producto del catálogo</strong> con los <strong>artículos</strong> que se consumen
+							por venta. Al confirmar un pedido, el sistema descontará el stock según las cantidades definidas aquí.
+						</p>
+					</div>
 
 					<div className="inventory-header inventory-toolbar--recipes">
 						<Button variant="default" type="button" className="" onClick={openAddRecipePicker}>
 							<Plus size={18} /> Agregar receta
 						</Button>
-						<div className="search-inventory">
-							<Search size={18} className="inventory-search-icon" aria-hidden />
+						<div className="search-box">
+							<Search size={18} aria-hidden />
 							<input
 								type="search"
 								placeholder="Buscar por producto, categoría o artículo…"
@@ -1168,7 +1189,7 @@ const AdminInventory = ({
 								{ id: "without", label: "Sin receta" },
 								{ id: "with", label: "Con receta" },
 							].map((c) => (
-								<Button variant="default"
+								<button
 									key={c.id}
 									type="button"
 									className={`inventory-chip ${recipeFilter === c.id ? "inventory-chip--active" : ""}`}
@@ -1178,7 +1199,7 @@ const AdminInventory = ({
 									}}
 								>
 									{c.label}
-								</Button>
+								</button>
 							))}
 						</div>
 						<p className="inventory-muted inventory-recipes__stats">
@@ -1203,7 +1224,7 @@ const AdminInventory = ({
 												(product.insumoNames.length > 2 ? ` +${product.insumoNames.length - 2}` : "")
 											: null;
 									return (
-										<Button variant="default"
+										<button
 											key={product.id}
 											type="button"
 											className="inventory-recipe-card"
@@ -1232,7 +1253,7 @@ const AdminInventory = ({
 											<span className="inventory-recipe-card__meta">
 												{summary || (product.hasRecipe ? "Clic para editar" : "Clic para configurar")}
 											</span>
-										</Button>
+										</button>
 									);
 								})}
 							</div>
@@ -1281,8 +1302,8 @@ const AdminInventory = ({
 							</Button>
 						</header>
 						<div className="inventory-recipe-picker__toolbar">
-							<div className="search-inventory inventory-recipe-picker__search">
-								<Search size={18} className="inventory-search-icon" aria-hidden />
+							<div className="search-box inventory-recipe-picker__search">
+								<Search size={18} aria-hidden />
 								<input
 									type="search"
 									placeholder="Buscar producto o categoría…"
@@ -1310,7 +1331,11 @@ const AdminInventory = ({
 								<ul className="inventory-recipe-picker__items">
 									{recipePickProductList.map((p) => (
 										<li key={p.id}>
-											<Button variant="default" type="button" className="inventory-recipe-picker__item" onClick={() => pickProductForRecipe(p)}>
+											<button
+												type="button"
+												className="inventory-recipe-picker__item"
+												onClick={() => pickProductForRecipe(p)}
+											>
 												<span className="inventory-recipe-picker__item-name">{p.name}</span>
 												{p.categoryName ? (
 													<span className="inventory-recipe-picker__item-cat">{p.categoryName}</span>
@@ -1318,7 +1343,7 @@ const AdminInventory = ({
 												{p.hasRecipe ? (
 													<span className="inventory-recipe-picker__item-badge">Ya tiene receta</span>
 												) : null}
-											</Button>
+											</button>
 										</li>
 									))}
 								</ul>
@@ -1363,8 +1388,8 @@ const AdminInventory = ({
 						>
 							<div className="modal-form-scroll inventory-recipe-editor__body">
 								<div className="inventory-recipe-editor__toolbar">
-									<div className="search-inventory inventory-recipe-editor__insumo-search">
-										<Search size={18} className="inventory-search-icon" aria-hidden />
+									<div className="search-box inventory-recipe-editor__insumo-search">
+										<Search size={18} aria-hidden />
 										<input
 											type="search"
 											placeholder="Filtrar artículos por nombre o categoría…"

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "../styles/AdminMenuOptions.css";
+import "../styles/AdminCartUpsell.css";
 import "../styles/AdminMenuCarousel.css";
-import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import {
 	uploadCompanyImage,
@@ -137,6 +138,7 @@ export default function AdminMenuCartUpsellSection({
 	const [inventoryOptions, setInventoryOptions] = useState([]);
 	const [pickInventoryOpen, setPickInventoryOpen] = useState(false);
 	const [pickInvSearch, setPickInvSearch] = useState("");
+	const [catalogSearch, setCatalogSearch] = useState("");
 
 	const stockByInventoryId = useMemo(() => {
 		const m = {};
@@ -340,7 +342,15 @@ export default function AdminMenuCartUpsellSection({
 	);
 
 	const catalogGroups = useMemo(() => {
-		const sorted = [...items].sort((a, b) => {
+		const q = catalogSearch.trim().toLowerCase();
+		const sorted = [...items]
+			.filter((it) => {
+				if (!q) return true;
+				const name = String(it.name || "").toLowerCase();
+				const cat = String(it.category || "").toLowerCase();
+				return name.includes(q) || cat.includes(q);
+			})
+			.sort((a, b) => {
 			const ca = String(a.category || "").trim().toLowerCase();
 			const cb = String(b.category || "").trim().toLowerCase();
 			if (ca !== cb) {
@@ -362,7 +372,7 @@ export default function AdminMenuCartUpsellSection({
 			}
 		}
 		return groups;
-	}, [items]);
+	}, [items, catalogSearch]);
 
 	const persistSectionOnly = useCallback(
 		async (nextOn) => {
@@ -613,7 +623,7 @@ export default function AdminMenuCartUpsellSection({
 				<div className="admin-cart-upsell-toolbar__text">
 					<div className="admin-cart-upsell-page-head">
 						<div className="admin-menu-options-card-icon admin-cart-upsell-page-icon" aria-hidden>
-							<Icon size={24} strokeWidth={1.65} />
+							<Icon size={18} strokeWidth={1.75} />
 						</div>
 						<div className="admin-cart-upsell-page-head__copy">
 							<div className="admin-cart-upsell-page-title-row">
@@ -628,6 +638,7 @@ export default function AdminMenuCartUpsellSection({
 					{!isBev ? (
 						<Button variant="secondary"
 							type="button"
+							size="sm"
 							className="admin-cart-upsell-toolbar__cta-secondary"
 							disabled={lockUi || !sectionOn || items.length >= CART_UPSELL_MAX_ITEMS}
 							onClick={() => {
@@ -635,17 +646,18 @@ export default function AdminMenuCartUpsellSection({
 								setPickInventoryOpen(true);
 							}}
 						>
-							<Package size={18} strokeWidth={1.65} aria-hidden />
+							<Package size={15} strokeWidth={1.75} aria-hidden />
 							Desde inventario
 						</Button>
 					) : null}
 					<Button variant="default"
 						type="button"
+						size="sm"
 						className="admin-cart-upsell-toolbar__cta"
 						disabled={lockUi || !sectionOn || items.length >= CART_UPSELL_MAX_ITEMS}
 						onClick={openCreate}
 					>
-						<Plus size={18} strokeWidth={1.65} aria-hidden />
+						<Plus size={15} strokeWidth={1.75} aria-hidden />
 						{newLabel}
 					</Button>
 				</div>
@@ -673,18 +685,33 @@ export default function AdminMenuCartUpsellSection({
 							<span className="admin-cart-upsell-catalog-toggle__label">Mostrar en carrito</span>
 							<AdminHelpTip text={helpToggle} className="admin-menu-options-section-label--with-tip" />
 						</div>
-						<Button variant="default"
+						<button
 							type="button"
-							className={`menu-carousel-switch admin-cart-upsell-catalog-switch ${sectionOn ? "is-on" : ""}`}
+							className={`menu-carousel-switch menu-carousel-switch--sm admin-cart-upsell-catalog-switch ${sectionOn ? "is-on" : ""}`}
 							disabled={lockUi}
 							onClick={() => void persistSectionOnly(!sectionOn)}
 							aria-pressed={sectionOn}
 							aria-label={sectionOn ? "Desactivar sección en carrito para clientes" : "Activar sección en carrito para clientes"}
 						>
 							<span className="menu-carousel-switch-knob" />
-						</Button>
+						</button>
 					</div>
 				</div>
+
+				{sectionOn && items.length > 0 ? (
+					<div className="admin-cart-upsell-catalog-toolbar">
+						<div className="search-box">
+							<Search size={18} aria-hidden />
+							<input
+								type="search"
+								placeholder={isBev ? "Buscar bebida o categoría…" : "Buscar extra o categoría…"}
+								value={catalogSearch}
+								onChange={(e) => setCatalogSearch(e.target.value)}
+								aria-label={isBev ? "Buscar bebidas" : "Buscar extras"}
+							/>
+						</div>
+					</div>
+				) : null}
 
 				{!sectionOn && (
 					<p className="admin-menu-options-cart-muted">
@@ -707,7 +734,13 @@ export default function AdminMenuCartUpsellSection({
 					</div>
 				)}
 
-				{sectionOn && items.length > 0 && (
+				{sectionOn && items.length > 0 && catalogGroups.length === 0 && !loading && (
+					<p className="admin-menu-options-cart-muted">
+						Ningún ítem coincide con «{catalogSearch.trim()}».
+					</p>
+				)}
+
+				{sectionOn && items.length > 0 && catalogGroups.length > 0 && (
 					<div className="admin-cart-upsell-catalog-groups">
 						{catalogGroups.map((group) => (
 							<div key={group.label} className="admin-cart-upsell-category-block">
@@ -825,20 +858,21 @@ export default function AdminMenuCartUpsellSection({
 														</div>
 													</div>
 													<div className="admin-cart-upsell-card__actions">
-														<Button variant="secondary"
+														<button
 															type="button"
-															className="admin-cart-upsell-card__btn-primary"
+															className="btn-edit-sm"
 															onClick={(e) => {
 																e.stopPropagation();
 																openEditForItem(item);
 															}}
+															title="Editar"
+															aria-label={`Editar ${item.name}`}
 														>
 															<Edit3 size={16} strokeWidth={1.65} aria-hidden />
-															Editar
-														</Button>
-														<Button variant="destructive"
+														</button>
+														<button
 															type="button"
-															className="admin-cart-upsell-card__btn-danger"
+															className="btn-trash-sm"
 															onClick={(e) => {
 																e.stopPropagation();
 																if (window.confirm(`¿Eliminar «${item.name}»?`)) {
@@ -850,7 +884,7 @@ export default function AdminMenuCartUpsellSection({
 															aria-label={`Eliminar ${item.name}`}
 														>
 															<Trash2 size={16} strokeWidth={1.65} aria-hidden />
-														</Button>
+														</button>
 													</div>
 												</div>
 											</div>

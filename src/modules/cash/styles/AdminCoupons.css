@@ -1,18 +1,20 @@
 /*
- * Cupones — UI alineada con rejilla 12 columnas compartida.
- * Alcance: .admin-layout O main.admin-content (por si la cascada fallaba antes).
+ * Cupones — lista + modal de creación/edición (portal).
+ * Lista: .admin-layout / main.admin-content .admin-coupons
+ * Modal: .coupon-form-modal* (portal a .admin-layout)
  */
+
 :is(.admin-layout, main.admin-content) .admin-coupons {
 	display: flex;
 	flex-direction: column;
-	gap: 1.35rem;
+	gap: 14px;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar.admin-toolbar {
 	flex-direction: column;
 	align-items: stretch;
 	flex-wrap: nowrap;
-	gap: 12px;
+	gap: 10px;
 	margin-bottom: 0;
 }
 
@@ -30,12 +32,13 @@
 	align-items: center;
 	gap: 0.5rem;
 	min-width: 0;
+	flex-wrap: wrap;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-title h2 {
 	margin: 0;
 	font-size: 1.125rem;
-	font-weight: 900;
+	font-weight: 800;
 	letter-spacing: -0.03em;
 	color: var(--admin-text, #12151a);
 	line-height: 1.2;
@@ -43,183 +46,697 @@
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-title svg {
 	flex-shrink: 0;
-	color: var(--admin-accent, var(--accent-primary));
+	color: #2563eb;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__count {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: var(--admin-icon-bg, #f8fafc);
+	border: 1px solid var(--admin-border, #e8ecf1);
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-hint {
 	margin: 0;
-	max-width: 52rem;
-	line-height: 1.45;
+	max-width: 40rem;
+	line-height: 1.4;
+	font-size: 0.8125rem;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__refresh-btn {
 	flex-shrink: 0;
-	min-height: 38px;
-	padding: 8px 14px;
-	font-size: 0.875rem;
 }
 
-/* Tarjeta formulario */
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-card {
-	padding: 1.35rem 1.35rem 1.4rem;
-	border-radius: 14px;
-	border: 1px solid color-mix(in srgb, var(--admin-border, #dde3ea) 92%, var(--admin-text, #12151a));
-	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-card-head {
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-filters {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: space-between;
 	align-items: center;
-	gap: 8px 12px;
-	margin-bottom: 0.25rem;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-card-title {
-	font-size: 1rem;
-	font-weight: 900;
-	letter-spacing: -0.02em;
-	color: var(--admin-text, #12151a);
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-subtitle {
-	font-size: 0.8125rem;
-	color: var(--admin-text-muted, #64748b);
-	margin: 0 0 1.15rem;
-	line-height: 1.5;
-	max-width: 40rem;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons label.admin-coupons__label.p {
-	display: block;
-	font-size: 0.75rem;
-	font-weight: 900;
-	letter-spacing: 0.05em;
-	text-transform: uppercase;
-	color: var(--admin-text-muted, #5a6169);
-	-webkit-text-fill-color: var(--admin-text-muted, #5a6169);
-	margin-bottom: 0.45rem;
-	line-height: 1.35;
-}
-
-/*
- * Una sola rejilla 12 columnas: todas las filas comparten las mismas líneas verticales.
- */
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__matrix {
-	display: grid;
-	grid-template-columns: repeat(12, minmax(0, 1fr));
-	column-gap: 1.125rem;
-	row-gap: 0.875rem;
-	align-items: start;
-	margin-bottom: 1rem;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__grid-eyebrow {
-	grid-column: 1 / -1;
-	margin: 0;
-	padding: 0 0 0.45rem;
-	font-size: 0.78125rem;
-	font-weight: 900;
-	letter-spacing: 0.065em;
-	text-transform: uppercase;
-	color: rgba(0, 0, 0, 1);
-	border-bottom: 1px solid var(--admin-border, #dde3ea);
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons p.titulo-cupon-section {
-	color: #000 !important;
-	-webkit-text-fill-color: #000 !important;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__grid-eyebrow:first-child {
-	padding-top: 0;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__grid-eyebrow:not(:first-child) {
-	margin-top: 0.35rem;
-	padding-top: 0.5rem;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-field {
+	gap: 10px;
 	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-start;
 }
 
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-field .form-input,
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-field select.form-input {
-	width: 100%;
-	box-sizing: border-box;
-	min-height: 44px;
-	padding: 0.55rem 0.75rem;
-	font-size: 0.9rem;
-	border-radius: 10px;
-	line-height: 1.25;
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-filters .search-box {
+	flex: 1 1 200px;
+	min-width: 160px;
+	max-width: 280px;
+	height: 36px;
+	min-height: 36px;
 }
 
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-3 {
-	grid-column: span 3;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-4 {
-	grid-column: span 4;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-6 {
-	grid-column: span 6;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-full {
-	grid-column: 1 / -1;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__select-client {
-	max-width: none;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__field-hint {
-	display: block;
-	font-size: 0.6875rem;
-	color: var(--admin-text-muted, #64748b);
-	margin-top: 5px;
-	line-height: 1.35;
-	min-height: 1.2em;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__checkbox-row {
-	grid-column: 1 / -1;
-	display: flex;
-	align-items: center;
-	gap: 0.55rem;
-	font-size: 0.9rem;
-	font-weight: 700;
-	color: var(--admin-text, #12151a);
-	margin: 0.35rem 0 0;
-	padding: 0.65rem 0 0;
-	border-top: 1px solid var(--admin-border, #dde3ea);
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-footer {
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__chips {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: flex-end;
-	gap: 0.75rem;
-	padding-top: 0.35rem;
+	align-items: center;
+	gap: 6px;
 }
 
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__submit-btn {
-	min-width: min(100%, 220px);
+:is(.admin-layout, main.admin-content) .admin-coupons .filter-chip {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	height: auto;
+	min-height: 0;
+	padding: 6px 12px;
+	margin: 0;
+	border-radius: 999px;
+	border: 1px solid var(--admin-border, #e8ecf1);
+	color: var(--admin-text, #334155);
+	font-family: inherit;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	line-height: 1.25;
+	cursor: pointer;
+	background: var(--admin-card-bg, #fff);
+	box-shadow: none;
+	transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .filter-chip:hover {
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #0f172a);
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .filter-chip.active {
+	background: color-mix(in srgb, #2563eb 14%, var(--admin-card-bg, #fff));
+	color: var(--admin-text, #0f172a);
+	border-color: color-mix(in srgb, #2563eb 40%, var(--admin-border));
+	font-weight: 700;
+}
+
+/* ——— Modal cupón (portal; no anidar bajo .admin-coupons) ——— */
+.coupon-form-modal-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 12050;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+	background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.5));
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+	--coupon-form-focus: #2563eb;
+}
+
+.coupon-form-modal {
+	width: 100%;
+	max-width: 520px;
+	max-height: min(92dvh, 92vh);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	border-radius: 16px;
+	box-shadow: var(--admin-shadow-md, 0 12px 40px rgba(15, 23, 42, 0.14));
+}
+
+.coupon-form-modal__header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 18px;
+	background: var(--admin-icon-bg, #f8fafc);
+	border-bottom: 1px solid var(--admin-border, #e2e8f0);
+	flex-shrink: 0;
+}
+
+.coupon-form-modal__header-text {
+	min-width: 0;
+}
+
+.coupon-form-modal__header h3 {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--admin-text, #0f172a);
+	letter-spacing: -0.02em;
+	line-height: 1.25;
+}
+
+.coupon-form-modal__header-hint {
+	margin: 4px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-form-modal__close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text-muted, #64748b);
+	cursor: pointer;
+	flex-shrink: 0;
+	font-family: inherit;
+	box-shadow: none;
+}
+
+.coupon-form-modal__close:hover:not(:disabled) {
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #0f172a);
+}
+
+.coupon-form-modal__close:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.coupon-form-modal__body {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	padding: 18px 18px 16px;
+	margin: 0;
+	overflow: auto;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.coupon-form-modal__section {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.coupon-form-modal__section-title {
+	margin: 0;
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-form-modal__grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 12px;
+}
+
+.coupon-form-modal__grid--2 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coupon-form-modal__field--span-2 {
+	grid-column: 1 / -1;
+}
+
+.coupon-form-modal__field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.coupon-form-modal__field label {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-form-modal__field input,
+.coupon-form-modal__field select {
+	width: 100%;
+	box-sizing: border-box;
+	height: 40px;
+	padding: 0 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.9rem;
+	outline: none;
+	box-shadow: none;
+	accent-color: var(--coupon-form-focus, #2563eb);
+}
+
+.coupon-form-modal__field select {
+	cursor: pointer;
+	appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 12px center;
+	padding-right: 32px;
+}
+
+.coupon-form-modal__field input::placeholder {
+	color: var(--admin-text-muted, #94a3b8);
+}
+
+.coupon-form-modal__field input:focus,
+.coupon-form-modal__field input:focus-visible,
+.coupon-form-modal__field select:focus,
+.coupon-form-modal__field select:focus-visible {
+	border-color: var(--coupon-form-focus, #2563eb);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--coupon-form-focus, #2563eb) 20%, transparent);
+	outline: none;
+}
+
+.coupon-form-modal__field input:disabled,
+.coupon-form-modal__field select:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
+	background: var(--admin-icon-bg, #f8fafc);
+}
+
+/* Select custom (Radix) — alineado al input del modal */
+.coupon-form-modal__select-trigger {
+	width: 100%;
+	height: 40px !important;
+	min-height: 40px;
+	padding: 0 12px !important;
+	border-radius: 10px !important;
+	border: 1px solid var(--admin-border, #e2e8f0) !important;
+	background: var(--admin-card-bg, #fff) !important;
+	color: var(--admin-text, #0f172a) !important;
+	font-family: inherit !important;
+	font-size: 0.9rem !important;
+	font-weight: 500 !important;
+	box-shadow: none !important;
+}
+
+.coupon-form-modal__select-trigger:focus,
+.coupon-form-modal__select-trigger:focus-visible,
+.coupon-form-modal__select-trigger[data-state="open"] {
+	border-color: var(--coupon-form-focus, #2563eb) !important;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--coupon-form-focus, #2563eb) 20%, transparent) !important;
+	outline: none !important;
+}
+
+.coupon-form-modal__select-trigger:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
+	background: var(--admin-icon-bg, #f8fafc) !important;
+}
+
+.coupon-form-modal__select-content {
+	z-index: 13000 !important;
+	width: var(--radix-select-trigger-width);
+	min-width: var(--radix-select-trigger-width) !important;
+	max-width: min(100vw - 24px, var(--radix-select-trigger-width));
+	border-radius: 12px !important;
+	border: 1px solid var(--admin-border, #e2e8f0) !important;
+	background: var(--admin-card-bg, #fff) !important;
+	box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16) !important;
+	overflow: hidden;
+}
+
+.coupon-form-modal__select-content [data-radix-select-viewport] {
+	max-height: min(240px, var(--radix-select-content-available-height, 240px));
+	padding: 4px;
+}
+
+.coupon-form-modal__select-content [role="option"] {
+	border-radius: 8px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.coupon-form-modal__hint {
+	font-size: 0.6875rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #94a3b8);
+}
+
+.coupon-form-modal__active {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	margin: 0;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-icon-bg, #f8fafc);
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.coupon-form-modal__active input {
+	margin-top: 2px;
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
+	accent-color: var(--coupon-form-focus, #2563eb);
+	cursor: pointer;
+}
+
+.coupon-form-modal__active > span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.coupon-form-modal__active-title {
+	font-size: 0.875rem;
+	font-weight: 650;
+	color: var(--admin-text, #0f172a);
+	line-height: 1.3;
+}
+
+.coupon-form-modal__active-desc {
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+	line-height: 1.35;
+}
+
+.coupon-form-modal__footer {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 18px 16px;
+	border-top: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-icon-bg, #f8fafc);
+	flex-shrink: 0;
+}
+
+/* ——— Calendario vigencia cupón ——— */
+.coupon-dt {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.coupon-dt__label {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-dt__trigger {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	box-sizing: border-box;
+	height: 40px;
+	padding: 0 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.875rem;
+	font-weight: 500;
+	text-align: left;
+	cursor: pointer;
+	box-shadow: none;
+	outline: none;
+}
+
+.coupon-dt__trigger:hover:not(:disabled) {
+	border-color: color-mix(in srgb, #2563eb 35%, var(--admin-border, #e2e8f0));
+}
+
+.coupon-dt__trigger:focus-visible,
+.coupon-dt--open .coupon-dt__trigger {
+	border-color: #2563eb;
+	box-shadow: 0 0 0 3px color-mix(in srgb, #2563eb 20%, transparent);
+}
+
+.coupon-dt__trigger:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
+	background: var(--admin-icon-bg, #f8fafc);
+}
+
+.coupon-dt__trigger--empty .coupon-dt__trigger-text {
+	color: var(--admin-text-muted, #94a3b8);
+	font-weight: 500;
+}
+
+.coupon-dt__trigger-icon {
+	display: inline-flex;
+	color: #2563eb;
+	flex-shrink: 0;
+	opacity: 0.9;
+}
+
+.coupon-dt__trigger-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.coupon-dt__popover {
+	padding: 12px;
+	border-radius: 14px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+	box-sizing: border-box;
+}
+
+/* Fuera del modal: fixed al viewport, por encima del overlay (12050) */
+.coupon-dt__popover--portal {
+	position: fixed !important;
+	z-index: 13000 !important;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.coupon-dt__nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.coupon-dt__nav-label {
+	font-size: 0.875rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	color: var(--admin-text, #0f172a);
+}
+
+.coupon-dt__nav-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border-radius: 8px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text-muted, #64748b);
+	cursor: pointer;
+	font-family: inherit;
+}
+
+.coupon-dt__nav-btn:hover {
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #0f172a);
+}
+
+.coupon-dt__weekdays {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+	margin-bottom: 4px;
+}
+
+.coupon-dt__weekdays span {
+	text-align: center;
+	font-size: 0.65rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--admin-text-muted, #94a3b8);
+	padding: 2px 0;
+}
+
+.coupon-dt__grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	gap: 2px;
+}
+
+.coupon-dt__day {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	min-height: 32px;
+	padding: 0;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.coupon-dt__day:hover:not(.coupon-dt__day--empty):not(.coupon-dt__day--selected) {
+	background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.coupon-dt__day--empty {
+	cursor: default;
+	pointer-events: none;
+}
+
+.coupon-dt__day--today:not(.coupon-dt__day--selected) {
+	box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #2563eb 55%, transparent);
+	color: #2563eb;
+}
+
+.coupon-dt__day--selected {
+	background: #2563eb;
+	color: #fff;
+}
+
+.coupon-dt__time {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.coupon-dt__time-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.75rem;
+	font-weight: 650;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-dt__time-selects {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.coupon-dt__time-selects select {
+	height: 34px;
+	padding: 0 8px;
+	border-radius: 8px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	cursor: pointer;
+	outline: none;
+}
+
+.coupon-dt__time-selects select:focus {
+	border-color: #2563eb;
+	box-shadow: 0 0 0 2px color-mix(in srgb, #2563eb 18%, transparent);
+}
+
+.coupon-dt__time-sep {
+	font-weight: 700;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.coupon-dt__footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+.coupon-dt__footer-btn {
+	height: 32px;
+	padding: 0 12px;
+	border-radius: 8px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #334155);
+	font-family: inherit;
+	font-size: 0.75rem;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.coupon-dt__footer-btn:hover {
+	background: var(--admin-icon-bg, #f0f2f6);
+}
+
+.coupon-dt__footer-btn--primary {
+	background: #2563eb;
+	border-color: #2563eb;
+	color: #fff;
+}
+
+.coupon-dt__footer-btn--primary:hover {
+	background: #1d4ed8;
+	border-color: #1d4ed8;
+	color: #fff;
+}
+
+.coupon-form-modal__footer .button,
+.coupon-form-modal__footer button {
+	display: inline-flex;
+	align-items: center;
 	gap: 0.35rem;
 }
 
-/* Tabla */
+/* Tabla / empty */
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__panel-empty {
-	padding: 1rem;
+	padding: 1.25rem 1rem;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 2.25rem 1.25rem;
+	text-align: center;
+	color: var(--admin-text-muted, #64748b);
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__empty p {
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--admin-text, #0f172a);
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__empty svg {
+	opacity: 0.35;
+	color: #2563eb;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__loading {
@@ -239,26 +756,14 @@
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__dates-cell {
 	font-size: 0.72rem;
 	color: var(--admin-text-muted, #64748b);
+	line-height: 1.35;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__actions-cell {
 	white-space: nowrap;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__actions-cell .btn-icon-toggle + .btn-icon-toggle {
-	margin-left: 0.25rem;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__status {
-	font-weight: 700;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__status--active {
-	color: #15803d;
-}
-
-:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__status--inactive {
-	color: #b91c1c;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
 
 :is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__empty-company {
@@ -266,54 +771,67 @@
 	margin: 0;
 }
 
-/* ≤960px: rejilla 6 columnas (mantiene proporciones ½ y ⅓) */
-@media (max-width: 960px) {
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__matrix {
-		grid-template-columns: repeat(6, minmax(0, 1fr));
-		column-gap: 1rem;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-3 {
-		grid-column: span 3;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-4 {
-		grid-column: span 2;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-6 {
-		grid-column: span 3;
-	}
-}
-
 @media (max-width: 640px) {
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__matrix {
-		grid-template-columns: 1fr;
-		row-gap: 0.75rem;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-3,
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-4,
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__cell-span-6 {
-		grid-column: 1 / -1;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__submit-btn {
-		width: 100%;
-		min-width: 0;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__form-footer {
+	.coupon-form-modal-overlay {
+		align-items: stretch;
 		justify-content: stretch;
+		padding: 0;
+		background: var(--admin-card-bg, #fff);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 	}
 
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-head {
-		align-items: flex-start;
-	}
-
-	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__refresh-btn {
+	.coupon-form-modal {
 		width: 100%;
+		max-width: none;
+		height: 100%;
+		max-height: none;
+		min-height: 100dvh;
+		min-height: 100svh;
+		border-radius: 0;
+		border: 0;
+		box-shadow: none;
+	}
+
+	.coupon-form-modal__header {
+		padding-top: max(16px, env(safe-area-inset-top));
+		padding-left: max(16px, env(safe-area-inset-left));
+		padding-right: max(16px, env(safe-area-inset-right));
+	}
+
+	.coupon-form-modal__body {
+		padding-left: max(16px, env(safe-area-inset-left));
+		padding-right: max(16px, env(safe-area-inset-right));
+	}
+
+	.coupon-form-modal__grid--2 {
+		grid-template-columns: 1fr;
+	}
+
+	.coupon-form-modal__footer {
+		flex-wrap: wrap;
+		padding-bottom: max(16px, env(safe-area-inset-bottom));
+		padding-left: max(16px, env(safe-area-inset-left));
+		padding-right: max(16px, env(safe-area-inset-right));
+	}
+
+	.coupon-form-modal__footer > * {
+		flex: 1 1 auto;
 		justify-content: center;
+	}
+
+	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-actions {
+		width: 100%;
+	}
+
+	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-actions > * {
+		flex: 1 1 auto;
+		justify-content: center;
+	}
+
+	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar-filters .search-box {
+		flex: 1 1 100%;
+		max-width: none;
 	}
 }
 

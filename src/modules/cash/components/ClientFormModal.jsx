@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { getFormStrategy } from '@/lib/geo/country-forms';
@@ -90,23 +91,29 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 		}
 	};
 
-
-	return (
-		<div className="modal-overlay animate-fade" onClick={onClose}>
-			<div className="modal-content glass admin-modal" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header">
-					<h3>Nuevo Cliente</h3>
-					<Button variant="default" onClick={onClose} className="btn-close"><X size={24} /></Button>
+	const modal = (
+		<div className="client-form-modal-overlay" onClick={onClose} role="presentation">
+			<div
+				className="client-form-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="client-form-modal-title"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className="client-form-modal__header">
+					<h3 id="client-form-modal-title">Nuevo Cliente</h3>
+					<button type="button" onClick={onClose} className="client-form-modal__close" aria-label="Cerrar">
+						<X size={18} />
+					</button>
 				</div>
 
-				<form id="client-form" onSubmit={handleSubmit} className="modal-body">
-					<div className="form-group">
-						<label>Nombre Completo *</label>
-						<input
-							required
+				<form id="client-form" onSubmit={handleSubmit} className="client-form-modal__body">
+					<div className="client-form-modal__field">
+						<label htmlFor="client-form-name">Nombre Completo *</label>
+							<input
+							id="client-form-name"
 							type="text"
 							name="name"
-							className="form-input"
 							placeholder="Ej: Juan Pérez"
 							value={formData.name}
 							onChange={handleChange}
@@ -114,37 +121,40 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 						/>
 					</div>
 
-					<div className="form-group">
-						<label>Teléfono *</label>
+					<div className="client-form-modal__field">
+						<label htmlFor="client-form-phone">Teléfono *</label>
 						<input
-							required
+							id="client-form-phone"
 							type="tel"
 							name="phone"
-							className="form-input"
 							placeholder={strategy.phonePrefix}
 							value={formData.phone}
 							onChange={handleChange}
 						/>
 					</div>
 
-					<div className="form-group">
-						<label>{strategy.idName} (Opcional)</label>
+					<div className="client-form-modal__field">
+						<label htmlFor="client-form-rut">{strategy.idName} (Opcional)</label>
 						<input
+							id="client-form-rut"
 							type="text"
 							name="rut"
-							className="form-input"
 							placeholder={strategy.idName === 'Cédula / RIF' ? 'V-12345678' : '12.345.678-9'}
 							value={formData.rut}
 							onChange={handleChange}
 						/>
 					</div>
 				</form>
-				<div className="modal-footer">
-					<Button variant="secondary" type="button" onClick={onClose} className="">Cancelar</Button>
-					<Button variant="default"
+
+				<div className="client-form-modal__footer">
+					<Button variant="secondary" type="button" size="sm" onClick={onClose}>
+						Cancelar
+					</Button>
+					<Button
+						variant="default"
 						type="submit"
 						form="client-form"
-						className=""
+						size="sm"
 						disabled={loading || sanitizeText(formData.name).length < 2 || !strategy.validatePhone(formData.phone || '')}
 					>
 						{loading ? <Loader2 className="animate-spin" size={18} /> : 'Guardar Cliente'}
@@ -153,6 +163,8 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 			</div>
 		</div>
 	);
+
+	return createPortal(modal, document.querySelector('.admin-layout') || document.body);
 };
 
 export default ClientFormModal;

@@ -10,6 +10,12 @@ import { Button } from "@/components/ui/button";
 
 const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel", "orders_view"]);
 
+const SUB_TABS = [
+	{ id: "delivery", label: "Envío", Icon: Truck, panel: "menu-options-panel-delivery" },
+	{ id: "carousel", label: "Carrusel", Icon: Images, panel: "menu-options-panel-carousel" },
+	{ id: "orders_view", label: "Vista de pedidos", Icon: LayoutGrid, panel: "menu-options-panel-orders-view" },
+];
+
 function normalizeStoredSubTab(raw) {
 	if (raw === "cart" || raw === "tax") return "delivery";
 	if (raw && SUB_TAB_IDS.includes(/** @type {typeof SUB_TAB_IDS[number]} */ (raw))) {
@@ -31,14 +37,16 @@ function getStoredSubTab(storageKey) {
 }
 
 function channelsEqual(a, b) {
-	return Boolean(a?.mesa) === Boolean(b?.mesa)
-		&& Boolean(a?.retiro) === Boolean(b?.retiro)
-		&& Boolean(a?.delivery) === Boolean(b?.delivery);
+	return (
+		Boolean(a?.mesa) === Boolean(b?.mesa) &&
+		Boolean(a?.retiro) === Boolean(b?.retiro) &&
+		Boolean(a?.delivery) === Boolean(b?.delivery)
+	);
 }
 
 /**
- * Pestaña "Opciones de menú": sub-pestañas Envío, Carrusel y Vista de pedidos.
- * Bebidas y Extras del carrito viven en entradas propias del sidebar (menu_beverages / menu_extras).
+ * Pestaña "Opciones de sucursal": Envío, Carrusel y Vista de pedidos.
+ * Bebidas/Extras viven en sidebar (menu_beverages / menu_extras).
  */
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
 	const {
@@ -52,8 +60,8 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 	const [draftOrdersViewMode, setDraftOrdersViewMode] = useState(ordersViewMode);
 	const [draftLocalOrderChannels, setDraftLocalOrderChannels] = useState(localOrderChannels);
 	const ordersPanelDirty =
-		draftOrdersViewMode !== ordersViewMode
-		|| !channelsEqual(draftLocalOrderChannels, localOrderChannels);
+		draftOrdersViewMode !== ordersViewMode ||
+		!channelsEqual(draftLocalOrderChannels, localOrderChannels);
 	const storageKey = useMemo(
 		() =>
 			companyId
@@ -70,7 +78,9 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 			setActiveSubTabByKey((prev) => ({ ...prev, [storageKey]: id }));
 			try {
 				localStorage.setItem(storageKey, id);
-			} catch {}
+			} catch {
+				/* ignore */
+			}
 		},
 		[storageKey],
 	);
@@ -80,6 +90,11 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 		setDraftLocalOrderChannels(localOrderChannels);
 	}, [ordersViewMode, localOrderChannels, branchKey]);
 
+	const discardOrdersPanel = useCallback(() => {
+		setDraftOrdersViewMode(ordersViewMode);
+		setDraftLocalOrderChannels(localOrderChannels);
+	}, [ordersViewMode, localOrderChannels]);
+
 	const handleSaveOrdersPanel = useCallback(async () => {
 		await saveOrdersPanelSettings({
 			ordersViewMode: draftOrdersViewMode,
@@ -87,50 +102,33 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 		});
 	}, [draftOrdersViewMode, draftLocalOrderChannels, saveOrdersPanelSettings]);
 
+	const branchName = String(selectedBranch?.name ?? "").trim() || "esta sucursal";
+
 	return (
-		<div className="admin-menu-options" data-tab="menu-options">
-			<div
-				className="admin-menu-options-subtabs"
+		<div className="admin-branch-options admin-menu-options" data-tab="menu-options">
+			<nav
+				className="admin-branch-options__subtabs admin-menu-options-subtabs"
 				role="tablist"
-				aria-label="Secciones de opciones de menú"
+				aria-label="Secciones de opciones de sucursal"
 			>
-				<Button variant="ghost"
-					type="button"
-					role="tab"
-					id="menu-options-subtab-delivery"
-					aria-selected={activeSubTab === "delivery"}
-					aria-controls="menu-options-panel-delivery"
-					className={`admin-menu-options-subtab ${activeSubTab === "delivery" ? "is-active" : ""}`}
-					onClick={() => persistSubTab("delivery")}
-				>
-					<Truck size={18} strokeWidth={1.65} aria-hidden />
-					<span>Envío y delivery</span>
-				</Button>
-				<Button variant="ghost"
-					type="button"
-					role="tab"
-					id="menu-options-subtab-carousel"
-					aria-selected={activeSubTab === "carousel"}
-					aria-controls="menu-options-panel-carousel"
-					className={`admin-menu-options-subtab ${activeSubTab === "carousel" ? "is-active" : ""}`}
-					onClick={() => persistSubTab("carousel")}
-				>
-					<Images size={18} strokeWidth={1.65} aria-hidden />
-					<span>Carrusel</span>
-				</Button>
-				<Button variant="ghost"
-					type="button"
-					role="tab"
-					id="menu-options-subtab-orders-view"
-					aria-selected={activeSubTab === "orders_view"}
-					aria-controls="menu-options-panel-orders-view"
-					className={`admin-menu-options-subtab ${activeSubTab === "orders_view" ? "is-active" : ""}`}
-					onClick={() => persistSubTab("orders_view")}
-				>
-					<LayoutGrid size={18} strokeWidth={1.65} aria-hidden />
-					<span>Vista de pedidos</span>
-				</Button>
-			</div>
+				{SUB_TABS.map(({ id, label, Icon, panel }) => (
+					<button
+						key={id}
+						type="button"
+						role="tab"
+						id={`menu-options-subtab-${id}`}
+						aria-selected={activeSubTab === id}
+						aria-controls={panel}
+						className={`admin-branch-options__subtab admin-menu-options-subtab${
+							activeSubTab === id ? " is-active" : ""
+						}`}
+						onClick={() => persistSubTab(id)}
+					>
+						<Icon size={16} strokeWidth={1.75} aria-hidden />
+						<span>{label}</span>
+					</button>
+				))}
+			</nav>
 
 			<div
 				role="tabpanel"
@@ -155,73 +153,89 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				hidden={activeSubTab !== "carousel"}
 				className="admin-menu-options-subpanel"
 			>
-				<div className="admin-menu-options-carousel-wrap">
-					<p className="admin-menu-options-section-label">Carrusel por sucursal</p>
+				{activeSubTab === "carousel" ? (
 					<AdminMenuCarousel
 						showNotify={showNotify}
 						selectedBranch={selectedBranch}
 						companyId={companyId}
 					/>
-				</div>
+				) : null}
 			</div>
 
 			<div
 				role="tabpanel"
 				id="menu-options-panel-orders-view"
-				aria-labelledby="menu-options-subtab-orders-view"
+				aria-labelledby="menu-options-subtab-orders_view"
 				hidden={activeSubTab !== "orders_view"}
 				className="admin-menu-options-subpanel"
 			>
-				<div className="admin-menu-options-card admin-menu-options-orders-view">
-					<p className="admin-menu-options-section-label">Vista de pedidos por sucursal</p>
+				<div className="admin-branch-options__card admin-menu-options-card admin-menu-options-orders-view">
 					{branchReady ? (
 						<>
-							<p className="admin-menu-options-lead">
-								Define cómo se muestra la pestaña <strong>Pedidos</strong> para{" "}
-								<strong style={{ color: "white" }}>{selectedBranch.name}</strong>.
-							</p>
-							<OrdersViewSwitch
-								value={draftOrdersViewMode}
-								onChange={setDraftOrdersViewMode}
-								className="admin-menu-options-orders-view__switch"
-							/>
-							<p className="admin-menu-options-orders-view__hint">
-								<strong>Mesas</strong>: grilla de mesas y motos. <strong>Pedido</strong>: tablero clásico por columnas.
-							</p>
-							<p className="admin-menu-options-section-label admin-menu-options-orders-view__channels-label">
-								Tipos de pedido local (Nuevo pedido)
-							</p>
-							<LocalOrderChannelsSwitch
-								value={draftLocalOrderChannels}
-								onChange={setDraftLocalOrderChannels}
-								className="admin-menu-options-orders-view__channels"
-							/>
-							<p className="admin-menu-options-orders-view__hint">
-								Activa o desactiva Mesa, Retiro y Delivery al abrir un pedido desde caja. Debe quedar al menos uno habilitado.
-								{ordersPanelDirty ? ' Pulsa Guardar para aplicar en esta sucursal.' : null}
-							</p>
-							<div className="admin-menu-options-orders-view__actions">
-							<Button variant="default"
-								type="button"
-								className="admin-menu-options-orders-view__save"
-									onClick={() => void handleSaveOrdersPanel()}
-									disabled={!ordersPanelDirty || ordersViewModeSaving}
-								>
-									{ordersViewModeSaving ? (
-										'Guardando…'
-									) : (
-										<>
-											<Save size={16} strokeWidth={1.75} aria-hidden />
-											<span>Guardar vista</span>
-										</>
-									)}
-								</Button>
+							<div className="admin-branch-options__block">
+								<h3 className="admin-branch-options__block-title">Vista del panel</h3>
+								<p className="admin-branch-options__block-hint">
+									Cómo se muestra Pedidos en <strong>{branchName}</strong>.
+								</p>
+								<OrdersViewSwitch
+									value={draftOrdersViewMode}
+									onChange={setDraftOrdersViewMode}
+									className="admin-menu-options-orders-view__switch"
+								/>
+								<p className="admin-branch-options__block-hint admin-branch-options__block-hint--muted">
+									Mesas: grilla de mesas. Pedido: tablero por columnas.
+								</p>
 							</div>
+
+							<div className="admin-branch-options__block">
+								<h3 className="admin-branch-options__block-title">Canales en Nuevo pedido</h3>
+								<p className="admin-branch-options__block-hint">
+									Qué tipos aparecen al abrir un pedido desde caja. Al menos uno activo.
+								</p>
+								<LocalOrderChannelsSwitch
+									value={draftLocalOrderChannels}
+									onChange={setDraftLocalOrderChannels}
+									className="admin-menu-options-orders-view__channels"
+								/>
+							</div>
+
+							{ordersPanelDirty ? (
+								<div className="admin-branch-options__dirty-bar">
+									<span className="admin-branch-options__dirty-label">Cambios sin guardar</span>
+									<div className="admin-branch-options__dirty-actions">
+										<Button
+											variant="ghost"
+											type="button"
+											size="sm"
+											disabled={ordersViewModeSaving}
+											onClick={discardOrdersPanel}
+										>
+											Descartar
+										</Button>
+										<Button
+											variant="default"
+											type="button"
+											size="sm"
+											disabled={ordersViewModeSaving}
+											onClick={() => void handleSaveOrdersPanel()}
+										>
+											{ordersViewModeSaving ? (
+												"Guardando…"
+											) : (
+												<>
+													<Save size={14} strokeWidth={1.75} aria-hidden />
+													Guardar
+												</>
+											)}
+										</Button>
+									</div>
+								</div>
+							) : null}
 						</>
 					) : (
-						<p className="admin-menu-options-lead">
-							Selecciona una <strong style={{ color: "white" }}>sucursal</strong> en el encabezado para configurar la vista de pedidos de ese local.
-						</p>
+						<div className="admin-branch-options__empty">
+							<p>Elige una sucursal en el encabezado para configurar la vista de pedidos.</p>
+						</div>
 					)}
 				</div>
 			</div>

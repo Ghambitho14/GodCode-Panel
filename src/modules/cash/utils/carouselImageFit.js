@@ -97,6 +97,79 @@ export async function canvasFromCrop(previewUrl, crop, outputSize) {
 }
 
 /**
+ * Estado visual del editor (preview + rangos de pan/zoom).
+ * @param {{ width: number, height: number }} dims
+ * @param {'cover' | 'contain'} editorMode
+ * @param {number} editorZoom
+ * @param {number} editorOffsetX
+ * @param {number} editorOffsetY
+ */
+export function computeEditorView(dims, editorMode, editorZoom, editorOffsetX, editorOffsetY) {
+	const ratio = dims.width / Math.max(1, dims.height);
+	const minZoom = editorMode === 'contain' ? 1 : Math.max(TARGET_RATIO / ratio, 1);
+	const maxZoom = editorMode === 'contain' ? 2.2 : 4;
+	const currentZoom = Math.min(maxZoom, Math.max(minZoom, Number(editorZoom) || minZoom));
+	const safeX = Math.min(Math.max(Number(editorOffsetX) || 0, 0), 1);
+	const safeY = Math.min(Math.max(Number(editorOffsetY) || 0, 0), 1);
+
+	if (editorMode === 'contain') {
+		const baseScale = Math.max(OUTPUT_WIDTH / dims.width, OUTPUT_HEIGHT / dims.height);
+		const scale = baseScale * Math.min(2.2, Math.max(1, currentZoom));
+		const drawW = dims.width * scale;
+		const drawH = dims.height * scale;
+		const ox = (OUTPUT_WIDTH - drawW) * safeX;
+		const oy = (OUTPUT_HEIGHT - drawH) * safeY;
+		const canPanX = Math.abs(OUTPUT_WIDTH - drawW) > 0.5;
+		const canPanY = Math.abs(OUTPUT_HEIGHT - drawH) > 0.5;
+		return {
+			minZoom,
+			maxZoom,
+			currentZoom,
+			safeX,
+			safeY,
+			crop: null,
+			canPanX,
+			canPanY,
+			previewImageStyle: {
+				position: 'absolute',
+				width: `${(drawW / OUTPUT_WIDTH) * 100}%`,
+				height: `${(drawH / OUTPUT_HEIGHT) * 100}%`,
+				left: `${(ox / OUTPUT_WIDTH) * 100}%`,
+				top: `${(oy / OUTPUT_HEIGHT) * 100}%`,
+				maxWidth: 'none',
+			},
+		};
+	}
+
+	const cropWidth = dims.width / currentZoom;
+	const cropHeight = cropWidth / TARGET_RATIO;
+	const x = (dims.width - cropWidth) * safeX;
+	const y = (dims.height - cropHeight) * safeY;
+	const crop = fitCropRect(dims, { x, y, width: cropWidth, height: cropHeight });
+	const panRangeX = Math.max(0, dims.width - crop.width);
+	const panRangeY = Math.max(0, dims.height - crop.height);
+
+	return {
+		minZoom,
+		maxZoom,
+		currentZoom,
+		safeX,
+		safeY,
+		crop,
+		canPanX: panRangeX > 0.5,
+		canPanY: panRangeY > 0.5,
+		previewImageStyle: {
+			position: 'absolute',
+			width: `${(dims.width / crop.width) * 100}%`,
+			height: `${(dims.height / crop.height) * 100}%`,
+			left: `${-(crop.x / crop.width) * 100}%`,
+			top: `${-(crop.y / crop.height) * 100}%`,
+			maxWidth: 'none',
+		},
+	};
+}
+
+/**
  * @param {HTMLCanvasElement} canvas
  * @param {string} mimeType
  * @returns {Promise<Blob>}

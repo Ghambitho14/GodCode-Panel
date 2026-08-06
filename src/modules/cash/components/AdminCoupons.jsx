@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Tag, Plus, Loader2, Pencil, Ban, CircleCheck } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Tag, Plus, Loader2, Pencil, Ban, CircleCheck, Search, RefreshCw, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
 import { Button } from "@/components/ui/button";
+import CouponDateTimeField from "@/modules/cash/components/CouponDateTimeField";
+import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
 
 const emptyDraft = () => ({
 	id: "",
@@ -41,10 +44,6 @@ function fromDatetimeLocal(s) {
 	return d.toISOString();
 }
 
-function FieldLabel({ children }) {
-	return <label className="admin-coupons__label p">{children}</label>;
-}
-
 function formatCouponRowDates(row) {
 	const fmt = (v) => {
 		if (!v) return "—";
@@ -64,8 +63,12 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 	const [saving, setSaving] = useState(false);
 	const [draft, setDraft] = useState(() => emptyDraft());
 	const [editing, setEditing] = useState(false);
+	const [creating, setCreating] = useState(false);
+	const [searchTerm, setSearchTerm] = useState("");
+	const [statusFilter, setStatusFilter] = useState("all"); // all | active | inactive
 
 	const cid = typeof companyId === "string" && companyId.trim() ? companyId.trim() : "";
+	const formOpen = creating || editing;
 
 	const load = useCallback(async () => {
 		if (!cid) {
@@ -75,7 +78,6 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		}
 		setLoading(true);
 		try {
-			// La lista de clientes la provee AdminProvider (sin query duplicada aquí).
 			const { data, error } = await supabase
 				.from(TABLES.discount_coupons)
 				.select(DISCOUNT_COUPONS_PANEL_SELECT)
@@ -97,6 +99,22 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 	const resetForm = () => {
 		setDraft(emptyDraft());
 		setEditing(false);
+		setCreating(false);
+	};
+
+	useEffect(() => {
+		if (!formOpen) return undefined;
+		const onKey = (e) => {
+			if (e.key === "Escape" && !saving) resetForm();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [formOpen, saving]);
+
+	const startCreate = () => {
+		setDraft(emptyDraft());
+		setEditing(false);
+		setCreating(true);
 	};
 
 	const startEdit = (row) => {
@@ -115,6 +133,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 			valid_until: toDatetimeLocal(row.valid_until),
 			is_active: row.is_active !== false,
 		});
+		setCreating(false);
 		setEditing(true);
 	};
 
@@ -142,7 +161,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		const mrc = Math.max(1, Number(draft.max_redemptions_per_client) || 1);
 		const vf = fromDatetimeLocal(draft.valid_from);
 		const vu = fromDatetimeLocal(draft.valid_until);
-		const base = {
+		return {
 			company_id: cid,
 			code,
 			discount_type: draft.discount_type === "fixed_amount" ? "fixed_amount" : "percent",
@@ -157,7 +176,6 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 			is_active: Boolean(draft.is_active),
 			updated_at: new Date().toISOString(),
 		};
-		return base;
 	};
 
 	const submit = async () => {
@@ -170,10 +188,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 				if (error) throw error;
 				showNotify?.("Cupón actualizado.");
 			} else {
-				const insertRow = {
-					...payload,
-				};
-				const { error } = await supabase.from(TABLES.discount_coupons).insert(insertRow);
+				const { error } = await supabase.from(TABLES.discount_coupons).insert({ ...payload });
 				if (error) throw error;
 				showNotify?.("Cupón creado.");
 			}
@@ -218,11 +233,24 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		[clients],
 	);
 
-	const subtitle = useMemo(
-		() =>
-			editing ? "Editar cupón existente." : "Crea cupones globales o solo para un cliente (por teléfono existente).",
-		[editing],
-	);
+	const filteredRows = useMemo(() => {
+		const q = searchTerm.trim().toLowerCase();
+		return rows.filter((row) => {
+			if (statusFilter === "active" && row.is_active === false) return false;
+			if (statusFilter === "inactive" && row.is_active !== false) return false;
+			if (!q) return true;
+			const code = String(row.code ?? "").toLowerCase();
+			const pct = row.discount_type === "percent";
+			const dsc = pct
+				? `${Number(row.discount_value)}%`
+				: String(Number(row.discount_value ?? 0));
+			const scope =
+				row.scope === "client_only" && row.restricted_client_id
+					? clientLabel(row.restricted_client_id).toLowerCase()
+					: "global";
+			return code.includes(q) || dsc.includes(q) || scope.includes(q);
+		});
+	}, [rows, searchTerm, statusFilter, clientLabel]);
 
 	if (!cid) {
 		return (
@@ -232,225 +260,367 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		);
 	}
 
+	const couponModal =
+		formOpen &&
+		createPortal(
+			<div
+				className="coupon-form-modal-overlay"
+				onClick={() => {
+					if (!saving) resetForm();
+				}}
+				role="presentation"
+			>
+				<div
+					className="coupon-form-modal"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="coupon-form-modal-title"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="coupon-form-modal__header">
+						<div className="coupon-form-modal__header-text">
+							<h3 id="coupon-form-modal-title">{editing ? "Editar cupón" : "Nuevo cupón"}</h3>
+							<p className="coupon-form-modal__header-hint">
+								{editing
+									? "Ajusta el descuento, alcance o vigencia y guarda."
+									: "Define código, descuento y reglas de uso."}
+							</p>
+						</div>
+						<button
+							type="button"
+							className="coupon-form-modal__close"
+							aria-label="Cerrar"
+							disabled={saving}
+							onClick={resetForm}
+						>
+							<X size={18} />
+						</button>
+					</div>
+
+					<form
+						id="coupon-form"
+						className="coupon-form-modal__body"
+						onSubmit={(e) => {
+							e.preventDefault();
+							void submit();
+						}}
+					>
+						<section className="coupon-form-modal__section" aria-labelledby="coupon-sec-discount">
+							<h4 id="coupon-sec-discount" className="coupon-form-modal__section-title">
+								Descuento
+							</h4>
+							<div className="coupon-form-modal__grid">
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-code">Código</label>
+									<input
+										id="coupon-code"
+										type="text"
+										autoFocus={!editing}
+										autoComplete="off"
+										spellCheck={false}
+										disabled={saving}
+										value={draft.code}
+										placeholder="EJEMPLO15"
+										onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
+									/>
+								</div>
+							</div>
+							<div className="coupon-form-modal__grid coupon-form-modal__grid--2">
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-type">Tipo</label>
+									<CouponFormSelect
+										id="coupon-type"
+										disabled={saving}
+										value={draft.discount_type}
+										placeholder="Tipo"
+										onValueChange={(v) =>
+											setDraft((d) => ({ ...d, discount_type: v }))
+										}
+										options={[
+											{ value: "percent", label: "Porcentaje" },
+											{ value: "fixed_amount", label: "Monto fijo" },
+										]}
+									/>
+								</div>
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-value">
+										{draft.discount_type === "percent" ? "Porcentaje (%)" : "Monto"}
+									</label>
+									<input
+										id="coupon-value"
+										type="number"
+										min="0"
+										step="1"
+										disabled={saving}
+										value={draft.discount_value}
+										onChange={(e) =>
+											setDraft((d) => ({ ...d, discount_value: e.target.value }))
+										}
+									/>
+								</div>
+							</div>
+						</section>
+
+						<section className="coupon-form-modal__section" aria-labelledby="coupon-sec-scope">
+							<h4 id="coupon-sec-scope" className="coupon-form-modal__section-title">
+								Alcance
+							</h4>
+							<div
+								className={`coupon-form-modal__grid${
+									draft.scope === "client_only" ? " coupon-form-modal__grid--2" : ""
+								}`}
+							>
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-scope">Quién puede usarlo</label>
+									<CouponFormSelect
+										id="coupon-scope"
+										disabled={saving}
+										value={draft.scope}
+										placeholder="Alcance"
+										onValueChange={(v) =>
+											setDraft((d) => ({
+												...d,
+												scope: v,
+												restricted_client_id:
+													v === "client_only" ? d.restricted_client_id : "",
+											}))
+										}
+										options={[
+											{ value: "global", label: "Todos los clientes" },
+											{ value: "client_only", label: "Solo un cliente" },
+										]}
+									/>
+								</div>
+								{draft.scope === "client_only" ? (
+									<div className="coupon-form-modal__field">
+										<label htmlFor="coupon-client">Cliente</label>
+										<CouponFormSelect
+											id="coupon-client"
+											disabled={saving}
+											value={draft.restricted_client_id || "__none__"}
+											placeholder="Elegir cliente"
+											onValueChange={(v) =>
+												setDraft((d) => ({
+													...d,
+													restricted_client_id: v === "__none__" ? "" : v,
+												}))
+											}
+											options={[
+												{ value: "__none__", label: "— Elegir cliente —" },
+												...clients.map((c) => ({
+													value: String(c.id),
+													label: `${String(c.name || "").trim() || "(Sin nombre)"}${
+														String(c.phone || "").trim()
+															? ` · ${String(c.phone).trim()}`
+															: ""
+													}`,
+												})),
+											]}
+										/>
+									</div>
+								) : null}
+							</div>
+						</section>
+
+						<section className="coupon-form-modal__section" aria-labelledby="coupon-sec-limits">
+							<h4 id="coupon-sec-limits" className="coupon-form-modal__section-title">
+								Límites
+							</h4>
+							<div className="coupon-form-modal__grid coupon-form-modal__grid--2">
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-min">Mínimo del pedido</label>
+									<input
+										id="coupon-min"
+										type="number"
+										min="0"
+										disabled={saving}
+										value={draft.min_order_subtotal}
+										onChange={(e) =>
+											setDraft((d) => ({
+												...d,
+												min_order_subtotal: e.target.value,
+											}))
+										}
+									/>
+								</div>
+								<div className="coupon-form-modal__field">
+									<label htmlFor="coupon-max-client">Usos por cliente</label>
+									<input
+										id="coupon-max-client"
+										type="number"
+										min="1"
+										disabled={saving}
+										value={draft.max_redemptions_per_client}
+										onChange={(e) =>
+											setDraft((d) => ({
+												...d,
+												max_redemptions_per_client: e.target.value,
+											}))
+										}
+									/>
+								</div>
+								<div className="coupon-form-modal__field coupon-form-modal__field--span-2">
+									<label htmlFor="coupon-max-total">Usos totales</label>
+									<input
+										id="coupon-max-total"
+										type="number"
+										min="1"
+										disabled={saving}
+										placeholder="Sin límite"
+										value={draft.max_redemptions}
+										onChange={(e) =>
+											setDraft((d) => ({ ...d, max_redemptions: e.target.value }))
+										}
+									/>
+									<span className="coupon-form-modal__hint">Vacío = ilimitado</span>
+								</div>
+							</div>
+						</section>
+
+						<section className="coupon-form-modal__section" aria-labelledby="coupon-sec-dates">
+							<h4 id="coupon-sec-dates" className="coupon-form-modal__section-title">
+								Vigencia
+							</h4>
+							<div className="coupon-form-modal__grid coupon-form-modal__grid--2">
+								<CouponDateTimeField
+									id="coupon-from"
+									label="Desde"
+									disabled={saving}
+									defaultTime="00:00"
+									placeholder="Sin fecha de inicio"
+									value={draft.valid_from}
+									onChange={(v) => setDraft((d) => ({ ...d, valid_from: v }))}
+								/>
+								<CouponDateTimeField
+									id="coupon-until"
+									label="Hasta"
+									disabled={saving}
+									defaultTime="23:59"
+									placeholder="Sin fecha de fin"
+									value={draft.valid_until}
+									onChange={(v) => setDraft((d) => ({ ...d, valid_until: v }))}
+								/>
+							</div>
+						</section>
+
+						<label className="coupon-form-modal__active">
+							<input
+								type="checkbox"
+								checked={draft.is_active}
+								disabled={saving}
+								onChange={(e) =>
+									setDraft((d) => ({ ...d, is_active: e.target.checked }))
+								}
+							/>
+							<span>
+								<span className="coupon-form-modal__active-title">Cupón activo</span>
+								<span className="coupon-form-modal__active-desc">
+									Si está desactivado, no se puede canjear en pedidos.
+								</span>
+							</span>
+						</label>
+					</form>
+
+					<div className="coupon-form-modal__footer">
+						<Button variant="secondary" type="button" size="sm" disabled={saving} onClick={resetForm}>
+							Cancelar
+						</Button>
+						<Button
+							variant="default"
+							type="submit"
+							form="coupon-form"
+							size="sm"
+							disabled={saving || loading}
+						>
+							{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+							{saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear cupón"}
+						</Button>
+					</div>
+				</div>
+			</div>,
+			document.querySelector(".admin-layout") || document.body,
+		);
+
 	return (
 		<div className="admin-coupons">
 			<div className="admin-toolbar glass admin-coupons__toolbar">
 				<div className="admin-coupons__toolbar-head">
 					<div className="admin-coupons__toolbar-title">
-						<Tag size={22} strokeWidth={1.6} aria-hidden />
+						<Tag size={20} strokeWidth={1.75} aria-hidden />
 						<h2>Cupones</h2>
+						<span className="admin-coupons__count">
+							{filteredRows.length === rows.length
+								? `${rows.length} cupón${rows.length === 1 ? "" : "es"}`
+								: `${filteredRows.length} de ${rows.length}`}
+						</span>
 					</div>
-					<Button variant="secondary"
-						type="button"
-						className="admin-btn secondary admin-coupons__refresh-btn"
-						disabled={loading || saving}
-						onClick={() => void load()}
-					>
-						<Loader2 size={14} className={loading ? "animate-spin" : ""} aria-hidden /> Actualizar
-					</Button>
-				</div>
-				<p className="admin-toolbar-hint admin-coupons__toolbar-hint">
-					Los pedidos validan el código en servidor; el cliente del cupón debe existir antes del pedido si el
-					alcance es &quot;solo cliente&quot;.
-				</p>
-			</div>
-
-			<div className="glass admin-coupons__form-card">
-				<div className="admin-coupons__form-card-head">
-					<span className="admin-coupons__form-card-title">{editing ? "Editar cupón" : "Nuevo cupón"}</span>
-					{editing ? (
-						<Button variant="default" type="button" className="" onClick={resetForm}>
-							Cancelar edición
+					<div className="admin-coupons__toolbar-actions">
+						<Button
+							variant="secondary"
+							type="button"
+							size="sm"
+							className="admin-coupons__refresh-btn"
+							disabled={loading || saving}
+							onClick={() => void load()}
+						>
+							<RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
+							Actualizar
 						</Button>
-					) : null}
-				</div>
-				<p className="admin-coupons__form-subtitle">{subtitle}</p>
-
-				<div className="admin-coupons__matrix">
-					<p
-						className="admin-coupons__grid-eyebrow titulo-cupon-section"
-						style={{ color: "#000", WebkitTextFillColor: "#000" }}
-					>
-						Descuento y alcance
-					</p>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
-						<FieldLabel>Código</FieldLabel>
-						<input
-							className="form-input"
-							value={draft.code}
-							disabled={saving}
-							onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
-							placeholder="EJEMPLO15"
-						/>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
-						<FieldLabel>Tipo</FieldLabel>
-						<select
-							className="form-input"
-							value={draft.discount_type}
-							disabled={saving}
-							onChange={(e) => setDraft((d) => ({ ...d, discount_type: e.target.value }))}
+						<Button
+							variant="default"
+							type="button"
+							size="sm"
+							disabled={saving || formOpen}
+							onClick={startCreate}
 						>
-							<option value="percent">Porcentaje</option>
-							<option value="fixed_amount">Monto fijo</option>
-						</select>
+							<Plus size={16} aria-hidden />
+							Nuevo cupón
+						</Button>
 					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
-						<FieldLabel>{draft.discount_type === "percent" ? "Porcentaje" : "Monto (CLP)"}</FieldLabel>
-						<input
-							type="number"
-							min="0"
-							step="1"
-							className="form-input"
-							disabled={saving}
-							value={draft.discount_value}
-							onChange={(e) => setDraft((d) => ({ ...d, discount_value: e.target.value }))}
-						/>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-3">
-						<FieldLabel>Alcance</FieldLabel>
-						<select
-							className="form-input"
-							disabled={saving}
-							value={draft.scope}
-							onChange={(e) =>
-								setDraft((d) => ({
-									...d,
-									scope: e.target.value,
-									restricted_client_id:
-										e.target.value === "client_only" ? d.restricted_client_id : "",
-								}))
-							}
-						>
-							<option value="global">Global</option>
-							<option value="client_only">Solo cliente</option>
-						</select>
-					</div>
-
-					<p
-						className="admin-coupons__grid-eyebrow titulo-cupon-section"
-						style={{ color: "#000", WebkitTextFillColor: "#000" }}
-					>
-						Cliente (cupones restringidos)
-					</p>
-					<div className="admin-coupons__form-field admin-coupons__cell-full">
-						<FieldLabel>Cliente restringido — solo si el alcance es «Solo cliente»</FieldLabel>
-						<select
-							className="form-input admin-coupons__select-client"
-							disabled={saving || draft.scope !== "client_only"}
-							value={draft.restricted_client_id}
-							onChange={(e) =>
-								setDraft((d) => ({ ...d, restricted_client_id: e.target.value }))
-							}
-						>
-							<option value="">— Elegir cliente —</option>
-							{clients.map((c) => (
-								<option key={c.id} value={c.id}>
-									{String(c.name || "").trim() || "(Sin nombre)"} · {String(c.phone || "").trim() || ""}
-								</option>
-							))}
-						</select>
-					</div>
-
-					<p
-						className="admin-coupons__grid-eyebrow titulo-cupon-section"
-						style={{ color: "#000", WebkitTextFillColor: "#000" }}
-					>
-						Límites y vigencia
-					</p>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
-						<FieldLabel>Mínimo pedido (subtotal ítems)</FieldLabel>
-						<input
-							type="number"
-							min="0"
-							className="form-input"
-							disabled={saving}
-							value={draft.min_order_subtotal}
-							onChange={(e) =>
-								setDraft((d) => ({
-									...d,
-									min_order_subtotal: e.target.value,
-								}))
-							}
-						/>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
-						<FieldLabel>Usos máx. totales</FieldLabel>
-						<input
-							type="number"
-							min="1"
-							className="form-input"
-							disabled={saving}
-							placeholder="Sin límite"
-							value={draft.max_redemptions}
-							onChange={(e) => setDraft((d) => ({ ...d, max_redemptions: e.target.value }))}
-						/>
-						<span className="admin-coupons__field-hint">Vacío = ilimitado</span>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-4">
-						<FieldLabel>Por cliente</FieldLabel>
-						<input
-							type="number"
-							min="1"
-							className="form-input"
-							disabled={saving}
-							value={draft.max_redemptions_per_client}
-							onChange={(e) =>
-								setDraft((d) => ({
-									...d,
-									max_redemptions_per_client: e.target.value,
-								}))
-							}
-						/>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-6">
-						<FieldLabel>Válido desde</FieldLabel>
-						<input
-							type="datetime-local"
-							className="form-input"
-							disabled={saving}
-							value={draft.valid_from}
-							onChange={(e) => setDraft((d) => ({ ...d, valid_from: e.target.value }))}
-						/>
-					</div>
-					<div className="admin-coupons__form-field admin-coupons__cell-span-6">
-						<FieldLabel>Válido hasta</FieldLabel>
-						<input
-							type="datetime-local"
-							className="form-input"
-							disabled={saving}
-							value={draft.valid_until}
-							onChange={(e) =>
-								setDraft((d) => ({ ...d, valid_until: e.target.value }))
-							}
-						/>
-					</div>
-
-					<label className="admin-coupons__checkbox-row">
-						<input
-							type="checkbox"
-							checked={draft.is_active}
-							disabled={saving}
-							onChange={(e) =>
-								setDraft((d) => ({ ...d, is_active: e.target.checked }))
-							}
-						/>
-						Cupón activo
-					</label>
 				</div>
 
-				<div className="admin-coupons__form-footer">
-					<Button variant="default"
-						type="button"
-						className="admin-btn primary admin-coupons__submit-btn"
-						disabled={saving || loading}
-						onClick={() => void submit()}
-					>
-						{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Plus size={16} aria-hidden />}
-						{saving ? "Guardando…" : editing ? "Actualizar cupón" : "Crear cupón"}
-					</Button>
+				<p className="admin-toolbar-hint admin-coupons__toolbar-hint">
+					Los códigos se validan en el pedido. Si es «solo cliente», el cliente debe existir antes.
+				</p>
+
+				<div className="admin-coupons__toolbar-filters">
+					<div className="search-box">
+						<Search size={16} aria-hidden />
+						<input
+							type="search"
+							placeholder="Buscar código o descuento…"
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							aria-label="Buscar cupones"
+						/>
+					</div>
+					<div className="admin-coupons__chips" role="group" aria-label="Filtrar por estado">
+						<button
+							type="button"
+							className={`filter-chip${statusFilter === "all" ? " active" : ""}`}
+							onClick={() => setStatusFilter("all")}
+						>
+							Todo
+						</button>
+						<button
+							type="button"
+							className={`filter-chip${statusFilter === "active" ? " active" : ""}`}
+							onClick={() => setStatusFilter("active")}
+						>
+							Activos
+						</button>
+						<button
+							type="button"
+							className={`filter-chip${statusFilter === "inactive" ? " active" : ""}`}
+							onClick={() => setStatusFilter("inactive")}
+						>
+							Inactivos
+						</button>
+					</div>
 				</div>
 			</div>
+
+			{couponModal}
 
 			<div className="glass staff-table-glass admin-staff-panel">
 				{loading ? (
@@ -458,7 +628,18 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 						<Loader2 size={32} className="animate-spin" aria-hidden />
 					</div>
 				) : rows.length === 0 ? (
-					<p className="admin-staff-empty admin-coupons__panel-empty">No hay cupones aún.</p>
+					<div className="admin-coupons__empty">
+						<Tag size={36} strokeWidth={1.4} aria-hidden />
+						<p>No hay cupones aún.</p>
+						<Button variant="default" type="button" size="sm" onClick={startCreate}>
+							<Plus size={16} aria-hidden />
+							Crear primer cupón
+						</Button>
+					</div>
+				) : filteredRows.length === 0 ? (
+					<p className="admin-staff-empty admin-coupons__panel-empty">
+						Ningún cupón coincide con la búsqueda o el filtro.
+					</p>
 				) : (
 					<div className="staff-table-wrapper admin-staff-table-wrap">
 						<table className="staff-table admin-staff-table">
@@ -474,7 +655,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 								</tr>
 							</thead>
 							<tbody>
-								{rows.map((row) => {
+								{filteredRows.map((row) => {
 									const pct = row.discount_type === "percent";
 									const dsc = pct
 										? `${Number(row.discount_value)} %`
@@ -494,11 +675,11 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 											<td>{dsc}</td>
 											<td className="admin-coupons__scope-cell">{scopeLbl}</td>
 											<td>
-												{row.is_active ? (
-													<span className="admin-coupons__status admin-coupons__status--active">Activo</span>
-												) : (
-													<span className="admin-coupons__status admin-coupons__status--inactive">Inactivo</span>
-												)}
+												<span
+													className={`status-badge ${row.is_active ? "success" : "neutral"}`}
+												>
+													{row.is_active ? "Activo" : "Inactivo"}
+												</span>
 											</td>
 											<td>
 												{rc} / {mr}
@@ -509,24 +690,28 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 												→ {vd.until}
 											</td>
 											<td className="admin-coupons__actions-cell">
-												<Button variant="default"
+												<button
 													type="button"
+													className="admin-icon-btn admin-icon-btn--sm"
 													title="Editar"
-													className=""
 													disabled={saving}
 													onClick={() => startEdit(row)}
 												>
 													<Pencil size={14} aria-hidden />
-												</Button>
-												<Button variant="default"
+												</button>
+												<button
 													type="button"
+													className="admin-icon-btn admin-icon-btn--sm"
 													title={row.is_active ? "Desactivar" : "Activar"}
-													className=""
 													disabled={saving}
 													onClick={() => void toggleActive(row)}
 												>
-													{row.is_active ? <Ban size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
-												</Button>
+													{row.is_active ? (
+														<Ban size={14} aria-hidden />
+													) : (
+														<CircleCheck size={14} aria-hidden />
+													)}
+												</button>
 											</td>
 										</tr>
 									);

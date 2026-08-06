@@ -10,6 +10,7 @@ import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
+import { getFormStrategy } from '@/lib/geo/country-forms';
 import { Button } from "@/components/ui/button";
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
@@ -316,11 +317,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             return;
         }
 
+        const idLabel = getFormStrategy(resolveEffectiveCountry(selectedBranch, companyProfile)).idName;
         const dataToExport = filteredClients.map(c => ({
             Nombre: c.name || 'Sin Nombre',
             Teléfono: c.phone || '',
             Email: c.email || '',
-            RUT: c.rut || '',
+            [idLabel]: c.rut || '',
             'Total Pedidos': c.totalOrders || 0,
             'Total Gastado ($)': c.total_spent || 0,
             'Puntos Fidelity': c.fidelityPoints || 0,
@@ -413,12 +415,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         />
                     </div>
                     
-                    <Button variant="default" className="" onClick={handleExportCSV}>
-                        <Download size={18} /> Exportar CSV
+                    <Button variant="secondary" type="button" size="sm" onClick={handleExportCSV}>
+                        <Download size={16} /> Exportar CSV
                     </Button>
                     
-                    <Button variant="default" className="" onClick={() => setIsFormOpen(true)}>
-                        <Plus size={18} /> Nuevo cliente
+                    <Button variant="default" type="button" size="sm" onClick={() => setIsFormOpen(true)}>
+                        <Plus size={16} /> Nuevo cliente
                     </Button>
                 </div>
             </div>
@@ -428,30 +430,34 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 <div className="filter-btn-trigger">
                     <Filter size={18} /> Filtro
                 </div>
-                <Button variant="default" 
+                <button
+                    type="button"
                     className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('all'); setCurrentPage(1); }}
                 >
                     Todo
-                </Button>
-                <Button variant="default" 
+                </button>
+                <button
+                    type="button"
                     className={`filter-chip ${activeFilter === 'elite' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('elite'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Élite
-                </Button>
-                <Button variant="default" 
+                </button>
+                <button
+                    type="button"
                     className={`filter-chip ${activeFilter === 'top' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('top'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Top
-                </Button>
-                <Button variant="default" 
+                </button>
+                <button
+                    type="button"
                     className={`filter-chip ${activeFilter === 'frequent' ? 'active' : ''}`}
                     onClick={() => { setActiveFilter('frequent'); setCurrentPageWithMenuClose(1); }}
                 >
                     Comprador Frecuente
-                </Button>
+                </button>
                 <div className="clients-total-count">
                     Total: {filteredClients.length}
                 </div>
@@ -493,9 +499,9 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                 className="clients-row-kebab-wrap"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <Button variant="default"
+                                                <button
                                                     type="button"
-                                                    className="admin-icon-btn--sm clients-kebab-trigger"
+                                                    className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
                                                     data-clients-kebab-id={client.id}
                                                     aria-expanded={menuOpenClientId === client.id}
                                                     aria-haspopup="menu"
@@ -513,13 +519,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                     }}
                                                 >
                                                     <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
-                                                </Button>
+                                                </button>
                                             </div>
                                         </div>
                                         {client.phone ? (
                                             <div className="client-card-header__contact-row">
                                                 <span className="client-phone-text">{client.phone}</span>
-                                                <Button variant="default"
+                                                <button
                                                     type="button"
                                                     className="clients-whatsapp-btn"
                                                     onClick={(e) => openWhatsApp(e, client.phone)}
@@ -527,7 +533,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                     aria-label="Abrir conversación en WhatsApp con este cliente"
                                                 >
                                                     <WhatsAppGlyph className="clients-whatsapp-btn__glyph" />
-                                                </Button>
+                                                </button>
                                             </div>
                                         ) : null}
                                         {client.email ? <span className="client-email">{client.email}</span> : null}
@@ -586,12 +592,24 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         Página {currentPage} de {totalPages}
                     </span>
                     <div className="pagination-buttons">
-                        <Button variant="default" className="" onClick={() => setCurrentPageWithMenuClose((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                        <button
+                            type="button"
+                            className="clients-pagination-btn"
+                            onClick={() => setCurrentPageWithMenuClose((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            aria-label="Página anterior"
+                        >
                             <ChevronLeft size={18} />
-                        </Button>
-                        <Button variant="default" className="" onClick={() => setCurrentPageWithMenuClose((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                        </button>
+                        <button
+                            type="button"
+                            className="clients-pagination-btn"
+                            onClick={() => setCurrentPageWithMenuClose((p) => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            aria-label="Página siguiente"
+                        >
                             <ChevronRight size={18} />
-                        </Button>
+                        </button>
                     </div>
                 </div>
             )}
@@ -606,7 +624,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         aria-label="Acciones del cliente"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <Button variant="default"
+                        <button
                             type="button"
                             role="menuitem"
                             className="clients-kebab-menu__item"
@@ -617,10 +635,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         >
                             <UserCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
                             Ver ficha
-                        </Button>
+                        </button>
                         {kebabOpenClient.phone ? (
                             <>
-                                <Button variant="default"
+                                <button
                                     type="button"
                                     role="menuitem"
                                     className="clients-kebab-menu__item"
@@ -631,8 +649,8 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 >
                                     <MessageCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
                                     Abrir WhatsApp
-                                </Button>
-                                <Button variant="default"
+                                </button>
+                                <button
                                     type="button"
                                     role="menuitem"
                                     className="clients-kebab-menu__item"
@@ -640,10 +658,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 >
                                     <Copy size={16} aria-hidden className="clients-kebab-menu__icon" />
                                     Copiar teléfono
-                                </Button>
+                                </button>
                             </>
                         ) : null}
-                        <Button variant="destructive"
+                        <button
                             type="button"
                             role="menuitem"
                             className="clients-kebab-menu__item clients-kebab-menu__item--danger"
@@ -656,7 +674,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 <Trash2 size={16} aria-hidden className="clients-kebab-menu__icon" />
                             )}
                             Eliminar cliente
-                        </Button>
+                        </button>
                     </div>,
                     kebabPortalTarget,
                 )
