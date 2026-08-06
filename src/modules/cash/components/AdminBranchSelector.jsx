@@ -4,6 +4,15 @@ import { MapPin, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { openHeaderPopover, listenHeaderPopoverOpen } from "../utils/headerPopoverEvents";
 
+/** Texto corto en el botón: "Pudahuel, Ciudad de los Valles" → "Pudahuel" */
+function branchHeaderLabel(name) {
+	if (!name || typeof name !== "string") return "Sucursal";
+	const comma = name.indexOf(",");
+	if (comma === -1) return name.trim() || "Sucursal";
+	const short = name.slice(0, comma).trim();
+	return short || name.trim() || "Sucursal";
+}
+
 /**
  * Selector de sucursal para la cabecera: mismo lenguaje visual que el sidebar (Lucide + tarjeta),
  * sin el desplegable nativo del navegador.
@@ -25,7 +34,8 @@ export default function AdminBranchSelector({
 	const triggerId = `${uid}-branch-trigger`;
 
 	const selectedId = selectedBranch?.id ?? "";
-	const displayName = selectedBranch?.name || "Sucursal";
+	const fullName = selectedBranch?.name || "Sucursal";
+	const triggerLabel = branchHeaderLabel(fullName);
 
 	const options = React.useMemo(() => {
 		const list = Array.isArray(branches) ? [...branches] : [];
@@ -119,12 +129,12 @@ export default function AdminBranchSelector({
 				aria-haspopup="listbox"
 				aria-expanded={open}
 				aria-controls={open ? listId : undefined}
-				title={disabled ? lockTitle : displayName}
+				title={disabled ? lockTitle : fullName}
 			>
 				<span className="nav-icon-slot admin-branch-select__pin" aria-hidden>
 					<MapPin size={18} strokeWidth={1.65} className="text-accent" />
 				</span>
-				<span className="admin-branch-select__trigger-text">{displayName}</span>
+				<span className="admin-branch-select__trigger-text">{triggerLabel}</span>
 				<ChevronDown
 					size={18}
 					strokeWidth={1.65}
