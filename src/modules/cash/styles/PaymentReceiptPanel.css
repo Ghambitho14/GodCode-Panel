@@ -4,9 +4,9 @@
 }
 
 .admin-layout .payment-receipt-panel {
-    width: min(520px, 100vw);
-    max-width: min(520px, 100vw);
-    background: var(--admin-card-bg, #fff);
+	width: min(520px, 100%);
+	max-width: 100%;
+	background: var(--admin-card-bg, #fff);
 }
 
 .payment-receipt-panel__header {

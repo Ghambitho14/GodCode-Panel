@@ -418,8 +418,9 @@
         height: calc(100dvh - 190px - env(safe-area-inset-bottom, 0px));
         min-height: min(520px, calc(100dvh - 240px));
         gap: 0;
-        overflow-x: visible;
+        overflow-x: hidden;
         overflow-y: hidden;
+        max-width: 100%;
     }
 
     .admin-layout .kanban-column {

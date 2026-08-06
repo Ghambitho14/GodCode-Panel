@@ -8,7 +8,7 @@
 
 .admin-layout.order-detail-overlay.cash-order-detail-overlay .order-detail-panel.cash-order-detail-drawer {
 	width: 100%;
-	max-width: min(460px, 100vw);
+	max-width: min(460px, 100%);
 	max-height: none;
 	height: 100vh;
 	height: 100svh;

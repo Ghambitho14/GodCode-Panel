@@ -44,7 +44,8 @@
 	min-height: 100vh;
 	min-height: 100dvh;
 	width: 100%;
-	/* visible: overflow-x:hidden recortaba box-shadow de cabecera (p. ej. Pedido manual) en escritorio */
+	max-width: 100%;
+	/* visible en escritorio: overflow-x:hidden recorta box-shadow de cabecera */
 	overflow-x: visible;
 	background-color: var(--admin-page-bg);
 	background-image: none;
@@ -82,7 +83,7 @@
 	flex: 1;
 	padding: 28px 36px 32px;
 	overflow-y: auto;
-	max-width: 100vw;
+	max-width: 100%;
 	overflow-x: visible;
 	margin-left: var(--admin-sidebar-width);
 	min-width: 0;
@@ -243,14 +244,22 @@
 .admin-layout .admin-branch-select {
 	display: inline-flex;
 	max-width: min(100%, 320px);
+	min-width: 0;
+}
+
+.admin-layout .admin-branch-select.header-action-branch {
+	max-width: min(100%, 220px);
 }
 
 .admin-layout .admin-branch-select__trigger {
 	display: inline-flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 10px;
 	width: 100%;
 	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
 	padding: 7px 12px 7px 8px;
 	border-radius: 12px;
 	background: var(--admin-card-bg);
@@ -911,6 +920,10 @@
 
 	.admin-layout .header-actions-cluster .header-action-branch {
 		order: 2;
+		min-width: 0;
+		max-width: min(220px, 28vw);
+		flex: 0 1 auto;
+		width: min(220px, 100%);
 	}
 
 	.admin-layout .header-actions-cluster .header-actions-orders-row,
@@ -931,6 +944,8 @@
 @media (max-width: 1024px) {
 	.admin-layout {
 		flex-direction: column;
+		overflow-x: hidden;
+		max-width: 100%;
 	}
 
 	.admin-content {
@@ -940,6 +955,36 @@
 		max-width: 100%;
 		margin-left: 0;
 		box-sizing: border-box;
+		overflow-x: hidden;
+	}
+
+	.admin-layout .content-header {
+		overflow-x: hidden;
+		max-width: 100%;
+	}
+
+	.admin-layout .header-actions {
+		overflow-x: hidden;
+		max-width: 100%;
+		padding-right: max(4px, env(safe-area-inset-right, 0px));
+	}
+
+	/* Permitir que la barra superior encaje sin empujar el viewport */
+	.admin-layout .header-actions > * {
+		flex-shrink: 1;
+		min-width: 0;
+		max-width: 100%;
+	}
+
+	.admin-layout .header-actions-toolbar-row,
+	.admin-layout .header-actions .btn-icon-refresh,
+	.admin-layout .header-actions .admin-icon-btn {
+		flex-shrink: 0;
+	}
+
+	.admin-layout .admin-content > * {
+		max-width: 100%;
+		min-width: 0;
 	}
 
 	/* Cabecera en móvil/tablet: no forzar una sola fila; acciones con varias líneas cómodas */
@@ -1000,13 +1045,13 @@
 	}
 
 	/* Solo en la barra superior: compartir ancho entre sucursal y botones */
-	.admin-layout .header-actions .admin-branch-select {
+	.admin-layout .header-actions .admin-branch-select:not(.header-action-branch) {
 		max-width: 100%;
 		flex: 1 1 220px;
 		min-width: min(100%, 200px);
 	}
 
-	.admin-layout .header-actions .branch-selector-wrapper {
+	.admin-layout .header-actions .branch-selector-wrapper:not(.header-action-branch) {
 		margin-right: 0;
 		flex: 1 1 220px;
 		min-width: min(100%, 180px);
@@ -1082,9 +1127,10 @@
 		margin-right: 0;
 	}
 
-	.admin-layout .header-actions--mobile-toolbar .header-action-branch .admin-branch-select {
+	.admin-layout .header-actions--mobile-toolbar .header-action-branch.admin-branch-select {
 		width: auto;
 		max-width: 100%;
+		min-width: 0;
 		margin-left: auto;
 	}
 
@@ -1207,10 +1253,8 @@
 		line-height: 1.2;
 		min-height: 42px;
 		box-sizing: border-box;
-		max-width: min(100%, 42vw);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		width: 100%;
+		max-width: 100%;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-action-branch .admin-branch-select__pin.nav-icon-slot {
@@ -1241,15 +1285,16 @@
 		max-width: 100%;
 	}
 
-	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch .admin-branch-select {
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch.admin-branch-select {
 		width: 100%;
+		max-width: 100%;
 		margin-left: 0;
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch .admin-branch-select__trigger {
 		width: 100%;
 		max-width: 100%;
-		justify-content: space-between;
+		justify-content: flex-start;
 	}
 
 	/* Hora un poco más grande en tabs que no son Pedidos */
@@ -1352,11 +1397,28 @@
 	padding: 0;
 }
 
-/* Shell global (index.css / App.css): overflow-x:hidden recorta box-shadow hasta el borde del viewport */
-body:has(.admin-layout),
-.tenant-shell-root:has(.admin-layout),
-.tenant-shell-root:has(.admin-layout) #app-content-layer {
-	overflow-x: visible;
+/* Shell global: en escritorio overflow visible para no recortar sombras del header */
+@media (min-width: 1025px) {
+	body:has(.admin-layout),
+	.tenant-shell-root:has(.admin-layout),
+	.tenant-shell-root:has(.admin-layout) #app-content-layer {
+		overflow-x: visible;
+	}
+}
+
+@media (max-width: 1024px) {
+	html:has(.admin-layout),
+	body:has(.admin-layout) {
+		overflow-x: hidden;
+		max-width: 100%;
+	}
+
+	body:has(.admin-layout),
+	.tenant-shell-root:has(.admin-layout),
+	.tenant-shell-root:has(.admin-layout) #app-content-layer {
+		overflow-x: hidden;
+		max-width: 100%;
+	}
 }
 
 /* Sin sucursales: bloque informativo en el área principal */

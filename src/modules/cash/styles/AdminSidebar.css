@@ -393,6 +393,7 @@
 		align-items: stretch;
 		gap: 2px;
 		flex: 1;
+		width: 100%;
 		min-width: 0;
 		overflow-x: auto;
 		overflow-y: hidden;
@@ -401,21 +402,12 @@
 	}
 
 	.admin-layout .sidebar-footer {
-		flex-direction: row;
-		align-items: stretch;
-		gap: 2px;
-		flex-shrink: 0;
-		margin-top: 0;
-		padding-top: 0;
-		padding-left: 4px;
-		border-top: none;
-		border-left: 1px solid var(--admin-border, #e8ecf1);
+		display: none;
 	}
 
-	.admin-layout .sidebar-footer > .nav-item {
-		width: 72px;
-		min-width: 72px;
-		max-width: 72px;
+	.admin-layout .sidebar-menu__store:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.admin-layout .sidebar-menu::-webkit-scrollbar {

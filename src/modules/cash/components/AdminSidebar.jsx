@@ -325,30 +325,56 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                         }
                     })}
 
+                {renderMobile ? (
+                    <>
+                        <button
+                            type="button"
+                            onClick={handleOpenStorefront}
+                            className="nav-item sidebar-menu__store"
+                            title={storefrontMenuUrl ? 'Abrir menú público en una pestaña nueva' : 'No hay URL de tienda configurada'}
+                            disabled={!storefrontMenuUrl}
+                        >
+                            <SidebarIcon Icon={Store} size={20} />
+                            <span className="nav-label-mobile">Tienda</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { void handleLogout(); }}
+                            className="nav-item logout"
+                            disabled={logoutBusy}
+                            aria-busy={logoutBusy}
+                        >
+                            <SidebarIcon Icon={LogOut} size={20} />
+                            <span className="nav-label-mobile">Salir</span>
+                        </button>
+                    </>
+                ) : null}
             </nav>
 
-            <div className="sidebar-footer">
-                <button
-                    type="button"
-                    onClick={handleOpenStorefront}
-                    className="nav-item sidebar-footer__store"
-                    title={storefrontMenuUrl ? 'Abrir menú público en una pestaña nueva' : 'No hay URL de tienda configurada'}
-                    disabled={!storefrontMenuUrl}
-                >
-                    <SidebarIcon Icon={Store} size={20} />
-                    {renderMobile ? <span className="nav-label-mobile">Tienda</span> : <span className="nav-text">Ver Tienda</span>}
-                </button>
-                <button
-                    type="button"
-                    onClick={() => { void handleLogout(); }}
-                    className="nav-item logout"
-                    disabled={logoutBusy}
-                    aria-busy={logoutBusy}
-                >
-                    <SidebarIcon Icon={LogOut} size={20} />
-                    {renderMobile ? <span className="nav-label-mobile">Salir</span> : <span className="nav-text">Cerrar Sesión</span>}
-                </button>
-            </div>
+            {!renderMobile ? (
+                <div className="sidebar-footer">
+                    <button
+                        type="button"
+                        onClick={handleOpenStorefront}
+                        className="nav-item sidebar-footer__store"
+                        title={storefrontMenuUrl ? 'Abrir menú público en una pestaña nueva' : 'No hay URL de tienda configurada'}
+                        disabled={!storefrontMenuUrl}
+                    >
+                        <SidebarIcon Icon={Store} size={20} />
+                        <span className="nav-text">Ver Tienda</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { void handleLogout(); }}
+                        className="nav-item logout"
+                        disabled={logoutBusy}
+                        aria-busy={logoutBusy}
+                    >
+                        <SidebarIcon Icon={LogOut} size={20} />
+                        <span className="nav-text">Cerrar Sesión</span>
+                    </button>
+                </div>
+            ) : null}
 
             {hasRestrictedItems && !renderMobile && restrictedHintText && (
                 <p className="admin-sidebar-hint">
