@@ -1134,6 +1134,11 @@
 		align-self: stretch;
 	}
 
+	/* En móvil: pedido manual en lugar de abrir sesión (sesión se redefine después). */
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-session {
+		display: none !important;
+	}
+
 	/* Fila 2: historial ancho completo */
 	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-history {
 		grid-column: 1 / -1;

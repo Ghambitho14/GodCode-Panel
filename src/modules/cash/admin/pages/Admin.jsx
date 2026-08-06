@@ -134,6 +134,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     loading,
     inventoryBranchRows,
     companyId,
+    cashSystem,
   } = useAdmin();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
@@ -162,9 +163,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   const handleManualOrderSaved = React.useCallback(async (savedOrder) => {
     upsertOrder(savedOrder);
     // Pedido, inventario, pago y caja ya fueron confirmados por la misma RPC.
-    // Los movimientos de caja llegan por Realtime; no forzar refresh completo.
+    void cashSystem?.refresh?.();
     return true;
-  }, [upsertOrder]);
+  }, [cashSystem, upsertOrder]);
 
   React.useEffect(() => {
     if (!selectedClient) setClientOrderDetail(null);
@@ -482,12 +483,12 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                   {manualOrderOpeningMode === 'quick_sale'
                     ? <Loader2 size={18} className="animate-spin" />
                     : <PlusCircle size={18} />}
-                  {manualOrderOpeningMode === 'quick_sale' ? ' Cargando…' : ' Venta rápida'}
+                  {manualOrderOpeningMode === 'quick_sale' ? ' Cargando…' : ' Pedido manual'}
                 </Button>
                 <Button variant="secondary"
                   type="button"
                   onClick={() => { void openManualOrder('session'); }}
-                  className="btn header-action-orders-manual"
+                  className="btn header-action-orders-session"
                   disabled={selectedBranch?.id === 'all' || !selectedBranch || Boolean(manualOrderOpeningMode)}
                   title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
                 >

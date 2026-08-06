@@ -123,6 +123,12 @@ const ProductCard = ({
             role="button"
             tabIndex={0}
         >
+            {hasDiscount && (
+                <span className={`pointer-events-none absolute left-2 top-2 z-10 rounded-[4px] bg-gc-discount/15 px-1.5 py-0.5 ${textScale.micro} font-bold uppercase tracking-wide text-gc-discount`}>
+                    Oferta
+                </span>
+            )}
+
             <div className="relative mt-1 sm:mt-2">
                 <div ref={mediaRef} className={cn(
                     'manual-order-product-media relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gc-muted sm:h-24 sm:w-24',
@@ -158,27 +164,30 @@ const ProductCard = ({
                     {product.name}
                 </p>
 
-                <div className="mt-auto flex w-full items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                    <span className={`${textScale.price} font-bold text-gc-text`}>
+                <div
+                    className="mt-auto flex w-full items-end justify-between gap-2 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="min-w-0 flex-1 flex flex-col items-start justify-end gap-0.5">
                         {hasDiscount ? (
                             <>
-                                <span className={`${textScale.micro} mr-1.5 font-medium text-gc-text-muted line-through`}>
+                                <span className={`${textScale.micro} font-medium text-gc-text-muted line-through tabular-nums`}>
                                     {formatMoney(Number(product.price))}
                                 </span>
-                                {formatMoney(unitPrice)}
+                                <span className={`${textScale.price} font-bold leading-none text-gc-discount tabular-nums`}>
+                                    {formatMoney(unitPrice)}
+                                </span>
                             </>
                         ) : (
-                            formatMoney(unitPrice)
+                            <span className={`${textScale.price} font-bold leading-none text-gc-text tabular-nums`}>
+                                {formatMoney(unitPrice)}
+                            </span>
                         )}
-                    </span>
-                    {floatingAction}
+                    </div>
+                    <div className="shrink-0 self-end">
+                        {floatingAction}
+                    </div>
                 </div>
-
-                {hasDiscount && (
-                    <span className={`self-end rounded-[4px] bg-gc-discount/10 px-1.5 py-0.5 ${textScale.micro} font-bold uppercase text-gc-discount`}>
-                        Oferta
-                    </span>
-                )}
             </div>
         </article>
     );

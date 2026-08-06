@@ -296,9 +296,26 @@
     background-clip: padding-box;
 }
 
-/* Estado vacío: en cuadrícula (vista una columna) ocupa todo el ancho */
+/*
+ * Estado vacío en vista una columna: desactivar column-count.
+ * Con varias columnas CSS el .empty-zone se fragmentaba y parecían
+ * varias cards grises ("Sin pedidos" en una sola).
+ */
+.admin-layout .kanban-board.kanban-board--focus-desktop .column-body.column-body--empty {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    column-count: auto;
+    column-gap: normal;
+    column-fill: auto;
+}
+
 .admin-layout .kanban-board.kanban-board--focus-desktop .empty-zone {
-    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    break-inside: avoid;
+    flex: 1;
+    min-height: 200px;
 }
 
 .admin-layout .kanban-board.kanban-board--split-desktop .empty-zone {
@@ -322,6 +339,7 @@
     background: #f8fafc;
     border-radius: 12px;
     border: 1px dashed #e5e5ea;
+    box-sizing: border-box;
 }
 
 /* Icono fantasma opcional si quieres agregar uno en el HTML */

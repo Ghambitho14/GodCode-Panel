@@ -1,9 +1,8 @@
 import React from 'react';
-import { CheckCircle2, ShoppingBag, Banknote } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ChevronUp, ShoppingBag, Banknote } from 'lucide-react';
 import {
 	getLocalFulfillmentMode,
 	hasManualOrderPaymentIntent,
-	hasManualOrderPaymentMethodSelected,
 	isOpenMesaMeseroMode,
 	validateManualDeliveryDetails,
 } from '../../hooks/manual-order/manualOrderShared';
@@ -255,7 +254,7 @@ export function useManualOrderCheckoutFlow({
 				? ['Productos', 'Entrega', 'Cobro inicial']
 				: ['Productos', 'Abrir sesión']))
 		: (isCompactNav
-			? ['Productos', 'Entrega']
+			? ['Productos', 'Entrega', 'Pago opcional']
 			: ['Productos', 'Completar pedido']);
 
 	return {
@@ -308,7 +307,6 @@ export default function ManualOrderCheckout({
 	canMarkPaidSession,
 	setPayModalOpen,
 }) {
-	const [quickSalePaymentModalOpen, setQuickSalePaymentModalOpen] = React.useState(false);
 	const {
 		totalToPay,
 		openMesaFulfillment,
@@ -330,6 +328,19 @@ export default function ManualOrderCheckout({
 		},
 	), [manualOrder.currency, manualOrder.locale, manualOrder.fractionDigits]);
 	const canSubmitOrder = isFormValid();
+	const [cartSheetOpen, setCartSheetOpen] = React.useState(false);
+
+	React.useEffect(() => {
+		if (orderStep !== 1) setCartSheetOpen(false);
+	}, [orderStep]);
+
+	const toggleCartSheet = React.useCallback(() => {
+		setCartSheetOpen((open) => !open);
+	}, []);
+
+	const closeCartSheet = React.useCallback(() => {
+		setCartSheetOpen(false);
+	}, []);
 
 	const openMesaSubmitLabel = getOpenMesaSubmitLabel({
 		loading,
@@ -342,24 +353,6 @@ export default function ManualOrderCheckout({
 			? openMesaSubmitLabel
 			: 'CREAR PEDIDO';
 	const quickSaleHasPayment = !effectiveOpenMesaMode && hasManualOrderPaymentIntent(manualOrder);
-	const quickSaleHasMethod = !effectiveOpenMesaMode && hasManualOrderPaymentMethodSelected(manualOrder);
-	const showQuickSalePaymentChoice = !effectiveOpenMesaMode && !isEditMode;
-	const quickSalePaymentActive = showQuickSalePaymentChoice
-		&& (quickSaleHasMethod || quickSalePaymentModalOpen);
-	const quickSalePaymentRailLabel = (() => {
-		if (!quickSaleHasMethod) return 'Pedido no pagado';
-		if (manualOrder.payment_mode === 'mixed') return 'Pagarán con Pago mixto';
-		const raw = getPaymentLabel(manualOrder);
-		if (!raw || raw === '—' || raw === 'Pago pendiente') return 'Pedido no pagado';
-		if (raw === 'Transf.' || raw.startsWith('Mixto')) {
-			return `Pagarán con ${raw === 'Transf.' ? 'Transferencia' : 'Pago mixto'}`;
-		}
-		return `Pagarán con ${raw}`;
-	})();
-	const quickSalePaymentHint = quickSaleHasMethod
-		? quickSalePaymentRailLabel
-		: null;
-
 	const tableMustDeferPayment = effectiveOpenMesaMode && openMesaFulfillment === 'mesa';
 	const immediateSessionAllowed = !effectiveOpenMesaMode ? true : tableMustDeferPayment ? false
 		: manualOrder.manualOrderSettings?.allowImmediateSessionPayment?.[
@@ -394,35 +387,13 @@ export default function ManualOrderCheckout({
 		updateDeliveryFee,
 		updateDeliveryNamedAreaId,
 		applyClientRecord,
+		applySavedAddress,
 		getInputStyle,
 		rutValid,
 		phoneValid,
 		receiptFile,
 		receiptPreview,
 	} = hookActions;
-
-	const clearQuickSalePayment = React.useCallback(() => {
-		setQuickSalePaymentModalOpen(false);
-		updatePaymentType?.('pendiente');
-		updatePaymentLines?.([]);
-	}, [updatePaymentType, updatePaymentLines]);
-
-	const openQuickSalePaymentModal = React.useCallback(() => {
-		setQuickSalePaymentModalOpen(true);
-	}, []);
-
-	const closeQuickSalePaymentModal = React.useCallback(() => {
-		setQuickSalePaymentModalOpen(false);
-	}, []);
-
-	React.useEffect(() => {
-		if (!quickSalePaymentModalOpen) return undefined;
-		const onKeyDown = (event) => {
-			if (event.key === 'Escape') closeQuickSalePaymentModal();
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [quickSalePaymentModalOpen, closeQuickSalePaymentModal]);
 
 	React.useEffect(() => {
 		if (showOpenMesaPaymentChoice && !immediateSessionAllowed && manualOrder.charge_now) {
@@ -445,6 +416,7 @@ export default function ManualOrderCheckout({
 			updateDeliveryNamedAreaId={updateDeliveryNamedAreaId}
 			updateClientName={updateClientName}
 			applyClientRecord={applyClientRecord}
+			applySavedAddress={applySavedAddress}
 			handleRutChange={handleRutChange}
 			handlePhoneChange={handlePhoneChange}
 			rutValid={rutValid}
@@ -457,11 +429,6 @@ export default function ManualOrderCheckout({
 			branchDeliveryCfgLoading={branchDeliveryCfgLoading}
 			enabledLocalChannels={localOrderChannels}
 			isEditMode={isEditMode}
-			showQuickSalePaymentChoice={showQuickSalePaymentChoice}
-			quickSalePaymentActive={quickSalePaymentActive}
-			quickSalePaymentHint={quickSalePaymentHint}
-			onSelectQuickSaleUnpaid={clearQuickSalePayment}
-			onSelectQuickSalePaid={openQuickSalePaymentModal}
 		/>
 	);
 
@@ -582,7 +549,7 @@ export default function ManualOrderCheckout({
 				<span className="manual-order-checkout-overview__eyebrow">
 					{effectiveOpenMesaMode
 						? (isClientOnlyStep ? 'ABRIR SESIÓN · ENTREGA' : 'ABRIR SESIÓN · CONFIGURACIÓN')
-						: (isClientOnlyStep ? 'VENTA RÁPIDA · ENTREGA' : 'VENTA RÁPIDA · COBRO')}
+						: (isClientOnlyStep ? 'PEDIDO MANUAL · ENTREGA' : 'PEDIDO MANUAL · COBRO')}
 				</span>
 				<h2>
 						{isClientOnlyStep
@@ -682,17 +649,56 @@ export default function ManualOrderCheckout({
 	) : null;
 
 	const mobileDock = isCompactNav ? (
-		<div className="manual-order-mobile-dock" role="group" aria-label="Navegación del pedido">
+		<div className={cn('manual-order-mobile-dock', orderStep === 1 && cartSheetOpen && 'manual-order-mobile-dock--cart-open')} role="group" aria-label="Navegación del pedido">
 			{orderStep === 1 ? (
 				<>
-					<div className="manual-order-mobile-cart-bar" aria-live="polite">
+					{cartSheetOpen ? (
+						<button
+							type="button"
+							className="manual-order-mobile-cart-backdrop"
+							aria-label="Cerrar carrito"
+							onClick={closeCartSheet}
+						/>
+					) : null}
+
+					<div
+						id="manual-order-mobile-cart-sheet"
+						className={cn('manual-order-mobile-cart-sheet', cartSheetOpen && 'is-open')}
+						aria-hidden={!cartSheetOpen}
+					>
+						<div className="manual-order-mobile-cart-sheet__panel">
+							<OrderSummary {...orderSummaryProps} />
+						</div>
+					</div>
+
+					<Button
+						variant="default"
+						type="button"
+						className="manual-order-mobile-cart-fab"
+						onClick={toggleCartSheet}
+						aria-expanded={cartSheetOpen}
+						aria-controls="manual-order-mobile-cart-sheet"
+						title={cartSheetOpen ? 'Cerrar carrito' : 'Ver carrito'}
+						aria-label={cartSheetOpen ? 'Cerrar carrito' : 'Ver y editar carrito'}
+					>
+						{cartSheetOpen ? <ChevronDown size={20} strokeWidth={2.5} aria-hidden /> : <ChevronUp size={20} strokeWidth={2.5} aria-hidden />}
+					</Button>
+
+					<button
+						type="button"
+						className="manual-order-mobile-cart-bar"
+						aria-live="polite"
+						aria-expanded={cartSheetOpen}
+						aria-controls="manual-order-mobile-cart-sheet"
+						onClick={toggleCartSheet}
+					>
 						<ShoppingBag size={18} aria-hidden />
 						<span className="manual-order-mobile-cart-bar__text">
 							{hasCartItems
 								? `${cartItemCount} ${cartItemCount === 1 ? 'ítem' : 'ítems'} · ${formatAccountingMoney(manualOrder.total ?? 0)}`
 								: 'Carrito vacío'}
 						</span>
-					</div>
+					</button>
 					{showEditSaveOnFooter ? (
 						<div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--edit">
 							<Button variant="secondary"
@@ -810,7 +816,7 @@ export default function ManualOrderCheckout({
 	const classicCheckoutRailActions = !effectiveOpenMesaMode ? (
 		<div className="manual-order-checkout-rail-actions" role="group" aria-label="Confirmación del pedido">
 			<div className="manual-order-checkout-rail-actions__total">
-				<span>{quickSalePaymentRailLabel}</span>
+					<span>{quickSaleHasPayment ? 'Total a cobrar' : 'Total del pedido'}</span>
 				<strong>{formatAccountingMoney(totalToPay)}</strong>
 			</div>
 			<p
@@ -925,11 +931,9 @@ export default function ManualOrderCheckout({
 						<>
 								<div className="manual-order-checkout-main">
 									{checkoutClientColumn}
-									{!showQuickSalePaymentChoice ? (
-										<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
-											<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
-										</div>
-									) : null}
+									<div className={cn(checkoutColBase, `manual-order-checkout-col--payment ${spacing.normal}`)}>
+										<PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded />
+									</div>
 							</div>
 							{checkoutSummaryColumn}
 						</>
@@ -955,37 +959,57 @@ export default function ManualOrderCheckout({
 					aria-label={`Paso ${orderStep} de ${wizardStepCount}`}
 				>
 					{stepLabels.map((label, idx) => {
-					const n = idx + 1;
-					const isActive = orderStep === n;
-					const isDone = orderStep > n;
-					const itemClassName = `manual-order-steps-progress__item ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}${isEditMode ? ' manual-order-steps-progress__item--clickable' : ''}`;
-
-					if (isEditMode) {
-						return (
-							<Button variant="default"
-								key={label}
-								type="button"
-								className={itemClassName}
-								onClick={() => setOrderStep(n)}
-								aria-current={isActive ? 'step' : undefined}
-								aria-label={`Ir a ${label}`}
-							>
-								<span className="manual-order-steps-progress__dot">
-									{isDone ? <CheckCircle2 size={14} /> : n}
+						const n = idx + 1;
+						const isActive = orderStep === n;
+						const isDone = orderStep > n;
+						const connectorComplete = orderStep > n;
+						const itemClassName = cn(
+							'manual-order-steps-progress__item',
+							isActive && 'is-active',
+							isDone && 'is-done',
+							isEditMode && 'manual-order-steps-progress__item--clickable',
+						);
+						const node = (
+							<>
+								<span className="manual-order-steps-progress__node">
+									<span className="manual-order-steps-progress__dot">
+										{isDone || isActive ? <Check size={12} strokeWidth={3} aria-hidden /> : n}
+									</span>
 								</span>
 								<span className="manual-order-steps-progress__label">{label}</span>
-							</Button>
+								{idx < stepLabels.length - 1 ? (
+									<span
+										className={cn(
+											'manual-order-steps-progress__connector',
+											connectorComplete && 'is-complete',
+										)}
+										aria-hidden
+									/>
+								) : null}
+							</>
 						);
-					}
 
-					return (
-						<div key={label} className={itemClassName}>
-							<span className="manual-order-steps-progress__dot">
-								{isDone ? <CheckCircle2 size={14} /> : n}
-							</span>
-							<span className="manual-order-steps-progress__label">{label}</span>
-						</div>
-					);
+						if (isEditMode) {
+							return (
+								<Button
+									variant="default"
+									key={label}
+									type="button"
+									className={itemClassName}
+									onClick={() => setOrderStep(n)}
+									aria-current={isActive ? 'step' : undefined}
+									aria-label={`Ir a ${label}`}
+								>
+									{node}
+								</Button>
+							);
+						}
+
+						return (
+							<div key={label} className={itemClassName} aria-current={isActive ? 'step' : undefined}>
+								{node}
+							</div>
+						);
 					})}
 				</div>
 		</header>
@@ -997,12 +1021,6 @@ export default function ManualOrderCheckout({
 					{orderStep === 1 ? (
 						<div className="manual-order-stage manual-order-mobile-stage--catalog">
 							{catalogBlock}
-							{hasCartItems ? (
-								<details className="manual-order-mobile-cart-drawer">
-									<summary>Ver y editar carrito · {cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}</summary>
-									<div className="manual-order-mobile-cart-drawer__content"><OrderSummary {...orderSummaryProps} /></div>
-								</details>
-							) : null}
 						</div>
 					) : null}
 					{orderStep === 2 ? (
@@ -1047,51 +1065,6 @@ export default function ManualOrderCheckout({
 			)}
 
 			{mobileDock}
-
-			{showQuickSalePaymentChoice && quickSalePaymentModalOpen ? (
-				<div
-					className="manual-order-payment-modal-overlay"
-					role="presentation"
-					onClick={closeQuickSalePaymentModal}
-				>
-					<div
-						className="manual-order-payment-modal"
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="manual-order-payment-modal-title"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<header className="manual-order-payment-modal__header">
-							<h2 id="manual-order-payment-modal-title">Método de pago</h2>
-							<Button
-								variant="ghost"
-								type="button"
-								className="manual-order-payment-modal__close"
-								onClick={closeQuickSalePaymentModal}
-							>
-								Cerrar
-							</Button>
-						</header>
-						<div className="manual-order-payment-modal__body">
-							<PaymentDetails
-								{...paymentDetailsProps}
-								hideCheckoutActions
-								embedded
-							/>
-						</div>
-						<div className="manual-order-payment-modal__footer">
-							<Button
-								variant="default"
-								type="button"
-								className={cn(confirmBtnClass, 'w-full')}
-								onClick={closeQuickSalePaymentModal}
-							>
-								Listo
-							</Button>
-						</div>
-					</div>
-				</div>
-			) : null}
 		</>
 	);
 }

@@ -12,6 +12,9 @@ import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import ManualOrderCatalog from './manual-order/ManualOrderCatalog';
 import CloseTableModal from './CloseTableModal';
 import ManualOrderCheckout, {
+	DESKTOP_WIZARD_STEPS,
+	MOBILE_WIZARD_STEPS,
+	TABLET_WIZARD_STEPS,
 	useManualOrderCheckoutFlow,
 } from './manual-order/ManualOrderCheckout';
 import ManualOrderCloseConfirm from './manual-order/ManualOrderCloseConfirm';
@@ -110,6 +113,7 @@ const ManualOrderModal = ({
 		updateOrderType, updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference, updateDeliveryKm,
 		updateDeliveryFee, updateDeliveryNamedAreaId,
 		applyClientRecord,
+		applySavedAddress,
 		submitOrder, resetOrder, getInputStyle,
 		restoreOrder, restoreReceipt, draftSnapshot,
 		acknowledgeQuoteRevision,
@@ -117,8 +121,7 @@ const ManualOrderModal = ({
 	const effectiveBranchConfigError = branchConfigError || manualOrder?.branchConfigError || null;
 
 	const openMesaChargeNow = showOpenMesaPaymentChoice && Boolean(manualOrder?.charge_now);
-	// Venta rápida: el pago se elige en ClientForm y se confirma en modal (sin paso 3).
-	const showClassicPaymentStep = false;
+	const showClassicPaymentStep = !effectiveOpenMesaMode && !isEditMode;
 
 	const [orderStep, setOrderStep] = useState(1);
 	const [isCompactNav, setIsCompactNav] = useState(() => {
@@ -167,7 +170,9 @@ const ManualOrderModal = ({
 
 	const wizardStepCount = effectiveOpenMesaMode
 		? (openMesaChargeNow && isCompactNav ? 3 : 2)
-		: 2;
+		: (isCompactNav
+			? MOBILE_WIZARD_STEPS
+			: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS));
 
 	useEffect(() => {
 		if (isOpen && !wasOpenRef.current) {
@@ -222,11 +227,14 @@ const ManualOrderModal = ({
 
 	useEffect(() => {
 		setOrderStep((prev) => {
-			const max = wizardStepCount;
+			const max = isCompactNav
+				? MOBILE_WIZARD_STEPS
+				: (isTabletNav ? TABLET_WIZARD_STEPS : DESKTOP_WIZARD_STEPS);
 			if (prev <= max) return prev;
+			if (!isCompactNav && prev === 3) return 2;
 			return max;
 		});
-	}, [wizardStepCount]);
+	}, [isCompactNav, isTabletNav]);
 
 	const manualOrderForTicket = useMemo(() => {
 		if (manualOrder.order_type !== 'delivery') return manualOrder;
@@ -557,6 +565,7 @@ const ManualOrderModal = ({
 							updateDeliveryFee,
 							updateDeliveryNamedAreaId,
 							applyClientRecord,
+							applySavedAddress,
 							getInputStyle,
 							rutValid,
 							phoneValid,
@@ -572,7 +581,7 @@ const ManualOrderModal = ({
 						canMarkPaidSession={canMarkPaidSession}
 						setPayModalOpen={setPayModalOpen}
 					/>
-					<span id="manual-order-dialog-title" className="sr-only">{openMesaMode ? 'Abrir sesión' : 'Venta rápida'}</span>
+					<span id="manual-order-dialog-title" className="sr-only">{openMesaMode ? 'Abrir sesión' : 'Pedido manual'}</span>
 				</div>
 			</div>
 			{closePromptOpen ? (

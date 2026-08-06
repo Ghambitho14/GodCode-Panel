@@ -14,12 +14,42 @@ const ORDERS_RECONNECT_FETCH_MIN_MS = 5_000;
 /** Tabs que no necesitan actualizaciones en tiempo real de pedidos. */
 const TABS_WITHOUT_ORDERS_REALTIME = new Set(['analytics', 'local_expenses']);
 
+/** Estados visibles en el Kanban (movimiento entre columnas). */
+const KANBAN_BOARD_STATUSES = new Set(['pending', 'active', 'completed']);
+
+/** Estados terminales: cancelar / entregar — no deben sonar. */
+const ORDER_SILENT_STATUSES = new Set(['cancelled', 'picked_up']);
+
 /** @param {unknown} row */
 function orderRealtimeBranchId(row) {
 	if (!row || typeof row !== 'object') return null;
 	const bid = row.branch_id ?? row.branchId;
 	if (bid == null || bid === '') return null;
 	return String(bid);
+}
+
+/** @param {unknown} status */
+function normalizeOrderStatus(status) {
+	return String(status ?? '').toLowerCase();
+}
+
+/**
+ * ¿Debe sonar este UPDATE? Solo pedido nuevo (coalescido), movimiento Kanban o edición.
+ * No suena al cancelar, entregar ni en otros cierres.
+ * @param {{ wasKnown: boolean, prevStatus: unknown, nextStatus: unknown }} args
+ */
+function shouldNotifyOrderUpdateSound({ wasKnown, prevStatus, nextStatus }) {
+	const next = normalizeOrderStatus(nextStatus);
+	const prev = normalizeOrderStatus(prevStatus);
+
+	if (ORDER_SILENT_STATUSES.has(next)) return false;
+
+	// UPDATE de pedido desconocido = INSERT coalescido → tratar como llegada.
+	if (!wasKnown) return true;
+
+	if (prev === next) return true; // edición (mismo estado)
+
+	return KANBAN_BOARD_STATUSES.has(prev) && KANBAN_BOARD_STATUSES.has(next);
 }
 
 /**
@@ -70,14 +100,11 @@ export function useAdminOrdersRealtime({
 
 			const newOrder = mergeOrderInMemory(null, raw);
 			if (!newOrder?.id) return;
-			let orderForPrint = newOrder;
 			setOrders((prev) => {
 				const existingIdx = prev.findIndex((o) => o.id === newOrder.id);
 				if (existingIdx >= 0) {
-					const merged = mergeOrderInMemory(prev[existingIdx], raw);
-					orderForPrint = merged;
 					return prev.map((o, i) =>
-						i === existingIdx ? merged : o,
+						i === existingIdx ? mergeOrderInMemory(o, raw) : o,
 					);
 				}
 				return [newOrder, ...prev];
@@ -91,13 +118,8 @@ export function useAdminOrdersRealtime({
 
 				void (async () => {
 					try {
-						let orderToPrint = orderForPrint;
-						if (!Array.isArray(orderToPrint.items) || orderToPrint.items.length === 0) {
-							const fullOrder = await fetchOrderWithItems({ orderId: newOrder.id, companyId });
-							if (fullOrder && Array.isArray(fullOrder.items) && fullOrder.items.length > 0) {
-								orderToPrint = fullOrder;
-							}
-						}
+						const fullOrder = await fetchOrderWithItems({ orderId: newOrder.id, companyId });
+						const orderToPrint = fullOrder && fullOrder.items ? fullOrder : newOrder;
 						printOrderTicket(
 							orderToPrint,
 							selectedBranch?.name ?? 'NOMBRE DEL LOCAL',
@@ -140,9 +162,14 @@ export function useAdminOrdersRealtime({
 				return;
 			}
 			if (!raw?.id) return;
+
+			let wasKnown = false;
+			let prevStatus = null;
 			setOrders((prev) => {
 				const existingIdx = prev.findIndex((o) => o.id === raw.id);
 				if (existingIdx >= 0) {
+					wasKnown = true;
+					prevStatus = prev[existingIdx]?.status ?? null;
 					return prev.map((o, i) =>
 						i === existingIdx ? mergeOrderInMemory(o, raw) : o,
 					);
@@ -153,15 +180,25 @@ export function useAdminOrdersRealtime({
 				return [newOrder, ...prev];
 			});
 
-			// Si el pedido no existía, notificar y sonar como un INSERT.
-			if (isSingleBranch) {
-				const newOrder = mergeOrderInMemory(null, raw);
-				if (newOrder?.id) {
-					showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
-					if (shouldPlayOrderSound(newOrder)) {
-						playOrderNotificationSound();
-					}
-				}
+			if (!isSingleBranch) return;
+
+			const newOrder = mergeOrderInMemory(null, raw);
+			if (!newOrder?.id) return;
+
+			const nextStatus = newOrder.status;
+			const playSound = shouldNotifyOrderUpdateSound({
+				wasKnown,
+				prevStatus,
+				nextStatus,
+			});
+
+			// Toast de "nuevo" solo si el pedido no estaba en memoria (INSERT coalescido).
+			if (!wasKnown && !ORDER_SILENT_STATUSES.has(normalizeOrderStatus(nextStatus))) {
+				showNotify(`Nuevo pedido #${newOrder.id.toString().slice(-4)}`, 'success');
+			}
+
+			if (playSound && shouldPlayOrderSound(newOrder)) {
+				playOrderNotificationSound();
 			}
 			return;
 		}

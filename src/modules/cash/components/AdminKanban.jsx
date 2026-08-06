@@ -197,7 +197,10 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
 
                             {/* Body */}
                             <div
-                                className="column-body"
+                                className={[
+                                    'column-body',
+                                    ordersInColumn.length === 0 ? 'column-body--empty' : '',
+                                ].filter(Boolean).join(' ')}
                                 ref={showDesktopSingle && !hidden ? focusBodyRef : null}
                             >
                                 {ordersInColumn.length === 0 ? (
