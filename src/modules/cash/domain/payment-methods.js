@@ -22,20 +22,22 @@ function normalizeRawDefinition(raw, accountingCurrency) {
 	const base = PAYMENT_METHOD_REGISTRY[key];
 	if (!base) return null;
 	const currency = String(source.currency ?? base.currency ?? accountingCurrency).trim().toUpperCase();
+	const evidencePolicyRaw = source.evidencePolicy ?? source.evidence_policy;
+	const settlementTriggerRaw = source.settlementTrigger ?? source.settlement_trigger;
 	return {
 		...base,
 		id: base.id,
 		label: String(source.label ?? base.label),
 		currency,
-		evidencePolicy: ['none', 'optional', 'required'].includes(source.evidencePolicy) ? source.evidencePolicy : base.evidencePolicy,
+		evidencePolicy: ['none', 'optional', 'required'].includes(evidencePolicyRaw) ? evidencePolicyRaw : base.evidencePolicy,
 		settlementTrigger: [
 			'cash_confirmation',
 			'pos_confirmation',
 			'evidence_uploaded',
 			'manual_verification',
 			'gateway_webhook',
-		].includes(source.settlementTrigger) ? source.settlementTrigger : base.settlementTrigger,
-		allowMixedPayment: source.allowMixedPayment !== false,
+		].includes(settlementTriggerRaw) ? settlementTriggerRaw : base.settlementTrigger,
+		allowMixedPayment: source.allowMixedPayment !== false && source.allow_mixed_payment !== false,
 		enabled: source.enabled !== false && source.active !== false,
 	};
 }

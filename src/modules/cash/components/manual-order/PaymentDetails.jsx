@@ -505,11 +505,13 @@ const PaymentDetails = ({
 					</SectionHeader>
 	                    <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
 							{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required')
-								? 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.'
+								? (isReceipt
+									? 'Adjuntá el comprobante para poder registrar este pago.'
+									: 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.')
 								: 'Puedes subir el comprobante ahora o después desde la tarjeta del pedido.'}
 	                    </p>
 	                    <label
-	                        htmlFor="receipt-upload"
+	                        htmlFor={isReceipt ? 'receipt-upload-close' : 'receipt-upload'}
 	                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[12px] border border-dashed border-gc-border bg-gc-page p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
 	                    >
 	                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
@@ -518,7 +520,7 @@ const PaymentDetails = ({
 	                        </span>
 	                    </label>
 	                    <input
-	                        id="receipt-upload"
+	                        id={isReceipt ? 'receipt-upload-close' : 'receipt-upload'}
 	                        type="file"
 	                        accept="image/*"
 	                        onChange={handleFileChange}

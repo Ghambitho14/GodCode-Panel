@@ -23,6 +23,7 @@ import TableSessionReceipt from './TableSessionReceipt';
 import { Button } from "@/components/ui/button";
 import { isoFractionDigits, minorToMajor } from '@/lib/money/minor-units';
 import { normalizePaymentMethods, validatePaymentLines } from '../domain/payment-methods';
+import { useReceiptUpload } from '../hooks/manual-order/useReceiptUpload';
 
 
 
@@ -84,6 +85,13 @@ export default function CloseTableModal({
 
 	const [loading, setLoading] = useState(false);
 	const dueMinorBaselineRef = useRef(null);
+	const {
+		receiptFile,
+		receiptPreview,
+		handleFileChange,
+		removeReceipt,
+		resetReceipt,
+	} = useReceiptUpload(showNotify);
 
 	useEffect(() => {
 		if (!isOpen || !order) return;
@@ -93,8 +101,11 @@ export default function CloseTableModal({
 			// el método real antes de registrar o cerrar el cobro.
 			payment_type: order.payment_type && order.payment_type !== 'pendiente' ? order.payment_type : '',
 		});
+		resetReceipt();
 		dueMinorBaselineRef.current = resolveOrderDueMinor(order);
 		// Solo al abrir o cambiar de pedido — no cuando el padre pasa un nuevo objeto (realtime).
+		// resetReceipt es estable en intención; no va en deps para evitar resetear el formulario en cada render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- order?.id / isOpen
 	}, [isOpen, order?.id]);
 
 	useEffect(() => {
@@ -185,9 +196,14 @@ export default function CloseTableModal({
 		cashDenominations: branch?.manual_order_settings?.cashDenominations || {},
 	};
 
+	const requiresEvidence = isV2Order
+		? (form.payment_lines || []).some((line) => line?.evidencePolicy === 'required')
+		: form.payment_type === 'online';
+
 	const isFormValid = () => {
 		if (confirmOnly) return true;
 		if (dueMinor <= 0) return false;
+		if (requiresEvidence && !receiptFile) return false;
 		if (isV2Order) return validatePaymentLines(manualOrderShape.payment_lines, manualOrderShape.quote, paymentMethods).valid;
 
 		return validateCheckoutPayment({
@@ -205,11 +221,13 @@ export default function CloseTableModal({
 	const handleConfirm = async () => {
 
 		if (!isFormValid()) {
-
-			showNotify?.('Revisa el método de pago', 'warning');
-
+			showNotify?.(
+				requiresEvidence && !receiptFile
+					? 'Adjuntá el comprobante antes de confirmar el pago.'
+					: 'Revisa el método de pago',
+				'warning',
+			);
 			return;
-
 		}
 
 		setLoading(true);
@@ -223,6 +241,10 @@ export default function CloseTableModal({
 				: {
 
 					...form,
+
+					receiptFile: receiptFile || null,
+
+					branchPaymentMethods: branch?.payment_methods || null,
 
 					payment_breakdown: buildPaymentBreakdownForOrder({
 
@@ -242,7 +264,10 @@ export default function CloseTableModal({
 
 			const ok = await onConfirm(order, paymentPatch);
 
-			if (ok) onClose();
+			if (ok) {
+				resetReceipt();
+				onClose();
+			}
 
 		} finally {
 
@@ -340,13 +365,13 @@ export default function CloseTableModal({
 
 										updatePaymentLines={(lines) => setForm((f) => ({ ...f, payment_lines: lines }))}
 
-										receiptFile={null}
+										receiptFile={receiptFile}
 
-										receiptPreview={null}
+										receiptPreview={receiptPreview}
 
-										handleFileChange={() => {}}
+										handleFileChange={handleFileChange}
 
-										removeReceipt={() => {}}
+										removeReceipt={removeReceipt}
 
 										submitOrder={handleConfirm}
 
@@ -357,8 +382,6 @@ export default function CloseTableModal({
 										hideCouponSection
 
 										hideTotalBreakdown
-
-										hideEvidenceUpload
 
 										hideCheckoutActions
 

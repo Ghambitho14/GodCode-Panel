@@ -25,12 +25,13 @@ import { invalidateBranchOrders } from '../../services/panelDataCache';
 import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { OrderMoneyProvider } from '../../context/OrderMoneyContext';
 import { clearManualOrderDraftsForUser } from '../../services/manualOrderDrafts';
-import { installPaymentEvidenceOnlineRetry } from '../../services/paymentEvidenceOutbox';
+import { installPaymentEvidenceOnlineRetry, queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
 import { atomicOrderTransactionService } from '../../services/atomicOrderTransactionService';
 import { majorToMinor, minorToMajor } from '@/lib/money/minor-units';
 import { fractionDigitsForCurrency, normalizeCurrencyCode } from '@/shared/utils/money';
 import { createClientUuid } from '@/shared/utils/supabaseStorage';
+import { normalizePaymentMethods, validatePaymentLines } from '../../domain/payment-methods';
 import {
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
@@ -90,6 +91,70 @@ function settlementLinesFromLegacyPatch(order, patch) {
 			changeAmountMinor: Math.max(0, tendered - totalMinor),
 		} : {}),
 	}];
+}
+
+async function attachSettlementEvidence(order, receiptFile) {
+	if (!receiptFile || !order?.id) return order;
+	const evidenceRows = await manualOrderV2Service.listEvidence(order.id);
+	const pendingRows = evidenceRows.filter((row) => row.status !== 'uploaded');
+	if (pendingRows.length === 0) return order;
+	let evidenceStatus = order.payment_evidence_status ?? null;
+	let paymentRef = order.payment_ref ?? null;
+	let paymentStatus = order.payment_status ?? null;
+	for (const [index, evidence] of pendingRows.entries()) {
+		const queued = await queuePaymentEvidence({
+			evidenceId: evidence.id,
+			companyId: order.company_id,
+			branchId: order.branch_id,
+			orderId: order.id,
+			file: receiptFile,
+			previousPath: evidence.storage_path || (index === 0 ? order.payment_ref ?? null : null),
+		});
+		const upload = await uploadQueuedPaymentEvidence(queued);
+		if (upload.ok) {
+			paymentRef = upload.path || paymentRef;
+			evidenceStatus = upload.evidenceStatus || evidenceStatus || 'uploaded';
+			if (upload.paymentStatus) paymentStatus = upload.paymentStatus;
+		} else {
+			evidenceStatus = 'failed';
+		}
+	}
+	return {
+		...order,
+		payment_ref: paymentRef,
+		payment_evidence_status: evidenceStatus,
+		...(paymentStatus ? { payment_status: paymentStatus } : {}),
+	};
+}
+
+function resolveSettlementPaymentLines(order, patch, branchPaymentMethods = null) {
+	const currency = normalizeCurrencyCode(order.currency);
+	const digits = fractionDigitsForCurrency(currency);
+	const rawLines = settlementLinesFromLegacyPatch(order, patch);
+	const methodIds = [...new Set(rawLines.map((line) => line.methodId).filter(Boolean))];
+	const methods = normalizePaymentMethods(
+		Array.isArray(branchPaymentMethods) && branchPaymentMethods.length
+			? ['cash', 'card', ...branchPaymentMethods]
+			: (methodIds.length ? methodIds : ['cash', 'card', 'bank_transfer']),
+		{ accountingCurrency: currency },
+	);
+	const quote = {
+		totalMinor: resolveOrderDueMinor(order),
+		currency,
+		fractionDigits: digits,
+	};
+	const validated = validatePaymentLines(rawLines, quote, methods);
+	if (validated.valid) return validated.lines;
+	return rawLines.map((line) => {
+		const method = methods.find((entry) => entry.id === line.methodId);
+		if (!method) return line;
+		return {
+			...line,
+			rail: method.rail,
+			evidencePolicy: method.evidencePolicy,
+			settlementTrigger: method.settlementTrigger,
+		};
+	});
 }
 
 function legacyAtomicPaymentPatch(order, patch = null) {
@@ -763,11 +828,26 @@ export const AdminProvider = ({
 			const isV2Order = order.manual_order_mode === 'quick_sale' || order.manual_order_mode === 'session';
 			if (isV2Order) {
 				if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
-				const settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, settlementLinesFromLegacyPatch(order, paymentPatch)));
+				const lines = resolveSettlementPaymentLines(
+					order,
+					paymentPatch,
+					paymentPatch.branchPaymentMethods,
+				);
+				let settled = sanitizeOrder(await manualOrderV2Service.settle(order.id, lines));
+				try {
+					settled = sanitizeOrder(await attachSettlementEvidence(settled, paymentPatch.receiptFile));
+				} catch (evidenceError) {
+					showNotify(evidenceError?.message || 'Pago registrado, pero falló el comprobante.', 'warning');
+				}
 				setOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
 				setHistoryOrders((prev) => prev.map((row) => row.id === order.id ? settled : row));
 				void cashSystem.refresh?.();
-				showNotify('Pago registrado', 'success');
+				showNotify(
+					settled.payment_evidence_status === 'failed'
+						? 'Pago registrado · comprobante pendiente'
+						: 'Pago registrado',
+					settled.payment_evidence_status === 'failed' ? 'warning' : 'success',
+				);
 				return settled;
 			}
 			let nextOrder = order;
@@ -797,14 +877,29 @@ export const AdminProvider = ({
 			if (isV2Order) {
 				if (isOrderPaymentDeferred(order)) {
 					if (!paymentPatch) { showNotify('Selecciona un método de pago', 'warning'); return false; }
-					const closed = sanitizeOrder(await manualOrderV2Service.settleAndTransition(
+					const lines = resolveSettlementPaymentLines(
+						order,
+						paymentPatch,
+						paymentPatch.branchPaymentMethods,
+					);
+					let closed = sanitizeOrder(await manualOrderV2Service.settleAndTransition(
 						order.id,
-						settlementLinesFromLegacyPatch(order, paymentPatch),
+						lines,
 						'picked_up',
 					));
+					try {
+						closed = sanitizeOrder(await attachSettlementEvidence(closed, paymentPatch.receiptFile));
+					} catch (evidenceError) {
+						showNotify(evidenceError?.message || 'Mesa cerrada, pero falló el comprobante.', 'warning');
+					}
 					setOrders((prev) => prev.map((row) => row.id === order.id ? closed : row));
 					void cashSystem.refresh?.();
-					showNotify('Sesión cerrada correctamente');
+					showNotify(
+						closed.payment_evidence_status === 'failed'
+							? 'Sesión cerrada · comprobante pendiente'
+							: 'Sesión cerrada correctamente',
+						closed.payment_evidence_status === 'failed' ? 'warning' : 'success',
+					);
 					return true;
 				}
 				const closed = sanitizeOrder(await manualOrderV2Service.transition(order.id, 'picked_up', order.updated_at ?? null));
