@@ -37,6 +37,8 @@ export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	selected_client_id: '',
 	charge_now: false,
 	payment_lines: [],
+	selected_table_id: '',
+	selected_table_code: '',
 };
 
 /** Compatibilidad de símbolos legacy: V2 no persiste identidades genéricas. */

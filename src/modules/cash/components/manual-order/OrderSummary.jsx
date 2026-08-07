@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShoppingBag, Printer, ChefHat, Banknote, Receipt, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Printer, ChefHat, Banknote, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import CartItemCard from './CartItemCard';
@@ -264,9 +264,6 @@ const OrderSummary = ({
 			)}>
                 {manualOrder.items.length === 0 ? (
                     <div className={`flex h-full min-h-[140px] flex-col items-center justify-center ${spacing.normal} text-center`}>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gc-muted">
-                            <Receipt size={22} className="text-gc-text-muted" />
-                        </div>
                         <div>
                             <p className={`${textScale.emphasis} font-semibold text-gc-text`}>Carrito vacío</p>
                             <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>Agregá productos para armar el pedido.</p>

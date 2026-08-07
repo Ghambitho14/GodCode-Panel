@@ -97,6 +97,15 @@
     max-width: min(100%, 220px);
 }
 
+.admin-layout .rpt-export-month-select.admin-branch-select {
+    max-width: min(100%, 260px);
+}
+
+.admin-layout .rpt-export-month-select .admin-branch-select__trigger {
+    min-height: 40px;
+    border-radius: 12px;
+}
+
 .admin-layout .rpt-period-day-input {
     min-width: 140px;
     padding: 10px 12px;

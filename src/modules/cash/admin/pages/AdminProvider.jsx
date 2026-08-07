@@ -211,6 +211,9 @@ export const AdminProvider = ({
 	const [historyLoading, setHistoryLoading] = useState(false);
 	const [isOpenMesaModal, setIsOpenMesaModal] = useState(false);
 	const [manualOrderMode, setManualOrderMode] = useState('quick_sale');
+	const [pendingTableSessionOrderId, setPendingTableSessionOrderId] = useState(null);
+	/** @type {[null | { id: string, table_id?: string | null, table_code?: string | null, guest_name?: string, party_size?: number }, Function]} */
+	const [pendingSeatReservation, setPendingSeatReservation] = useState(null);
 	const [mobileTab, setMobileTab] = useState('pending');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filterCategory, setFilterCategory] = useState('all');
@@ -905,6 +908,8 @@ export const AdminProvider = ({
 		historyOrders, historyLoading, loadHistoryOrders,
 		ordersViewMode, saveOrdersPanelSettings, ordersViewModeSaving, localOrderChannels, ordersPanelSettingsReady,
 		isOpenMesaModal, setIsOpenMesaModal, manualOrderMode, setManualOrderMode,
+		pendingTableSessionOrderId, setPendingTableSessionOrderId,
+		pendingSeatReservation, setPendingSeatReservation,
 		mobileTab, setMobileTab,
 		searchQuery, setSearchQuery,
 		filterCategory, setFilterCategory,
@@ -981,7 +986,7 @@ export const AdminProvider = ({
 		menuCapabilities,
 		navigate, activeTab, setActiveTabWithGuard, products, categories, orders, clients, branches, selectedBranch,
 		isHistoryView, mobileTab, searchQuery, filterCategory, filterStatus, viewMode, showProductPhotos, setShowProductPhotos, sortOrder,
-		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal, manualOrderMode,
+		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal, manualOrderMode, pendingTableSessionOrderId, setPendingTableSessionOrderId, pendingSeatReservation, setPendingSeatReservation,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
 		receiptModalOrder, receiptPreview, uploadingReceipt,
 		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, signOutAndClearDrafts, cashSystem,

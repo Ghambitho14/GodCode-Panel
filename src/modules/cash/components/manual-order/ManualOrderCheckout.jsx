@@ -27,6 +27,32 @@ export const DESKTOP_WIZARD_STEPS = 3;
 export const TABLET_WIZARD_STEPS = 3;
 export const MOBILE_WIZARD_STEPS = 3;
 
+/** Roles de paso del wizard (números 1-based). */
+export function resolveWizardStepRoles({
+	openMesaMode = false,
+	isEditMode = false,
+	openMesaChargeNow = false,
+	showClassicPaymentStep = false,
+}) {
+	const isOpenMesaCreate = Boolean(openMesaMode) && !isEditMode;
+	if (isOpenMesaCreate) {
+		return {
+			isOpenMesaCreate: true,
+			floor: 1,
+			catalog: 2,
+			client: 3,
+			payment: openMesaChargeNow ? 4 : null,
+		};
+	}
+	return {
+		isOpenMesaCreate: false,
+		floor: null,
+		catalog: 1,
+		client: 2,
+		payment: (showClassicPaymentStep || openMesaChargeNow) ? 3 : null,
+	};
+}
+
 export const stepNavBackClass =
 	`flex max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-all`;
 export const stepNavNextClass = cn(
@@ -41,7 +67,8 @@ export const checkoutColBase =
 	'manual-order-checkout-col flex min-h-0 min-w-0 flex-col';
 export const checkoutColCard =
 	'rounded-[18px] border border-gc-border bg-gc-card shadow-sm';
-export const openMesaPaymentCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm';
+export const openMesaPaymentCardClass =
+	'manual-order-step-card flex min-h-0 flex-col overflow-visible rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 export const openMesaToggleClass = toggleBaseClass;
 export const openMesaHintClass =
 	`mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
@@ -57,6 +84,7 @@ export function useManualOrderCheckoutFlow({
 	branchDeliveryCfgLoading,
 	branchConfigError,
 	effectiveOpenMesaMode,
+	openMesaMode = false,
 	openMesaChargeNow,
 	isEditMode,
 	editOrder,
@@ -78,6 +106,13 @@ export function useManualOrderCheckoutFlow({
 	const totalToPay = manualOrder.v2Enabled && manualOrder.quote
 		? manualOrder.checkout_total
 		: Math.max(0, (manualOrder.total ?? 0) - couponDiscountApplied + deliveryFeeAmt);
+
+	const stepRoles = resolveWizardStepRoles({
+		openMesaMode,
+		isEditMode,
+		openMesaChargeNow,
+		showClassicPaymentStep,
+	});
 
 	const openMesaFulfillment = effectiveOpenMesaMode ? getLocalFulfillmentMode(manualOrder) : null;
 	const openMesaSubmitLabel = ({
@@ -184,7 +219,8 @@ export function useManualOrderCheckoutFlow({
 		}
 
 		if (effectiveOpenMesaMode) {
-			const base = hasItems && hasClientName && isContextCustomerValid() && isDeliveryValidForOrder();
+			const hasTable = !openMesaMode || Boolean(String(manualOrder.selected_table_id ?? '').trim()) || isEditMode;
+			const base = hasItems && hasClientName && hasTable && isContextCustomerValid() && isDeliveryValidForOrder();
 			return openMesaChargeNow ? base && hasPaymentType && paymentOk : base;
 		}
 
@@ -202,20 +238,30 @@ export function useManualOrderCheckoutFlow({
 
 	const hasCartItems = (manualOrder.items?.length ?? 0) > 0;
 	const cartItemCount = (manualOrder.items ?? []).reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
+	const hasSelectedTable = Boolean(String(manualOrder.selected_table_id ?? '').trim());
 
 	const goNextStep = () => {
 		if (orderStep >= wizardStepCount) return;
 
-		if (orderStep === 1) {
+		if (stepRoles.floor != null && orderStep === stepRoles.floor) {
+			if (!hasSelectedTable) {
+				showNotify?.('Selecciona una mesa disponible para continuar.', 'warning');
+				return;
+			}
+			setOrderStep(stepRoles.catalog);
+			return;
+		}
+
+		if (orderStep === stepRoles.catalog) {
 			if (!hasCartItems) {
 				showNotify?.('Agrega al menos un producto al carrito.', 'warning');
 				return;
 			}
-			setOrderStep(2);
+			setOrderStep(stepRoles.client);
 			return;
 		}
 
-		if (orderStep === 2 && (showClassicPaymentStep || openMesaChargeNow)) {
+		if (orderStep === stepRoles.client && stepRoles.payment != null) {
 			if (!isClientStepValid()) {
 				const deliveryError = validateManualDeliveryDetails(manualOrder, branchDeliveryCfg);
 				showNotify?.(
@@ -224,7 +270,7 @@ export function useManualOrderCheckoutFlow({
 				);
 				return;
 			}
-			setOrderStep(3);
+			setOrderStep(stepRoles.payment);
 		}
 	};
 
@@ -232,15 +278,19 @@ export function useManualOrderCheckoutFlow({
 		setOrderStep((prev) => (prev > 1 ? prev - 1 : prev));
 	};
 
-	const stepLabels = effectiveOpenMesaMode
-		? (isEditMode
-			? (isCompactNav ? ['Productos', 'Sesión'] : ['Productos', 'Editar sesión'])
-			: (openMesaChargeNow
-				? ['Productos', 'Entrega', 'Cobro inicial']
-				: ['Productos', 'Abrir sesión']))
-		: (isEditMode
-			? ['Productos', 'Cliente']
-			: ['Productos', 'Entrega', 'Pago opcional']);
+	const stepLabels = stepRoles.isOpenMesaCreate
+		? (openMesaChargeNow
+			? ['Mesa', 'Productos', 'Confirmar', 'Cobro']
+			: ['Mesa', 'Productos', 'Confirmar'])
+		: (effectiveOpenMesaMode
+			? (isEditMode
+				? (isCompactNav ? ['Productos', 'Sesión'] : ['Productos', 'Editar sesión'])
+				: (openMesaChargeNow
+					? ['Productos', 'Entrega', 'Cobro inicial']
+					: ['Productos', 'Abrir mesa']))
+			: (isEditMode
+				? ['Productos', 'Cliente']
+				: ['Productos', 'Entrega', 'Pago opcional']));
 
 	return {
 		totalToPay,
@@ -252,9 +302,11 @@ export function useManualOrderCheckoutFlow({
 		isClientStepValid,
 		hasCartItems,
 		cartItemCount,
+		hasSelectedTable,
 		goNextStep,
 		goPrevStep,
 		stepLabels,
+		stepRoles,
 	};
 }
 
@@ -265,6 +317,7 @@ export default function ManualOrderCheckout({
 	isCompactNav,
 	isEditMode,
 	effectiveOpenMesaMode,
+	openMesaMode = false,
 	showClassicPaymentStep,
 	showOpenMesaPaymentChoice,
 	openMesaChargeNow,
@@ -281,6 +334,7 @@ export default function ManualOrderCheckout({
 	canEditDeliveryFee,
 	showNotify,
 	catalogBlock,
+	floorPlanBlock = null,
 	checkoutFlow,
 	hookActions,
 	printManualKitchen,
@@ -300,10 +354,21 @@ export default function ManualOrderCheckout({
 		isClientStepValid,
 		hasCartItems,
 		cartItemCount,
+		hasSelectedTable = false,
 		goNextStep,
 		goPrevStep,
 		stepLabels,
+		stepRoles = resolveWizardStepRoles({
+			openMesaMode,
+			isEditMode,
+			openMesaChargeNow,
+			showClassicPaymentStep,
+		}),
 	} = checkoutFlow;
+	const isFloorStep = stepRoles.floor != null && orderStep === stepRoles.floor;
+	const isCatalogStep = orderStep === stepRoles.catalog;
+	const isClientStep = orderStep === stepRoles.client;
+	const isPaymentStep = stepRoles.payment != null && orderStep === stepRoles.payment;
 	const formatAccountingMoney = React.useCallback((amount) => formatMinor(
 		majorToMinor(amount, manualOrder.currency, manualOrder.fractionDigits),
 		{
@@ -325,8 +390,8 @@ export default function ManualOrderCheckout({
 	const cartSheetDragRef = React.useRef({ active: false, startY: 0, dy: 0 });
 
 	React.useEffect(() => {
-		if (orderStep !== 1) setCartSheetOpen(false);
-	}, [orderStep]);
+		if (!isCatalogStep) setCartSheetOpen(false);
+	}, [isCatalogStep]);
 
 	React.useEffect(() => {
 		if (!cartSheetOpen) setCartSheetDragY(0);
@@ -481,7 +546,7 @@ export default function ManualOrderCheckout({
 		</div>
 	) : null;
 
-	const showEditSaveOnFooter = isEditMode && orderStep === 1;
+	const showEditSaveOnFooter = isEditMode && isCatalogStep;
 	const nextStepLabel = hasCartItems
 		? `Siguiente · ${formatAccountingMoney(manualOrder.total ?? 0)}`
 		: 'Siguiente';
@@ -520,7 +585,16 @@ export default function ManualOrderCheckout({
 						{loading ? 'GUARDANDO...' : 'Guardar cambios'}
 					</Button>
 				</>
-			) : orderStep === 1 ? (
+			) : isFloorStep ? (
+				<Button variant="default"
+					type="button"
+					className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full"
+					onClick={goNextStep}
+					disabled={!hasSelectedTable}
+				>
+					Continuar
+				</Button>
+			) : isCatalogStep ? (
 				<Button variant="default"
 					type="button"
 					className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full"
@@ -578,38 +652,55 @@ export default function ManualOrderCheckout({
 		hideCheckoutActions: true,
 		embedded: true,
 	};
-	const isClientOnlyStep = orderStep === 2;
+	const isClientOnlyStep = isClientStep;
 
 	const checkoutOverview = (
 		<div className="manual-order-checkout-overview">
 			<div className="manual-order-checkout-overview__copy">
-                <h2>
-						{isClientOnlyStep
-							? (effectiveOpenMesaMode ? 'Define cómo se atenderá' : 'Cliente y entrega')
-							: effectiveOpenMesaMode
-								? 'Abre un consumo para cobrar después'
-								: 'Pago (opcional)'}
+				<h2>
+					{isClientOnlyStep
+						? (stepRoles.isOpenMesaCreate
+							? `Confirmar ${manualOrder.selected_table_code || 'mesa'}`
+							: 'Cliente y entrega')
+						: (effectiveOpenMesaMode ? 'Cobro' : 'Pago (opcional)')}
 				</h2>
 				<p>
 					{isClientOnlyStep
-						? (effectiveOpenMesaMode
-							? 'Elige mesa, retiro o delivery y completa solo los datos requeridos para esa atención.'
-							: 'Elige retiro o delivery y completa los datos necesarios antes del cobro.')
-							: effectiveOpenMesaMode
-							? 'La sesión queda pendiente por defecto. Retiro y delivery pueden cobrarse al abrir si lo indicas.'
-							: 'Elige un método para cobrar ahora, o crea el pedido pendiente y cobra después.'}
+						? (stepRoles.isOpenMesaCreate
+							? 'Revisá los productos y abrí la sesión. El cobro se registra al cerrar la mesa.'
+							: (effectiveOpenMesaMode
+								? 'Completa solo los datos requeridos para esta atención.'
+								: 'Elige retiro o delivery y completa los datos necesarios antes del cobro.'))
+						: (effectiveOpenMesaMode
+							? 'Registra el método de pago para abrir la sesión cobrada.'
+							: 'Elige un método para cobrar ahora, o crea el pedido pendiente y cobra después.')}
 				</p>
 			</div>
 			<div className="manual-order-checkout-overview__meta" aria-label="Resumen rápido del pedido">
+				{stepRoles.isOpenMesaCreate && manualOrder.selected_table_code ? (
+					<span className="manual-order-checkout-overview__meta-items">
+						Mesa {manualOrder.selected_table_code}
+					</span>
+				) : null}
 				<span className="manual-order-checkout-overview__meta-items">
 					<ShoppingBag size={15} aria-hidden />
 					{cartItemCount} {cartItemCount === 1 ? 'ítem' : 'ítems'}
+				</span>
+				<span className="manual-order-checkout-overview__meta-total">
+					<DualCurrencyAmount
+						amount={totalToPay}
+						{...dualMoneyProps}
+						layout="stack"
+						size="sm"
+						align="end"
+						primaryClassName="!text-gc-price"
+					/>
 				</span>
 			</div>
 		</div>
 	);
 
-	const openMesaPaymentChoiceSection = showOpenMesaPaymentChoice ? (
+	const openMesaPaymentChoiceSection = showOpenMesaPaymentChoice && !tableMustDeferPayment ? (
 			<div className={openMesaPaymentCardClass}>
 			<SectionHeader icon={Banknote} tone="accent">Pago</SectionHeader>
 			<div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
@@ -682,8 +773,20 @@ export default function ManualOrderCheckout({
 	) : null;
 
 	const mobileDock = isCompactNav ? (
-		<div className={cn('manual-order-mobile-dock', orderStep === 1 && cartSheetOpen && 'manual-order-mobile-dock--cart-open')} role="group" aria-label="Navegación del pedido">
-			{orderStep === 1 ? (
+		<div className={cn('manual-order-mobile-dock', isCatalogStep && cartSheetOpen && 'manual-order-mobile-dock--cart-open')} role="group" aria-label="Navegación del pedido">
+			{isFloorStep ? (
+				<div className="manual-order-mobile-dock__actions">
+					<Button variant="default"
+						type="button"
+						className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full"
+						onClick={goNextStep}
+						disabled={!hasSelectedTable}
+					>
+						Continuar
+					</Button>
+				</div>
+			) : null}
+			{isCatalogStep ? (
 				<>
 					{cartSheetOpen ? (
 						<button
@@ -775,6 +878,15 @@ export default function ManualOrderCheckout({
 					</button>
 					{showEditSaveOnFooter ? (
 						<div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--edit">
+							{stepRoles.isOpenMesaCreate ? (
+								<Button variant="default"
+									type="button"
+									className={stepNavBackClass}
+									onClick={goPrevStep}
+								>
+									ATRÁS
+								</Button>
+							) : null}
 							<Button variant="secondary"
 								type="button"
 								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next-secondary"
@@ -793,18 +905,29 @@ export default function ManualOrderCheckout({
 							</Button>
 						</div>
 					) : (
-						<Button variant="default"
-							type="button"
-							className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
-							onClick={goNextStep}
-							disabled={!hasCartItems}
-						>
-							{nextStepLabel}
-						</Button>
+						<div className="manual-order-mobile-dock__actions">
+							{stepRoles.isOpenMesaCreate ? (
+								<Button variant="default"
+									type="button"
+									className={stepNavBackClass}
+									onClick={goPrevStep}
+								>
+									ATRÁS
+								</Button>
+							) : null}
+							<Button variant="default"
+								type="button"
+								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
+								onClick={goNextStep}
+								disabled={!hasCartItems}
+							>
+								{nextStepLabel}
+							</Button>
+						</div>
 					)}
 				</>
 			) : null}
-			{orderStep === 2 ? (
+			{isClientStep ? (
 				<div className="manual-order-mobile-dock__actions">
 					<Button variant="default"
 						type="button"
@@ -813,25 +936,7 @@ export default function ManualOrderCheckout({
 					>
 						ATRÁS
 					</Button>
-					{showClassicPaymentStep ? (
-						<Button variant="default"
-							type="button"
-							className={stepNavNextClass}
-							onClick={goNextStep}
-							disabled={!isClientStepValid()}
-						>
-							Siguiente
-						</Button>
-					) : !openMesaChargeNow ? (
-						<Button variant="default"
-							type="button"
-							className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
-							onClick={submitOrder}
-							disabled={loading || !isFormValid()}
-						>
-							{submitLabel}
-						</Button>
-					) : effectiveOpenMesaMode && openMesaChargeNow ? (
+					{showClassicPaymentStep || openMesaChargeNow ? (
 						<Button variant="default"
 							type="button"
 							className={stepNavNextClass}
@@ -843,16 +948,16 @@ export default function ManualOrderCheckout({
 					) : (
 						<Button variant="default"
 							type="button"
-							className={stepNavNextClass}
-							onClick={goNextStep}
-							disabled={!isClientStepValid()}
+							className={cn(confirmBtnClass, 'manual-order-mobile-dock__confirm')}
+							onClick={submitOrder}
+							disabled={loading || !isFormValid()}
 						>
-							Siguiente
+							{submitLabel}
 						</Button>
 					)}
 				</div>
 			) : null}
-			{orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
+			{isPaymentStep ? (
 				<div className="manual-order-mobile-dock__actions manual-order-mobile-dock__actions--confirm">
 					<Button variant="default"
 						type="button"
@@ -887,10 +992,14 @@ export default function ManualOrderCheckout({
 		</div>
 	) : null;
 
-	const classicCheckoutRailActions = !effectiveOpenMesaMode ? (
+	const classicCheckoutRailActions = (
 		<div className="manual-order-checkout-rail-actions" role="group" aria-label="Confirmación del pedido">
 			<div className="manual-order-checkout-rail-actions__total">
-					<span className="manual-order-checkout-rail-actions__total-label">{quickSaleHasPayment ? 'Total a cobrar' : 'Total del pedido'}</span>
+				<span className="manual-order-checkout-rail-actions__total-label">
+					{effectiveOpenMesaMode
+						? (openMesaChargeNow ? 'Total a cobrar' : 'Total de la mesa')
+						: (quickSaleHasPayment ? 'Total a cobrar' : 'Total del pedido')}
+				</span>
 				<DualCurrencyAmount
 					amount={totalToPay}
 					{...dualMoneyProps}
@@ -909,13 +1018,21 @@ export default function ManualOrderCheckout({
 				role="status"
 				aria-live="polite"
 			>
-					{canSubmitOrder
-						? quickSaleHasPayment
+				{canSubmitOrder
+					? (effectiveOpenMesaMode
+						? (openMesaChargeNow
+							? 'El pago está completo; la sesión se abrirá cobrada.'
+							: 'Listo para abrir la mesa pendiente de cobro.')
+						: (quickSaleHasPayment
 							? 'El pago está completo; el pedido se creará pagado.'
-							: 'Sin método de pago; el pedido se creará pendiente.'
-						: quickSaleHasPayment
+							: 'Sin método de pago; el pedido se creará pendiente.'))
+					: (effectiveOpenMesaMode
+						? (openMesaChargeNow
 							? 'Completa correctamente la información del pago.'
-							: 'Completa los datos obligatorios del cliente y la entrega.'}
+							: 'Completa los datos obligatorios para abrir la mesa.')
+						: (quickSaleHasPayment
+							? 'Completa correctamente la información del pago.'
+							: 'Completa los datos obligatorios del cliente y la entrega.'))}
 			</p>
 			<div className="manual-order-checkout-rail-actions__buttons">
 				<Button variant="outline" type="button" className={checkoutBackBtnClass} onClick={goPrevStep} disabled={loading}>
@@ -938,7 +1055,7 @@ export default function ManualOrderCheckout({
 				</Button>
 			) : null}
 		</div>
-	) : null;
+	);
 
 	const clientStepRailActions = (
 		<div className="manual-order-checkout-rail-actions manual-order-checkout-rail-actions--client" role="group" aria-label="Continuar con el pedido">
@@ -990,25 +1107,8 @@ export default function ManualOrderCheckout({
 		<div className={cn(checkoutColBase, 'manual-order-checkout-col--client')}>
 			<div className={`manual-order-client-stage flex w-full flex-col ${spacing.normal}`}>
 				{clientSection}
-			</div>
-		</div>
-	);
-
-	const openMesaSubmitRailActions = (
-		<div className="manual-order-checkout-rail-actions" role="group" aria-label="Abrir sesión">
-			<div className="manual-order-checkout-rail-actions__buttons">
-				<Button variant="outline" type="button" className={checkoutBackBtnClass} onClick={goPrevStep} disabled={loading}>
-					ATRÁS
-				</Button>
-				<Button
-					variant="default"
-					type="button"
-					className={confirmBtnClass}
-					onClick={submitOrder}
-					disabled={loading || !canSubmitOrder}
-				>
-					{openMesaSubmitLabel}
-				</Button>
+				{openMesaPaymentChoiceSection}
+				{openMesaSessionPaymentSection}
 			</div>
 		</div>
 	);
@@ -1016,11 +1116,7 @@ export default function ManualOrderCheckout({
 	const checkoutSummaryColumn = (
 		<div className={cn(checkoutColBase, 'manual-order-checkout-col--summary overflow-hidden')}>
 			<OrderSummary {...orderSummaryProps} />
-			{orderStep === 2
-				? (effectiveOpenMesaMode
-					? (openMesaChargeNow ? clientStepRailActions : openMesaSubmitRailActions)
-					: clientStepRailActions)
-				: classicCheckoutRailActions}
+			{isClientStep ? clientStepRailActions : classicCheckoutRailActions}
 		</div>
 	);
 
@@ -1030,71 +1126,28 @@ export default function ManualOrderCheckout({
 		</div>
 	);
 
-	const openMesaCheckoutPaymentColumn = (
-		<div className={cn(
-			checkoutColBase,
-			checkoutColCard,
-			'manual-order-checkout-col--payment manual-order-checkout-col--payment-open overflow-hidden p-0',
-		)}>
-			<div className={`manual-order-checkout-col__scroll flex min-h-0 flex-1 flex-col ${spacing.normal} overflow-y-auto p-5`}>
-				{openMesaPaymentChoiceSection}
-				{openMesaSessionPaymentSection}
-				{openMesaChargeNow ? <PaymentDetails {...paymentDetailsProps} hideCheckoutActions embedded /> : null}
-			</div>
-			<div className={cn(checkoutActionsClass, 'px-5 pb-5')}>
-				<Button variant="default" type="button" className={checkoutBackBtnClass} onClick={goPrevStep}>
-					ATRÁS
-				</Button>
-				<Button variant="default" type="button" className={confirmBtnClass} onClick={submitOrder} disabled={loading || !canSubmitOrder}>
-					{openMesaSubmitLabel}
-				</Button>
-			</div>
-		</div>
-	);
-
 	const desktopCheckoutShell = (
 		<div className="manual-order-checkout-shell">
 			{checkoutOverview}
 			<div className={cn(
-				`manual-order-checkout-stage grid w-full flex-1 grid-cols-1 ${spacing.normal} items-start`,
-				effectiveOpenMesaMode
-					? 'manual-order-checkout-stage--open-mesa'
-					: 'manual-order-checkout-stage--classic',
-				orderStep === 2 && 'manual-order-checkout-stage--client',
-				orderStep === 3 && 'manual-order-checkout-stage--payment',
+				`manual-order-checkout-stage manual-order-checkout-stage--classic grid w-full flex-1 grid-cols-1 ${spacing.normal} items-start`,
+				isClientStep && 'manual-order-checkout-stage--client',
+				isPaymentStep && 'manual-order-checkout-stage--payment',
 			)}>
-				{orderStep === 2 ? (
-					effectiveOpenMesaMode ? (
-						<>
-							<div className="manual-order-checkout-main">
-								{checkoutClientColumn}
-								{openMesaPaymentChoiceSection}
-								{openMesaSessionPaymentSection}
-							</div>
-							{checkoutSummaryColumn}
-						</>
-					) : (
-						<>
-							<div className="manual-order-checkout-main">
-								{checkoutClientColumn}
-							</div>
-							{checkoutSummaryColumn}
-						</>
-					)
+				{isClientStep ? (
+					<>
+						<div className="manual-order-checkout-main">
+							{checkoutClientColumn}
+						</div>
+						{checkoutSummaryColumn}
+					</>
 				) : (
-					effectiveOpenMesaMode ? (
-						<>
-							{checkoutSummaryColumn}
-							{openMesaCheckoutPaymentColumn}
-						</>
-					) : (
-						<>
-							<div className="manual-order-checkout-main">
-								{checkoutPaymentColumn}
-							</div>
-							{checkoutSummaryColumn}
-						</>
-					)
+					<>
+						<div className="manual-order-checkout-main">
+							{checkoutPaymentColumn}
+						</div>
+						{checkoutSummaryColumn}
+					</>
 				)}
 			</div>
 		</div>
@@ -1103,12 +1156,12 @@ export default function ManualOrderCheckout({
 	const sidebarSection = (
 		<div className={cn(
 			'manual-order-sidebar flex min-h-0 min-w-0 flex-col !bg-gc-page',
-			orderStep === 1
+			isCatalogStep
 				? `w-full flex-shrink-0 overflow-hidden ${spacing.normal} lg:w-80`
 				: 'w-full flex-1 overflow-y-auto',
-			orderStep > 1 && '!border-gc-border',
+			!isCatalogStep && !isFloorStep && '!border-gc-border',
 		)}>
-			{orderStep === 1 ? (
+			{isCatalogStep ? (
 				<>
 					<OrderSummary {...orderSummaryProps} />
 					<div className="manual-order-footer relative z-10 flex-shrink-0">
@@ -1133,7 +1186,9 @@ export default function ManualOrderCheckout({
 					<span className="manual-order-wizard-header__icon" aria-hidden="true">
 						<ShoppingBag size={15} strokeWidth={2.25} />
 					</span>
-					<span className="manual-order-wizard-header__title">Pedido manual</span>
+					<span className="manual-order-wizard-header__title">
+						{openMesaMode || effectiveOpenMesaMode ? 'Abrir mesa' : 'Pedido manual'}
+					</span>
 				</div>
 
 				<nav
@@ -1203,27 +1258,22 @@ export default function ManualOrderCheckout({
 
 			{isCompactNav ? (
 				<div className="manual-order-mobile-scene">
-					{orderStep === 1 ? (
+					{isFloorStep ? (
+						<div className="manual-order-stage manual-order-mobile-stage--floor">
+							{floorPlanBlock}
+						</div>
+					) : null}
+					{isCatalogStep ? (
 						<div className="manual-order-stage manual-order-mobile-stage--catalog">
 							{catalogBlock}
 						</div>
 					) : null}
-					{orderStep === 2 ? (
+					{isClientStep ? (
 						<div className={`manual-order-mobile-panel manual-order-mobile-panel--client flex flex-col ${spacing.normal}`}>
 							{checkoutOverview}
-							{effectiveOpenMesaMode ? (
-								<>
-									{clientSection}
-									{openMesaPaymentChoiceSection}
-									{openMesaSessionPaymentSection}
-									<OrderSummary {...orderSummaryProps} />
-								</>
-							) : (
-								<>
-									{clientSection}
-									{openMesaPaymentChoiceSection}
-								</>
-							)}
+							{clientSection}
+							{openMesaPaymentChoiceSection}
+							{openMesaSessionPaymentSection}
 							{!isClientStepValid() ? (
 								<p className="manual-order-client-step-hint" role="status">
 									Completa los campos obligatorios para continuar.
@@ -1231,20 +1281,33 @@ export default function ManualOrderCheckout({
 							) : null}
 						</div>
 					) : null}
-					{orderStep === 3 && (showClassicPaymentStep || openMesaChargeNow) ? (
+					{isPaymentStep ? (
 						<div className="manual-order-mobile-panel manual-order-mobile-panel--payment">
 							<OrderSummary {...orderSummaryProps} variant="compact" />
 							<PaymentDetails {...paymentDetailsMobileProps} />
 						</div>
 					) : null}
 				</div>
+			) : isFloorStep ? (
+				<div className={cn(
+					`manual-order-body manual-order-body--floor flex min-h-0 flex-1 flex-col ${spacing.normal} p-5 !bg-gc-page`,
+				)}>
+					<div className="manual-order-stage manual-order-stage--floor min-h-0 flex-1 overflow-hidden">
+						{floorPlanBlock}
+					</div>
+					<div className="manual-order-footer relative z-10 flex-shrink-0">
+						{wizardNavButtons}
+					</div>
+				</div>
 			) : (
 				<div className={cn(
 					`manual-order-body flex min-h-0 flex-1 ${spacing.normal} p-5 !bg-gc-page`,
 				)}>
-					<div className="manual-order-stage min-h-0 flex-1 overflow-hidden">
-						{catalogBlock}
-					</div>
+					{isCatalogStep ? (
+						<div className="manual-order-stage min-h-0 flex-1 overflow-hidden">
+							{catalogBlock}
+						</div>
+					) : null}
 					{sidebarSection}
 				</div>
 			)}

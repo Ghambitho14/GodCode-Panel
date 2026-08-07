@@ -82,9 +82,10 @@
 .admin-content {
 	flex: 1;
 	padding: 28px 36px 32px;
-	overflow-y: auto;
-	max-width: 100%;
+	/* El scroll vertical lo hace .tenant-shell-root; evita doble barra en páginas largas (Envío). */
+	overflow-y: visible;
 	overflow-x: visible;
+	max-width: 100%;
 	margin-left: var(--admin-sidebar-width);
 	min-width: 0;
 }
@@ -952,6 +953,7 @@
 		margin-left: 0;
 		box-sizing: border-box;
 		overflow-x: hidden;
+		overflow-y: visible;
 		flex: 0 1 auto;
 		min-height: auto;
 	}
@@ -961,6 +963,7 @@
 	.admin-layout .admin-content:has(.admin-tables-grid) {
 		flex: 1 1 auto;
 		min-height: 0;
+		overflow-y: hidden;
 	}
 
 	.admin-layout .content-header {
@@ -1229,8 +1232,32 @@
 		align-self: stretch;
 	}
 
-	/* En móvil: pedido manual en lugar de abrir sesión (sesión se redefine después). */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-session {
+	/* Vista Mesas: Abrir mesa junto a Pedido manual; Historial abajo */
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row:has(.header-action-orders-session) {
+		grid-template-rows: auto auto auto;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row:has(.header-action-orders-session) .header-action-orders-session {
+		grid-column: 2;
+		grid-row: 1;
+		width: 100%;
+		min-width: 0;
+		justify-content: center;
+		align-self: stretch;
+		display: inline-flex !important;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row:has(.header-action-orders-session) .header-action-orders-manual {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row:has(.header-action-orders-session) .header-action-orders-history {
+		grid-row: 3;
+	}
+
+	/* Vista Pedido: sin Abrir mesa; Pedido manual ocupa la celda derecha */
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row:not(:has(.header-action-orders-session)) .header-action-orders-session {
 		display: none !important;
 	}
 

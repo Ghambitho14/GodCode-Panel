@@ -67,6 +67,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     historyPeriod, setHistoryPeriod,
     historyOrders, historyLoading,
     isOpenMesaModal, setIsOpenMesaModal, manualOrderMode, setManualOrderMode,
+    pendingSeatReservation, setPendingSeatReservation,
     mobileTab, setMobileTab,
     searchQuery, setSearchQuery,
     filterCategory, setFilterCategory,
@@ -163,10 +164,21 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
 
   const handleManualOrderSaved = React.useCallback(async (savedOrder) => {
     upsertOrder(savedOrder);
+    if (pendingSeatReservation?.id && savedOrder?.id) {
+      try {
+        const { tableReservationsService } = await import('../../services/tableReservationsService');
+        await tableReservationsService.seat(pendingSeatReservation.id, { orderId: savedOrder.id });
+        showNotify?.('Reserva marcada como sentada', 'success');
+      } catch (e) {
+        showNotify?.(e instanceof Error ? e.message : 'Pedido creado, pero no se pudo actualizar la reserva', 'warning');
+      } finally {
+        setPendingSeatReservation(null);
+      }
+    }
     // Pedido, inventario, pago y caja ya fueron confirmados por la misma RPC.
     void cashSystem?.refresh?.();
     return true;
-  }, [cashSystem, upsertOrder]);
+  }, [cashSystem, upsertOrder, pendingSeatReservation, setPendingSeatReservation, showNotify]);
 
   React.useEffect(() => {
     if (!selectedClient) setClientOrderDetail(null);
@@ -486,18 +498,20 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
                     : <PlusCircle size={18} />}
                   {manualOrderOpeningMode === 'quick_sale' ? ' Cargando…' : ' Pedido manual'}
                 </Button>
-                <Button variant="secondary"
-                  type="button"
-                  onClick={() => { void openManualOrder('session'); }}
-                  className="btn header-action-orders-session"
-                  disabled={selectedBranch?.id === 'all' || !selectedBranch || Boolean(manualOrderOpeningMode)}
-                  title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
-                >
-                  {manualOrderOpeningMode === 'session'
-                    ? <Loader2 size={18} className="animate-spin" />
-                    : <Store size={18} />}
-                  {manualOrderOpeningMode === 'session' ? ' Cargando…' : ' Abrir sesión'}
-                </Button>
+                {ordersViewMode === 'mesas' ? (
+                  <Button variant="secondary"
+                    type="button"
+                    onClick={() => { void openManualOrder('session'); }}
+                    className="btn header-action-orders-session"
+                    disabled={selectedBranch?.id === 'all' || !selectedBranch || Boolean(manualOrderOpeningMode)}
+                    title={selectedBranch?.id === 'all' ? 'Selecciona una sucursal' : undefined}
+                  >
+                    {manualOrderOpeningMode === 'session'
+                      ? <Loader2 size={18} className="animate-spin" />
+                      : <Store size={18} />}
+                    {manualOrderOpeningMode === 'session' ? ' Cargando…' : ' Abrir mesa'}
+                  </Button>
+                ) : null}
               </div>
             )}
             {activeTab === 'products' && (
@@ -782,7 +796,10 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
         <React.Suspense fallback={null}>
           <ManualOrderModal
             isOpen={isOpenMesaModal}
-            onClose={() => setIsOpenMesaModal(false)}
+            onClose={() => {
+              setIsOpenMesaModal(false);
+              setPendingSeatReservation(null);
+            }}
             products={products}
             categories={categories}
             clients={clients}

@@ -17,6 +17,7 @@ import {
     LOCAL_FULFILLMENT_MODES,
     validateManualDeliveryDetails,
 } from '../../hooks/manual-order/manualOrderShared';
+import { listRecentWaiters } from '../../utils/recentWaitersStorage';
 import DeliveryPlaceSuggestInput from '../DeliveryPlaceSuggestInput';
 import TableRestaurantIcon from '../TableRestaurantIcon';
 import DeliveryMotoIcon from '../DeliveryMotoIcon';
@@ -124,7 +125,7 @@ const ClientForm = ({
 	onSelectQuickSalePaid = null,
 }) => {
     const { formatMoney } = useBranchMoney();
-    const { companyProfile } = useAdmin();
+    const { companyProfile, companyId } = useAdmin();
     const formStrategy = useMemo(() => {
         const country = resolveEffectiveCountry(branch, companyProfile);
         return getFormStrategy(country);
@@ -133,10 +134,39 @@ const ClientForm = ({
     const [calculatingDistance, setCalculatingDistance] = useState(false);
     const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
 	const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+	const [recentWaiters, setRecentWaiters] = useState([]);
     const clientSearchRef = useRef(null);
+	const autofilledWaiterForTableRef = useRef(null);
 
     const isPickup = manualOrder.order_type !== 'delivery';
     const isDelivery = manualOrder.order_type === 'delivery';
+	const companyKey = companyId || branch?.company_id || companyProfile?.id || null;
+	const branchKey = branch?.id || null;
+
+	useEffect(() => {
+		if (!openMesaMode || !companyKey || !branchKey || branchKey === 'all') {
+			setRecentWaiters([]);
+			return;
+		}
+		setRecentWaiters(listRecentWaiters(companyKey, branchKey));
+	}, [openMesaMode, companyKey, branchKey, manualOrder.mesa_party_mode]);
+
+	useEffect(() => {
+		if (!openMesaMode || !isOpenMesaMeseroMode(manualOrder)) return;
+		const tableId = String(manualOrder.selected_table_id ?? '').trim();
+		if (!tableId || !recentWaiters.length) return;
+		if (String(manualOrder.client_name ?? '').trim()) return;
+		if (autofilledWaiterForTableRef.current === tableId) return;
+		autofilledWaiterForTableRef.current = tableId;
+		updateClientName?.(recentWaiters[0]);
+	}, [
+		openMesaMode,
+		manualOrder.mesa_party_mode,
+		manualOrder.selected_table_id,
+		manualOrder.client_name,
+		recentWaiters,
+		updateClientName,
+	]);
 
     const clientSuggestions = useMemo(
         () => filterClientsByNameOrPhone(clients, manualOrder.client_name),
@@ -613,6 +643,29 @@ const ClientForm = ({
                         autoComplete="off"
                         aria-label={namePlaceholder}
                     />
+					{recentWaiters.length > 0 ? (
+						<div className="mt-2 flex flex-wrap gap-2" role="list" aria-label="Meseros recientes">
+							{recentWaiters.map((name) => {
+								const selected = String(manualOrder.client_name ?? '').trim().toLowerCase() === name.toLowerCase();
+								return (
+									<Button
+										key={name}
+										type="button"
+										variant="outline"
+										size="sm"
+										role="listitem"
+										className={cn(
+											'h-9 rounded-[10px] px-3 text-xs font-semibold',
+											selected && selectedToggleActiveClass,
+										)}
+										onClick={() => updateClientName?.(name)}
+									>
+										{name}
+									</Button>
+								);
+							})}
+						</div>
+					) : null}
                 </div>
             )}
 
@@ -665,7 +718,7 @@ const ClientForm = ({
 
             {lockIdentityFields ? (
                 <p className={hintClass}>
-                    La referencia del mesero se guarda separada; no se inventan datos personales del cliente.
+					Elegí un mesero reciente o escribí el nombre. Se recuerda en esta sucursal para la próxima vez.
                 </p>
             ) : null}
         </div>
@@ -883,146 +936,172 @@ const ClientForm = ({
         const isRetiro = fulfillmentMode === 'retiro';
         const isMesero = isOpenMesaMeseroMode(manualOrder);
         const visibleModes = LOCAL_FULFILLMENT_MODES.filter((mode) => channels[mode]);
+		const lockedTableCode = String(manualOrder.selected_table_code ?? '').trim();
+		const lockedToFloorTable = Boolean(String(manualOrder.selected_table_id ?? '').trim());
 
         return (
-            <div className="w-full space-y-3">
-            <div className={sectionCardClass}>
-                <SectionHeader icon={Store} tone="accent">Tipo de pedido local</SectionHeader>
+            <div className="w-full">
+				<div className={`manual-order-client-form-grid grid grid-cols-1 ${spacing.normal} lg:grid-cols-2 lg:items-start`}>
+					<div className={sectionCardClass}>
+						<SectionHeader icon={Store} tone="accent">
+							{lockedToFloorTable ? 'Mesa seleccionada' : 'Tipo de pedido local'}
+						</SectionHeader>
+						{lockedToFloorTable ? (
+							<>
+								<p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+									Consumo en salón vinculado al plano del local.
+								</p>
+								<div className={hintClass}>
+									<strong>{lockedTableCode || 'Mesa'}</strong>
+									{' · '}El cobro se registra al cerrar la mesa.
+								</div>
+							</>
+						) : visibleModes.length > 0 ? (
+							<>
+								<p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+									Elige cómo se atenderá este pedido local.
+								</p>
+								<div className={cn(
+									`grid ${spacing.normal}`,
+									visibleModes.length === 1
+										? 'grid-cols-1'
+										: visibleModes.length === 2
+											? 'grid-cols-1 min-[400px]:grid-cols-2'
+											: 'grid-cols-1 min-[400px]:grid-cols-3',
+								)}>
+									{channels.mesa ? (
+										<Button variant="outline"
+											type="button"
+											className={cn(
+												'manual-order-toggle',
+												toggleBaseClass,
+												isMesa ? fulfillmentActiveClass.mesa : null,
+											)}
+											onClick={() => updateLocalFulfillmentMode?.('mesa')}
+										>
+											<TableRestaurantIcon size={18} />
+											Mesa
+										</Button>
+									) : null}
+									{channels.retiro ? (
+										<Button variant="outline"
+											type="button"
+											className={cn(
+												'manual-order-toggle',
+												toggleBaseClass,
+												isRetiro ? fulfillmentActiveClass.retiro : null,
+											)}
+											onClick={() => updateLocalFulfillmentMode?.('retiro')}
+										>
+											<PickupBagIcon size={18} />
+											Retiro
+										</Button>
+									) : null}
+									{channels.delivery ? (
+										<Button variant="outline"
+											type="button"
+											className={cn(
+												'manual-order-toggle',
+												toggleBaseClass,
+												isDelivery ? fulfillmentActiveClass.delivery : null,
+											)}
+											onClick={() => updateLocalFulfillmentMode?.('delivery')}
+										>
+											<DeliveryMotoIcon size={18} />
+											Delivery
+										</Button>
+									) : null}
+								</div>
+								{isMesa ? (
+									<p className={hintClass}>
+										Consumo en salón. Las mesas siempre se abren pendientes; el cobro se registra al cerrar.
+									</p>
+								) : null}
+								{isRetiro ? (
+									<p className={hintClass}>
+										{manualOrder.charge_now
+											? 'Retiro en local. El pago se registra al abrir el retiro.'
+											: 'Retiro en local. El pago se registra al cerrar el retiro.'}
+									</p>
+								) : null}
+								{isDelivery ? (
+									<p className={hintClass}>
+										{manualOrder.charge_now
+											? 'Delivery. El pago se registra al abrir el delivery.'
+											: 'Delivery. El pago se registra al cerrar el delivery.'}
+									</p>
+								) : null}
+							</>
+						) : (
+							<p className={hintClass}>
+								No hay tipos de pedido local habilitados para esta sucursal.
+							</p>
+						)}
+					</div>
 
-                {visibleModes.length > 0 ? (
-                        <div className={cn(
-                            `grid ${spacing.normal}`,
-                            visibleModes.length === 1
-                                ? 'grid-cols-1'
-                                : visibleModes.length === 2
-                                  ? 'grid-cols-1 min-[400px]:grid-cols-2'
-                                  : 'grid-cols-1 min-[400px]:grid-cols-3',
-                        )}>
-                            {channels.mesa ? (
-                                <Button variant="outline"
-                                    type="button"
-                                    className={cn(
-                                        'manual-order-toggle',
-                                        toggleBaseClass,
-                                        isMesa ? fulfillmentActiveClass.mesa : null,
-                                    )}
-                                    onClick={() => updateLocalFulfillmentMode?.('mesa')}
-                                >
-                                    <TableRestaurantIcon size={18} />
-                                    Mesa
-                                </Button>
-                            ) : null}
-                            {channels.retiro ? (
-                                <Button variant="outline"
-                                    type="button"
-                                    className={cn(
-                                        'manual-order-toggle',
-                                        toggleBaseClass,
-                                        isRetiro ? fulfillmentActiveClass.retiro : null,
-                                    )}
-                                    onClick={() => updateLocalFulfillmentMode?.('retiro')}
-                                >
-                                    <PickupBagIcon size={18} />
-                                    Retiro
-                                </Button>
-                            ) : null}
-                            {channels.delivery ? (
-                                <Button variant="outline"
-                                    type="button"
-                                    className={cn(
-                                        'manual-order-toggle',
-                                        toggleBaseClass,
-                                        isDelivery ? fulfillmentActiveClass.delivery : null,
-                                    )}
-                                    onClick={() => updateLocalFulfillmentMode?.('delivery')}
-                                >
-                                    <DeliveryMotoIcon size={18} />
-                                    Delivery
-                                </Button>
-                            ) : null}
-                        </div>
-                    ) : (
-                        <p className={hintClass}>
-                            No hay tipos de pedido local habilitados para esta sucursal.
-                        </p>
-                    )}
+					<div className={sectionCardClass}>
+						<SectionHeader icon={User} tone="accent">
+							{isMesa ? (isMesero ? 'Mesero' : 'Cliente') : 'Datos cliente'}
+						</SectionHeader>
+						<p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
+							{isMesa && isMesero
+								? 'Referencia del mesero para identificar la sesión en salón.'
+								: 'Busca un cliente registrado o completa sus datos de contacto.'}
+						</p>
 
-                    {isMesa ? (
-                        <p className={hintClass}>
-                            Consumo en salón. Las mesas siempre se abren pendientes; el cobro se registra al cerrar.
-                        </p>
-                    ) : null}
-                    {isRetiro ? (
-                        <p className={hintClass}>
-                            {manualOrder.charge_now
-                                ? 'Retiro en local. El pago se registra al abrir el retiro.'
-                                : 'Retiro en local. El pago se registra al cerrar el retiro.'}
-                        </p>
-                    ) : null}
-                    {isDelivery && openMesaMode ? (
-                        <p className={hintClass}>
-                            {manualOrder.charge_now
-                                ? 'Delivery. El pago se registra al abrir el delivery.'
-                                : 'Delivery. El pago se registra al cerrar el delivery.'}
-                        </p>
-                    ) : null}
-                </div>
+						{isMesa ? (
+							<div className={`mb-3 grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
+								<Button variant="outline"
+									type="button"
+									className={cn('manual-order-toggle', toggleBaseClass, isMesero && selectedToggleActiveClass)}
+									onClick={() => updateMesaPartyMode?.('mesero')}
+								>
+									<User size={16} />
+									Mesero
+								</Button>
+								<Button variant="outline"
+									type="button"
+									className={cn('manual-order-toggle', toggleBaseClass, !isMesero && selectedToggleActiveClass)}
+									onClick={() => updateMesaPartyMode?.('cliente')}
+								>
+									<User size={16} />
+									Cliente
+								</Button>
+							</div>
+						) : null}
 
-            <div className={sectionCardClass}>
-                <SectionHeader icon={User} tone="accent">{isMesa ? 'Mesa / Cliente' : 'Cliente'}</SectionHeader>
+						{isMesa && isMesero
+							? openMesaContactFields({
+								namePlaceholder: 'NOMBRE DEL MESERO *',
+								lockIdentityFields: true,
+								allowClientSearch: false,
+							})
+							: openMesaContactFields({
+								namePlaceholder: 'BUSCAR CLIENTE O NOMBRE *',
+								lockIdentityFields: false,
+								allowClientSearch: true,
+							})}
+					</div>
 
-                {isMesa ? (
-                        <div className={`mb-3 grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
-                            <Button variant="outline"
-                                type="button"
-                                className={cn('manual-order-toggle', toggleBaseClass, isMesero && selectedToggleActiveClass)}
-                                onClick={() => updateMesaPartyMode?.('mesero')}
-                            >
-                                <User size={16} />
-                                Mesero
-                            </Button>
-                            <Button variant="outline"
-                                type="button"
-                                className={cn('manual-order-toggle', toggleBaseClass, !isMesero && selectedToggleActiveClass)}
-                                onClick={() => updateMesaPartyMode?.('cliente')}
-                            >
-                                <User size={16} />
-                                Cliente
-                            </Button>
-                        </div>
-                    ) : null}
-
-                    {isMesa && isMesero
-                        ? openMesaContactFields({
-                            namePlaceholder: 'NOMBRE DEL MESERO *',
-                            lockIdentityFields: true,
-                            allowClientSearch: false,
-                        })
-                        : openMesaContactFields({
-							namePlaceholder: 'BUSCAR CLIENTE O NOMBRE *',
-                            lockIdentityFields: false,
-                            allowClientSearch: true,
-                        })}
-                </div>
-
-            {isDelivery ? (
-                <div className={sectionCardClass}>
-                    <SectionHeader icon={Truck} tone="accent">Datos de delivery</SectionHeader>
-                    {branchDeliveryCfgLoading ? (
-                            <p className={`flex items-center gap-2 ${textScale.micro} text-gc-text-muted`} role="status">
-                                <Loader2 size={14} className="animate-spin" aria-hidden />
-                                Cargando zonas y tarifas de delivery…
-                            </p>
-                        ) : (
-                            deliveryFields
-                        )}
-                        <p className={hintClass}>
-                            {manualOrder.charge_now
-                                ? 'El pago se registra al abrir el delivery.'
-                                : 'El pago se registra al cerrar el delivery.'}
-                        </p>
-                    </div>
-                ) : null}
+					{isDelivery ? (
+						<div className={cn(sectionCardClass, 'lg:col-span-2')}>
+							<SectionHeader icon={Truck} tone="accent">Datos de delivery</SectionHeader>
+							{branchDeliveryCfgLoading ? (
+								<p className={`flex items-center gap-2 ${textScale.micro} text-gc-text-muted`} role="status">
+									<Loader2 size={14} className="animate-spin" aria-hidden />
+									Cargando zonas y tarifas de delivery…
+								</p>
+							) : (
+								deliveryFields
+							)}
+							<p className={hintClass}>
+								{manualOrder.charge_now
+									? 'El pago se registra al abrir el delivery.'
+									: 'El pago se registra al cerrar el delivery.'}
+							</p>
+						</div>
+					) : null}
+				</div>
             </div>
         );
     }

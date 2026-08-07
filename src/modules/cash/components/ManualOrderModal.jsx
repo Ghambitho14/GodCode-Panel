@@ -10,6 +10,7 @@ import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
 import ManualOrderCatalog from './manual-order/ManualOrderCatalog';
+import OpenMesaFloorPlan from './OpenMesaFloorPlan';
 import CloseTableModal from './CloseTableModal';
 import ManualOrderCheckout, {
 	DESKTOP_WIZARD_STEPS,
@@ -47,7 +48,7 @@ const ManualOrderModal = ({
 	openMesaMode = false,
 	localOrderChannels = null,
 }) => {
-	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile, branchExchangeRate } = useAdmin();
+	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile, branchExchangeRate, setPendingTableSessionOrderId, pendingSeatReservation, setPendingSeatReservation } = useAdmin();
 	useLockBodyScroll(isOpen);
 	const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
 	const isEditMode = Boolean(editOrder?.id);
@@ -114,7 +115,7 @@ const ManualOrderModal = ({
 		updateDeliveryFee, updateDeliveryNamedAreaId,
 		applyClientRecord,
 		applySavedAddress,
-		submitOrder, resetOrder, getInputStyle,
+		submitOrder, resetOrder, getInputStyle, selectTable = null,
 		restoreOrder, restoreReceipt, draftSnapshot,
 		acknowledgeQuoteRevision,
 	} = hookActions;
@@ -168,8 +169,21 @@ const ManualOrderModal = ({
 		sessionPaymentDeferred &&
 		isOpenOrderSessionStatus(liveEditOrder?.status);
 
+	const isOpenMesaCreate = Boolean(openMesaMode) && !isEditMode;
+	/** CSS del wizard está indexado por rol visual (1=catálogo, 2=checkout…), no por número de paso del flujo Abrir mesa. */
+	const wizardLayoutStepClass = (() => {
+		if (isOpenMesaCreate) {
+			if (orderStep <= 1) return 'manual-order-step-floor';
+			if (orderStep === 2) return 'manual-order-step-1';
+			if (orderStep === 3) return 'manual-order-step-2';
+			return 'manual-order-step-3';
+		}
+		return `manual-order-step-${orderStep}`;
+	})();
 	const wizardStepCount = effectiveOpenMesaMode
-		? (openMesaChargeNow ? 3 : 2)
+		? (isEditMode
+			? 2
+			: (openMesaChargeNow ? 4 : 3))
 		: (isEditMode
 			? 2
 			: (isCompactNav
@@ -183,7 +197,7 @@ const ManualOrderModal = ({
 			setPayModalOpen(false);
 			setClosePromptOpen(false);
 			setCloseAction(null);
-			if (!isEditMode && restoreOrder && draftIdentity.companyId && draftIdentity.branchId) {
+			if (!isEditMode && restoreOrder && draftIdentity.companyId && draftIdentity.branchId && !pendingSeatReservation) {
 				void loadManualOrderDraft(draftIdentity).then((saved) => {
 					if (!saved?.draft || !window.confirm('Encontramos un borrador de pedido de las últimas 24 horas. ¿Quieres restaurarlo?')) return;
 					restoreOrder(saved.draft);
@@ -193,7 +207,23 @@ const ManualOrderModal = ({
 			}
 		}
 		wasOpenRef.current = isOpen;
-	}, [isOpen, resetOrder, restoreOrder, restoreReceipt, draftIdentity, isEditMode, showNotify]);
+	}, [isOpen, resetOrder, restoreOrder, restoreReceipt, draftIdentity, isEditMode, showNotify, pendingSeatReservation]);
+
+	useEffect(() => {
+		if (!isOpen || isEditMode || !pendingSeatReservation || !selectTable) return;
+		const payload = pendingSeatReservation;
+		if (payload.table_id) {
+			selectTable({
+				id: payload.table_id,
+				code: payload.table_code,
+				label: payload.table_code,
+			});
+		}
+		if (payload.guest_name) {
+			updateClientName?.(payload.guest_name);
+		}
+		setOrderStep(2);
+	}, [isOpen, isEditMode, pendingSeatReservation, selectTable, updateClientName]);
 
 	useEffect(() => {
 		if (!isOpen || isEditMode || !draftSnapshot || !draftIdentity.companyId || !draftIdentity.branchId) return undefined;
@@ -230,7 +260,9 @@ const ManualOrderModal = ({
 	useEffect(() => {
 		setOrderStep((prev) => {
 			const max = effectiveOpenMesaMode
-				? (openMesaChargeNow ? 3 : 2)
+				? (isEditMode
+					? 2
+					: (openMesaChargeNow ? 4 : 3))
 				: (isEditMode
 					? 2
 					: (isCompactNav
@@ -424,6 +456,7 @@ const ManualOrderModal = ({
 		branchDeliveryCfgLoading,
 		branchConfigError: effectiveBranchConfigError,
 		effectiveOpenMesaMode,
+		openMesaMode,
 		openMesaChargeNow,
 		isEditMode,
 		editOrder,
@@ -490,6 +523,36 @@ const ManualOrderModal = ({
 		/>
 	);
 
+	const floorPlanBlock = isOpenMesaCreate ? (
+		<OpenMesaFloorPlan
+			branchId={branch?.id}
+			companyId={branch?.company_id}
+			selectedTableId={manualOrder?.selected_table_id}
+			onSelectTable={selectTable}
+			onOpenOccupiedSession={(partialOrder) => {
+				const orderId = partialOrder?.id;
+				if (!orderId) return;
+				const full = (orders || []).find((o) => String(o.id) === String(orderId));
+				setPendingTableSessionOrderId(full?.id || orderId);
+				onClose?.();
+			}}
+			onSeatReservation={(payload) => {
+				if (!payload?.id) return;
+				setPendingSeatReservation(payload);
+				if (payload.table_id && selectTable) {
+					selectTable({
+						id: payload.table_id,
+						code: payload.table_code,
+						label: payload.table_code,
+					});
+				}
+				if (payload.guest_name) updateClientName?.(payload.guest_name);
+				setOrderStep(2);
+			}}
+			showNotify={showNotify}
+		/>
+	) : null;
+
 	if (typeof document === 'undefined') return null;
 	return createPortal(
 		<div className={`manual-order-portal-scope${closePromptOpen ? ' manual-order-portal-scope--confirming' : ''}`}>
@@ -505,7 +568,7 @@ const ManualOrderModal = ({
 					aria-modal="true"
 					aria-labelledby="manual-order-dialog-title"
 					tabIndex={-1}
-					className={`manual-order-container manual-order-wizard manual-order-step-${orderStep}${isCompactNav ? ' manual-order--mobile' : ''}${isTabletNav ? ' manual-order--tablet' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
+					className={`manual-order-container manual-order-wizard ${wizardLayoutStepClass}${isCompactNav ? ' manual-order--mobile' : ''}${isTabletNav ? ' manual-order--tablet' : ''}${effectiveOpenMesaMode ? ' manual-order--open-mesa' : ''} flex h-full flex-col overflow-hidden`}
 					onClick={e => e.stopPropagation()}
 				>
 					<div
@@ -541,6 +604,7 @@ const ManualOrderModal = ({
 						effectiveOpenMesaMode={effectiveOpenMesaMode}
 						showClassicPaymentStep={showClassicPaymentStep}
 						showOpenMesaPaymentChoice={showOpenMesaPaymentChoice}
+						openMesaMode={openMesaMode}
 						openMesaChargeNow={openMesaChargeNow}
 						loading={loading}
 						manualOrder={manualOrder}
@@ -556,6 +620,7 @@ const ManualOrderModal = ({
 						showNotify={showNotify}
 						formatMoney={formatMoney}
 						catalogBlock={catalogBlock}
+						floorPlanBlock={floorPlanBlock}
 						checkoutFlow={checkoutFlow}
 						hookActions={{
 							updateClientName,
@@ -587,6 +652,7 @@ const ManualOrderModal = ({
 							applyClientRecord,
 							applySavedAddress,
 							getInputStyle,
+							selectTable,
 							rutValid,
 							phoneValid,
 							receiptFile,
@@ -601,7 +667,7 @@ const ManualOrderModal = ({
 						canMarkPaidSession={canMarkPaidSession}
 						setPayModalOpen={setPayModalOpen}
 					/>
-					<span id="manual-order-dialog-title" className="sr-only">{openMesaMode ? 'Abrir sesión' : 'Pedido manual'}</span>
+					<span id="manual-order-dialog-title" className="sr-only">{openMesaMode ? 'Abrir mesa' : 'Pedido manual'}</span>
 				</div>
 			</div>
 			{closePromptOpen ? (

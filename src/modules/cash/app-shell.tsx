@@ -14,9 +14,20 @@ export function AppShell({ children }: AppShellProps) {
   const bgLayerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
+    const handleScroll = () => {
+      const shell = document.querySelector(".tenant-shell-root");
+      const y =
+        shell instanceof HTMLElement ? shell.scrollTop : window.scrollY;
+      setScrollY(y);
+    };
+    handleScroll();
+    const shell = document.querySelector(".tenant-shell-root");
+    shell?.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      shell?.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   useAntiZoom();

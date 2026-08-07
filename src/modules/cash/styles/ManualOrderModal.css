@@ -3,8 +3,8 @@
    ============================================ */
 
 /* === CSS CUSTOM PROPERTIES ===
-   Paleta alineada a godcode-panel-design-system.md: azul #2563eb como acento único,
-   fondos claros, verde/rojo reservados para success/danger semánticos. */
+   Paleta alineada a godcode-panel-design-system.md: azul #2563eb como acento ?nico,
+   fondos claros, verde/rojo reservados para success/danger sem?nticos. */
 .manual-order-overlay {
     --modal-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     --modal-border: #e5e5ea;
@@ -19,7 +19,7 @@
     --accent-hover: #1d4ed8;
     --success-green: #16a34a;
     --warning-yellow: #f59e0b;
-    /* Rojo real reservado solo para errores/validación (no confundir con --accent-red, que es alias del azul de marca) */
+    /* Rojo real reservado solo para errores/validaci?n (no confundir con --accent-red, que es alias del azul de marca) */
     --danger-red: #dc2626;
     --spacing-xs: 8px;
     --spacing-sm: 12px;
@@ -462,7 +462,7 @@
     min-height: 0;
 }
 
-/* Wizard: catálogo/cliente a la izquierda, resumen fijo a la derecha (desktop) */
+/* Wizard: cat?logo/cliente a la izquierda, resumen fijo a la derecha (desktop) */
 .manual-order-wizard .manual-order-body {
     flex-direction: row;
     align-items: stretch;
@@ -530,7 +530,7 @@
     }
 }
 
-/* Desktop: columnas laterales más anchas (modo legacy sin wizard) */
+/* Desktop: columnas laterales m?s anchas (modo legacy sin wizard) */
 @media (min-width: 1025px) {
     .manual-order-container:not(.manual-order-wizard) .manual-order-sidebar,
     .manual-order-container:not(.manual-order-wizard) .manual-order-side-panel {
@@ -816,7 +816,7 @@
     }
 }
 
-/* === MÉTODOS DE PAGO === */
+/* === M?TODOS DE PAGO === */
 .manual-order-payment-methods {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -988,7 +988,7 @@
     }
 }
 
-/* === BOTÓN CONFIRMAR === */
+/* === BOT?N CONFIRMAR === */
 .manual-order-confirm-btn {
     width: 100%;
     background: linear-gradient(135deg, var(--accent-red) 0%, var(--accent-hover, #1d4ed8) 100%);
@@ -1109,7 +1109,7 @@
 }
 
 /* Un solo tratamiento de acento (azul) para el estado activo, sin importar el tipo:
-   mesa/retiro/delivery ya se distinguen por ícono y label, no necesitan 3 colores distintos. */
+   mesa/retiro/delivery ya se distinguen por ?cono y label, no necesitan 3 colores distintos. */
 .manual-order-order-type-btn.is-active,
 .manual-order-order-type-btn--mesa.is-active,
 .manual-order-order-type-btn--retiro.is-active,
@@ -1300,7 +1300,7 @@
     box-shadow: none !important;
 }
 
-/* Métodos de pago del paso 3: mismo lenguaje de toggle que entrega (sin active negro legacy). */
+/* M?todos de pago del paso 3: mismo lenguaje de toggle que entrega (sin active negro legacy). */
 .manual-order-payment-method-toggle {
     font-weight: 600;
 }
@@ -1402,7 +1402,7 @@
     }
 }
 
-/* === ESTADOS VACÍOS === */
+/* === ESTADOS VAC?OS === */
 .manual-order-empty {
     display: flex;
     flex-direction: column;
@@ -1428,7 +1428,7 @@
     }
 }
 
-/* Touch targets móvil: ver bloque .manual-order--mobile al final del archivo */
+/* Touch targets m?vil: ver bloque .manual-order--mobile al final del archivo */
 
 /* Portal en document.body: hereda tokens del panel sin depender del DOM de .admin-layout */
 .manual-order-portal-scope {
@@ -1464,7 +1464,7 @@
     pointer-events: auto;
 }
 
-/* === Conexión a tokens reales del panel admin (cuando el modal vive dentro de .admin-layout o el portal) ===
+/* === Conexi?n a tokens reales del panel admin (cuando el modal vive dentro de .admin-layout o el portal) ===
    La base ya usa la paleta clara/azul; este bloque solo enlaza a los valores reales
    del admin (--admin-border, --admin-text, etc.) en vez de los fallbacks hardcodeados. */
 .admin-layout .manual-order-overlay,
@@ -1610,7 +1610,7 @@
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
-/* Sidebar pedido manual (tema claro): títulos y campos legibles; resumen alineado al resto del panel */
+/* Sidebar pedido manual (tema claro): t?tulos y campos legibles; resumen alineado al resto del panel */
 .admin-layout .manual-order-section-title, .manual-order-portal-scope .manual-order-section-title{
 	color: #334155;
 	opacity: 1;
@@ -1639,7 +1639,7 @@
 
 
 /* ============================================
-   WIZARD (3 PASOS) — todos los tamaños
+   WIZARD (3 PASOS) ? todos los tama?os
    ============================================ */
 
 .manual-order-wizard.manual-order-container {
@@ -1782,7 +1782,7 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
     line-height: 1;
-    /* Compensa el sesgo óptico típico de dígitos en círculos pequeños */
+    /* Compensa el sesgo ?ptico t?pico de d?gitos en c?rculos peque?os */
     transform: translateY(0.5px);
 }
 
@@ -1874,7 +1874,7 @@
     top: 8px;
 }
 
-/* Escena deslizable: catálogo <-> panel cliente */
+/* Escena deslizable: cat?logo <-> panel cliente */
 .manual-order-stage {
     display: flex;
     flex-direction: column;
@@ -1893,6 +1893,17 @@
 .manual-order-step-2 .manual-order-stage,
 .manual-order-step-3 .manual-order-stage {
     display: none;
+}
+
+/* Abrir mesa paso plano: no reutilizar layout de cat?logo (step-1). */
+.manual-order-step-floor .manual-order-body--floor {
+    width: 100%;
+}
+
+.manual-order-step-floor .manual-order-stage--floor {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .manual-order-step-2 .manual-order-body,
@@ -2154,25 +2165,6 @@
     font-weight: 700;
 }
 
-@media (min-width: 1280px) {
-    .manual-order-checkout-stage--open-mesa {
-        grid-template-columns: minmax(260px, 1.15fr) minmax(220px, 1fr) minmax(220px, 1fr);
-        grid-template-areas: "client summary payment";
-    }
-
-    .manual-order-checkout-stage--open-mesa .manual-order-checkout-col--client {
-        grid-area: client;
-    }
-
-    .manual-order-checkout-stage--open-mesa .manual-order-checkout-col--summary {
-        grid-area: summary;
-    }
-
-    .manual-order-checkout-stage--open-mesa .manual-order-checkout-col--payment {
-        grid-area: payment;
-    }
-}
-
 @media (max-width: 767px) {
     .manual-order-checkout-overview {
         align-items: flex-start;
@@ -2190,7 +2182,7 @@
     }
 }
 
-/* Tablet conserva el flujo de dos pasos: catálogo y resumen en paralelo. */
+/* Tablet conserva el flujo de dos pasos: cat?logo y resumen en paralelo. */
 @media (min-width: 768px) and (max-width: 1024px) {
     .manual-order-wizard .manual-order-body {
         flex-direction: row;
@@ -2225,7 +2217,7 @@
     }
 }
 
-/* Portátiles bajos: reduce chrome y espacios, no contenido funcional. */
+/* Port?tiles bajos: reduce chrome y espacios, no contenido funcional. */
 @media (min-width: 768px) and (max-height: 760px) {
     .manual-order-wizard-header {
         min-height: 48px;
@@ -2296,22 +2288,9 @@
     scroll-padding-bottom: 12px;
 }
 
-.manual-order-step-2 .manual-order-checkout-col--payment:not(.manual-order-checkout-col--payment-open),
-.manual-order-step-3 .manual-order-checkout-col--payment:not(.manual-order-checkout-col--payment-open) {
+.manual-order-step-2 .manual-order-checkout-col--payment,
+.manual-order-step-3 .manual-order-checkout-col--payment {
     overflow: visible;
-}
-
-.manual-order-checkout-col--payment-open {
-    overflow: hidden;
-}
-
-.manual-order-checkout-col--payment-open .manual-order-checkout-col__scroll {
-    scroll-padding-bottom: 12px;
-}
-
-.manual-order-checkout-col--payment-open .manual-order-checkout-actions {
-    margin-top: 0;
-    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
 }
 
 .manual-order-checkout-actions {
@@ -2338,17 +2317,6 @@
 
     .manual-order-step-2 .manual-order-sidebar {
         padding: 12px;
-    }
-
-    .manual-order-checkout-col--payment-open .manual-order-checkout-actions {
-        flex-direction: column;
-    }
-
-    .manual-order-checkout-col--payment-open .manual-order-checkout-actions__back,
-    .manual-order-checkout-col--payment-open .manual-order-checkout-actions__confirm {
-        width: 100%;
-        max-width: none;
-        min-height: 44px;
     }
 }
 
@@ -2649,7 +2617,7 @@
     }
 }
 
-/* === DISEÑO DE ACORDEÓN PARA COLUMNA DERECHA === */
+/* === DISE?O DE ACORDE?N PARA COLUMNA DERECHA === */
 .manual-order-accordion {
     display: flex;
     flex-direction: column;
@@ -2737,7 +2705,7 @@
 }
 
 /* ============================================
-   MÓVIL — flujo 3 pantallas (.manual-order--mobile)
+   M?VIL ? flujo 3 pantallas (.manual-order--mobile)
    ============================================ */
 
 .manual-order-catalog-count {
@@ -2753,7 +2721,7 @@
     letter-spacing: -0.01em;
 }
 
-/* Búsqueda unificada: lupa en toolbar (desktop y móvil) */
+/* B?squeda unificada: lupa en toolbar (desktop y m?vil) */
 .manual-order-catalog-search-toggle {
     display: inline-flex;
     width: 40px;
@@ -2918,7 +2886,7 @@
         min-height: 0;
     }
 
-    /* Catálogo: header oculto en móvil; búsqueda reemplaza chips en la toolbar */
+    /* Cat?logo: header oculto en m?vil; b?squeda reemplaza chips en la toolbar */
     .manual-order--mobile .manual-order-catalog-header {
         display: none !important;
     }
@@ -3191,7 +3159,7 @@
         min-height: 44px;
     }
 
-    /* Paso 1 móvil: solo catálogo (sin sidebar desktop) */
+    /* Paso 1 m?vil: solo cat?logo (sin sidebar desktop) */
     .manual-order--mobile.manual-order-step-1 .manual-order-body,
     .manual-order--mobile.manual-order-step-2 .manual-order-body,
     .manual-order--mobile.manual-order-step-3 .manual-order-body {
@@ -3203,7 +3171,7 @@
     }
 }
 
-/* Touch targets: solo dock de navegación (no stepper ni botón + de tarjeta) */
+/* Touch targets: solo dock de navegaci?n (no stepper ni bot?n + de tarjeta) */
 @media (max-width: 1024px) {
     .manual-order--mobile .manual-order-mobile-dock .manual-order-steps-nav__btn,
     .manual-order--mobile .manual-order-mobile-dock .manual-order-confirm-btn {
@@ -3312,5 +3280,324 @@
 		animation-iteration-count: 1 !important;
 		scroll-behavior: auto !important;
 		transition-duration: 0.01ms !important;
+	}
+}
+
+/* ?? Plano Abrir mesa (wizard cards) ?? */
+.open-mesa-floor {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	gap: 0.75rem;
+	width: 100%;
+}
+
+.open-mesa-floor--wizard {
+	padding: 0;
+}
+
+.open-mesa-floor--loading,
+.open-mesa-floor--empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.65rem;
+	min-height: 280px;
+	height: 100%;
+	color: var(--gc-text-muted, #64748b);
+	text-align: center;
+	padding: 1.5rem;
+}
+
+.open-mesa-floor__empty-icon {
+	margin: 0 auto 0.5rem;
+	color: var(--gc-accent, #2563eb);
+}
+
+.open-mesa-floor__empty-title {
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--gc-text, #0f172a);
+}
+
+.open-mesa-floor__empty-hint {
+	margin: 0;
+	max-width: 28rem;
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
+.open-mesa-floor__layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+	gap: 1rem;
+	align-items: stretch;
+	min-height: 0;
+	flex: 1 1 auto;
+	height: 100%;
+}
+
+.open-mesa-floor__salon,
+.open-mesa-floor__reservations {
+	min-height: 0;
+	height: 100%;
+}
+
+.open-mesa-floor__salon {
+	display: flex;
+	flex-direction: column;
+}
+
+.open-mesa-floor__salon-head {
+	display: flex;
+	flex-direction: column;
+	gap: 0.65rem;
+	margin-bottom: 0.85rem;
+}
+
+.open-mesa-floor__legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.45rem 0.85rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--gc-text-muted, #64748b);
+}
+
+.open-mesa-floor__legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.open-mesa-floor__legend-item i {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	border: 2px solid transparent;
+}
+
+.open-mesa-floor__legend-item i.is-available {
+	background: color-mix(in srgb, #16a34a 22%, #fff);
+	border-color: #16a34a;
+}
+
+.open-mesa-floor__legend-item i.is-occupied {
+	background: #e2e8f0;
+	border-color: #94a3b8;
+}
+
+.open-mesa-floor__legend-item i.is-reserved {
+	background: color-mix(in srgb, #c2410c 18%, #fff);
+	border-color: #c2410c;
+}
+
+.open-mesa-floor__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+	gap: 0.65rem;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	padding: 0.15rem;
+	align-content: start;
+}
+
+.open-mesa-floor__seat {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 0.3rem;
+	min-height: 84px;
+	padding: 0.75rem 0.8rem;
+	border: 1.5px solid var(--gc-border, #e8ecf1);
+	border-radius: 14px;
+	background: var(--gc-card, #fff);
+	color: var(--gc-text, #0f172a);
+	text-align: left;
+	cursor: pointer;
+	font: inherit;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+	transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.12s ease, background 0.14s ease;
+}
+
+.open-mesa-floor__seat:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgb(15 23 42 / 8%);
+}
+
+.open-mesa-floor__seat.is-available {
+	border-color: color-mix(in srgb, #16a34a 45%, var(--gc-border, #e8ecf1));
+	background: color-mix(in srgb, #16a34a 6%, #fff);
+}
+
+.open-mesa-floor__seat.is-occupied {
+	border-color: color-mix(in srgb, #94a3b8 55%, var(--gc-border, #e8ecf1));
+	background: #f1f5f9;
+	color: #64748b;
+}
+
+.open-mesa-floor__seat.is-reserved {
+	border-color: color-mix(in srgb, #c2410c 45%, var(--gc-border, #e8ecf1));
+	background: color-mix(in srgb, #c2410c 7%, #fff);
+	color: #9a3412;
+}
+
+.open-mesa-floor__seat.is-selected {
+	border-color: var(--gc-accent, #2563eb);
+	background: color-mix(in srgb, var(--gc-accent, #2563eb) 10%, #fff);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc-accent, #2563eb) 22%, transparent);
+}
+
+.open-mesa-floor__seat-code {
+	font-size: 1.05rem;
+	font-weight: 800;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+}
+
+.open-mesa-floor__seat-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: 0.7rem;
+	font-weight: 600;
+	opacity: 0.85;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.open-mesa-floor__seat-badge {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	padding: 2px 6px;
+	border-radius: 999px;
+	font-size: 0.62rem;
+	font-weight: 700;
+	color: var(--gc-accent, #2563eb);
+	background: color-mix(in srgb, var(--gc-accent, #2563eb) 12%, #fff);
+}
+
+.open-mesa-floor__seat-prompt {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-top: 0.75rem;
+	padding: 0.75rem 0.9rem;
+	border: 1px solid color-mix(in srgb, #c2410c 30%, transparent);
+	border-radius: 12px;
+	background: color-mix(in srgb, #c2410c 7%, #fff);
+}
+
+.open-mesa-floor__seat-prompt-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	font-size: 0.85rem;
+}
+
+.open-mesa-floor__seat-prompt-copy span {
+	color: #9a3412;
+	opacity: 0.9;
+}
+
+.open-mesa-floor__seat-prompt-actions {
+	display: inline-flex;
+	gap: 0.5rem;
+	flex-shrink: 0;
+}
+
+.open-mesa-floor__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-top: 0.85rem;
+	padding-top: 0.85rem;
+	border-top: 1px solid var(--gc-border, #e8ecf1);
+}
+
+.open-mesa-floor__bar-copy {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.35rem 0.65rem;
+	min-width: 0;
+}
+
+.open-mesa-floor__bar-label {
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--gc-text-muted, #64748b);
+}
+
+.open-mesa-floor__bar-copy strong {
+	font-size: 1rem;
+	color: var(--gc-text, #0f172a);
+}
+
+.open-mesa-floor__bar-hint,
+.open-mesa-floor__bar-hint-inline {
+	font-size: 0.85rem;
+	color: var(--gc-text-muted, #64748b);
+}
+
+.open-mesa-floor__reservations {
+	overflow: auto;
+}
+
+.open-mesa-floor__reservations .admin-table-reservations {
+	margin-top: 0.35rem;
+}
+
+.open-mesa-floor__reservations .admin-table-reservations__toolbar--compact {
+	margin-bottom: 0.65rem;
+	width: 100%;
+	justify-content: space-between;
+}
+
+.manual-order-body--floor,
+.manual-order-stage--floor,
+.manual-order-mobile-stage--floor {
+	min-height: 0;
+}
+
+.manual-order-step-floor .manual-order-stage--floor {
+	padding: clamp(12px, 2vh, 20px) clamp(12px, 3vw, 28px);
+	overflow: auto;
+}
+
+.manual-order-mobile-stage--floor {
+	padding: 0.75rem;
+	overflow: auto;
+}
+
+@media (max-width: 960px) {
+	.open-mesa-floor__layout {
+		grid-template-columns: 1fr;
+		height: auto;
+	}
+
+	.open-mesa-floor__salon,
+	.open-mesa-floor__reservations {
+		height: auto;
+	}
+
+	.open-mesa-floor__grid {
+		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 	}
 }

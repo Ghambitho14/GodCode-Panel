@@ -1067,6 +1067,129 @@ export function resolveOrderClientNameForDisplay(order, kind) {
 	return { name: raw, subtitle: null, isLegacySalon: false };
 }
 
+/**
+ * Identidad del tile en vista Mesas.
+ * Distingue pedido manual vs mesa abierta (mismo card, chrome distinto).
+ * Regla: mesa solo si hay mesa física (table_id / table_number); PDV local sin mesa = manual.
+ * @param {Record<string, unknown>} order
+ * @param {{ tableCode?: string | null }} [opts]
+ * @returns {{
+ *   title: string,
+ *   subtitle: string | null,
+ *   kind: string,
+ *   chromeKind: 'mesa' | 'manual' | 'retiro' | 'moto'
+ * }}
+ */
+export function resolveTablesViewTileIdentity(order, opts = {}) {
+	const kind = getOrderTileKind(order);
+	const tableCode = String(opts.tableCode || order?.table_number || '').trim();
+	const tableId = String(order?.table_id ?? '').trim();
+	const clientName = String(order?.client_name ?? '').trim();
+	const operatorRef = String(order?.operator_reference ?? '').trim();
+	const displayName = String(order?.display_name ?? '').trim();
+	const sameText = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+
+	const hasPhysicalTable = Boolean(tableCode || tableId);
+	/** @type {'mesa' | 'manual' | 'retiro' | 'moto'} */
+	let chromeKind;
+	if (kind === 'moto') {
+		chromeKind = 'moto';
+	} else if (hasPhysicalTable) {
+		chromeKind = 'mesa';
+	} else if (isMenuOrder(order)) {
+		chromeKind = kind === 'mesa' ? 'mesa' : 'retiro';
+	} else {
+		// Pedido manual / sesión local sin mesa física → no usar kind==='mesa'
+		chromeKind = 'manual';
+	}
+
+	if (chromeKind === 'mesa' && hasPhysicalTable) {
+		const code = tableCode || operatorRef || 'Mesa';
+		const person =
+			(clientName && !sameText(clientName, code) ? clientName : null)
+			|| (operatorRef && !sameText(operatorRef, code) ? operatorRef : null)
+			|| (displayName && !sameText(displayName, code) && !sameText(displayName, clientName) ? displayName : null);
+		return {
+			title: code,
+			subtitle: person || 'Mesa',
+			kind,
+			chromeKind,
+		};
+	}
+
+	const title =
+		(chromeKind === 'manual' ? (clientName || displayName || operatorRef) : null)
+		|| displayName
+		|| clientName
+		|| operatorRef
+		|| (chromeKind === 'manual' ? 'Pedido manual' : getFulfillmentKindLabel(kind));
+
+	const subtitle =
+		chromeKind === 'manual'
+			? 'Pedido manual'
+			: chromeKind === 'retiro'
+				? (isMenuOrder(order) ? 'Retiro web' : 'Retiro')
+				: chromeKind === 'moto'
+					? (isMenuOrder(order) ? 'Delivery web' : 'Delivery')
+					: 'Mesa';
+
+	return {
+		title,
+		subtitle: sameText(subtitle, title) ? null : subtitle,
+		kind,
+		chromeKind,
+	};
+}
+
+/**
+ * Progreso de entrega a partir de order_lines (quantity_served vs ordered - voided).
+ * @param {Array<Record<string, unknown>> | null | undefined} lines
+ * @returns {{ ordered: number, served: number, pending: number }}
+ */
+export function summarizeOrderLinesDelivery(lines) {
+	let ordered = 0;
+	let served = 0;
+	for (const line of lines || []) {
+		const voided = Number(line?.quantity_voided) || 0;
+		const qtyOrdered = Math.max(0, (Number(line?.quantity_ordered) || 0) - voided);
+		if (qtyOrdered <= 0) continue;
+		ordered += qtyOrdered;
+		if (String(line?.status ?? '').toLowerCase() === 'served') {
+			served += qtyOrdered;
+			continue;
+		}
+		served += Math.min(qtyOrdered, Math.max(0, Number(line?.quantity_served) || 0));
+	}
+	const pending = Math.max(0, ordered - served);
+	return { ordered, served, pending };
+}
+
+/**
+ * Leyenda del tile en vista Mesas: prioriza progreso de entrega sobre status de cocina.
+ * @param {Record<string, unknown> | null | undefined} order
+ * @param {{ ordered?: number, served?: number, pending?: number } | null | undefined} deliveryProgress
+ * @returns {{ key: 'pending' | 'active' | 'completed' | 'parcial' | 'entregado', label: string }}
+ */
+export function resolveTableTileServiceBadge(order, deliveryProgress = null) {
+	const ordered = Number(deliveryProgress?.ordered) || 0;
+	const served = Number(deliveryProgress?.served) || 0;
+	const pending = Number(deliveryProgress?.pending) || 0;
+
+	if (ordered > 0) {
+		if (pending === 0 && served > 0) {
+			return { key: 'entregado', label: 'Entregado' };
+		}
+		if (served > 0 && pending > 0) {
+			return { key: 'parcial', label: 'Parcial' };
+		}
+	}
+
+	const status = String(order?.status ?? '').trim().toLowerCase();
+	if (status === 'active') return { key: 'active', label: 'En cocina' };
+	if (status === 'completed') return { key: 'completed', label: 'Listo' };
+	return { key: 'pending', label: 'Nuevo' };
+}
+
 /** @param {Record<string, unknown>} order */
 export function getOrderTileKind(order) {
 	return getOrderFulfillmentKind(order);
@@ -1253,11 +1376,11 @@ export function resolveOrderCouponCode(rawOrder) {
 
 /** Columnas escalares + JSON usadas por kanban, detalle e impresión. */
 const ORDERS_PANEL_COLUMNS =
-	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference';
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference, table_id, table_number';
 
 /** Lista kanban / carga inicial: incluye items JSONB para mostrar productos sin expandir. */
 const ORDERS_LIST_COLUMNS =
-	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference';
+	'id, company_id, branch_id, client_id, client_name, client_rut, client_phone, status, created_at, updated_at, items, total, subtotal, tax_total, discount_total, currency, delivery_fee, delivery_address, channel, order_type, payment_type, payment_method_specific, payment_breakdown, payment_ref, discount_coupon_id, shift_id, shift_sequence, note, client_request_id, subtotal_minor, discount_total_minor, delivery_fee_minor, total_minor, payment_lines, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status, operator_reference, table_id, table_number';
 
 /** Detalle de un pedido (single-row): incluye items JSONB. */
 export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(code)`;
@@ -1378,8 +1501,10 @@ export function sanitizeOrder(rawOrder) {
 		coupon_code: resolveOrderCouponCode(rawOrder),
 		delivery_fee: Number(rawOrder.delivery_fee) || 0,
 		client_name: rawOrder.client_name || 'Cliente Desconocido',
-		display_name: rawOrder.operator_reference || rawOrder.client_name || (rawOrder.manual_order_mode === 'session' ? 'Sesión sin referencia' : 'Cliente desconocido'),
+		display_name: rawOrder.operator_reference || rawOrder.table_number || rawOrder.client_name || (rawOrder.manual_order_mode === 'session' ? 'Sesión sin referencia' : 'Cliente desconocido'),
 		operator_reference: rawOrder.operator_reference ?? null,
+		table_id: rawOrder.table_id ?? null,
+		table_number: rawOrder.table_number ?? null,
 		client_rut: rawOrder.client_rut || 'Sin RUT',
 		client_phone: rawOrder.client_phone || '',
 		status: rawOrder.status || 'pending',

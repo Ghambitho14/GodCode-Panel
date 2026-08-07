@@ -122,7 +122,7 @@ export const useManualOrder = (
 		updateDeliveryKm, updateDeliveryFee, updateDeliveryNamedAreaId, updatePaymentType, updatePaymentMode,
 		updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
 		handleRutChange, handlePhoneChange, applyClientRecord, resetForm, resetOpenMesaForm,
-		getInputStyle, restoreForm,
+		selectTable, getInputStyle, restoreForm,
 	} = useManualOrderForm(localOrderChannels, formCountry, { currency, locale, fractionDigits });
 
 	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone);
@@ -278,7 +278,12 @@ export const useManualOrder = (
 		if (items.length === 0) return 'Agrega al menos un producto.';
 		if (quoteRevisionPending) return 'La cotización cambió. Revisa el nuevo total y confírmalo antes de continuar.';
 		const requirements = requirementsFor(manualOrderSettings, fulfillment);
-		if (requirements.operatorReference && String(form.client_name ?? '').trim().length < 2) return 'Indica la mesa o referencia del mesero.';
+		if (openMesaMode && fulfillment === 'table' && !String(form.selected_table_id ?? '').trim()) {
+			return 'Selecciona una mesa del plano.';
+		}
+		if (requirements.operatorReference && String(form.client_name ?? '').trim().length < 2) {
+			return openMesaMode ? 'Selecciona una mesa del plano.' : 'Indica la mesa o referencia del mesero.';
+		}
 		if (requirements.name && String(form.client_name ?? '').trim().length < 2) return 'Indica el nombre del cliente.';
 		if (requirements.phone) {
 			const phone = normalizeInternationalPhone(form.client_phone, countryProfile.countryCode);
@@ -290,7 +295,7 @@ export const useManualOrder = (
 			if (deliveryError) return deliveryError;
 		}
 		return null;
-	}, [branch, effectiveBranchConfigError, items.length, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, countryProfile, branchDeliveryCfg, deliveryPayload]);
+	}, [branch, effectiveBranchConfigError, items.length, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, form.selected_table_id, countryProfile, branchDeliveryCfg, deliveryPayload, openMesaMode]);
 
 	const submitOrder = useCallback(async () => {
 		if (submitInFlightRef.current) return;
@@ -321,14 +326,26 @@ export const useManualOrder = (
 					if (!validation.valid) throw new Error('Los métodos de pago deben sumar exactamente el total y usar una tasa válida.');
 				}
 				const phone = form.client_phone ? normalizeInternationalPhone(form.client_phone, countryProfile.countryCode) : { valid: false, e164: '' };
+				const tableRef = String(form.selected_table_code || '').trim();
+				const meseroName = isOpenMesaMeseroMode(form) ? sanitizeManualOrderInput(form.client_name) : '';
 				result = await manualOrderV2Service.create({
 					branchId: branch.id,
 					clientRequestId: clientRequestIdRef.current,
 					mode: openMesaMode ? 'session' : 'quick_sale',
 					fulfillment,
 					paymentTiming: effectiveTiming,
-					customer: { name: fulfillment === 'table' ? '' : sanitizeManualOrderInput(form.client_name), phone: phone.valid ? phone.e164 : '', document: sanitizeManualOrderInput(form.client_rut), clientId: String(form.selected_client_id ?? '').trim() || null },
-					operatorReference: fulfillment === 'table' ? sanitizeManualOrderInput(form.client_name) : '',
+					customer: {
+						name: fulfillment === 'table'
+							? meseroName
+							: sanitizeManualOrderInput(form.client_name),
+						phone: phone.valid ? phone.e164 : '',
+						document: sanitizeManualOrderInput(form.client_rut),
+						clientId: String(form.selected_client_id ?? '').trim() || null,
+					},
+					operatorReference: fulfillment === 'table'
+						? sanitizeManualOrderInput(tableRef)
+						: '',
+					tableId: fulfillment === 'table' ? (String(form.selected_table_id ?? '').trim() || null) : null,
 					delivery: deliveryPayload,
 					items: itemsForOrder,
 					couponCode: sanitizeManualOrderInput(form.coupon_code),
@@ -336,6 +353,17 @@ export const useManualOrder = (
 					paymentLines: lines,
 					quoteHash: quote.quoteHash,
 				});
+				if (fulfillment === 'table' && meseroName) {
+					const { rememberWaiter } = await import('../utils/recentWaitersStorage');
+					rememberWaiter(branch.company_id, branch.id, meseroName);
+				}
+				if (fulfillment === 'table' && result?.id && form.selected_table_id) {
+					const { branchTablesService } = await import('../services/branchTablesService');
+					await branchTablesService.linkOrderToTable(result.id, {
+						tableId: form.selected_table_id,
+						tableCode: tableRef,
+					}).catch(() => {});
+				}
 				if (result?.idempotentReplay) {
 					void manualOrderV2Service.recordMetric({ branchId: branch.id, eventName: 'duplicate_prevented', mode: openMesaMode ? 'session' : 'quick_sale', fulfillment });
 				}
@@ -352,7 +380,15 @@ export const useManualOrder = (
 				}
 			} else {
 				const openMesaMesero = openMesaMode && isOpenMesaMeseroMode(form);
-				const clientName = openMesaMode ? sanitizeManualOrderInput(resolveOpenMesaClientName(form.order_type, form.client_name, getLocalFulfillmentMode(form))) : sanitizeManualOrderInput(form.client_name);
+				const tableRef = String(form.selected_table_code || '').trim();
+				const meseroName = openMesaMesero ? sanitizeManualOrderInput(form.client_name) : '';
+				const clientName = openMesaMode
+					? sanitizeManualOrderInput(
+						openMesaMesero
+							? (meseroName || tableRef || resolveOpenMesaClientName(form.order_type, form.client_name, getLocalFulfillmentMode(form)))
+							: (tableRef || resolveOpenMesaClientName(form.order_type, form.client_name, getLocalFulfillmentMode(form))),
+					)
+					: sanitizeManualOrderInput(form.client_name);
 				const totalForOrderMinor = sumMinor(itemsForOrder.map((item) => majorToMinor(item.has_discount && Number(item.discount_price) > 0 ? item.discount_price : item.price, currency, fractionDigits) * item.quantity));
 				const couponMinor = couponPreview?.variant === 'success' ? Math.min(totalForOrderMinor, majorToMinor(couponPreview.discount, currency, fractionDigits)) : 0;
 				const deliveryFee = form.order_type === 'delivery'
@@ -391,6 +427,17 @@ export const useManualOrder = (
 				result = await createManualOrder(sanitizedOrder, shouldSettleImmediately ? receiptFile : null);
 				evidencePending = Boolean(result?.receiptUploadFailed);
 				result = result?.order ?? result;
+				if (getLocalFulfillmentMode(form) === 'mesa' && result?.id && form.selected_table_id) {
+					const { branchTablesService } = await import('../services/branchTablesService');
+					await branchTablesService.linkOrderToTable(result.id, {
+						tableId: form.selected_table_id,
+						tableCode: tableRef || String(form.selected_table_code || '').trim(),
+					}).catch(() => {});
+				}
+				if (openMesaMesero && meseroName) {
+					const { rememberWaiter } = await import('../utils/recentWaitersStorage');
+					rememberWaiter(branch.company_id, branch.id, meseroName);
+				}
 			}
 
 			showNotify?.(
@@ -442,8 +489,8 @@ export const useManualOrder = (
 		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,
 		updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress,
 		updateDeliveryReference, updateDeliveryKm: handleUpdateDeliveryKm, updateDeliveryFee,
-		updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId, submitOrder, resetOrder,
-		isValid: Boolean(items.length && (form.client_name || fulfillment === 'delivery')),
+		updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId, submitOrder, resetOrder, selectTable,
+		isValid: Boolean(items.length && (form.client_name || form.selected_table_id || fulfillment === 'delivery')),
 		getInputStyle, quote, quoteLoading, quoteError, paymentMethods, manualOrderSettings, v2Enabled,
 		restoreOrder, restoreReceipt,
 		acknowledgeQuoteRevision,

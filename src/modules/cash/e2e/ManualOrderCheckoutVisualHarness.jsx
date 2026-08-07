@@ -168,9 +168,17 @@ export default function ManualOrderCheckoutVisualHarness() {
 		isClientStepValid: () => clientValid,
 		hasCartItems: true,
 		cartItemCount: 4,
+		hasSelectedTable: false,
 		goNextStep: () => {},
 		goPrevStep: () => {},
 		stepLabels: ['Productos', 'Entrega', 'Pago opcional'],
+		stepRoles: {
+			isOpenMesaCreate: false,
+			floor: null,
+			catalog: 1,
+			client: 2,
+			payment: 3,
+		},
 	};
 
 	return (

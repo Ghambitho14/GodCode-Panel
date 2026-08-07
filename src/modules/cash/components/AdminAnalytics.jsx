@@ -17,6 +17,7 @@ import {
     EXPENSE_KIND_OPERATING,
 } from '../utils/cashMovementKinds';
 import ReportPeriodSelect from './ReportPeriodSelect';
+import AdminMenuSelect from './AdminMenuSelect';
 import {
     addLocalDays,
     isInReportRange,
@@ -176,14 +177,36 @@ function formatCalendarMonthLabel(yyyyMm) {
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
         return yyyyMm;
     }
-    return new Date(year, month - 1, 1).toLocaleDateString('es-CL', {
+    const raw = new Date(year, month - 1, 1).toLocaleDateString('es-CL', {
         month: 'long',
         year: 'numeric',
     });
+    return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
 }
 
 function currentMonthYyyyMm(date = new Date()) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Opciones YYYY-MM para el selector de mes (mismo AdminMenuSelect que el período). */
+function buildRecentMonthOptions(monthsBack = 24, selectedValue = null) {
+    const now = new Date();
+    const seen = new Set();
+    const options = [];
+    for (let i = 0; i < monthsBack; i += 1) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const value = currentMonthYyyyMm(d);
+        if (seen.has(value)) continue;
+        seen.add(value);
+        options.push({ value, label: formatCalendarMonthLabel(value) });
+    }
+    if (selectedValue && !seen.has(selectedValue)) {
+        options.unshift({
+            value: selectedValue,
+            label: formatCalendarMonthLabel(selectedValue),
+        });
+    }
+    return options;
 }
 
 function getCalendarYearRangeLocal(year) {
@@ -466,6 +489,11 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const expenseReferenceYear = useMemo(
         () => resolveExpenseReferenceYear(analyticsDate, reportRange),
         [analyticsDate, reportRange],
+    );
+
+    const monthlyExportMonthOptions = useMemo(
+        () => buildRecentMonthOptions(24, analyticsDate),
+        [analyticsDate],
     );
 
     const currentMonthBucketKey = currentMonthYyyyMm();
@@ -1585,11 +1613,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="grid items-end gap-3 sm:grid-cols-[auto_1fr]">
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Seleccionar mes</label>
-                        <input
-                            type="month"
-                            className="h-10 rounded-xl border border-[#e5e5ea] bg-white px-3 text-sm font-semibold text-[#1a1a1a]"
+                        <AdminMenuSelect
+                            className="rpt-export-month-select min-w-[200px]"
                             value={analyticsDate}
-                            onChange={(e) => setAnalyticsDate(e.target.value)}
+                            onChange={setAnalyticsDate}
+                            options={monthlyExportMonthOptions}
+                            icon={<Calendar size={18} strokeWidth={1.65} className="text-[#2563eb]" />}
+                            aria-label="Seleccionar mes del reporte"
+                            menuMinWidth={220}
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">

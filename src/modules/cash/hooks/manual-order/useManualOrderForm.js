@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getFormStrategy } from '@/lib/geo/country-forms';
-import { firstEnabledLocalChannel, parseLocalOrderChannels } from '@/lib/delivery-settings';
+import { parseLocalOrderChannels } from '@/lib/delivery-settings';
 import { normalizeManualPhone } from '../../services/clientService';
 import {
     MANUAL_ORDER_INITIAL_FORM_STATE,
@@ -233,21 +233,47 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
 	}, [strategy]);
 
     const resetOpenMesaForm = useCallback(() => {
-        const defaultMode = firstEnabledLocalChannel(resolvedChannels);
         setForm({
             ...initialFormState,
             client_name: '',
             client_rut: OPEN_MESA_CAJA_DEFAULTS.client_rut,
             client_phone: OPEN_MESA_CAJA_DEFAULTS.client_phone,
-            order_type: defaultMode === 'delivery' ? 'delivery' : 'pickup',
-            local_fulfillment_mode: defaultMode,
-            mesa_party_mode: defaultMode === 'mesa' ? 'mesero' : 'cliente',
+            order_type: 'pickup',
+            local_fulfillment_mode: 'mesa',
+            mesa_party_mode: 'mesero',
             payment_type: 'pendiente',
             charge_now: false,
+            selected_table_id: '',
+            selected_table_code: '',
         });
         setRutValid(true);
         setPhoneValid(true);
-    }, [resolvedChannels]);
+    }, []);
+
+	const selectTable = useCallback((table) => {
+		const id = table?.id ? String(table.id) : '';
+		const code = String(table?.label || table?.code || '').trim();
+		setForm((prev) => {
+			const prevName = String(prev.client_name ?? '').trim();
+			const prevCode = String(prev.selected_table_code ?? '').trim();
+			const keepMeseroName =
+				prev.mesa_party_mode === 'mesero'
+				&& prevName.length >= 2
+				&& prevName !== prevCode
+				&& prevName !== code;
+			return {
+				...prev,
+				selected_table_id: id,
+				selected_table_code: code,
+				client_name: keepMeseroName ? prevName : '',
+				local_fulfillment_mode: 'mesa',
+				order_type: 'pickup',
+				mesa_party_mode: 'mesero',
+				charge_now: false,
+				payment_type: 'pendiente',
+			};
+		});
+	}, []);
 
     const getInputStyle = useCallback((isValid) => {
         if (isValid === true) return { borderColor: '#4f5bff', boxShadow: '0 0 0 1px #4f5bff' };
@@ -282,6 +308,7 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         applyClientRecord,
         resetForm,
 		resetOpenMesaForm,
+		selectTable,
 		restoreForm,
         getInputStyle
     };

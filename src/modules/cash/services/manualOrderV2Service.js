@@ -80,7 +80,7 @@ export const manualOrderV2Service = {
 	},
 
 	create(input) {
-		return rpc('create_manual_order_v2', {
+		const args = {
 			p_branch_id: input.branchId,
 			p_client_request_id: input.clientRequestId,
 			p_mode: input.mode,
@@ -94,6 +94,18 @@ export const manualOrderV2Service = {
 			p_note: input.note || '',
 			p_payment_lines: input.paymentLines ?? [],
 			p_quote_hash: input.quoteHash,
+		};
+		if (input.tableId) {
+			args.p_table_id = input.tableId;
+		}
+		return rpc('create_manual_order_v2', args).catch((error) => {
+			const msg = String(error?.message ?? error ?? '').toLowerCase();
+			const unknownTableParam =
+				Boolean(input.tableId)
+				&& (msg.includes('p_table_id') || msg.includes('table_id') || msg.includes('could not find'));
+			if (!unknownTableParam) throw error;
+			const { p_table_id: _omit, ...withoutTable } = args;
+			return rpc('create_manual_order_v2', withoutTable);
 		});
 	},
 

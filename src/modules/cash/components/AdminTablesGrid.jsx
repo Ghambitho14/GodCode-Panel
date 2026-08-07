@@ -2,18 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
-import { Banknote, ChefHat, CheckCircle2 } from 'lucide-react';
+import { Armchair, Banknote, ChefHat, CheckCircle2, PlusCircle } from 'lucide-react';
 
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
 import {
-
 	getOrderTileKind,
-
 	filterOpenOrderSessions,
-
 	isOrderPaymentDeferred,
-
+	summarizeOrderLinesDelivery,
 } from '@/shared/utils/orderUtils';
 
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
@@ -30,6 +27,9 @@ import TableTile from './TableTile';
 
 import TableSessionReceipt from './TableSessionReceipt';
 import { Button } from "@/components/ui/button";
+import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
+import { branchTablesService } from '../services/branchTablesService';
+import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
 
 
 
@@ -68,6 +68,10 @@ function TableSessionModal({
 	onOpenEdit,
 
 	onCancel,
+
+	showNotify,
+
+	onDeliveryProgressChange,
 
 }) {
 
@@ -207,9 +211,27 @@ function TableSessionModal({
 
 							onCancel={() => onCancel(order)}
 
+							onClose={onClose}
+
+							showNotify={showNotify}
+
+							onDeliveryProgressChange={onDeliveryProgressChange}
+
 							footer={
 
 								<>
+
+									{onOpenEdit ? (
+										<Button
+											variant="secondary"
+											type="button"
+											className="table-session-receipt__cta table-session-receipt__cta--add"
+											onClick={onOpenEdit}
+										>
+											<PlusCircle size={18} aria-hidden />
+											Agregar productos
+										</Button>
+									) : null}
 
 									{primaryAction}
 
@@ -302,6 +324,12 @@ export default function AdminTablesGrid({
 }) {
 
 	const orderMoney = useOrderMoney();
+	const {
+		setActiveTab,
+		companyId,
+		pendingTableSessionOrderId,
+		setPendingTableSessionOrderId,
+	} = useAdmin();
 	const { formatMoney, formatOrderAmount } = orderMoney;
 	const formatOrderTotal = (amount, orderRow) => formatOrderAmount({
 		amountUsd: amount,
@@ -310,6 +338,11 @@ export default function AdminTablesGrid({
 	});
 
 	const openSessions = useMemo(() => filterOpenOrderSessions(orders), [orders]);
+
+	const openSessionIdsKey = useMemo(
+		() => openSessions.map((o) => `${o.id}:${o.updated_at ?? ''}`).sort().join('|'),
+		[openSessions],
+	);
 
 	const [activeOrder, setActiveOrder] = useState(null);
 
@@ -321,6 +354,19 @@ export default function AdminTablesGrid({
 
 	const [payOpen, setPayOpen] = useState(false);
 
+	const [branchTables, setBranchTables] = useState([]);
+
+	const [tablesLoading, setTablesLoading] = useState(false);
+
+	/** @type {[Record<string, { ordered: number, served: number, pending: number }>, Function]} */
+	const [deliveryByOrderId, setDeliveryByOrderId] = useState({});
+
+	const [deliveryRefreshKey, setDeliveryRefreshKey] = useState(0);
+
+	const bumpDeliveryProgress = React.useCallback(() => {
+		setDeliveryRefreshKey((n) => n + 1);
+	}, []);
+
 	const sessionModalOpen = Boolean(activeOrder) && !detailOpen && !editOpen && !closeOpen && !payOpen;
 
 	useEffect(() => {
@@ -331,6 +377,96 @@ export default function AdminTablesGrid({
 			setPayOpen(false);
 		}
 	}, [activeOrder]);
+
+	useEffect(() => {
+		if (!activeOrder?.id) return;
+		const fresh = (orders || []).find((o) => String(o.id) === String(activeOrder.id));
+		if (!fresh) return;
+		if (String(fresh.updated_at ?? '') !== String(activeOrder.updated_at ?? '')) {
+			setActiveOrder(fresh);
+		}
+	}, [orders, activeOrder]);
+
+	useEffect(() => {
+		if (!openSessionIdsKey) {
+			setDeliveryByOrderId({});
+			return undefined;
+		}
+		const ids = [...new Set(
+			openSessionIdsKey.split('|').map((part) => part.split(':')[0]).filter(Boolean),
+		)];
+		if (!ids.length) {
+			setDeliveryByOrderId({});
+			return undefined;
+		}
+		let cancelled = false;
+		void Promise.all(
+			ids.map(async (id) => {
+				try {
+					const lines = await orderLifecycleV3Service.listLines(id);
+					return [id, summarizeOrderLinesDelivery(lines)];
+				} catch {
+					return [id, { ordered: 0, served: 0, pending: 0 }];
+				}
+			}),
+		).then((entries) => {
+			if (!cancelled) setDeliveryByOrderId(Object.fromEntries(entries));
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [openSessionIdsKey, deliveryRefreshKey]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const branchId = branch?.id;
+		if (!branchId || branchId === 'all') {
+			setBranchTables([]);
+			return undefined;
+		}
+		setTablesLoading(true);
+		void branchTablesService.listByBranch(branchId)
+			.then((rows) => {
+				if (!cancelled) setBranchTables(rows);
+			})
+			.catch(() => {
+				if (!cancelled) setBranchTables([]);
+			})
+			.finally(() => {
+				if (!cancelled) setTablesLoading(false);
+			});
+		return () => { cancelled = true; };
+	}, [branch?.id]);
+
+	const tableById = useMemo(() => {
+		const map = new Map();
+		for (const t of branchTables) {
+			map.set(String(t.id), t);
+		}
+		return map;
+	}, [branchTables]);
+
+	useEffect(() => {
+		if (!pendingTableSessionOrderId) return;
+		const order = (orders || []).find((o) => String(o.id) === String(pendingTableSessionOrderId));
+		if (order) {
+			setActiveOrder(order);
+			setPendingTableSessionOrderId(null);
+		}
+	}, [pendingTableSessionOrderId, orders, setPendingTableSessionOrderId]);
+
+	const goConfigureTables = () => {
+		const branchKey = branch?.id ?? '__none__';
+		const storageKey = companyId
+			? `tenant-admin:${companyId}:menuOptionsSubTab:${branchKey}`
+			: `tenant-admin:local:menuOptionsSubTab:${branchKey}`;
+		try {
+			localStorage.setItem(storageKey, 'tables');
+		} catch {
+			/* ignore */
+		}
+		setActiveTab?.('menu_options');
+	};
 
 	const handleMoveKitchen = (order) => {
 
@@ -365,29 +501,52 @@ export default function AdminTablesGrid({
 			{openSessions.length === 0 ? (
 
 				<div className="tables-view__empty glass">
-
-					<p>No hay mesas ni motos abiertas.</p>
-
-					<p className="tables-view__empty-hint">Usa &quot;Abrir mesa&quot; o espera pedidos del menú.</p>
-
+					{!tablesLoading && branchTables.length === 0 && branch?.id && branch.id !== 'all' ? (
+						<>
+							<Armchair size={28} aria-hidden className="tables-view__empty-icon" />
+							<p>Todavía no hay mesas configuradas en esta sucursal.</p>
+							<p className="tables-view__empty-hint">
+								Creá el plano del salón en Opciones → Mesas para poder Abrir mesa.
+							</p>
+							<Button
+								type="button"
+								variant="default"
+								className="tables-view__empty-cta"
+								onClick={goConfigureTables}
+							>
+								Configurar mesas
+							</Button>
+						</>
+					) : (
+						<>
+							<p>No hay mesas ni motos abiertas.</p>
+							<p className="tables-view__empty-hint">Usa &quot;Abrir mesa&quot; o espera pedidos del menú.</p>
+						</>
+					)}
 				</div>
 
 			) : (
 
 				<div className="tables-grid">
 
-					{openSessions.map((order) => (
-
-						<TableTile
-							key={order.id}
-							order={order}
-							onClick={setActiveOrder}
-							branch={branch}
-							branchName={branch?.name ?? null}
-							logoUrl={logoUrl ?? null}
-						/>
-
-					))}
+					{openSessions.map((order) => {
+						const linked = order.table_id ? tableById.get(String(order.table_id)) : null;
+						const tableCode = linked?.code || order.table_number || null;
+						const enriched = tableCode
+							? { ...order, table_number: tableCode }
+							: order;
+						return (
+							<TableTile
+								key={order.id}
+								order={enriched}
+								onClick={setActiveOrder}
+								branch={branch}
+								branchName={branch?.name ?? null}
+								logoUrl={logoUrl ?? null}
+								deliveryProgress={deliveryByOrderId[String(order.id)] ?? null}
+							/>
+						);
+					})}
 
 				</div>
 
@@ -426,6 +585,10 @@ export default function AdminTablesGrid({
 					onOpenEdit={() => setEditOpen(true)}
 
 					onCancel={handleCancel}
+
+					showNotify={showNotify}
+
+					onDeliveryProgressChange={bumpDeliveryProgress}
 
 				/>
 
@@ -480,6 +643,8 @@ export default function AdminTablesGrid({
 						onOrderSaved?.();
 
 						setEditOpen(false);
+
+						bumpDeliveryProgress();
 
 					}}
 
