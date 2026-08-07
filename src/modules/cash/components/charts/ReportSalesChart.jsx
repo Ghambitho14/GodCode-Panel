@@ -84,11 +84,15 @@ function ReportSalesChart({
 	currency = 'CLP',
 	height = 400,
 	showHeader = false,
+	color = BRAND,
+	title = null,
+	subtitle = null,
 }) {
 	const containerRef = useRef(null);
 	const chartWidth = useChartWidth(containerRef);
 	const gradientIdRef = useRef(safeSvgId('ventas'));
 	const gradientId = gradientIdRef.current;
+	const accent = color || BRAND;
 	const pointsKey = useMemo(
 		() => (points || []).map((p) => `${p.key ?? ''}:${p.sales ?? 0}:${p.label ?? ''}`).join('|'),
 		[points],
@@ -96,7 +100,7 @@ function ReportSalesChart({
 	const ventasPorDia = useMemo(() => mapChartData(points), [pointsKey]);
 	const singlePoint = ventasPorDia.length === 1 ? ventasPorDia[0] : null;
 	const chartKind = singlePoint ? 'bar' : kind === 'area' ? 'area' : 'bar';
-	const barFill = kind === 'bar-gradient' ? `url(#${gradientId}-bar)` : BRAND;
+	const barFill = kind === 'bar-gradient' ? `url(#${gradientId}-bar)` : accent;
 
 	const renderTooltip = useCallback((props) => <SalesTooltipBody {...props} />, []);
 
@@ -104,15 +108,18 @@ function ReportSalesChart({
 
 	if (!ventasPorDia.length) return null;
 
-	const filterLabel = filter === 'online' ? 'Online' : filter === 'store' ? 'Tienda' : 'Todos';
+	const filterLabel = subtitle
+		?? (filter === 'online' ? 'Online' : filter === 'store' ? 'Tienda' : 'Todos');
+	const headerTitle = title
+		?? (chartKind === 'area' ? 'Ventas' : 'Ventas por período');
 	const chartHeight = showHeader ? Math.max(120, height - 22) : height;
 
 	return (
 		<div style={{ width: '100%' }} className={showHeader ? 'flex flex-col overflow-hidden' : undefined}>
 			{showHeader ? (
-				<div className="mb-2 flex shrink-0 items-center justify-between text-[11px] font-semibold text-[#6b7280]">
-					<span>{chartKind === 'area' ? 'Ventas' : 'Ventas por período'}</span>
-					<span>{filterLabel}</span>
+				<div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] font-semibold text-[#6b7280]">
+					<span className="truncate">{headerTitle}</span>
+					<span className="shrink-0">{filterLabel}</span>
 				</div>
 			) : null}
 			<div ref={containerRef} style={{ width: '100%', height: chartHeight }}>
@@ -120,8 +127,8 @@ function ReportSalesChart({
 					<AreaChart width={chartWidth} height={chartHeight} data={ventasPorDia} margin={CHART_MARGIN}>
 						<defs>
 							<linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-								<stop offset="0%" stopColor={BRAND} stopOpacity={0.25} />
-								<stop offset="100%" stopColor={BRAND} stopOpacity={0} />
+								<stop offset="0%" stopColor={accent} stopOpacity={0.25} />
+								<stop offset="100%" stopColor={accent} stopOpacity={0} />
 							</linearGradient>
 						</defs>
 						<CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -143,7 +150,7 @@ function ReportSalesChart({
 						<Area
 							type="monotone"
 							dataKey="ventas"
-							stroke={BRAND}
+							stroke={accent}
 							fill={`url(#${gradientId})`}
 							strokeWidth={2.5}
 							isAnimationActive={false}
@@ -156,7 +163,7 @@ function ReportSalesChart({
 							<defs>
 								<linearGradient id={`${gradientId}-bar`} x1="0" y1="0" x2="0" y2="1">
 									<stop offset="0%" stopColor="#f36f65" />
-									<stop offset="100%" stopColor={BRAND} />
+									<stop offset="100%" stopColor={accent} />
 								</linearGradient>
 							</defs>
 						) : null}
@@ -197,6 +204,9 @@ function salesChartPropsAreEqual(prev, next) {
 		&& prev.currency === next.currency
 		&& prev.height === next.height
 		&& prev.showHeader === next.showHeader
+		&& prev.color === next.color
+		&& prev.title === next.title
+		&& prev.subtitle === next.subtitle
 		&& (prev.points || []).map((p) => `${p.key ?? ''}:${p.sales ?? 0}:${p.label ?? ''}`).join('|')
 			=== (next.points || []).map((p) => `${p.key ?? ''}:${p.sales ?? 0}:${p.label ?? ''}`).join('|')
 	);

@@ -3,7 +3,8 @@ import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Plus, Eye, ExternalLink, LineChart
+    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Eye, ExternalLink, LineChart,
+    Receipt, RotateCcw,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cashService } from '../services/cashService';
@@ -18,15 +19,9 @@ import {
 import ReportPeriodSelect from './ReportPeriodSelect';
 import {
     addLocalDays,
-    CUSTOM_DAY_MENU_VALUE,
-    formatReportPeriodLabel,
-    getReportPeriodOptions,
-    isCustomDayPeriod,
     isInReportRange,
-    parseCustomDay,
     reportPeriodExportSlug,
     resolveReportPeriodRange,
-    ymdLocal,
 } from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
@@ -45,6 +40,9 @@ import SpreadsheetPreviewModal from './SpreadsheetPreviewModal';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { useAdmin } from '../admin/pages/AdminProvider';
 import LocalExpenseModal from './expenses/LocalExpenseModal';
+import LocalExpensesToolbar from './expenses/LocalExpensesToolbar';
+import LocalExpensesSummaryBar from './expenses/LocalExpensesSummaryBar';
+import LocalExpenseCategoryCard from './expenses/LocalExpenseCategoryCard';
 import ReportSalesChart from './charts/ReportSalesChart';
 import ReportPaymentDonut from './charts/ReportPaymentDonut';
 import ReportSparkline from './charts/ReportSparkline';
@@ -155,23 +153,6 @@ const EXPENSE_AGG_OPTIONS = [
     { value: 'week', label: 'Semana' },
     { value: 'month', label: 'Mes' },
 ];
-
-const EXPENSE_PERIOD_TABS = [
-    { value: 'month', label: 'Mes actual' },
-    { value: '7', label: '7 días' },
-    { value: '30', label: '30 días' },
-    { value: 'week', label: 'Semana' },
-];
-
-const EXPENSE_PERIOD_TAB_VALUES = new Set(EXPENSE_PERIOD_TABS.map((o) => o.value));
-
-const EXPENSE_PERIOD_MORE_OPTIONS = getReportPeriodOptions().filter(
-    (o) => !EXPENSE_PERIOD_TAB_VALUES.has(o.value),
-);
-
-function isExpensePeriodTab(value) {
-    return EXPENSE_PERIOD_TAB_VALUES.has(value);
-}
 
 function getMonthRangeUtc(yyyyMm) {
     const [yearStr, monthStr] = String(yyyyMm).split('-');
@@ -487,7 +468,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         [analyticsDate, reportRange],
     );
 
-    const expenseCustomDay = parseCustomDay(filterPeriod) ?? ymdLocal(new Date());
     const currentMonthBucketKey = currentMonthYyyyMm();
 
     const expenseBucketKeys = useMemo(() => {
@@ -790,19 +770,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         }
         setIsAddExpenseModalOpen(true);
     }, [selectedBranch, cashSystem?.activeShift, showNotify]);
-
-    const handleExpenseMorePeriodChange = useCallback((next) => {
-        if (next === CUSTOM_DAY_MENU_VALUE) {
-            setFilterPeriod(`day:${ymdLocal(new Date())}`);
-            return;
-        }
-        setFilterPeriod(String(next));
-    }, []);
-
-    const handleExpenseCustomDayChange = useCallback((e) => {
-        const ymd = e.target.value;
-        if (ymd) setFilterPeriod(`day:${ymd}`);
-    }, []);
 
     const handleAfterExpenseMovement = useCallback(async () => {
         setExpenseRefreshNonce((n) => n + 1);
@@ -1438,289 +1405,90 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const gastosLocalSection = (
         <Card className="overflow-hidden">
-            <CardHeader className="flex flex-col gap-4 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="max-w-xl">
-                    <CardTitle className="text-lg">Gastos del local</CardTitle>
-                    <CardDescription>
-                        Mercadería, arriendo, sueldo y gastos operativos. Los retiros de efectivo hechos en Caja también
-                        aparecen aquí para control del CEO.
-                    </CardDescription>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <Button variant="default" onClick={tryOpenRegisterExpenseModal} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 sm:w-auto">
-                        <Plus size={17} strokeWidth={2.25} aria-hidden />
-                        Registrar movimiento
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={handleExportManualExpensesExcel}
-                        disabled={exportExpensesLoading || !(manualExpenseRows.length || refundExpenseRows.length)}
-                        className="w-full sm:w-auto"
-                    >
-                        {exportExpensesLoading ? (
-                            <Loader2 size={14} className="animate-spin" aria-hidden />
-                        ) : (
-                            <Download size={14} aria-hidden />
-                        )}
-                        <span>Excel (vista)</span>
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Período</span>
-                    <div className="rpt-segmented">
-                        {EXPENSE_PERIOD_TABS.map(({ value, label }) => (
-                            <Button variant="default"
-                                key={value}
-                                type="button"
-                                className={`rpt-segmented-btn ${filterPeriod === value ? 'active' : ''}`}
-                                onClick={() => setFilterPeriod(value)}
-                            >
-                                {label}
-                            </Button>
-                        ))}
-                    </div>
-                    <ReportPeriodSelect
-                        className="max-w-[160px]"
-                        value={
-                            isCustomDayPeriod(filterPeriod)
-                                ? CUSTOM_DAY_MENU_VALUE
-                                : isExpensePeriodTab(filterPeriod)
-                                  ? 'yesterday'
-                                  : filterPeriod
-                        }
-                        displayLabel={
-                            isExpensePeriodTab(filterPeriod) && !isCustomDayPeriod(filterPeriod)
-                                ? 'Más'
-                                : formatReportPeriodLabel(filterPeriod, getReportPeriodOptions())
-                        }
-                        options={EXPENSE_PERIOD_MORE_OPTIONS}
-                        onChange={handleExpenseMorePeriodChange}
-                    />
-                    {isCustomDayPeriod(filterPeriod) ? (
-                        <input
-                            type="date"
-                            className="h-10 rounded-xl border border-[#e5e5ea] bg-white px-3 text-sm font-semibold"
-                            value={expenseCustomDay}
-                            onChange={handleExpenseCustomDayChange}
-                            aria-label="Día específico"
-                        />
-                    ) : null}
-                    {expenseAgg === 'month' ? (
-                        <span className="text-xs font-bold text-[#1a1a1a]">Año {expenseReferenceYear}</span>
-                    ) : null}
-                </div>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+                <LocalExpensesToolbar
+                    filterPeriod={filterPeriod}
+                    onFilterPeriodChange={setFilterPeriod}
+                    expenseAgg={expenseAgg}
+                    onExpenseAggChange={setExpenseAgg}
+                    aggOptions={EXPENSE_AGG_OPTIONS}
+                    expenseKindFilter={expenseKindFilter}
+                    onExpenseKindFilterChange={setExpenseKindFilter}
+                    kindOptions={expenseKindFilterOptions}
+                    expenseReferenceYear={expenseReferenceYear}
+                    onRegisterClick={tryOpenRegisterExpenseModal}
+                    onExportClick={handleExportManualExpensesExcel}
+                    exportLoading={exportExpensesLoading}
+                    exportDisabled={!(manualExpenseRows.length || refundExpenseRows.length)}
+                />
+                <LocalExpensesSummaryBar
+                    total={expensesData.total}
+                    operating={manualExpenseBreakdown.operating}
+                    operatingCount={manualExpenseBreakdown.operatingCount}
+                    withdrawals={manualExpenseBreakdown.withdrawals}
+                    withdrawalCount={manualExpenseBreakdown.withdrawalCount}
+                    refunds={refundBreakdown.total}
+                    refundCount={refundBreakdown.count}
+                    formatMoney={fmt}
+                />
+                <p className="text-xs font-medium text-[#6b7280] sm:text-sm">
+                    Mercadería, arriendo, sueldo y gastos operativos. Los retiros de efectivo hechos en Caja también
+                    aparecen aquí para control del CEO.
+                </p>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Agrupar</span>
-                    <div className="rpt-segmented">
-                        {EXPENSE_AGG_OPTIONS.map(({ value, label }) => (
-                            <Button variant="default"
-                                key={value}
-                                type="button"
-                                className={`rpt-segmented-btn ${expenseAgg === value ? 'active' : ''}`}
-                                onClick={() => setExpenseAgg(value)}
-                            >
-                                {label}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Tipo</span>
-                    <div className="rpt-segmented">
-                        {expenseKindFilterOptions.map(({ value, label, count }) => (
-                            <Button variant="default"
-                                key={value}
-                                type="button"
-                                className={`rpt-segmented-btn ${expenseKindFilter === value ? 'active' : ''}`}
-                                onClick={() => setExpenseKindFilter(value)}
-                            >
-                                <span>{label}</span>
-                                {count > 0 ? (
-                                    <span className="rounded-full bg-[#f5f5f7] px-1.5 py-0.5 text-[10px] font-bold text-[#6b7280]">
-                                        {count}
-                                    </span>
-                                ) : null}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-
-                {(manualExpenseRows.length > 0 || refundExpenseRows.length > 0) && expenseKindFilter === 'all' ? (
-                    <p className="text-xs font-medium text-[#6b7280]">
-                        Total período: <strong className="text-[#1a1a1a]">{fmt(expensesData.total)}</strong>
-                        {' · '}
-                        Operativos: <strong className="text-[#1a1a1a]">{fmt(manualExpenseBreakdown.operating)}</strong> (
-                        {manualExpenseBreakdown.operatingCount})
-                        {' · '}
-                        Retiros caja: <strong className="text-[#1a1a1a]">{fmt(manualExpenseBreakdown.withdrawals)}</strong> (
-                        {manualExpenseBreakdown.withdrawalCount})
-                        {' · '}
-                        Devoluciones: <strong className="text-[#1a1a1a]">{fmt(refundBreakdown.total)}</strong> ({refundBreakdown.count})
-                    </p>
-                ) : null}
-
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {showOperatingExpenseBlock ? (
-                        <section className="space-y-3">
-                            <div className="flex items-baseline justify-between gap-3">
-                                <h4 className="text-sm font-bold text-[#1a1a1a]">Gastos operativos</h4>
-                                <span className="text-xs font-semibold text-[#6b7280]">
-                                    {manualExpenseBreakdown.operatingCount} mov. · {fmt(manualExpenseBreakdown.operating)}
-                                </span>
-                            </div>
-                            <div className="grid gap-4 lg:grid-cols-2">
-                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
-                                    {operatingChartPoints.length ? (
-                                        <ReportSalesChart
-                                            points={operatingChartPoints}
-                                            kind="bar-solid"
-                                            currency={currency}
-                                            height={200}
-                                            showHeader
-                                        />
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
-                                            {loadingExpenses ? 'Cargando…' : 'Sin gastos operativos en este período.'}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
-                                    <table className="w-full text-sm">
-                                        <thead className="sticky top-0 bg-[#f5f5f7]">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
-                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {operatingChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
-                                                >
-                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
-                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
-                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
-                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(operatingChartData.periodTotal)}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
+                        <LocalExpenseCategoryCard
+                            title="Gastos operativos"
+                            icon={Receipt}
+                            accent="#2563eb"
+                            total={manualExpenseBreakdown.operating}
+                            count={manualExpenseBreakdown.operatingCount}
+                            points={operatingChartPoints}
+                            buckets={operatingChartData.expenseBucketsOrdered}
+                            periodTotal={operatingChartData.periodTotal}
+                            fmt={fmt}
+                            currency={currency}
+                            loading={loadingExpenses}
+                            emptyLabel="Sin gastos operativos en este período."
+                            highlightBucketKey={expenseAgg === 'month' ? currentMonthBucketKey : null}
+                        />
                     ) : null}
 
                     {showWithdrawalExpenseBlock ? (
-                        <section className="space-y-3">
-                            <div className="flex items-baseline justify-between gap-3">
-                                <h4 className="text-sm font-bold text-[#1a1a1a]">Retiros de caja</h4>
-                                <span className="text-xs font-semibold text-[#6b7280]">
-                                    {manualExpenseBreakdown.withdrawalCount} mov. · {fmt(manualExpenseBreakdown.withdrawals)}
-                                </span>
-                            </div>
-                            <div className="grid gap-4 lg:grid-cols-2">
-                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
-                                    {withdrawalChartPoints.length ? (
-                                        <ReportSalesChart
-                                            points={withdrawalChartPoints}
-                                            kind="bar-solid"
-                                            currency={currency}
-                                            height={200}
-                                            showHeader
-                                        />
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
-                                            {loadingExpenses ? 'Cargando…' : 'Sin retiros de caja en este período.'}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
-                                    <table className="w-full text-sm">
-                                        <thead className="sticky top-0 bg-[#f5f5f7]">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
-                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {withdrawalChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
-                                                >
-                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
-                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
-                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
-                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(withdrawalChartData.periodTotal)}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
+                        <LocalExpenseCategoryCard
+                            title="Retiros de caja"
+                            icon={Banknote}
+                            accent="#0d9488"
+                            total={manualExpenseBreakdown.withdrawals}
+                            count={manualExpenseBreakdown.withdrawalCount}
+                            points={withdrawalChartPoints}
+                            buckets={withdrawalChartData.expenseBucketsOrdered}
+                            periodTotal={withdrawalChartData.periodTotal}
+                            fmt={fmt}
+                            currency={currency}
+                            loading={loadingExpenses}
+                            emptyLabel="Sin retiros de caja en este período."
+                            highlightBucketKey={expenseAgg === 'month' ? currentMonthBucketKey : null}
+                        />
                     ) : null}
 
                     {showRefundExpenseBlock ? (
-                        <section className="space-y-3">
-                            <div className="flex items-baseline justify-between gap-3">
-                                <h4 className="text-sm font-bold text-[#1a1a1a]">Devoluciones</h4>
-                                <span className="text-xs font-semibold text-[#6b7280]">
-                                    {refundBreakdown.count} mov. · {fmt(refundBreakdown.total)}
-                                </span>
-                            </div>
-                            <div className="grid gap-4 lg:grid-cols-2">
-                                <div className="min-h-[220px] rounded-xl border border-[#e5e5ea] bg-white p-4">
-                                    {refundChartPoints.length ? (
-                                        <ReportSalesChart
-                                            points={refundChartPoints}
-                                            kind="bar-solid"
-                                            currency={currency}
-                                            height={200}
-                                            showHeader
-                                        />
-                                    ) : (
-                                        <div className="flex h-full items-center justify-center text-sm text-[#6b7280]">
-                                            {loadingExpenses ? 'Cargando…' : 'Sin devoluciones en este período.'}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
-                                    <table className="w-full text-sm">
-                                        <thead className="sticky top-0 bg-[#f5f5f7]">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Período</th>
-                                                <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {refundChartData.expenseBucketsOrdered.map((row) => (
-                                                <tr
-                                                    key={row.key}
-                                                    className={expenseAgg === 'month' && row.key === currentMonthBucketKey ? 'bg-[#f5f5f7]' : ''}
-                                                >
-                                                    <td className="px-4 py-2 text-[#1a1a1a]">{row.label}</td>
-                                                    <td className="px-4 py-2 text-right font-bold tabular-nums text-[#1a1a1a]">{fmt(row.total)}</td>
-                                                </tr>
-                                            ))}
-                                            <tr className="border-t border-[#e5e5ea] bg-[#f5f5f7] font-bold">
-                                                <td className="px-4 py-2 text-[#1a1a1a]">Total</td>
-                                                <td className="px-4 py-2 text-right tabular-nums text-[#1a1a1a]">{fmt(refundChartData.periodTotal)}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
+                        <LocalExpenseCategoryCard
+                            title="Devoluciones"
+                            icon={RotateCcw}
+                            accent="#7c3aed"
+                            total={refundBreakdown.total}
+                            count={refundBreakdown.count}
+                            points={refundChartPoints}
+                            buckets={refundChartData.expenseBucketsOrdered}
+                            periodTotal={refundChartData.periodTotal}
+                            fmt={fmt}
+                            currency={currency}
+                            loading={loadingExpenses}
+                            emptyLabel="Sin devoluciones en este período."
+                            highlightBucketKey={expenseAgg === 'month' ? currentMonthBucketKey : null}
+                        />
                     ) : null}
                 </div>
 
@@ -1772,6 +1540,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                         : String(pm || '—');
                                             const kindLabel = labelForManualExpenseKind(row);
                                             const isRefund = isOrderLinkedExpense(row);
+                                            const isWithdrawal = isCashWithdrawal(row);
+                                            const kindBadgeClass = isWithdrawal
+                                                ? 'border-transparent bg-teal-50 text-teal-700 hover:bg-teal-50'
+                                                : isRefund
+                                                  ? 'border-transparent bg-violet-50 text-violet-700 hover:bg-violet-50'
+                                                  : 'border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50';
                                             return (
                                                 <tr key={row.id} className="border-t border-[#e5e5ea]">
                                                     <td className="px-4 py-2 whitespace-nowrap text-[#1a1a1a]">
@@ -1779,8 +1553,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <Badge
-                                                            variant={isCashWithdrawal(row) ? 'danger' : isRefund ? 'outline' : 'secondary'}
-                                                            className="text-[10px]"
+                                                            variant="secondary"
+                                                            className={`w-[118px] justify-center text-[10px] ${kindBadgeClass}`}
                                                         >
                                                             {kindLabel}
                                                         </Badge>
