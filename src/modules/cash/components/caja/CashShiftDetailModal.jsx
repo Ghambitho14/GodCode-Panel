@@ -103,11 +103,11 @@ function movementPaymentLabel(m, linkedOrder = null) {
     return null;
 }
 
-function formatMovementDateTime(iso) {
+function formatMovementDateTime(iso, locale) {
     const d = new Date(iso);
     return {
-        date: d.toLocaleDateString('es-CL', { dateStyle: 'short' }),
-        time: d.toLocaleTimeString('es-CL', { timeStyle: 'short' }),
+        date: d.toLocaleDateString(locale, { dateStyle: 'short' }),
+        time: d.toLocaleTimeString(locale, { timeStyle: 'short' }),
     };
 }
 
@@ -142,7 +142,7 @@ function shiftClosedAtMs(shift) {
 }
 
 const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], onMovementClick }) => {
-    const { formatMoney: fmtHist } = useBranchMoney();
+    const { formatMoney: fmtHist, locale } = useBranchMoney();
     const [movements, setMovements] = useState([]);
     const [loading, setLoading] = useState(false);
     const [openedByLabel, setOpenedByLabel] = useState('');
@@ -352,7 +352,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                         <div className="cash-shift-detail-modal__meta">
                             <span>
                                 {headerDateSource
-                                    ? new Date(headerDateSource).toLocaleDateString('es-CL', {
+                                    ? new Date(headerDateSource).toLocaleDateString(locale, {
                                             weekday: 'short',
                                             day: '2-digit',
                                             month: 'long',
@@ -382,7 +382,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                 <div className="cash-shift-detail-info-item">
                                     <span className="cash-shift-detail-info-item__label">Apertura</span>
                                     <span className="cash-shift-detail-info-item__value">
-                                        {new Date(shift.opened_at).toLocaleString('es-CL', {
+                                        {new Date(shift.opened_at).toLocaleString(locale, {
                                             dateStyle: 'short',
                                             timeStyle: 'short',
                                         })}
@@ -392,7 +392,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                     <span className="cash-shift-detail-info-item__label">Cierre</span>
                                     <span className="cash-shift-detail-info-item__value">
                                         {isShiftClosed
-                                            ? new Date(shift.closed_at).toLocaleString('es-CL', {
+                                            ? new Date(shift.closed_at).toLocaleString(locale, {
                                                     dateStyle: 'short',
                                                     timeStyle: 'short',
                                                 })
@@ -586,7 +586,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                                     </thead>
                                     <tbody>
                                         {movementsWithCancellations.map((m) => {
-                                            const movementDatetime = formatMovementDateTime(m.created_at);
+                                            const movementDatetime = formatMovementDateTime(m.created_at, locale);
                                             const linkedOrder = resolveMovementOrder(m, orders);
                                             const isSale = m.type === 'sale';
                                             const fulfillmentKind =

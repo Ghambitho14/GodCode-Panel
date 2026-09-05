@@ -88,12 +88,12 @@ function calcTrendPercent(current, prev) {
     return Number.isFinite(pct) ? pct : null;
 }
 
-function formatSalesChartLabel(isoDate, dayCount) {
+function formatSalesChartLabel(isoDate, dayCount, locale) {
     const d = new Date(`${isoDate}T12:00:00`);
     if (dayCount <= 15) {
-        return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+        return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
     }
-    return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'numeric' });
+    return d.toLocaleDateString(locale, { day: 'numeric', month: 'numeric' });
 }
 
 function formatHourLabel(hour) {
@@ -117,7 +117,7 @@ function buildHourlySalesPoints(orders, range) {
     return buckets;
 }
 
-function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary) {
+function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary, locale) {
     const chartDateKeys = [...range.chartDateKeys];
     if (analyticsSource === 'rpc' && analyticsSummary?.current?.byDay) {
         const byDay = analyticsSummary.current.byDay;
@@ -126,7 +126,7 @@ function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary)
         if (hasAny) {
             return chartDateKeys.map((k) => ({
                 key: k,
-                label: formatSalesChartLabel(k, range.dayCount),
+                label: formatSalesChartLabel(k, range.dayCount, locale),
                 sales: Number(byDay[k]) || 0,
                 expenses: 0,
             }));
@@ -143,7 +143,7 @@ function buildDailySalesPoints(orders, range, analyticsSource, analyticsSummary)
     });
     return chartDateKeys.map((k) => ({
         key: k,
-        label: formatSalesChartLabel(k, range.dayCount),
+        label: formatSalesChartLabel(k, range.dayCount, locale),
         sales: salesByDate[k] || 0,
         expenses: 0,
     }));
@@ -170,14 +170,14 @@ function getMonthRangeUtc(yyyyMm) {
     };
 }
 
-function formatCalendarMonthLabel(yyyyMm) {
+function formatCalendarMonthLabel(yyyyMm, locale) {
     const [yearStr, monthStr] = String(yyyyMm).split('-');
     const year = Number(yearStr);
     const month = Number(monthStr);
     if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
         return yyyyMm;
     }
-    const raw = new Date(year, month - 1, 1).toLocaleDateString('es-CL', {
+    const raw = new Date(year, month - 1, 1).toLocaleDateString(locale, {
         month: 'long',
         year: 'numeric',
     });
@@ -189,7 +189,7 @@ function currentMonthYyyyMm(date = new Date()) {
 }
 
 /** Opciones YYYY-MM para el selector de mes (mismo AdminMenuSelect que el período). */
-function buildRecentMonthOptions(monthsBack = 24, selectedValue = null) {
+function buildRecentMonthOptions(monthsBack = 24, selectedValue = null, locale) {
     const now = new Date();
     const seen = new Set();
     const options = [];
@@ -198,12 +198,12 @@ function buildRecentMonthOptions(monthsBack = 24, selectedValue = null) {
         const value = currentMonthYyyyMm(d);
         if (seen.has(value)) continue;
         seen.add(value);
-        options.push({ value, label: formatCalendarMonthLabel(value) });
+        options.push({ value, label: formatCalendarMonthLabel(value, locale) });
     }
     if (selectedValue && !seen.has(selectedValue)) {
         options.unshift({
             value: selectedValue,
-            label: formatCalendarMonthLabel(selectedValue),
+            label: formatCalendarMonthLabel(selectedValue, locale),
         });
     }
     return options;
@@ -260,19 +260,19 @@ const TrendBadge = ({ value, isSignificant = true }) => {
     );
 };
 
-function formatKpiValue(metaKey, value, fmt) {
+function formatKpiValue(metaKey, value, fmt, fmtPlain) {
     if (metaKey === 'count') {
-        return Math.round(Number(value) || 0).toLocaleString('es-CL');
+        return fmtPlain(Math.round(Number(value) || 0));
     }
     return fmt(value);
 }
 
-function formatSparklineValue(metaKey, value, fmt) {
+function formatSparklineValue(metaKey, value, fmt, fmtPlain) {
     if (metaKey === 'count' || metaKey === 'deliveryCount') {
-        return `${Math.round(Number(value) || 0).toLocaleString('es-CL')} pedidos`;
+        return `${fmtPlain(Math.round(Number(value) || 0))} pedidos`;
     }
     if (metaKey === 'clients') {
-        return `${Math.round(Number(value) || 0).toLocaleString('es-CL')} clientes`;
+        return `${fmtPlain(Math.round(Number(value) || 0))} clientes`;
     }
     return fmt(value);
 }
@@ -397,7 +397,7 @@ function resolveTopProductsRange(reportRange) {
     return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
-const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subtitle, showTrend, trendSignificant = true }) => {
+const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPlain, subtitle, showTrend, trendSignificant = true }) => {
     return (
         <Card className="@container flex min-w-0 flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
@@ -406,7 +406,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subti
             </div>
             <div className="mt-1 min-w-0">
                 {loading ? <Skeleton className="h-8 w-28" /> : (
-                    <p className="text-[clamp(16px,11.5cqi,28px)] font-bold leading-tight tracking-tight tabular-nums text-[#14161a] [overflow-wrap:anywhere]">{formatKpiValue(meta.key, value, fmt)}</p>
+                    <p className="text-[clamp(16px,11.5cqi,28px)] font-bold leading-tight tracking-tight tabular-nums text-[#14161a] [overflow-wrap:anywhere]">{formatKpiValue(meta.key, value, fmt, fmtPlain)}</p>
                 )}
             </div>
             {subtitle && <p className="mt-1 text-[11px] font-medium text-[#6b7280] sm:text-xs">{subtitle}</p>}
@@ -418,7 +418,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, subti
                     height={28}
                     showDots
                     color="#2563eb"
-                    valueFormatter={(v) => formatSparklineValue(meta.key, v, fmt)}
+                    valueFormatter={(v) => formatSparklineValue(meta.key, v, fmt, fmtPlain)}
                 />
             </div>
         </Card>
@@ -433,7 +433,10 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         [branches],
     );
 
-    const { formatMoney: fmt, currency } = useMemo(
+    /* locale y formatMoneyPlain salen del mismo formateador de sucursal que fmt.
+       Antes se descartaban y el archivo hardcodeaba 'es-CL' 17 veces, asi que el
+       dinero salia en la moneda del local y la fecha de al lado en formato chileno. */
+    const { formatMoney: fmt, formatMoneyPlain: fmtPlain, currency, locale } = useMemo(
         () => createMoneyFormatter(selectedBranch, companyProfile),
         [selectedBranch, companyProfile],
     );
@@ -492,7 +495,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     );
 
     const monthlyExportMonthOptions = useMemo(
-        () => buildRecentMonthOptions(24, analyticsDate),
+        () => buildRecentMonthOptions(24, analyticsDate, locale),
         [analyticsDate],
     );
 
@@ -697,8 +700,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 const metodo =
                     pm === 'cash' ? 'Efectivo' : pm === 'card' ? 'Tarjeta' : pm === 'online' ? 'Transferencia' : String(pm || '');
                 return {
-                    Fecha: d.toLocaleDateString('es-CL'),
-                    Hora: d.toLocaleTimeString('es-CL'),
+                    Fecha: d.toLocaleDateString(locale),
+                    Hora: d.toLocaleTimeString(locale),
                     Tipo: labelForManualExpenseKind(row),
                     Sucursal: branchName,
                     Monto: row.amount,
@@ -745,8 +748,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             const metodo =
                 pm === 'cash' ? 'Efectivo' : pm === 'card' ? 'Tarjeta' : pm === 'online' ? 'Transferencia' : String(pm || '');
             return {
-                Fecha: d.toLocaleDateString('es-CL'),
-                Hora: d.toLocaleTimeString('es-CL'),
+                Fecha: d.toLocaleDateString(locale),
+                Hora: d.toLocaleTimeString(locale),
                 Tipo: labelForManualExpenseKind(row),
                 Sucursal: branchName,
                 Monto: row.amount,
@@ -875,8 +878,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             const orderBranch = branchById[String(order.branch_id)] ?? null;
             const orderCurrency = resolveEffectiveCurrency(orderBranch, companyProfile);
             return {
-                Fecha: d.toLocaleDateString('es-CL'),
-                Hora: d.toLocaleTimeString('es-CL'),
+                Fecha: d.toLocaleDateString(locale),
+                Hora: d.toLocaleTimeString(locale),
                 Cliente: order.client_name,
                 [exportIdLabel]: order.client_rut,
                 Teléfono: order.client_phone,
@@ -1079,7 +1082,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         // Para filtros de un solo día mostramos el transcurso por hora.
         const salesChartPoints = range.dayCount === 1
             ? buildHourlySalesPoints(current, range)
-            : buildDailySalesPoints(current, range, analyticsSource, analyticsSummary);
+            : buildDailySalesPoints(current, range, analyticsSource, analyticsSummary, locale);
 
         // Los gastos solo tienen desglose diario; para la vista horaria quedan en 0.
         if (range.dayCount !== 1) {
@@ -1577,7 +1580,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             return (
                                                 <tr key={row.id} className="border-t border-[#e5e5ea]">
                                                     <td className="px-4 py-2 whitespace-nowrap text-[#1a1a1a]">
-                                                        {d.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                                                        {d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <Badge
@@ -1702,7 +1705,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     const spark = kpiSparklines[resolveKpiSparkKey(meta.key)] ?? FLAT_SPARKLINE;
                     const loading = meta.key === 'clients' ? false : loadingAnalyticsOrders && kpis.count === 0;
                     const subtitle = meta.key === 'deliveryTotal'
-                        ? `${(kpis.deliveryCount ?? 0).toLocaleString('es-CL')} pedido${(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} · solo tarifas`
+                        ? `${fmtPlain(kpis.deliveryCount ?? 0)} pedido${(kpis.deliveryCount ?? 0) === 1 ? '' : 's'} · solo tarifas`
                         : undefined;
                     const trendSignificant = meta.key === 'clients'
                         ? true
@@ -1716,6 +1719,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             sparklineValues={spark}
                             loading={loading}
                             fmt={fmt}
+                            fmtPlain={fmtPlain}
                             subtitle={subtitle}
                             showTrend={reportRange.hasComparison}
                             trendSignificant={trendSignificant}
@@ -1936,7 +1940,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <CardContent className="space-y-4">
                             <div>
                                 <p className="text-[28px] font-bold leading-none tracking-tight text-[#14161a]">
-                                    {newClientsInfo.count.toLocaleString('es-CL')}
+                                    {fmtPlain(newClientsInfo.count)}
                                 </p>
                                 <p className="mt-1 text-xs font-medium text-[#6b7280]">
                                     altas en {reportRange.displayLabel}
@@ -1949,12 +1953,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     showTrend={reportRange.hasComparison}
                                     height={64}
                                     color="#16a34a"
-                                    valueFormatter={(v) => `${Math.round(Number(v) || 0).toLocaleString('es-CL')} clientes`}
+                                    valueFormatter={(v) => `${fmtPlain(Math.round(Number(v) || 0))} clientes`}
                                 />
                             </div>
                             <div className="border-t border-[#ededf0] pt-3 text-sm">
                                 <p className="font-bold text-[#14161a]">
-                                    {newClientsInfo.total.toLocaleString('es-CL')} registrados en total
+                                    {fmtPlain(newClientsInfo.total)} registrados en total
                                 </p>
                                 <p className="text-xs font-medium text-[#6b7280]">
                                     Base acumulada de clientes (no es % del periodo)

@@ -71,7 +71,7 @@ const CashManager = ({
     companyName = null,
 }) => {
     const { cashSystem, companyProfile } = useAdmin();
-    const { formatMoney: fmt } = useBranchMoney();
+    const { formatMoney: fmt, locale } = useBranchMoney();
     const { formatOrderAmount } = useOrderMoney();
     const {
         activeShift, loading: loadingSystem, movements,
@@ -190,7 +190,7 @@ const CashManager = ({
                                 <ElapsedTime since={activeShift.opened_at} />
                             </span>
                             <span className="cash-dribbble-chip">
-                                Desde {new Date(activeShift.opened_at).toLocaleTimeString('es-CL', {
+                                Desde {new Date(activeShift.opened_at).toLocaleTimeString(locale, {
                                     hour: '2-digit',
                                     minute: '2-digit',
                                 })}
@@ -402,7 +402,7 @@ const CashManager = ({
                                             <div className="cash-recent-info">
                                                 <span className="cash-recent-desc">{m.description || (m.type === 'sale' ? 'Venta' : m.type === 'income' ? 'Ingreso' : m.type === 'cancel' ? 'Cancelado' : 'Egreso')}</span>
                                                 <span className="cash-recent-time">
-                                                    {new Date(m.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                                    {new Date(m.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
                                                     {isCancel ? ' · Cancelado' : ''}
                                                     {!isCancel && order && Number(order.delivery_fee) > 0
                                                         ? ` · Envío ${formatOrderAmount({

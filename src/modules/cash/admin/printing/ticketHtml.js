@@ -1,5 +1,6 @@
 import { CONTENT_MM, escapeHtml, resolveSafeLogoUrl } from './thermalUtils';
 import { isLegacyGlobalKitchenNote, isOrderDelivery } from '@/shared/utils/orderUtils';
+import { createMoneyFormatter } from '@/shared/utils/money';
 import {
 	clientPhoneForTicket,
 	clientReferenceLineHtml,
@@ -35,6 +36,9 @@ import {
  */
 export function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {}) {
 	const fmt = createFmtOrder(printOptions);
+	/* El ticket impreso es lo que se lleva el cliente: la fecha va en el formato
+	   de su pais, no en el chileno que estaba fijado. Mismo origen que fmt. */
+	const { locale } = createMoneyFormatter(printOptions.branch ?? null, printOptions.company ?? null);
 	// El titulo grande del ticket cliente muestra el nombre de la EMPRESA
 	// (companyName). La sucursal ya viaja en el prefijo `[Sucursal: X]` de
 	// la nota; no queremos duplicarla. Si nadie pasa `companyName`, caemos al
@@ -52,7 +56,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 	const safeOrderNote = isLegacyGlobalKitchenNote(order) && order.note
 		? escapeHtml(stripInternalNoteHints(order.note))
 		: '';
-	const dateTimeLine = escapeHtml(formatTicketDateTime(order));
+	const dateTimeLine = escapeHtml(formatTicketDateTime(order, locale));
 	const logoMaxWidthMm = CONTENT_MM <= 50 ? 40 : 56;
 	const logoMaxHeightMm = 13;
 	const safeLogoUrl = variant === 'cashier' ? resolveSafeLogoUrl(logoUrl) : '';
@@ -63,7 +67,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 		const channelEsc = escapeHtml(orderChannelForTicket(order, printOptions.orderChannel));
 		const orderBandLine = `#${safeOrderId} - COCINA - ${fulfillmentEsc} - ${channelEsc}`;
 		const refLineHtml = clientReferenceLineHtml(order);
-		const dateDash = escapeHtml(formatTicketDateTimeDash(order));
+		const dateDash = escapeHtml(formatTicketDateTimeDash(order, locale));
 		const safeKitchenNote = isLegacyGlobalKitchenNote(order) && order.note
 			? escapeHtml(stripInternalNoteHints(order.note))
 			: '';

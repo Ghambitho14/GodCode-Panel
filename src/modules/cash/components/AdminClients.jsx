@@ -14,7 +14,7 @@ import { getFormStrategy } from '@/lib/geo/country-forms';
 import { Button } from "@/components/ui/button";
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
-    const { formatMoney } = useBranchMoney();
+    const { formatMoney, locale } = useBranchMoney();
     const { companyProfile, selectedBranch } = useAdmin();
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
@@ -568,7 +568,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 <td data-label="Última vez">
                                     <div className="client-last-visit-stack">
                                         <div className="text-sm text-gray-400">
-                                            {client.last_order_at ? new Date(client.last_order_at).toLocaleDateString('es-CL') : '-'}
+                                            {client.last_order_at ? new Date(client.last_order_at).toLocaleDateString(locale) : '-'}
                                         </div>
                                         <div className="text-xs opacity-60 client-last-visit-status">
                                             {getStatusIndicator(client.status)}

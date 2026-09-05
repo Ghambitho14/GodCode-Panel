@@ -1,4 +1,4 @@
-import { normalizeCurrencyCode } from '@/shared/utils/money';
+import { normalizeCurrencyCode, createMoneyFormatter } from '@/shared/utils/money';
 import { formatOrderAmount } from '@/lib/money/order-amount';
 import { escapeHtml } from './thermalUtils';
 import {
@@ -44,10 +44,10 @@ export function createFmtOrder(printOptions = {}) {
  * @param {Record<string, unknown>} order
  * @returns {string}
  */
-export function formatTicketDateTime(order) {
+export function formatTicketDateTime(order, locale) {
 	const d = order?.created_at ? new Date(order.created_at) : new Date();
 	if (Number.isNaN(d.getTime())) {
-		return new Date().toLocaleString('es-CL', {
+		return new Date().toLocaleString(locale, {
 			day: '2-digit',
 			month: '2-digit',
 			year: 'numeric',
@@ -55,7 +55,7 @@ export function formatTicketDateTime(order) {
 			minute: '2-digit',
 		});
 	}
-	return d.toLocaleString('es-CL', {
+	return d.toLocaleString(locale, {
 		day: '2-digit',
 		month: '2-digit',
 		year: 'numeric',
@@ -69,25 +69,25 @@ export function formatTicketDateTime(order) {
  * @param {Record<string, unknown>} order
  * @returns {string}
  */
-export function formatTicketDateTimeDash(order) {
+export function formatTicketDateTimeDash(order, locale) {
 	const d = order?.created_at ? new Date(order.created_at) : new Date();
 	if (Number.isNaN(d.getTime())) {
 		const n = new Date();
-		return formatDateDashFromDate(n);
+		return formatDateDashFromDate(n, locale);
 	}
-	return formatDateDashFromDate(d);
+	return formatDateDashFromDate(d, locale);
 }
 
 /**
  * @param {Date} d
  */
-export function formatDateDashFromDate(d) {
-	const datePart = d.toLocaleDateString('es-CL', {
+export function formatDateDashFromDate(d, locale) {
+	const datePart = d.toLocaleDateString(locale, {
 		day: '2-digit',
 		month: '2-digit',
 		year: 'numeric',
 	});
-	const timePart = d.toLocaleTimeString('es-CL', {
+	const timePart = d.toLocaleTimeString(locale, {
 		hour: '2-digit',
 		minute: '2-digit',
 		hour12: false,

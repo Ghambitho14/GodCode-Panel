@@ -44,11 +44,11 @@ function fromDatetimeLocal(s) {
 	return d.toISOString();
 }
 
-function formatCouponRowDates(row) {
+function formatCouponRowDates(row, locale) {
 	const fmt = (v) => {
 		if (!v) return "—";
 		try {
-			return new Date(v).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
+			return new Date(v).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
 		} catch {
 			return String(v);
 		}
@@ -57,7 +57,7 @@ function formatCouponRowDates(row) {
 }
 
 export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
-	const { formatMoney } = useBranchMoney();
+	const { formatMoney, locale } = useBranchMoney();
 	const [rows, setRows] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
@@ -679,7 +679,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 									const dsc = pct
 										? `${Number(row.discount_value)} %`
 										: formatMoney(Number(row.discount_value));
-									const vd = formatCouponRowDates(row);
+									const vd = formatCouponRowDates(row, locale);
 									const mr = row.max_redemptions != null ? String(row.max_redemptions) : "∞";
 									const rc = String(row.redemptions_count ?? 0);
 									const scopeLbl =
