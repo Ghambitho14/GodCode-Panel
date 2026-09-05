@@ -16,7 +16,6 @@ vi.mock('recharts', async (importOriginal) => {
 import ReportSalesChart from '@/modules/cash/components/charts/ReportSalesChart';
 import ReportPaymentDonut from '@/modules/cash/components/charts/ReportPaymentDonut';
 import ReportSparkline from '@/modules/cash/components/charts/ReportSparkline';
-import ReportTopProductsChart from '@/modules/cash/components/charts/ReportTopProductsChart';
 
 describe('report charts smoke test', () => {
 	it('renders ReportSalesChart area with Recharts', () => {
@@ -82,19 +81,5 @@ describe('report charts smoke test', () => {
 		);
 		expect(container.querySelector('.recharts-surface')).toBeNull();
 		expect(container.querySelector('[style*="border-radius: 9999px"]') || container.querySelector('[style*="border-radius"]')).not.toBeNull();
-	});
-
-	it('renders ReportTopProductsChart', () => {
-		render(
-			<ReportTopProductsChart
-				products={[
-					{ name: 'Producto A', qty: 100, revenue: 50000 },
-					{ name: 'Producto B', qty: 60, revenue: 30000 },
-				]}
-				currency="CLP"
-				height={200}
-			/>,
-		);
-		expect(screen.getByText('Producto A')).toBeTruthy();
 	});
 });

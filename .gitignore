@@ -50,3 +50,11 @@ coverage
 test-results
 playwright-report
 playwright/.cache
+
+# Directorios de herramientas de agentes (no forman parte del proyecto)
+.cursor/
+.agents/
+.opencode/
+
+# Submodulo GodCode: gitlink huerfano sin .gitmodules
+GodCode/

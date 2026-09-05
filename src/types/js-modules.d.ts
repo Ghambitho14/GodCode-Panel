@@ -6,7 +6,3 @@ declare module "./modules/cash/admin/pages/AdminProvider" {
 declare module "./modules/cash/context/LocationContext" {
   export const LocationProvider: any;
 }
-
-declare module "./modules/cash/context/BusinessContext" {
-  export const BusinessProvider: any;
-}
