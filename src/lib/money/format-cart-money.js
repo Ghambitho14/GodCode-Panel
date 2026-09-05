@@ -13,7 +13,7 @@ export function formatCartMoney(amount, currency) {
 	const value = safeNumber(amount, 0);
 
 	if (code === 'VES') {
-		const formatted = value.toLocaleString('es-VE', {
+		const formatted = value.toLocaleString(locale, {
 			minimumFractionDigits: fractionDigits,
 			maximumFractionDigits: fractionDigits,
 		});
@@ -39,10 +39,11 @@ export function formatCartMoney(amount, currency) {
  * @param {unknown} [locale]
  * @returns {string}
  */
-export function formatCartAmountPlain(amount, locale = 'es-VE') {
+export function formatCartAmountPlain(amount, locale = localeForCurrency('VES')) {
 	const value = safeNumber(amount, 0);
+	const fractionDigits = fractionDigitsForCurrency('VES');
 	return value.toLocaleString(locale, {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
+		minimumFractionDigits: fractionDigits,
+		maximumFractionDigits: fractionDigits,
 	});
 }

@@ -6,6 +6,7 @@ import { supabase, TABLES } from '@/integrations/supabase';
 import { ORDERS_ID_SCAN_SELECT } from '@/shared/utils/orderUtils';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { parseMoneyInput, minorToMajor } from '@/shared/utils/money';
 import { getPaymentLabel } from '@/shared/utils/orderUtils';
 import './LocalExpenseModal.css';
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,15 @@ const LocalExpenseModal = ({
     companyId,
     onAfterSuccess,
 }) => {
-    const { formatMoney: fmt } = useBranchMoney();
+    const { formatMoney: fmt, currency, locale, fractionDigits } = useBranchMoney();
+    /* Acepta coma o punto segun el pais. parseFloat('15,20') === 15 y se comia
+       los centimos del gasto sin avisar. */
+    const parseAmount = (raw) => {
+        if (raw === '' || raw == null) return null;
+        const parsed = parseMoneyInput(raw, { currency, fractionDigits, locale });
+        if (!parsed.valid) return null;
+        return minorToMajor(parsed.minor, currency, fractionDigits);
+    };
     const [activeTab, setActiveTab] = useState('operating');
     const [categoryId, setCategoryId] = useState('mercaderia');
     const [amount, setAmount] = useState('');
@@ -199,8 +208,8 @@ const LocalExpenseModal = ({
         e.preventDefault();
         if (submitting) return;
 
-        const numAmount = parseFloat(amount);
-        if (Number.isNaN(numAmount) || numAmount <= 0) {
+        const numAmount = parseAmount(amount);
+        if (numAmount === null || numAmount <= 0) {
             setError('Ingresa un monto válido');
             return;
         }
@@ -358,10 +367,12 @@ const LocalExpenseModal = ({
                                     Monto
                                 </label>
                                 <div className="local-expense-modal-amount-wrap">
-                                    <span className="local-expense-modal-amount-prefix">$</span>
+                                    <span className="local-expense-modal-amount-prefix" aria-hidden>{currency}</span>
                                     <input
                                         id="local-expense-amount"
-                                        type="number"
+                                        type="text"
+                                        inputMode="decimal"
+                                        autoComplete="off"
                                         className="local-expense-modal-input local-expense-modal-input--amount"
                                         placeholder="0"
                                         autoFocus
@@ -414,7 +425,7 @@ const LocalExpenseModal = ({
                                     <p className="local-expense-modal-summary-title">Resumen</p>
                                     <div className="local-expense-modal-summary-row">
                                         <span>Monto</span>
-                                        <strong>{fmt(parseFloat(amount) || 0)}</strong>
+                                        <strong>{fmt(parseAmount(amount) ?? 0)}</strong>
                                     </div>
                                     <div className="local-expense-modal-summary-row">
                                         <span>Categoría</span>

@@ -3,12 +3,22 @@ import { X, CreditCard, DollarSign } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { Button } from '@/components/ui/button';
+import { parseMoneyInput, minorToMajor } from '@/shared/utils/money';
 
 /**
  * @param {'income' | 'cash_withdrawal' | 'operating_expense'} variant
  */
 const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) => {
-	const { currency } = useBranchMoney();
+	const { currency, locale, fractionDigits } = useBranchMoney();
+	/* El cajero teclea a mano, asi que acepta coma o punto segun su pais.
+	   parseFloat no sirve: parseFloat('15,20') === 15, se come los centimos
+	   en silencio y el movimiento queda mal registrado. */
+	const parseAmount = (raw) => {
+		if (raw === '' || raw == null) return null;
+		const parsed = parseMoneyInput(raw, { currency, fractionDigits, locale });
+		if (!parsed.valid) return null;
+		return minorToMajor(parsed.minor, currency, fractionDigits);
+	};
 	const [formData, setFormData] = useState({
 		amount: '',
 		description: '',
@@ -38,9 +48,9 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		const numAmount = parseFloat(formData.amount);
+		const numAmount = parseAmount(formData.amount);
 
-		if (isNaN(numAmount) || numAmount <= 0) {
+		if (numAmount === null || numAmount <= 0) {
 			setError('Ingresa un monto válido');
 			return;
 		}
@@ -114,9 +124,9 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 								</span>
 								<input
 									id="cash-movement-amount"
-									type="number"
-									min="0"
-									step="any"
+									type="text"
+									inputMode="decimal"
+									autoComplete="off"
 									className="form-input cash-dialog__amount-input"
 									placeholder="0"
 									autoFocus
