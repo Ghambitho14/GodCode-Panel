@@ -458,8 +458,15 @@ const CashShiftModal = ({
 									) : null}
 								</div>
 
+								{/* tabIndex 0: sin el, la tabla de ventas se puede desplazar con
+								    el raton pero es inalcanzable por teclado. */}
 								{showSales ? (
-									<div className="cash-shift-close-sales-scroll">
+									<div
+										className="cash-shift-close-sales-scroll"
+										tabIndex={0}
+										role="group"
+										aria-label="Ventas del turno"
+									>
 										{salesRows.length === 0 ? (
 											<p className="cash-shift-close-empty">
 												Sin ventas registradas en este turno.

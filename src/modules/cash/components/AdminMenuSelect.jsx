@@ -97,7 +97,7 @@ export default function AdminMenuSelect({
 				aria-haspopup="listbox"
 				aria-expanded={open}
 				aria-controls={open ? listId : undefined}
-				aria-label={ariaLabel}
+				aria-label={ariaLabel ? `${ariaLabel}: ${displayLabel}` : undefined}
 			>
 				{icon ? (
 					<span className="nav-icon-slot admin-branch-select__pin" aria-hidden>

@@ -1609,7 +1609,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const monthlyExportBlock = (
         <Card>
             <CardHeader>
-                <CardTitle className="text-lg">Descargar Reporte Mensual</CardTitle>
+                <CardTitle as="h2" className="text-lg">Descargar Reporte Mensual</CardTitle>
                 <CardDescription>{MONTHLY_EXPORT_DISCLAIMER}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -1732,7 +1732,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="flex min-w-0 flex-col gap-5">
                     <Card className="flex h-fit min-w-0 flex-col">
                         <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                            <CardTitle className="text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
+                            <CardTitle as="h2" className="text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                                 <div className="rpt-chart-kind">
                                     {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (
@@ -1780,7 +1780,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     {peakHour && (
                         <Card>
                             <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
                                     <Clock size={18} className="text-[#2563eb]" />
                                     Hora pico
                                 </CardTitle>
@@ -1834,7 +1834,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                            <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
                                 <Package size={20} className="text-[#2563eb]" />
                                 Top productos vendidos
                             </CardTitle>
@@ -1878,7 +1878,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="flex min-w-0 flex-col gap-5">
                     <Card className="min-w-0">
                         <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center gap-2 text-base">
+                            <CardTitle as="h2" className="flex items-center gap-2 text-base">
                                 <CreditCard size={18} className="text-[#2563eb]" />
                                 Métodos de pago
                             </CardTitle>
@@ -1924,7 +1924,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center justify-between gap-2 text-base font-semibold text-[#14161a]">
+                            <CardTitle as="h2" className="flex items-center justify-between gap-2 text-base font-semibold text-[#14161a]">
                                 <span className="inline-flex items-center gap-2">
                                     <Users size={18} className="text-[#2563eb]" />
                                     Clientes nuevos
@@ -1970,7 +1970,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     {branchStats.length > 0 && (
                         <Card>
                             <CardHeader className="pb-2">
-                                <CardTitle className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
+                                <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
                                     <MapPin size={18} className="text-[#2563eb]" />
                                     Ventas por Sucursal
                                 </CardTitle>

@@ -14,6 +14,10 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       "inline-flex h-10 items-center justify-center rounded-xl bg-[#f5f5f7] p-1 text-[#6b7280]",
+      // Radix hace enfocable el contenedor (roving focus) y no traia ninguna
+      // senal de foco. El contorno va en CSS plano (ver index.css): no depende
+      // de la cadena de variables de las utilidades ring.
+      "admin-tablist",
       className,
     )}
     {...props}
