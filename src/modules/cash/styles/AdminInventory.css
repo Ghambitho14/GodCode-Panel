@@ -320,6 +320,13 @@
 .admin-layout .inventory-summary.inventory-summary--grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    /* La regla base .inventory-summary es un flex con align-items:center y esa
+       centrada se colaba en la version rejilla: la fila mide lo que la tarjeta
+       de acciones (283px) y las tres tarjetas de cifras, de 123/84/84px, se
+       centraban cada una por su cuenta. Medido: tops 449/468/468/369, hasta
+       99px de desnivel en una misma fila. Con stretch las cuatro comparten
+       borde superior e inferior. */
+    align-items: stretch;
     gap: 16px 18px;
     padding: 22px 24px;
     margin: 0;
