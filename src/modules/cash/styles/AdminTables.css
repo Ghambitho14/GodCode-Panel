@@ -550,6 +550,25 @@
 	font-weight: 400;
 }
 
+/* Los "·" son elementos flex sueltos dentro de una fila con wrap, asi que cuando
+   la linea se parte justo despues de uno se queda colgando al final, separando
+   de nada. Pasa en el detalle de pedido a 360px: la fila queda como
+   "Pendiente  Pago pendiente  ·" y abajo "prueba des · 3 ítems". Son decorativos
+   (aria-hidden), asi que en movil los quitamos y dejamos que separe el hueco,
+   algo mas ancho para que los datos no se peguen. Reordenarlos como ::before no
+   sirve igual en los dos componentes que usan estas clases: en
+   TableSessionReceipt el primer .meta-item no lleva separador delante y en
+   OrderDetailModal el .meta-payment tampoco. */
+@media (max-width: 480px) {
+	.admin-layout .table-session-receipt__meta-sep {
+		display: none;
+	}
+
+	.admin-layout .table-session-receipt__meta {
+		gap: 4px 10px;
+	}
+}
+
 .admin-layout .table-session-receipt__meta-item {
 	color: var(--admin-text-muted);
 }
