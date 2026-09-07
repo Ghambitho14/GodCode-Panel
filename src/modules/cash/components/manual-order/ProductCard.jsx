@@ -164,8 +164,16 @@ const ProductCard = ({
                     {product.name}
                 </p>
 
+                {/* @container + clamp: mismo patron que las cifras de Gastos del local.
+                    La columna del precio se encoge bien (min-w-0 + flex-1), pero como es
+                    un flex en columna con items-start el <span> se dimensiona por su
+                    contenido y se salia: a 360px la fila mide 119px, la columna 79px y
+                    "USD 10,00" en text-xl pedia 104px, asi que los ultimos caracteres
+                    quedaban tapados por el boton "+" (17px de solape medidos). El tamaño
+                    ahora sigue al ancho de la fila y se topa en text-xl (20px), que es lo
+                    que valia antes en las tarjetas anchas. */}
                 <div
-                    className="mt-auto flex w-full items-end justify-between gap-2 pt-1"
+                    className="@container mt-auto flex w-full items-end justify-between gap-2 pt-1"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="min-w-0 flex-1 flex flex-col items-start justify-end gap-0.5">
@@ -174,12 +182,12 @@ const ProductCard = ({
                                 <span className={`${textScale.micro} font-medium text-gc-text-muted line-through tabular-nums`}>
                                     {formatMoney(Number(product.price))}
                                 </span>
-                                <span className={`${textScale.price} font-bold leading-none text-gc-discount tabular-nums`}>
+                                <span className="max-w-full text-[clamp(0.8125rem,12.5cqi,1.25rem)] font-bold leading-none text-gc-discount tabular-nums">
                                     {formatMoney(unitPrice)}
                                 </span>
                             </>
                         ) : (
-                            <span className={`${textScale.price} font-bold leading-none text-gc-text tabular-nums`}>
+                            <span className="max-w-full text-[clamp(0.8125rem,12.5cqi,1.25rem)] font-bold leading-none text-gc-text tabular-nums">
                                 {formatMoney(unitPrice)}
                             </span>
                         )}
