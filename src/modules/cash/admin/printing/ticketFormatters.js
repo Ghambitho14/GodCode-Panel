@@ -6,6 +6,7 @@ import {
 	getFulfillmentKindLabel,
 	getOrderFulfillmentKind,
 	getPaymentLabel,
+	orderDisplayNumber,
 	isMenuOrder,
 	isOrderDelivery,
 	isOrderPaymentDeferred,
@@ -100,13 +101,7 @@ export function formatDateDashFromDate(d, locale) {
  * @returns {string}
  */
 export function formatOrderNumberForTicket(order) {
-	const raw =
-		order?.shift_sequence ??
-		order?.display_id ??
-		order?.order_number ??
-		order?.id;
-	if (raw == null || raw === '') return '—';
-	return String(raw);
+	return orderDisplayNumber(order);
 }
 
 /** Texto central del ticket cliente: Mesa / En el local / Domicilio. */

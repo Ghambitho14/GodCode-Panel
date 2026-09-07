@@ -1029,7 +1029,9 @@
     margin-top: 0;
 }
 
-.admin-layout .card-client h4 {
+/* Apunta a la clase, no al tag: el nivel del encabezado se ajusta por orden
+   de accesibilidad y no debe arrastrarse el estilo. */
+.admin-layout .card-client .card-client-name {
     margin: 0;
     font-size: 1.05rem;
     color: var(--color-text-primary);

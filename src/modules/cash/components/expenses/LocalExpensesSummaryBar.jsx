@@ -8,14 +8,17 @@ function movementLabel(count) {
 
 function SummaryStat({ label, value, icon: Icon, subtext }) {
 	return (
-		<div className="min-w-0">
+		/* @container + clamp: mismo patron que las tarjetas KPI de Reportes. A
+		   360px de ancho la celda mide ~112px y un importe a 24px fijos pedia
+		   134px, asi que la cifra se cortaba. */
+		<div className="@container min-w-0">
 			<div className="mb-1 flex items-center gap-1.5">
 				{Icon ? (
 					<Icon size={14} strokeWidth={2} className="text-emerald-600" aria-hidden />
 				) : null}
-				<span className="text-sm font-medium text-[#6b7280]">{label}</span>
+				<span className="truncate text-xs font-medium text-[#6b7280] sm:text-sm">{label}</span>
 			</div>
-			<p className="text-2xl font-bold tabular-nums tracking-tight text-[#1a1a1a]">{value}</p>
+			<p className="text-[clamp(15px,13cqi,24px)] font-bold leading-tight tabular-nums tracking-tight text-[#1a1a1a] [overflow-wrap:anywhere]">{value}</p>
 			{subtext != null ? (
 				<p className="mt-0.5 text-xs font-medium text-[#9ca3af]">{subtext}</p>
 			) : null}

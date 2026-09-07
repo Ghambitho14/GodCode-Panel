@@ -52,8 +52,8 @@ export default function LocalExpensesToolbar({
 		: 'Todos';
 
 	return (
-		<div className="flex flex-wrap items-end gap-3 sm:gap-4">
-			<div className="mb-1 flex min-w-0 items-center gap-2.5">
+		<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
+			<div className="mb-1 flex w-full min-w-0 items-center gap-2.5 sm:w-auto">
 				<span
 					className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
 					aria-hidden
@@ -65,11 +65,11 @@ export default function LocalExpensesToolbar({
 
 			<ToolbarDivider />
 
-			<div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
+			<div className="grid w-full grid-cols-1 gap-3 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:items-end">
 				<FilterField label="Período">
 					<div className="flex flex-wrap items-center gap-2">
 						<ReportPeriodSelect
-							className="rpt-period-select--compact min-w-[148px] max-w-[200px]"
+							className="rpt-period-select--compact w-full sm:min-w-[148px] sm:max-w-[200px]"
 							value={filterPeriod}
 							onChange={onFilterPeriodChange}
 							options={getReportPeriodOptions()}
@@ -86,7 +86,7 @@ export default function LocalExpensesToolbar({
 
 				<FilterField label="Agrupar por">
 					<Select value={String(expenseAgg)} onValueChange={onExpenseAggChange}>
-						<SelectTrigger className="h-10 min-w-[120px] gap-2" aria-label="Agrupar por">
+						<SelectTrigger className="h-10 w-full gap-2 sm:w-auto sm:min-w-[120px]" aria-label="Agrupar por">
 							<span className="flex min-w-0 items-center gap-2">
 								<BarChart3 size={16} strokeWidth={1.65} className="shrink-0 text-[#6b7280]" aria-hidden />
 								<SelectValue />
@@ -106,7 +106,7 @@ export default function LocalExpensesToolbar({
 
 				<FilterField label="Tipo">
 					<Select value={String(expenseKindFilter)} onValueChange={onExpenseKindFilterChange}>
-						<SelectTrigger className="h-10 min-w-[148px] max-w-[220px] gap-2" aria-label="Tipo">
+						<SelectTrigger className="h-10 w-full gap-2 sm:w-auto sm:min-w-[148px] sm:max-w-[220px]" aria-label="Tipo">
 							<span className="flex min-w-0 items-center gap-2">
 								<Tag size={16} strokeWidth={1.65} className="shrink-0 text-[#6b7280]" aria-hidden />
 								<span className="truncate">{kindTriggerLabel}</span>
@@ -125,12 +125,12 @@ export default function LocalExpensesToolbar({
 
 			<ToolbarDivider />
 
-			<div className="mb-0.5 flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+			<div className="mb-0.5 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:flex-wrap">
 				<Button
 					variant="default"
 					type="button"
 					onClick={onRegisterClick}
-					className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 sm:w-auto"
+					className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 sm:w-auto sm:flex-none"
 				>
 					<Plus size={17} strokeWidth={2.25} aria-hidden />
 					Registrar movimiento

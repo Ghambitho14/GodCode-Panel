@@ -1668,3 +1668,18 @@ export function structuredAddressRows(addr, fallbackLines = []) {
 		value,
 	}));
 }
+
+/**
+ * Numero de pedido visible para el usuario.
+ *
+ * `id` es la clave de la tabla, una secuencia COMPARTIDA por todos los negocios
+ * de la plataforma: mostrarla hace que un local vea saltos enormes entre sus
+ * propios pedidos y deja entrever el volumen del resto. `shift_sequence` es el
+ * correlativo del turno, que es lo que la gente del local reconoce y lo que ya
+ * usan el historial, la rejilla de mesas, el detalle y el cierre de caja.
+ */
+export function orderDisplayNumber(order) {
+	const raw = order?.shift_sequence ?? order?.display_id ?? order?.order_number ?? order?.id;
+	if (raw == null || raw === '') return '—';
+	return String(raw);
+}

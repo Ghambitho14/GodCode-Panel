@@ -27,6 +27,7 @@ import {
     ORDERS_PANEL_SELECT,
     sanitizeOrder,
     getOrderItemLineTotal,
+    orderDisplayNumber,
 } from '@/shared/utils/orderUtils';
 import { isOpenOrderSessionStatus } from '@/modules/cash/hooks/manual-order/manualOrderShared';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
@@ -108,7 +109,7 @@ const OrderCard = ({
         e?.stopPropagation?.();
         const refundNote = '\n\nSi el pedido tiene venta registrada en caja, se aplicará una devolución automática.';
         const ok = typeof window !== 'undefined'
-            ? window.confirm(`¿Cancelar pedido #${String(order.id).slice(-4)}?${refundNote}`)
+            ? window.confirm(`¿Cancelar pedido #${orderDisplayNumber(order)}?${refundNote}`)
             : true;
         if (!ok) return;
         moveOrder(order.id, 'cancelled');
@@ -153,6 +154,9 @@ const OrderCard = ({
         () => clients?.find((c) => c.id === order.client_id),
         [clients, order.client_id],
     );
+    /* Numero visible del pedido: el correlativo del turno, no el id global de
+       la plataforma, que es compartido por todos los negocios. */
+    const orderNumber = orderDisplayNumber(order);
     const isVip = clientData?.total_orders >= 5;
     const displayItems = localItems ?? liveOrder.items;
     const hasLoadedItems = Array.isArray(displayItems);
@@ -445,8 +449,8 @@ const OrderCard = ({
                                             <Star size={14} aria-hidden />
                                         </span>
                                     ) : null}
-                                    <span className="order-short-id" title={`Pedido #${String(order.id).slice(-4)}`}>
-                                        #{String(order.id).slice(-4)}
+                                    <span className="order-short-id" title={`Pedido #${orderNumber}`}>
+                                        #{orderNumber}
                                     </span>
                                 </div>
                                 {deliveryZone ? (
@@ -480,8 +484,8 @@ const OrderCard = ({
                                         <Star size={14} aria-hidden />
                                     </span>
                                 ) : null}
-                                <span className="order-short-id" title={`Pedido #${String(order.id).slice(-4)}`}>
-                                    #{String(order.id).slice(-4)}
+                                <span className="order-short-id" title={`Pedido #${orderNumber}`}>
+                                    #{orderNumber}
                                 </span>
                             </div>
                             <div className="card-kanban-meta-row">
