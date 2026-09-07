@@ -19,6 +19,8 @@ import {
 	isLegacyGlobalKitchenNote,
 	resolveItemKitchenNote,
 	ORDERS_PANEL_SELECT,
+	parseOrderItems,
+	structuredAddressRows,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
@@ -27,65 +29,6 @@ import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
 import { Button } from "@/components/ui/button";
 
-const ADDRESS_FIELD_LABELS = [
-	['named_area_label', 'Zona'],
-	['zone_label', 'Zona'],
-	['formatted_address', 'Dirección'],
-	['label', 'Etiqueta'],
-	['address', 'Dirección'],
-	['street', 'Calle'],
-	['line1', 'Dirección'],
-	['line_1', 'Dirección'],
-	['street_detail', 'Detalle'],
-	['reference', 'Referencia'],
-	['referencia', 'Referencia'],
-	['description', 'Indicaciones'],
-	['comuna', 'Comuna'],
-	['commune', 'Comuna'],
-	['city', 'Ciudad'],
-	['ciudad', 'Ciudad'],
-];
-
-function parseItems(raw) {
-	if (Array.isArray(raw)) return raw;
-	if (typeof raw === 'string') {
-		try {
-			const p = JSON.parse(raw);
-			return Array.isArray(p) ? p : [];
-		} catch {
-			return [];
-		}
-	}
-	return [];
-}
-
-function structuredAddressRows(addr, fallbackLines = []) {
-	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) {
-		return fallbackLines.map((value, i) => ({
-			key: `line-${i}`,
-			label: i === 0 ? 'Dirección' : 'Detalle',
-			value,
-		}));
-	}
-	const rows = [];
-	const seenValues = new Set();
-	for (const [field, label] of ADDRESS_FIELD_LABELS) {
-		const raw = addr[field];
-		if (raw == null) continue;
-		const value = String(raw).trim();
-		if (!value) continue;
-		const dedupe = value.toLowerCase();
-		if (seenValues.has(dedupe)) continue;
-		seenValues.add(dedupe);
-		rows.push({ key: field, label, value });
-	}
-	if (rows.length > 0) return rows;
-	return fallbackLines.map((value, i) => ({
-		key: `fallback-${i}`,
-		label: i === 0 ? 'Dirección' : 'Detalle',
-		value,
-	}));
-}
 
 /** Separa prefijo [Sucursal: …] del cuerpo de la nota del pedido. */
 function splitOrderNote(note) {
@@ -169,7 +112,7 @@ export default function CashOrderDetailPanel({
     if (!order || typeof document === 'undefined') return null;
 
     const displayOrder = liveOrder ?? order;
-	const items = parseItems(displayOrder.items);
+	const items = parseOrderItems(displayOrder.items);
 	const isDelivery = isOrderDelivery(displayOrder);
 	const addrLines = deliveryAddressLines(displayOrder.delivery_address);
 	const addrObj =

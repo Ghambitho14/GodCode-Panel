@@ -48,6 +48,9 @@ import {
     isLegacyGlobalKitchenNote,
     ORDERS_PANEL_SELECT,
     sanitizeOrder,
+    formatOrderRef,
+    parseOrderItems,
+    structuredAddressRows,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { Button } from "@/components/ui/button";
@@ -63,71 +66,6 @@ const STATUS_LABELS = {
     cancelled: 'Cancelado',
 };
 
-function formatOrderRef(orderId) {
-    const raw = String(orderId ?? '').replace(/-/g, '');
-    if (!raw) return '—';
-    return raw.slice(-6).toUpperCase();
-}
-
-function parseItems(raw) {
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw === 'string') {
-        try {
-            const p = JSON.parse(raw);
-            return Array.isArray(p) ? p : [];
-        } catch {
-            return [];
-        }
-    }
-    return [];
-}
-
-const ADDRESS_FIELD_LABELS = [
-    ['named_area_label', 'Zona'],
-    ['zone_label', 'Zona'],
-    ['formatted_address', 'Dirección'],
-    ['label', 'Etiqueta'],
-    ['address', 'Dirección'],
-    ['street', 'Calle'],
-    ['line1', 'Dirección'],
-    ['line_1', 'Dirección'],
-    ['street_detail', 'Detalle'],
-    ['reference', 'Referencia'],
-    ['referencia', 'Referencia'],
-    ['description', 'Indicaciones'],
-    ['comuna', 'Comuna'],
-    ['commune', 'Comuna'],
-    ['city', 'Ciudad'],
-    ['ciudad', 'Ciudad'],
-];
-
-function structuredAddressRows(addr, fallbackLines = []) {
-    if (!addr || typeof addr !== 'object' || Array.isArray(addr)) {
-        return fallbackLines.map((value, i) => ({
-            key: `line-${i}`,
-            label: i === 0 ? 'Dirección' : 'Detalle',
-            value,
-        }));
-    }
-    const rows = [];
-    const seenValues = new Set();
-    for (const [field, label] of ADDRESS_FIELD_LABELS) {
-        const raw = addr[field];
-        if (raw == null) continue;
-        const value = String(raw).trim();
-        if (!value) continue;
-        const dedupe = value.toLowerCase();
-        if (seenValues.has(dedupe)) continue;
-        seenValues.add(dedupe);
-        rows.push({ key: field, label, value });
-    }
-    if (rows.length > 0) return rows;
-    return fallbackLines.map((value, i) => ({
-        key: `fallback-${i}`,
-        label: i === 0 ? 'Dirección' : 'Detalle',
-        value,
-    }));
-}
 
 const OrderDetailModal = ({
     order,
@@ -249,7 +187,7 @@ const OrderDetailModal = ({
 
     if (!order || typeof document === 'undefined') return null;
 
-    const items = parseItems(liveOrder?.items);
+    const items = parseOrderItems(liveOrder?.items);
     const orderLineById = new Map(
         orderLines.map((line) => [String(line.id), line]),
     );

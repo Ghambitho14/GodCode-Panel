@@ -1591,3 +1591,80 @@ export function mergeOrderInMemory(prevOrder, rawRow) {
 
 	return next;
 }
+
+/* =========================================================================
+   Detalle de pedido: helpers compartidos
+   Estaban duplicados palabra por palabra en OrderDetailModal y en
+   caja/CashOrderDetailPanel. Los dos ya compartian OrderDetailMetaCards,
+   asi que esto termina una extraccion que el repo habia empezado.
+   ========================================================================= */
+
+/** Referencia corta de pedido para mostrar: ultimos 6 caracteres en mayuscula. */
+export function formatOrderRef(orderId) {
+	const raw = String(orderId ?? '').replace(/-/g, '');
+	if (!raw) return '—';
+	return raw.slice(-6).toUpperCase();
+}
+
+/** Items del pedido, que en BD pueden venir como array o como JSON en texto. */
+export function parseOrderItems(raw) {
+	if (Array.isArray(raw)) return raw;
+	if (typeof raw === 'string') {
+		try {
+			const p = JSON.parse(raw);
+			return Array.isArray(p) ? p : [];
+		} catch {
+			return [];
+		}
+	}
+	return [];
+}
+
+/** Campos de direccion que se muestran, en orden de prioridad. */
+export const ADDRESS_FIELD_LABELS = [
+	['named_area_label', 'Zona'],
+	['zone_label', 'Zona'],
+	['formatted_address', 'Dirección'],
+	['label', 'Etiqueta'],
+	['address', 'Dirección'],
+	['street', 'Calle'],
+	['line1', 'Dirección'],
+	['line_1', 'Dirección'],
+	['street_detail', 'Detalle'],
+	['reference', 'Referencia'],
+	['referencia', 'Referencia'],
+	['description', 'Indicaciones'],
+	['comuna', 'Comuna'],
+	['commune', 'Comuna'],
+	['city', 'Ciudad'],
+	['ciudad', 'Ciudad'],
+];
+
+/** Filas etiqueta/valor de una direccion estructurada, sin repetir valores. */
+export function structuredAddressRows(addr, fallbackLines = []) {
+	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) {
+		return fallbackLines.map((value, i) => ({
+			key: `line-${i}`,
+			label: i === 0 ? 'Dirección' : 'Detalle',
+			value,
+		}));
+	}
+	const rows = [];
+	const seenValues = new Set();
+	for (const [field, label] of ADDRESS_FIELD_LABELS) {
+		const raw = addr[field];
+		if (raw == null) continue;
+		const value = String(raw).trim();
+		if (!value) continue;
+		const dedupe = value.toLowerCase();
+		if (seenValues.has(dedupe)) continue;
+		seenValues.add(dedupe);
+		rows.push({ key: field, label, value });
+	}
+	if (rows.length > 0) return rows;
+	return fallbackLines.map((value, i) => ({
+		key: `fallback-${i}`,
+		label: i === 0 ? 'Dirección' : 'Detalle',
+		value,
+	}));
+}
