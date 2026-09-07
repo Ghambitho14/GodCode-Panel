@@ -186,7 +186,12 @@ section {
 /* Radix da tabindex al contenedor de pestanas (roving focus), asi que se puede
    enfocar con teclado, pero no traia ninguna marca visible. Contorno explicito
    en vez de las utilidades ring: no depende de --tw-ring-*. */
-.admin-tablist:focus-visible {
-    outline: 2px solid var(--admin-accent, #2563eb);
+.admin-layout .admin-tablist:focus-visible,
+.admin-layout .admin-tablist:focus,
+.admin-tablist:focus-visible,
+.admin-tablist:focus {
+    outline-width: 2px;
+    outline-style: solid;
+    outline-color: #2563eb;
     outline-offset: 2px;
 }

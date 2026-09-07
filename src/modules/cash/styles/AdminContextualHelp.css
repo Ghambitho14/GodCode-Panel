@@ -15,6 +15,12 @@
 	cursor: help;
 	outline: none;
 	flex-shrink: 0;
+	/* Reset de <button>: es boton por accesibilidad, no por estilo */
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	line-height: 0;
 }
 
 .admin-help-tip:hover,

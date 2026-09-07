@@ -434,9 +434,9 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 					</div>
 					<div className="admin-delivery-head-copy">
 						<div className="admin-delivery-head-title-row">
-							<h3 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
+							<h2 id="admin-menu-delivery-heading" className="admin-menu-options-card-title">
 								Delivery{branchLabel}
-							</h3>
+							</h2>
 							<span
 								className={`status-badge ${deliveryEnabled && !loading ? "success" : "neutral"}`}
 							>
