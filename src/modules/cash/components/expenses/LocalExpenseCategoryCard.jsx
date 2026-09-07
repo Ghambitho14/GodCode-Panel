@@ -70,8 +70,14 @@ export default function LocalExpenseCategoryCard({
 				</div>
 			</div>
 
-			<div className="grid lg:grid-cols-2">
-				<div className="min-h-[220px] p-4 sm:p-5 lg:border-r lg:border-[#ededf0]">
+			{/* min-w-0 en la rejilla y en la celda del grafico: sin el, la celda toma
+			    `min-width: auto` (= min-content), y como el grafico arranca en su ancho
+			    por defecto de 800px la pista se quedaba en 832px dentro de un contenedor
+			    de 264px. El ResizeObserver medía entonces 800px y confirmaba el error:
+			    un punto fijo estable pero equivocado. La tarjeta padre es overflow-hidden,
+			    asi que el grafico se cortaba sin barra de desplazamiento. */}
+			<div className="grid min-w-0 lg:grid-cols-2">
+				<div className="min-h-[220px] min-w-0 p-4 sm:p-5 lg:border-r lg:border-[#ededf0]">
 					{points?.length ? (
 						<ReportSalesChart
 							points={points}
