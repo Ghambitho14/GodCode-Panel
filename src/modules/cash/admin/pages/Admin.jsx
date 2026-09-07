@@ -825,7 +825,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
             onSave={handleSaveProduct}
             product={editingProduct}
             categories={categories}
-            saving={refreshing}
           />
         </React.Suspense>
       )}

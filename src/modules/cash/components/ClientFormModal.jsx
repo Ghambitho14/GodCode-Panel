@@ -147,7 +147,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 				</form>
 
 				<div className="client-form-modal__footer">
-					<Button variant="secondary" type="button" size="sm" onClick={onClose}>
+					<Button variant="secondary" type="button" size="sm" onClick={onClose} disabled={loading}>
 						Cancelar
 					</Button>
 					<Button
@@ -157,7 +157,11 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 						size="sm"
 						disabled={loading || sanitizeText(formData.name).length < 2 || !strategy.validatePhone(formData.phone || '')}
 					>
-						{loading ? <Loader2 className="animate-spin" size={18} /> : 'Guardar Cliente'}
+						{loading ? (
+							<>
+								<Loader2 className="animate-spin" size={18} aria-hidden /> Guardando…
+							</>
+						) : 'Guardar Cliente'}
 					</Button>
 				</div>
 			</div>

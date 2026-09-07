@@ -4,7 +4,7 @@ import {
     Clock, Calendar, TrendingUp, TrendingDown,
     ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
     DollarSign, CreditCard, ChevronRight, Truck,
-    MapPin, Banknote, Smartphone,
+    MapPin, Banknote, Smartphone, Loader2,
 } from 'lucide-react';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { isValidBranchId } from '@/shared/utils/safeIds';
@@ -163,7 +163,7 @@ const CashManager = ({
     if (loadingSystem) return (
         <div className="cash-loading">
             <div className="cash-spinner" />
-            <span>Cargando caja...</span>
+            <span>Cargando caja…</span>
         </div>
     );
 
@@ -461,7 +461,7 @@ const CashManager = ({
                 </div>
 
                 {loadingHistory ? (
-                    <div className="cash-history-loading">Cargando historial...</div>
+                    <div className="cash-history-loading"><Loader2 size={18} className="animate-spin" aria-hidden /> Cargando historial…</div>
                 ) : filteredShifts.length === 0 ? (
                     <div className="cash-history-empty">
                         <Calendar size={32} />

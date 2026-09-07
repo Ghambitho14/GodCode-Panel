@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 
@@ -405,7 +405,11 @@ export default function CloseTableModal({
 
 								>
 
-									{loading ? (isPayIntent ? 'Registrando…' : 'Cerrando…') : confirmLabel}
+									{loading ? (
+
+										<><Loader2 size={16} className="animate-spin" aria-hidden /> {isPayIntent ? 'Registrando…' : 'Cerrando…'}</>
+
+									) : confirmLabel}
 
 								</Button>
 

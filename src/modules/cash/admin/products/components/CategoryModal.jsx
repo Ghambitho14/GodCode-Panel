@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOrder, saving = false }) => {
   const nameInputRef = useRef();
   const [isDirty, setIsDirty] = useState(false);
+  /* El estado ocupado tiene que vivir aquí dentro: Admin.jsx monta este modal
+     sin la prop `saving`, así que el botón "Guardar" se quedaba habilitado
+     durante todo el viaje a la red. Cada clic extra reejecutaba
+     admin_create_category_with_overrides y creaba una categoría duplicada.
+     La prop se respeta igual, por si el padre sí la pasa. */
+  const [submitting, setSubmitting] = useState(false);
+  const busy = saving || submitting;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -35,14 +42,15 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
   }, [isOpen, category, defaultOrder]);
 
   const handleSafeClose = useCallback(() => {
-    if (isDirty && !saving) {
+    if (busy) return;
+    if (isDirty) {
       if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
         onClose();
       }
     } else {
       onClose();
     }
-  }, [isDirty, saving, onClose]);
+  }, [isDirty, busy, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,9 +72,15 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
     setIsDirty(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave(formData);
+    if (busy) return;
+    setSubmitting(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -135,10 +149,10 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
           </div>
 
           <footer className="modal-footer" style={{ borderTop: '1px solid #22304a' }}>
-            <Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={saving}>Cancelar</Button>
-            <Button variant="default" type="submit" className="" disabled={saving}>
-              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-              <span>{saving ? 'Guardando...' : 'Guardar'}</span>
+            <Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={busy}>Cancelar</Button>
+            <Button variant="default" type="submit" className="" disabled={busy}>
+              {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Save size={18} aria-hidden />}
+              <span>{busy ? 'Guardando…' : 'Guardar'}</span>
             </Button>
           </footer>
         </form>

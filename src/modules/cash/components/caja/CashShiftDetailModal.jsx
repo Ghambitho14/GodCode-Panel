@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { X, Clock, XCircle, Eye } from 'lucide-react';
+import { X, Clock, XCircle, Eye, Loader2 } from 'lucide-react';
 import { getOrderForMovement, isMovementOrderClickable } from '../../utils/getOrderForMovement';
 import { cashService } from '../../services/cashService';
 import {
@@ -566,7 +566,7 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
                         </div>
 
                         {loading ? (
-                            <div className="cash-shift-detail-movements-empty">Cargando transacciones…</div>
+                            <div className="cash-shift-detail-movements-empty"><Loader2 size={16} className="animate-spin" aria-hidden /> Cargando transacciones…</div>
                         ) : movementsWithCancellations.length === 0 ? (
                             <div className="cash-shift-detail-movements-empty">
                                 No hay movimientos registrados para este turno.

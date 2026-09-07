@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useId } from "react";
-import { X, Save, MapPin } from "lucide-react";
+import { X, Save, MapPin, Loader2 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { getInventoryUnitSelectGroups, normalizeUnit } from "@/lib/inventory-units";
 import { Button } from "@/components/ui/button";
@@ -452,13 +452,17 @@ const InventoryItemModal = ({
 					</div>
 
 					<footer className="modal-footer">
-						<Button variant="secondary" type="button" onClick={onClose} className="">
+						<Button variant="secondary" type="button" onClick={onClose} className="" disabled={loading}>
 							Cancelar
 						</Button>
 						<Button variant="default" type="submit" disabled={loading} className="">
-							{loading ? "Guardando…" : (
+							{loading ? (
 								<>
-									<Save size={18} /> Guardar artículo
+									<Loader2 size={18} className="animate-spin" aria-hidden /> Guardando…
+								</>
+							) : (
+								<>
+									<Save size={18} aria-hidden /> Guardar artículo
 								</>
 							)}
 						</Button>
