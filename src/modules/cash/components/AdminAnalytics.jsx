@@ -316,7 +316,7 @@ function resolveKpiSparkKey(metaKey) {
     return metaKey;
 }
 
-function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
+function buildExpenseChartData(rows, expenseAgg, bucketKeys, locale) {
     const acc = new Map();
     for (const row of rows || []) {
         const iso = row.created_at;
@@ -328,12 +328,12 @@ function buildExpenseChartData(rows, expenseAgg, bucketKeys) {
     return {
         expenseBucketsOrdered: keys.map((k) => ({
             key: k,
-            label: labelForExpenseBucket(k, expenseAgg),
+            label: labelForExpenseBucket(k, expenseAgg, locale),
             total: acc.get(k) || 0,
         })),
         expenseBarPoints: keys.map((k) => ({
             key: k,
-            label: labelForExpenseBucket(k, expenseAgg),
+            label: labelForExpenseBucket(k, expenseAgg, locale),
             value: Number(acc.get(k)) || 0,
         })),
         periodTotal: keys.reduce((sum, k) => sum + (Number(acc.get(k)) || 0), 0),
@@ -584,18 +584,18 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     );
 
     const operatingChartData = useMemo(
-        () => buildExpenseChartData(operatingExpenseRows, expenseAgg, expenseBucketKeys),
-        [operatingExpenseRows, expenseAgg, expenseBucketKeys],
+        () => buildExpenseChartData(operatingExpenseRows, expenseAgg, expenseBucketKeys, locale),
+        [operatingExpenseRows, expenseAgg, expenseBucketKeys, locale],
     );
 
     const withdrawalChartData = useMemo(
-        () => buildExpenseChartData(withdrawalExpenseRows, expenseAgg, expenseBucketKeys),
-        [withdrawalExpenseRows, expenseAgg, expenseBucketKeys],
+        () => buildExpenseChartData(withdrawalExpenseRows, expenseAgg, expenseBucketKeys, locale),
+        [withdrawalExpenseRows, expenseAgg, expenseBucketKeys, locale],
     );
 
     const refundChartData = useMemo(
-        () => buildExpenseChartData(refundExpenseRows, expenseAgg, expenseBucketKeys),
-        [refundExpenseRows, expenseAgg, expenseBucketKeys],
+        () => buildExpenseChartData(refundExpenseRows, expenseAgg, expenseBucketKeys, locale),
+        [refundExpenseRows, expenseAgg, expenseBucketKeys, locale],
     );
 
     const operatingChartPoints = useMemo(
@@ -836,7 +836,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             if (showNotify) showNotify('No hay datos para exportar en este período', 'info');
             return null;
         }
-        if (!confirmLargeExport(orderCount)) {
+        if (!confirmLargeExport(orderCount, undefined, locale)) {
             return null;
         }
 

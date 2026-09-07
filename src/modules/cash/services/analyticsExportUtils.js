@@ -30,10 +30,10 @@ export async function countOrdersInRange({ companyId, branchId, startIso, endIso
  * @param {number} [threshold]
  * @returns {boolean}
  */
-export function confirmLargeExport(count, threshold = LARGE_EXPORT_THRESHOLD) {
+export function confirmLargeExport(count, threshold = LARGE_EXPORT_THRESHOLD, locale) {
 	if (count <= threshold) return true;
 	const msg =
-		`Este mes tiene ${count.toLocaleString('es-CL')} pedidos. ` +
+		`Este mes tiene ${count.toLocaleString(locale)} pedidos. ` +
 		'El reporte descarga todos los pedidos incluyendo ítems y puede tardar. ¿Continuar?';
 	return window.confirm(msg);
 }

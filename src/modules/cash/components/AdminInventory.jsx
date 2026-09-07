@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import {
 	Search,
 	Download,
@@ -69,6 +70,7 @@ const AdminInventory = ({
 	onRefreshCatalog,
 	prefetchedBranchStock = null,
 }) => {
+	const { locale } = useBranchMoney();
 	const {
 		items,
 		setItems,
@@ -430,7 +432,7 @@ const AdminInventory = ({
 		}));
 		downloadExcel(
 			dataToExport,
-			`Inventario_${new Date().toLocaleDateString("es-CL").replace(/\//g, "-")}.xls`,
+			`Inventario_${new Date().toLocaleDateString(locale).replace(/\//g, "-")}.xls`,
 		);
 	};
 
@@ -1032,7 +1034,7 @@ const AdminInventory = ({
 															<span className="inventory-beverage-kind"> · {item.beverage_kind}</span>
 														) : null}
 													</td>
-													<td className="inventory-td-stock">{Number(item.stock).toLocaleString("es-CL", { maximumFractionDigits: 3 })}</td>
+													<td className="inventory-td-stock">{Number(item.stock).toLocaleString(locale, { maximumFractionDigits: 3 })}</td>
 													<td className="inventory-td-unit">{getUnitLabel(item.unit || "un", { short: true })}</td>
 													<td>{statusBadge}</td>
 													<td className="inventory-td-actions">
@@ -1081,7 +1083,7 @@ const AdminInventory = ({
 																					{mv.quantity_delta}
 																				</span>
 																				<span className="inventory-expand-meta">
-																					{new Date(mv.created_at).toLocaleString("es-CL")}
+																					{new Date(mv.created_at).toLocaleString(locale)}
 																					{mv.order_id ? ` · Pedido #${String(mv.order_id).slice(-6)}` : ""}
 																				</span>
 																			</li>
@@ -1125,7 +1127,7 @@ const AdminInventory = ({
 								<tbody>
 									{movementRows.map((m) => (
 										<tr key={m.id}>
-											<td>{new Date(m.created_at).toLocaleString("es-CL")}</td>
+											<td>{new Date(m.created_at).toLocaleString(locale)}</td>
 											<td>{formatMovementType(m.movement_type)}</td>
 											<td>{m.itemName}</td>
 											<td
@@ -1416,7 +1418,7 @@ const AdminInventory = ({
 											const unitOpts = sel ? getInputUnitOptions(nativeUnit) : getInputUnitOptions("un");
 											const stockHint =
 												sel && sel.stock != null && Number.isFinite(Number(sel.stock))
-													? `Stock en sucursal: ${Number(sel.stock).toLocaleString("es-CL", { maximumFractionDigits: 4 })} ${getUnitLabel(nativeUnit, { short: true })}`
+													? `Stock en sucursal: ${Number(sel.stock).toLocaleString(locale, { maximumFractionDigits: 4 })} ${getUnitLabel(nativeUnit, { short: true })}`
 													: null;
 											return (
 												<div key={idx} className="inventory-recipe-line">

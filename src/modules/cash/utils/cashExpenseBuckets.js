@@ -85,11 +85,11 @@ export function expenseBucketKeysForRange(rangeStart, rangeEndExclusive, agg) {
  * @param {string} key bucket key (YYYY-MM-DD o YYYY-MM)
  * @param {'day' | 'week' | 'month'} agg
  */
-export function labelForExpenseBucket(key, agg) {
+export function labelForExpenseBucket(key, agg, locale) {
 	if (agg === 'month') {
 		const [y, m] = key.split('-').map(Number);
 		if (!Number.isFinite(y) || !Number.isFinite(m)) return key;
-		return new Date(y, m - 1, 1).toLocaleDateString('es-CL', { month: 'short', year: 'numeric' });
+		return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: 'numeric' });
 	}
 	if (agg === 'week') {
 		const [y, mo, d] = key.split('-').map(Number);
@@ -97,9 +97,9 @@ export function labelForExpenseBucket(key, agg) {
 		const start = new Date(y, mo - 1, d);
 		const end = new Date(y, mo - 1, d);
 		end.setDate(end.getDate() + 6);
-		return `Sem. ${start.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}`;
+		return `Sem. ${start.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`;
 	}
 	const [y, mo, d] = key.split('-').map(Number);
 	if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return key;
-	return new Date(y, mo - 1, d).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+	return new Date(y, mo - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { Phone } from 'lucide-react';
 import {
 	getOrderPaymentDisplayLabel,
@@ -42,6 +43,7 @@ export default function OrderDetailMetaCards({
 	statusExtra = null,
 }) {
 	const kind = getOrderFulfillmentKind(order);
+	const { locale } = useBranchMoney();
 	const kindLabel = getOrderFulfillmentDisplayLabel(order);
 	const isDelivery = isOrderDelivery(order);
 	const deliveryFee = Number(order.delivery_fee) || 0;
@@ -83,7 +85,7 @@ export default function OrderDetailMetaCards({
 						{statusExtra}
 					</div>
 					<ul className="order-detail-facts">
-						<li>{createdAt.toLocaleString('es-CL')}</li>
+						<li>{createdAt.toLocaleString(locale)}</li>
 						{branch?.name ? <li>{branch.name}</li> : null}
 					</ul>
 				</div>

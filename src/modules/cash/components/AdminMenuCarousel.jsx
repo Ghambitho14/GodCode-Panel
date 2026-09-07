@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, MoreVertical,
@@ -136,6 +137,7 @@ export default function AdminMenuCarousel({
 	companyId,
 }) {
 	const [loading, setLoading] = useState(true);
+	const { locale } = useBranchMoney();
 	const [savingSettings, setSavingSettings] = useState(false);
 	const [uploading, setUploading] = useState(false);
 	const [banners, setBanners] = useState([]);
@@ -1022,7 +1024,7 @@ export default function AdminMenuCarousel({
 						{banners.map((b, idx) => {
 							const created = b.created_at ? new Date(b.created_at) : null;
 							const dateStr = created && Number.isFinite(created.getTime())
-								? created.toLocaleDateString('es-CL')
+								? created.toLocaleDateString(locale)
 								: null;
 							return (
 								<li

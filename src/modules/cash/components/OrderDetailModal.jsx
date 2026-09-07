@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
     X,
@@ -139,6 +140,7 @@ const OrderDetailModal = ({
     onMarkPaid = null,
 }) => {
 	const { companyProfile, userRole, upsertOrder } = useAdmin();
+	const { locale } = useBranchMoney();
     const orderMoney = useOrderMoney();
     const fmt = orderMoney.formatMoney;
     const fmtOrder = (amount, orderRow) => orderMoney.formatOrderAmount({
@@ -531,7 +533,7 @@ const OrderDetailModal = ({
                                     ) : null}
                                     <div className="order-detail-receipt-dl__row">
                                         <dt>Fecha</dt>
-                                        <dd>{createdAt.toLocaleString('es-CL')}</dd>
+                                        <dd>{createdAt.toLocaleString(locale)}</dd>
                                     </div>
                                 </dl>
                                 {showCajaHint ? (

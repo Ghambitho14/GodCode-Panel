@@ -471,7 +471,7 @@ const CashManager = ({
                     <div className="cash-history-list">
                         {filteredShifts.map(shift => {
                             const durationStr = formatShiftDuration(shift.opened_at, shift.closed_at);
-                            const hoursRange = formatShiftHoursRange(shift.opened_at, shift.closed_at);
+                            const hoursRange = formatShiftHoursRange(shift.opened_at, shift.closed_at, locale);
                             const ordersCount = Number(shift.orders_count ?? 0);
                             const summary = shift.summary || {
                                 income: 0,
@@ -497,7 +497,7 @@ const CashManager = ({
                                         <div className="cash-history-info">
                                             <div className="cash-history-title-row">
                                                 <span className="cash-history-day">
-                                                    {formatShiftOpenedDay(shift.opened_at)}
+                                                    {formatShiftOpenedDay(shift.opened_at, locale)}
                                                 </span>
                                                 <span className="cash-history-orders-badge">
                                                     {ordersCount} {ordersCount === 1 ? 'pedido' : 'pedidos'}

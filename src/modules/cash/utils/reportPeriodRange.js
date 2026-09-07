@@ -84,12 +84,12 @@ export function getCashShiftHistoryPeriodOptions() {
 }
 
 /** @param {string} periodValue @param {Array<{ value: string, label: string }>} [options] */
-export function formatReportPeriodLabel(periodValue, options) {
+export function formatReportPeriodLabel(periodValue, options, locale) {
 	const custom = parseCustomDay(periodValue);
 	if (custom) {
 		const [y, mo, d] = custom.split('-').map(Number);
 		if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(d)) {
-			return new Date(y, mo - 1, d).toLocaleDateString('es-CL', {
+			return new Date(y, mo - 1, d).toLocaleDateString(locale, {
 				day: 'numeric',
 				month: 'short',
 				year: 'numeric',

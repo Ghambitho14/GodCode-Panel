@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { createPortal } from "react-dom";
 import { Calendar, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
@@ -46,12 +47,12 @@ export function toDatetimeLocalString(parts) {
 	return `${parts.y}-${pad2(parts.m)}-${pad2(parts.d)}T${pad2(parts.h)}:${pad2(parts.min)}`;
 }
 
-function formatDisplay(value) {
+function formatDisplay(value, locale) {
 	const p = parseDatetimeLocal(value);
 	if (!p) return "";
 	try {
 		const dt = new Date(p.y, p.m - 1, p.d, p.h, p.min);
-		return dt.toLocaleString("es-CL", {
+		return dt.toLocaleString(locale, {
 			day: "2-digit",
 			month: "short",
 			year: "numeric",
@@ -121,6 +122,7 @@ export default function CouponDateTimeField({
 	placeholder = "Elegir fecha y hora",
 }) {
 	const autoId = useId();
+	const { locale } = useBranchMoney();
 	const fieldId = id || autoId;
 	const rootRef = useRef(null);
 	const triggerRef = useRef(null);
@@ -197,7 +199,7 @@ export default function CouponDateTimeField({
 
 	const cells = useMemo(() => buildMonthCells(viewY, viewM), [viewY, viewM]);
 	const today = now;
-	const display = formatDisplay(value);
+	const display = formatDisplay(value, locale);
 	const mins = minuteOptions(draftMin);
 
 	const shiftMonth = (delta) => {

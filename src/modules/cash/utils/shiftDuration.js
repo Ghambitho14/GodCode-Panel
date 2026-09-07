@@ -62,10 +62,10 @@ function sameLocalDay(a, b) {
  * @param {string|Date} openedAt
  * @returns {string}
  */
-export function formatShiftOpenedDay(openedAt) {
+export function formatShiftOpenedDay(openedAt, locale) {
 	const d = new Date(openedAt);
 	if (!Number.isFinite(d.getTime())) return '—';
-	return d.toLocaleDateString('es-CL', DAY_OPTS);
+	return d.toLocaleDateString(locale, DAY_OPTS);
 }
 
 /**
@@ -74,19 +74,19 @@ export function formatShiftOpenedDay(openedAt) {
  * @param {string|Date} closedAt
  * @returns {string}
  */
-export function formatShiftHoursRange(openedAt, closedAt) {
+export function formatShiftHoursRange(openedAt, closedAt, locale) {
 	const start = new Date(openedAt);
 	const end = new Date(closedAt);
 	if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return '—';
 
-	const startTime = start.toLocaleTimeString('es-CL', TIME_OPTS);
-	const endTime = end.toLocaleTimeString('es-CL', TIME_OPTS);
+	const startTime = start.toLocaleTimeString(locale, TIME_OPTS);
+	const endTime = end.toLocaleTimeString(locale, TIME_OPTS);
 
 	if (sameLocalDay(start, end)) {
 		return `${startTime} → ${endTime}`;
 	}
 
-	const startDay = start.toLocaleDateString('es-CL', DAY_OPTS);
-	const endDay = end.toLocaleDateString('es-CL', DAY_OPTS);
+	const startDay = start.toLocaleDateString(locale, DAY_OPTS);
+	const endDay = end.toLocaleDateString(locale, DAY_OPTS);
 	return `${startDay} ${startTime} → ${endDay} ${endTime}`;
 }

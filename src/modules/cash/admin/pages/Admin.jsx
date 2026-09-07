@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
   Loader2, Search, Filter,
@@ -138,6 +139,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     companyId,
     cashSystem,
   } = useAdmin();
+  const { locale } = useBranchMoney();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
   const sidebarTabAccessContext = React.useMemo(() => ({
@@ -237,11 +239,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   const lastSyncLabel = React.useMemo(() => {
     if (!lastDataRefreshAt) return null;
     try {
-      return new Date(lastDataRefreshAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'medium' });
+      return new Date(lastDataRefreshAt).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'medium' });
     } catch {
       return null;
     }
-  }, [lastDataRefreshAt]);
+  }, [lastDataRefreshAt, locale]);
 
   const paletteItems = React.useMemo(() => {
     const core = ADMIN_PANEL_TAB_IDS.filter((id) => canAccessTab(id)).map((id) => ({

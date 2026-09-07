@@ -1,5 +1,6 @@
 import React from 'react';
 import AdminMenuSelect from './AdminMenuSelect';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import {
 	CUSTOM_DAY_MENU_VALUE,
 	formatReportPeriodLabel,
@@ -20,6 +21,7 @@ export default function ReportPeriodSelect({
 	dateInputAriaLabel = 'Fecha del informe',
 	'aria-label': ariaLabel,
 }) {
+	const { locale } = useBranchMoney();
 	const showDayInput = isCustomDayPeriod(value);
 	const customDay = parseCustomDay(value) ?? ymdLocal(new Date());
 
@@ -43,7 +45,7 @@ export default function ReportPeriodSelect({
 				value={isCustomDayPeriod(value) ? CUSTOM_DAY_MENU_VALUE : value}
 				onChange={handleMenuChange}
 				options={options}
-				displayLabel={displayLabelProp ?? formatReportPeriodLabel(value, options)}
+				displayLabel={displayLabelProp ?? formatReportPeriodLabel(value, options, locale)}
 				isOptionActive={(optValue) => {
 					if (optValue === CUSTOM_DAY_MENU_VALUE) return isCustomDayPeriod(value);
 					return String(optValue) === String(value);
