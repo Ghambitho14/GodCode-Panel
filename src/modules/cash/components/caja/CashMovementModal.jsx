@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, DollarSign } from 'lucide-react';
+import { X, CreditCard, DollarSign, Loader2 } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 		paymentMethod: 'cash',
 	});
 	const [error, setError] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 
 	const isIncome = variant === 'income';
 	const isCashWithdrawal = variant === 'cash_withdrawal';
@@ -46,8 +47,12 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 
 	if (!isOpen) return null;
 
-	const handleSubmit = (e) => {
+	/* onConfirm es asincrono y devuelve false si falla. Antes se llamaba sin
+	   await y se cerraba el dialogo al instante: un fallo de red dejaba al
+	   cajero creyendo que habia registrado el movimiento. */
+	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (submitting) return;
 		const numAmount = parseAmount(formData.amount);
 
 		if (numAmount === null || numAmount <= 0) {
@@ -60,12 +65,21 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 			return;
 		}
 
-		if (isCashWithdrawal) {
-			onConfirm('expense', numAmount, formData.description, 'cash');
-		} else {
-			onConfirm(isIncome ? 'income' : 'expense', numAmount, formData.description, formData.paymentMethod);
+		setError('');
+		setSubmitting(true);
+		try {
+			const ok = isCashWithdrawal
+				? await onConfirm('expense', numAmount, formData.description, 'cash')
+				: await onConfirm(
+					isIncome ? 'income' : 'expense',
+					numAmount,
+					formData.description,
+					formData.paymentMethod,
+				);
+			if (ok !== false) onClose();
+		} finally {
+			setSubmitting(false);
 		}
-		onClose();
 	};
 
 	const title = isIncome
@@ -202,8 +216,15 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 						<Button variant="outline" type="button" onClick={onClose} className="cash-dialog__btn cash-dialog__btn--ghost">
 							Cancelar
 						</Button>
-						<Button variant="default" type="submit" className={submitClass}>
-							{submitLabel}
+						<Button variant="default" type="submit" className={submitClass} disabled={submitting}>
+							{submitting ? (
+								<>
+									<Loader2 size={16} className="animate-spin" aria-hidden />
+									Guardando…
+								</>
+							) : (
+								submitLabel
+							)}
 						</Button>
 					</div>
 				</form>

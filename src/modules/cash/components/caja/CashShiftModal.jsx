@@ -9,6 +9,7 @@ import {
 	Smartphone,
 	ChevronDown,
 	ChevronUp,
+	Loader2,
 } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
@@ -142,6 +143,7 @@ const CashShiftModal = ({
 	const [countedCard, setCountedCard] = useState('');
 	const [countedOnline, setCountedOnline] = useState('');
 	const [error, setError] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 	const [showOtherMovements, setShowOtherMovements] = useState(false);
 	const [showSales, setShowSales] = useState(true);
 
@@ -224,16 +226,29 @@ const CashShiftModal = ({
 		setError('');
 	};
 
-	const handleSubmit = (e) => {
+	/* onConfirm es asincrono y devuelve false si falla (sucursal no detectada,
+	   mesas abiertas, error de red). Antes se llamaba sin await y se cerraba el
+	   dialogo de inmediato: si el cierre fallaba, el cajero veia desaparecer la
+	   ventana y creia que habia cerrado la caja. Ahora solo se cierra en exito
+	   y el boton queda ocupado mientras viaja la peticion. */
+	const handleSubmit = async (e) => {
 		e.preventDefault();
+		if (submitting) return;
+
 		if (isOpening) {
 			const numAmount = parseAmount(amount);
 			if (numAmount === null) {
 				setError('Ingresa un monto válido');
 				return;
 			}
-			onConfirm(numAmount);
-			onClose();
+			setError('');
+			setSubmitting(true);
+			try {
+				const ok = await onConfirm(numAmount);
+				if (ok !== false) onClose();
+			} finally {
+				setSubmitting(false);
+			}
 			return;
 		}
 
@@ -249,8 +264,13 @@ const CashShiftModal = ({
 			return;
 		}
 		setError('');
-		onConfirm({ cash, card, online });
-		onClose();
+		setSubmitting(true);
+		try {
+			const ok = await onConfirm({ cash, card, online });
+			if (ok !== false) onClose();
+		} finally {
+			setSubmitting(false);
+		}
 	};
 
 	const describeOpenSession = (order) => {
@@ -551,6 +571,7 @@ const CashShiftModal = ({
 						<Button
 							variant="outline"
 							type="button"
+							disabled={submitting}
 							onClick={onClose}
 							className="cash-dialog__btn cash-dialog__btn--ghost"
 						>
@@ -560,9 +581,16 @@ const CashShiftModal = ({
 							variant="default"
 							type="submit"
 							className={`cash-dialog__btn ${isOpening ? 'cash-dialog__btn--primary' : 'cash-dialog__btn--close'}`}
-							disabled={!isOpening && !canClose}
+							disabled={submitting || (!isOpening && !canClose)}
 						>
-							{isOpening ? 'Abrir turno' : 'Cerrar turno'}
+							{submitting ? (
+								<>
+									<Loader2 size={16} className="animate-spin" aria-hidden />
+									{isOpening ? 'Abriendo…' : 'Cerrando…'}
+								</>
+							) : (
+								isOpening ? 'Abrir turno' : 'Cerrar turno'
+							)}
 						</Button>
 					</div>
 				</form>
