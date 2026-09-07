@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Bell, AlertTriangle, Package, Megaphone, ChevronRight, CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { openHeaderPopover, listenHeaderPopoverOpen } from "../utils/headerPopoverEvents";
-import { ADMIN_SHELL_COMPACT_MAX } from "../constants/responsive";
+import { useHeaderPopoverPosition } from "../hooks/useHeaderPopoverPosition";
 
 function getPopoverPortalParent() {
 	if (typeof document === "undefined") return null;
@@ -28,42 +28,10 @@ export default function AdminNotificationCenter({
 	canAccessProducts = true,
 }) {
 	const [open, setOpen] = useState(false);
-	const [popoverPos, setPopoverPos] = useState(null);
 	const rootRef = useRef(null);
 	const triggerRef = useRef(null);
 	const popoverRef = useRef(null);
-
-	const updatePopoverPos = useCallback(() => {
-		if (typeof window === 'undefined') return;
-		const trigger = triggerRef.current;
-		if (!trigger) return;
-		const r = trigger.getBoundingClientRect();
-		const vv = window.visualViewport;
-		const viewportWidth = vv?.width ?? window.innerWidth;
-		const offsetLeft = vv?.offsetLeft ?? 0;
-		const isMobile = viewportWidth <= ADMIN_SHELL_COMPACT_MAX;
-		if (isMobile) {
-			const top = Math.max(54, r.bottom + 8);
-			setPopoverPos({
-				top,
-				left: 12,
-				right: 12,
-				maxWidth: 400,
-				width: 'auto',
-				margin: '0 auto',
-			});
-		} else {
-			const right = Math.max(16, viewportWidth + offsetLeft - r.right);
-			setPopoverPos({
-				top: r.bottom + 10,
-				right,
-				left: 'auto',
-				width: 380,
-				maxWidth: 400,
-				margin: 0,
-			});
-		}
-	}, []);
+	const { pos: popoverPos, updatePos: updatePopoverPos, setPos: setPopoverPos } = useHeaderPopoverPosition(triggerRef);
 
 	const pausedByStock = useMemo(
 		() => (products || []).filter((p) => p.inventory_pause_reason === "out_of_stock"),
