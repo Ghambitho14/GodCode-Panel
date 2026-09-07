@@ -1648,7 +1648,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 ) : (
                                     <Icon size={16} aria-hidden />
                                 )}
-                                <span>{exportLoading ? 'Generando...' : label}</span>
+                                <span>{exportLoading ? 'Generando…' : label}</span>
                             </Button>
                         ))}
                     </div>

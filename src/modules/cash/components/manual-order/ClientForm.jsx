@@ -817,7 +817,7 @@ const ClientForm = ({
                         {detectingZone ? (
                             <>
                                 <Loader2 size={14} className="animate-spin" />
-                                Detectando...
+                                Detectando…
                             </>
                         ) : (
                             <>
@@ -908,7 +908,7 @@ const ClientForm = ({
                         {calculatingDistance ? (
                             <>
                                 <Loader2 size={14} className="animate-spin" />
-                                Calculando...
+                                Calculando…
                             </>
                         ) : (
                             <>

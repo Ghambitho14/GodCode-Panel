@@ -117,7 +117,7 @@ export function LoginForm() {
         {loading ? (
           <>
             <Loader2 size={20} className="animate-spin" />
-            <span>Entrando...</span>
+            <span>Entrando…</span>
           </>
         ) : (
           <span>Ingresar</span>

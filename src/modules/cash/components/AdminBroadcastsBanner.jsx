@@ -44,7 +44,7 @@ export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId,
 											disabled={ackingId === item.id}
 											style={{ fontSize: 12, padding: "6px 10px", minHeight: "auto" }}
 										>
-											{ackingId === item.id ? "Guardando..." : "Marcar leído"}
+											{ackingId === item.id ? "Guardando…" : "Marcar leído"}
 										</Button>
 									) : null}
 								</div>

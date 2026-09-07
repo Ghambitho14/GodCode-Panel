@@ -18,6 +18,7 @@ import {
 	X,
 	Save,
 	Info,
+	Loader2,
 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from "@/shared/utils/fetchAllPaginated";
@@ -950,7 +951,7 @@ const AdminInventory = ({
 					</div>
 
 					{loading ? (
-						<div className="inventory-loading">Cargando inventario…</div>
+						<div className="inventory-loading"><Loader2 size={18} className="animate-spin" aria-hidden /> Cargando inventario…</div>
 					) : filteredItems.length === 0 ? (
 						<div className="inventory-empty">
 							<p>No hay artículos o no coinciden con los filtros.</p>
@@ -1109,7 +1110,7 @@ const AdminInventory = ({
 					{branchId === "all" ? (
 						<p className="inventory-muted">Selecciona una sucursal para ver movimientos.</p>
 					) : movementsLoading ? (
-						<p className="inventory-muted">Cargando…</p>
+						<p className="inventory-muted"><Loader2 size={16} className="animate-spin" aria-hidden /> Cargando movimientos…</p>
 					) : movementRows.length === 0 ? (
 						<p className="inventory-muted">Aún no hay movimientos registrados en esta sucursal.</p>
 					) : (
@@ -1211,7 +1212,7 @@ const AdminInventory = ({
 					</div>
 
 					{recipesLoading ? (
-						<p className="inventory-muted">Cargando recetas…</p>
+						<p className="inventory-muted"><Loader2 size={16} className="animate-spin" aria-hidden /> Cargando recetas…</p>
 					) : recipeProductList.length === 0 ? (
 						<p className="inventory-recipes-empty">
 							No hay productos que coincidan. Crea productos en la sección Productos o ajusta la búsqueda.

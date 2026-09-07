@@ -207,7 +207,7 @@ const ClientDetailsPanel = ({
                     {clientHistoryLoading ? (
                         <div className="loading-state">
                             <Loader2 className="animate-spin" size={32} />
-                            <span>Cargando historial...</span>
+                            <span>Cargando historial…</span>
                         </div>
                     ) : (
                         <div className="history-list">
