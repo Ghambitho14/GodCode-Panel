@@ -197,6 +197,18 @@
 	}
 }
 
+/* En movil estrecho los dos filtros no caben en una fila: a 360px la fila mide
+   306px, cada caja se queda en 148px y al descontar icono, separacion, flecha y
+   relleno solo restan 76px de texto. "Todas las categorías" pide 138px y "Todos
+   los estados" 121px, asi que ambos quedaban en "Todas la..." y "Todos lo...",
+   inservibles para saber que filtro esta puesto. Cada caja necesita unos 202px,
+   o sea 466px de fila para ir de dos en dos; por debajo de 480px van apiladas. */
+@media (max-width: 480px) {
+	.admin-layout .admin-toolbar .filter-box {
+		flex: 1 1 100%;
+	}
+}
+
 .admin-layout .stats-mini {
 	margin-left: auto;
 	font-size: 0.85rem;
