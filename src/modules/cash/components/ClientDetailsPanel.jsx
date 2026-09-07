@@ -5,6 +5,7 @@ import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { Button } from "@/components/ui/button";
 import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
 import { getFormStrategy } from '@/lib/geo/country-forms';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 
 const ClientDetailsPanel = ({
     selectedClient,
@@ -17,6 +18,7 @@ const ClientDetailsPanel = ({
     formCountry = 'CL',
 }) => {
     const { formatMoney, formatOrderAmount } = useOrderMoney();
+    const { locale } = useBranchMoney();
 
     const idLabel = useMemo(() => getFormStrategy(formCountry).idName, [formCountry]);
 
@@ -105,7 +107,7 @@ const ClientDetailsPanel = ({
     // Formateo seguro de fecha
     const formatDate = (dateString) => {
         try {
-            return new Date(dateString).toLocaleDateString('es-CL', {
+            return new Date(dateString).toLocaleDateString(locale, {
                 day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'
             });
         } catch {

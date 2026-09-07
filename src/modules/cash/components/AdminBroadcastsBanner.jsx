@@ -1,7 +1,9 @@
 import React from "react";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { Button } from "@/components/ui/button";
 
 export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId, onAcknowledge }) {
+	const { locale } = useBranchMoney();
 	return (
 		<>
 			{broadcasts.length > 0 ? (
@@ -24,7 +26,7 @@ export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId,
 									<h3 className="admin-broadcast-title">{item.title}</h3>
 									<p className="admin-broadcast-message">{item.message}</p>
 									<p className="admin-broadcast-date">
-										Desde {new Date(item.startsAt).toLocaleString("es-CL")}
+										Desde {new Date(item.startsAt).toLocaleString(locale)}
 									</p>
 								</div>
 

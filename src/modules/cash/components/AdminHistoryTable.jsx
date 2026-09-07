@@ -23,10 +23,11 @@ import DeliveryMotoIcon from "./DeliveryMotoIcon";
 import { Button } from "@/components/ui/button";
 import { isStorageObjectReference } from "@/shared/utils/supabaseStorage";
 import CloseTableModal from "./CloseTableModal";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 
-function formatDayHeading(ymd) {
+function formatDayHeading(ymd, locale) {
 	const d = new Date(`${ymd}T12:00:00`);
-	return d.toLocaleDateString("es-CL", {
+	return d.toLocaleDateString(locale, {
 		weekday: "long",
 		day: "numeric",
 		month: "short",
@@ -59,6 +60,7 @@ const AdminHistoryTable = ({
 	setReceiptModalOrder,
 }) => {
 	const { formatMoney, formatOrderAmount } = useOrderMoney();
+	const { locale } = useBranchMoney();
 	const { hydrateOrderItems, showNotify, markOrderSessionPaid, selectedBranch } = useAdmin();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [filterStatus, setFilterStatus] = useState("all");
@@ -185,7 +187,7 @@ const AdminHistoryTable = ({
 				) : (
 					groupedByDay.map(([dayKey, dayOrders]) => (
 						<section key={dayKey} className="admin-history-day-group">
-							<h3 className="admin-history-day-group__title">{formatDayHeading(dayKey)}</h3>
+							<h3 className="admin-history-day-group__title">{formatDayHeading(dayKey, locale)}</h3>
 							<table className="data-table">
 								<thead>
 									<tr>

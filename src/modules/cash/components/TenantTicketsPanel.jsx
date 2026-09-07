@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import {
 	Send, Plus, MessageSquare, LifeBuoy, Loader2, ChevronRight,
 } from 'lucide-react';
@@ -58,11 +59,11 @@ function ticketCreatedAt(t) {
 	return t?.createdAt ?? t?.created_at ?? t?.lastMessageAt ?? t?.last_message_at ?? null;
 }
 
-function formatTicketDate(raw) {
+function formatTicketDate(raw, locale) {
 	if (!raw) return null;
 	const d = new Date(raw);
 	if (!Number.isFinite(d.getTime())) return null;
-	return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+	return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function ticketStatusKey(t) {
@@ -106,6 +107,7 @@ function getMessageDisplay(m) {
 }
 
 export default function TenantTicketsPanel({ showNotify }) {
+	const { locale } = useBranchMoney();
 	const [tickets, setTickets] = React.useState([]);
 	const [selectedTicketId, setSelectedTicketId] = React.useState(null);
 	const [messages, setMessages] = React.useState([]);
@@ -343,7 +345,7 @@ export default function TenantTicketsPanel({ showNotify }) {
 							) : (
 								<ul className="tenant-tickets-list">
 									{tickets.map((t) => {
-										const dateStr = formatTicketDate(ticketCreatedAt(t));
+										const dateStr = formatTicketDate(ticketCreatedAt(t), locale);
 										const statusKey = ticketStatusKey(t);
 										return (
 											<li key={t.id}>
@@ -422,7 +424,7 @@ export default function TenantTicketsPanel({ showNotify }) {
 														<span className="tenant-tickets-message__author">{author}</span>
 														{m.created_at ? (
 															<span className="tenant-tickets-message__time">
-																{new Date(m.created_at).toLocaleString('es-CL', {
+																{new Date(m.created_at).toLocaleString(locale, {
 																	day: '2-digit',
 																	month: 'short',
 																	hour: '2-digit',

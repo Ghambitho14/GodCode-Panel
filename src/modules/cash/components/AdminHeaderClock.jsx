@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 
 function capWord(s) {
 	const t = String(s || "")
@@ -8,14 +9,14 @@ function capWord(s) {
 	return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 }
 
-function formatClock(d) {
-	const time = d.toLocaleTimeString("es-CL", {
+function formatClock(d, locale) {
+	const time = d.toLocaleTimeString(locale, {
 		hour: "2-digit",
 		minute: "2-digit",
 		hour12: false,
 	});
-	const wd = capWord(d.toLocaleDateString("es-CL", { weekday: "short" }));
-	const mo = capWord(d.toLocaleDateString("es-CL", { month: "short" }));
+	const wd = capWord(d.toLocaleDateString(locale, { weekday: "short" }));
+	const mo = capWord(d.toLocaleDateString(locale, { month: "short" }));
 	const day = d.getDate();
 	const dateLine = `${wd}, ${day} ${mo}`;
 	return { time, dateLine };
@@ -33,7 +34,8 @@ export default function AdminHeaderClock({ dataSyncedAtLabel = null, className =
 		return () => window.clearInterval(id);
 	}, []);
 
-	const { time, dateLine } = formatClock(new Date());
+	const { locale } = useBranchMoney();
+	const { time, dateLine } = formatClock(new Date(), locale);
 
 	const title = [
 		"Hora local del dispositivo",
