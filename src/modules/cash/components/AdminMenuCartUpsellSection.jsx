@@ -477,7 +477,7 @@ export default function AdminMenuCartUpsellSection({
 		setEditingIndex(null);
 	};
 
-	const handleModalSubmit = async (draft, localFile) => {
+	const submitModalItem = async (draft, localFile) => {
 		let imageUrl = String(draft.imageUrl ?? "").trim();
 		const previousImageUrl = modalItem?.imageUrl || "";
 		let uploadedImagePath = null;
@@ -568,15 +568,36 @@ export default function AdminMenuCartUpsellSection({
 		}
 	};
 
+	/* `saving` solo se encendía dentro de persistCatalog, que corre DESPUÉS de
+	   subir la imagen. Durante esa subida —la parte lenta— el botón "Guardar"
+	   del modal seguía habilitado y handleSafeClose dejaba cerrar la ventana:
+	   un segundo clic lanzaba otra subida y dejaba un archivo huérfano en
+	   storage. El estado ocupado tiene que cubrir la operación entera. */
+	const handleModalSubmit = async (draft, localFile) => {
+		if (saving) return;
+		setSaving(true);
+		try {
+			await submitModalItem(draft, localFile);
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	const handleModalDelete = async (item) => {
-		const next = items.filter((i) => i.id !== item.id);
-		const saved = await persistCatalog(next);
-		if (saved && item?.imageUrl) {
-			await deleteCompanyImage(
-				item.imageUrl,
-				IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
-				effectiveCompanyId,
-			);
+		if (saving) return;
+		setSaving(true);
+		try {
+			const next = items.filter((i) => i.id !== item.id);
+			const saved = await persistCatalog(next);
+			if (saved && item?.imageUrl) {
+				await deleteCompanyImage(
+					item.imageUrl,
+					IMAGE_STORAGE_CONTEXTS.CART_UPSELL,
+					effectiveCompanyId,
+				);
+			}
+		} finally {
+			setSaving(false);
 		}
 	};
 
