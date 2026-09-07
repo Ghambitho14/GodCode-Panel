@@ -58,3 +58,4 @@ playwright/.cache
 
 # Submodulo GodCode: gitlink huerfano sin .gitmodules
 GodCode/
+.claude/worktrees/
