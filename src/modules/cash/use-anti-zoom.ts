@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 
-/** Viewport fijo en móvil: evita zoom al enfocar inputs y el “zoom pegado” al cerrar teclado en iOS. */
+/**
+ * Viewport móvil. NO lleva `maximum-scale=1`: impedia ampliar la pantalla y es
+ * una violacion de WCAG 1.4.4. El zoom automatico de iOS al enfocar un input lo
+ * dispara un font-size menor de 16px, no la falta de ese candado, asi que la
+ * causa se ataca en CSS (ver `.form-input` a ancho de telefono).
+ */
 export const MOBILE_VIEWPORT_META =
-	"width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content";
+	"width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content";
 
 function applyViewportMeta() {
 	const meta = document.querySelector('meta[name="viewport"]');

@@ -463,3 +463,16 @@
         animation-duration: 0s !important;
     }
 }
+
+/* =========================================
+   ZOOM EN MOVIL (WCAG 1.4.4)
+   El viewport llevaba `maximum-scale=1` para frenar el zoom automatico que
+   hace iOS al enfocar un campo. Eso tambien impedia ampliar la pantalla a
+   quien lo necesita. Ese zoom lo dispara un font-size menor de 16px, asi que
+   se ataca la causa aqui y el candado del viewport deja de hacer falta.
+   ========================================= */
+@media (max-width: 767px) {
+    .login-form .form-input {
+        font-size: 16px;
+    }
+}

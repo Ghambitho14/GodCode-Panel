@@ -58,9 +58,11 @@ export function LoginForm() {
         <div className="input-with-icon">
           <Mail size={18} className="input-icon" />
           <input
+            id="login-email"
             className="form-input"
             type="email"
             autoComplete="username"
+            aria-label="Correo electrónico"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="Correo electrónico"
@@ -73,9 +75,11 @@ export function LoginForm() {
         <div className="input-with-icon">
           <Lock size={18} className="input-icon" />
           <input
+            id="login-password"
             className="form-input"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
+            aria-label="Contraseña"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Contraseña"
