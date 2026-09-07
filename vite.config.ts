@@ -28,7 +28,10 @@ export default defineConfig(({ mode }) => ({
         display: "standalone",
         start_url: "/",
         scope: "/",
-        orientation: "portrait-primary",
+        lang: "es",
+        // Sin `orientation`: fijarla a "portrait-primary" impedia usar el panel
+        // en horizontal, que es como se sostiene una tablet en mostrador, y
+        // bloquear la orientacion incumple WCAG 1.3.4 salvo que sea esencial.
         icons: [
           {
             src: "/icon-192.png",

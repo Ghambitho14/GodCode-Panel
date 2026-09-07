@@ -9,116 +9,41 @@ import { useEffect } from "react";
 export const MOBILE_VIEWPORT_META =
 	"width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content";
 
-function applyViewportMeta() {
-	const meta = document.querySelector('meta[name="viewport"]');
-	if (meta) meta.setAttribute("content", MOBILE_VIEWPORT_META);
-}
-
-function isFormField(el: EventTarget | null) {
-	return el instanceof HTMLElement && el.matches("input, textarea, select");
-}
-
-/** Sincroniza altura/ancho real (visual viewport) para layout y barra URL dinámica del navegador. */
+/**
+ * Antes escribia --app-vh/--app-vw/--app-vv-offset-top en <html> en cada evento
+ * de visualViewport. Ninguna hoja de estilo ni componente leia esas variables,
+ * asi que solo forzaba recalculo de estilos mientras se abria el teclado.
+ *
+ * Se mantiene exportada y vacia porque app-shell la engancha al scroll del
+ * shell; el dia que algo necesite la altura real, este es su sitio.
+ */
 export function syncMobileViewportVars() {
-	if (typeof window === "undefined") return;
-	const vv = window.visualViewport;
-	const height = vv?.height ?? window.innerHeight;
-	const width = vv?.width ?? window.innerWidth;
-	const offsetTop = vv?.offsetTop ?? 0;
-
-	document.documentElement.style.setProperty("--app-vh", `${height}px`);
-	document.documentElement.style.setProperty("--app-vw", `${width}px`);
-	document.documentElement.style.setProperty("--app-vv-offset-top", `${offsetTop}px`);
-}
-
-function nudgeWindowScroll() {
-	// Ayuda a que iOS/Chrome recalculen escala y barra del navegador tras el teclado.
-	window.scrollTo(0, 0);
-}
-
-function recoverViewportAfterKeyboard() {
-	applyViewportMeta();
-	syncMobileViewportVars();
-	nudgeWindowScroll();
-	requestAnimationFrame(() => {
-		nudgeWindowScroll();
-		syncMobileViewportVars();
-	});
+	/* sin efecto: ver comentario */
 }
 
 /**
- * Evita zoom accidental, resetea viewport al cerrar teclado y expone --app-vh/--app-vw
- * para que el shell use la altura real del dispositivo (con/sin barra URL).
+ * Ajustes de viewport en movil.
+ *
+ * Lo que este hook hacia antes y se ha retirado, porque cada pieza causaba un
+ * problema propio:
+ *
+ * - `gesturestart` con preventDefault bloqueaba el pellizco para ampliar en
+ *   iOS Safari, y `wheel` con ctrl/meta y `keydown` con ctrl +/-/0 hacian lo
+ *   mismo en escritorio. Entre los tres anulaban el zoom por completo: WCAG
+ *   1.4.4 (AA). Quitar `maximum-scale=1` del meta no servia de nada mientras
+ *   estos siguieran ahi.
+ *
+ * - `window.scrollTo(0, 0)` al salir de cualquier campo de formulario. En una
+ *   pagina desplazada, tocar fuera de un input saltaba de golpe al principio.
+ *   Tambien se disparaba al girar el dispositivo.
+ *
+ * - Reaplicar el meta viewport por JS: ahora es identico al de index.html, asi
+ *   que era una escritura sin efecto repetida en cada evento.
+ *
+ * Queda como punto de enganche por si vuelve a hacer falta trabajo de viewport.
  */
 export function useAntiZoom() {
 	useEffect(() => {
-		applyViewportMeta();
-		syncMobileViewportVars();
-
-		// Forzar re-sincronizaciones tempranas durante el arranque en standalone (WebKit/SpringBoard frame settling)
-		const timers = [
-			window.setTimeout(syncMobileViewportVars, 50),
-			window.setTimeout(syncMobileViewportVars, 150),
-			window.setTimeout(syncMobileViewportVars, 300),
-			window.setTimeout(syncMobileViewportVars, 600),
-			window.setTimeout(syncMobileViewportVars, 1000),
-		];
-		if (typeof window.requestAnimationFrame === "function") {
-			window.requestAnimationFrame(syncMobileViewportVars);
-		}
-
-		const handleGestureStart = (event: Event) => event.preventDefault();
-		const handleWheel = (event: WheelEvent) => {
-			if (event.ctrlKey || event.metaKey) event.preventDefault();
-		};
-		const handleKeydown = (event: KeyboardEvent) => {
-			if ((event.ctrlKey || event.metaKey) && ["+", "-", "=", "0"].includes(event.key)) {
-				event.preventDefault();
-			}
-		};
-
-		const onViewportChange = () => syncMobileViewportVars();
-		const vv = window.visualViewport;
-
-		const onFocusOut = (event: FocusEvent) => {
-			if (!isFormField(event.target)) return;
-			recoverViewportAfterKeyboard();
-		};
-
-		const onOrientationChange = () => {
-			window.setTimeout(recoverViewportAfterKeyboard, 120);
-		};
-
-		document.addEventListener("gesturestart", handleGestureStart);
-		document.addEventListener("wheel", handleWheel, { passive: false });
-		document.addEventListener("keydown", handleKeydown);
-		document.addEventListener("focusout", onFocusOut);
-		window.addEventListener("resize", onViewportChange);
-		window.addEventListener("orientationchange", onOrientationChange);
-		window.addEventListener("pageshow", onViewportChange);
-		window.addEventListener("focus", onViewportChange);
-		window.addEventListener("visibilitychange", onViewportChange);
-
-		if (vv) {
-			vv.addEventListener("resize", onViewportChange);
-			vv.addEventListener("scroll", onViewportChange);
-		}
-
-		return () => {
-			timers.forEach((t) => window.clearTimeout(t));
-			document.removeEventListener("gesturestart", handleGestureStart);
-			document.removeEventListener("wheel", handleWheel as EventListener);
-			document.removeEventListener("keydown", handleKeydown);
-			document.removeEventListener("focusout", onFocusOut);
-			window.removeEventListener("resize", onViewportChange);
-			window.removeEventListener("orientationchange", onOrientationChange);
-			window.removeEventListener("pageshow", onViewportChange);
-			window.removeEventListener("focus", onViewportChange);
-			window.removeEventListener("visibilitychange", onViewportChange);
-			if (vv) {
-				vv.removeEventListener("resize", onViewportChange);
-				vv.removeEventListener("scroll", onViewportChange);
-			}
-		};
+		/* sin efectos: ver comentario del modulo */
 	}, []);
 }
