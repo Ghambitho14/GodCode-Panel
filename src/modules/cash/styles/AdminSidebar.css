@@ -454,6 +454,12 @@
 		opacity: 0.85;
 		width: 100%;
 		max-width: 100%;
+		/* Reservamos siempre las dos lineas que permite el line-clamp.
+		   Sin esto, los 3 rotulos que envuelven ("Gastos del local",
+		   "Opciones de sucursal", "Cocina / Pedidos") median 21px y los otros 12
+		   median 11px; como la tile centra su contenido, sus iconos quedaban 5px
+		   mas arriba y la fila de iconos de la barra inferior se veia dentada. */
+		min-height: 2.3em;
 		overflow: hidden;
 		text-align: center;
 		word-break: break-word;

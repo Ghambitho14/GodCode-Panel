@@ -1280,7 +1280,12 @@
 		display: none !important;
 	}
 
-	/* Fila 2: historial ancho completo */
+	/* Fila 2: historial ancho completo.
+	   En escritorio este boton vive dentro de la caja con borde de la fila, asi que
+	   ser transparente lo hace leer como un segmento mas. Aqui ocupa una fila entera
+	   el solo (720px de ancho a 768px de viewport) y sin superficie propia parecia
+	   texto suelto centrado, no un control. Le devolvemos la misma superficie
+	   secundaria que ya usa el selector de sucursal del cluster. */
 	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-history {
 		grid-column: 1 / -1;
 		grid-row: 2;
@@ -1288,6 +1293,17 @@
 		min-width: 0;
 		justify-content: center;
 		align-self: stretch;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-history.btn-secondary {
+		background: var(--admin-icon-bg);
+		border: 1px solid var(--admin-border);
+		border-radius: 10px;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .header-action-orders-history.btn-secondary:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--admin-accent) 8%, var(--admin-icon-bg));
+		border-color: var(--admin-border);
 	}
 
 	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row > .btn {
