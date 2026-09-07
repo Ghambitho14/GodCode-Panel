@@ -1382,17 +1382,13 @@
         justify-content: flex-end;
     }
 
-    .admin-layout .cash-kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-    }
 }
 
-@media (min-width: 1100px) {
-    .admin-layout .cash-kpi-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
+/* Aqui vivian dos reglas de columnas para .cash-kpi-grid (2 columnas desde
+   769px, 4 desde 1100px) que nunca llegaron a aplicarse: la regla base sin
+   media query se declara mas abajo, con la misma especificidad, asi que ganaba
+   siempre. Las columnas se deciden ahora por container query junto a esa regla
+   base. */
 
 /* --- Loading State --- */
 .admin-layout .cash-loading {
@@ -1420,10 +1416,27 @@
 }
 
 /* --- KPI Grid (estilo Analíticas) --- */
+/* Son 4 tarjetas: la rejilla solo debe dar 2x2 o 4x1, nunca 3+1.
+   Antes usaba `repeat(auto-fit, minmax(200px, 1fr))`, que dejaba 3 columnas y
+   la cuarta tarjeta huerfana en dos franjas medidas: ~780-990px (shell compacto)
+   y ~1050-1200px (escritorio, donde la barra lateral se come 268px y deja solo
+   784px utiles a 1100px de viewport). Por eso mandamos sobre el contenedor y no
+   sobre el viewport: el mismo viewport ofrece anchos utiles muy distintos segun
+   haya barra lateral o barra inferior. 4 columnas piden 4*200 + 3*12 = 836px. */
+.admin-layout .cash-section--active {
+    container-type: inline-size;
+}
+
 .admin-layout .cash-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+}
+
+@container (min-width: 860px) {
+    .admin-layout .cash-kpi-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
 .admin-layout .cash-kpi {
