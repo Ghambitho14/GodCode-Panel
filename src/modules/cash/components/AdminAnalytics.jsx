@@ -53,6 +53,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 
+/* Los colores que se pasan a recharts van como atributo SVG, donde var() NO
+   se resuelve (queda en `none` y el trazo desaparece). Por eso siguen siendo
+   literales: para que tomen el color del negocio habria que leer
+   --admin-accent en runtime y pasar el valor ya resuelto. */
 const CHART_KIND_OPTIONS = [
     { value: 'area', label: 'Área', Icon: AreaChart },
     { value: 'bar-solid', label: 'Barras', Icon: BarChart3 },
@@ -1418,7 +1422,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         value={filterPeriod}
                         onChange={setFilterPeriod}
                         aria-label="Rango de fechas del informe"
-                        icon={<Calendar size={16} strokeWidth={1.65} className="text-[#2563eb]" />}
+                        icon={<Calendar size={16} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
                     />
                 </div>
             </div>
@@ -1428,7 +1432,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     value={filterPeriod}
                     onChange={setFilterPeriod}
                     aria-label="Rango de fechas del informe"
-                    icon={<Calendar size={18} strokeWidth={1.65} className="text-[#2563eb]" />}
+                    icon={<Calendar size={18} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
                 />
             </div>
         </header>
@@ -1621,7 +1625,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             value={analyticsDate}
                             onChange={setAnalyticsDate}
                             options={monthlyExportMonthOptions}
-                            icon={<Calendar size={18} strokeWidth={1.65} className="text-[#2563eb]" />}
+                            icon={<Calendar size={18} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
                             aria-label="Seleccionar mes del reporte"
                             menuMinWidth={220}
                         />
@@ -1781,7 +1785,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                    <Clock size={18} className="text-[#2563eb]" />
+                                    <Clock size={18} className="text-[var(--admin-accent,#2563eb)]" />
                                     Hora pico
                                 </CardTitle>
                             </CardHeader>
@@ -1798,7 +1802,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                 <span className="w-[4.5rem] shrink-0 text-xs font-medium text-[#6b7280]">{row.label}</span>
                                                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
                                                     <div
-                                                        className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
+                                                        className="h-full rounded-full bg-[var(--admin-accent,#2563eb)] rpt-animate-bar"
                                                         style={{
                                                             '--rpt-bar-width': `${row.pct}%`,
                                                             opacity: 0.3 + (row.pct / 100) * 0.7,
@@ -1835,7 +1839,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                <Package size={20} className="text-[#2563eb]" />
+                                <Package size={20} className="text-[var(--admin-accent,#2563eb)]" />
                                 Top productos vendidos
                             </CardTitle>
                         </CardHeader>
@@ -1852,7 +1856,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         const opacity = Math.max(0.25, pct / 100);
                                         return (
                                             <div key={`${p.name}-${i}`} className="flex items-center gap-4">
-                                                <span className="w-7 text-sm font-black text-[#2563eb]">#{i + 1}</span>
+                                                <span className="w-7 text-sm font-black text-[var(--admin-accent,#2563eb)]">#{i + 1}</span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-semibold text-[#14161a]">{p.name}</p>
                                                     <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
@@ -1879,7 +1883,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <Card className="min-w-0">
                         <CardHeader className="pb-2">
                             <CardTitle as="h2" className="flex items-center gap-2 text-base">
-                                <CreditCard size={18} className="text-[#2563eb]" />
+                                <CreditCard size={18} className="text-[var(--admin-accent,#2563eb)]" />
                                 Métodos de pago
                             </CardTitle>
                         </CardHeader>
@@ -1926,7 +1930,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <CardHeader className="pb-2">
                             <CardTitle as="h2" className="flex items-center justify-between gap-2 text-base font-semibold text-[#14161a]">
                                 <span className="inline-flex items-center gap-2">
-                                    <Users size={18} className="text-[#2563eb]" />
+                                    <Users size={18} className="text-[var(--admin-accent,#2563eb)]" />
                                     Clientes nuevos
                                 </span>
                                 {reportRange.hasComparison ? (
@@ -1971,7 +1975,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
-                                    <MapPin size={18} className="text-[#2563eb]" />
+                                    <MapPin size={18} className="text-[var(--admin-accent,#2563eb)]" />
                                     Ventas por Sucursal
                                 </CardTitle>
                             </CardHeader>
@@ -1989,7 +1993,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
                                                 <div
-                                                    className="h-full rounded-full bg-[#2563eb] rpt-animate-bar"
+                                                    className="h-full rounded-full bg-[var(--admin-accent,#2563eb)] rpt-animate-bar"
                                                     style={{ '--rpt-bar-width': `${pct}%`, opacity: 0.25 + (pct / 100) * 0.75, animationDelay: `${idx * 80}ms` }}
                                                 />
                                             </div>
