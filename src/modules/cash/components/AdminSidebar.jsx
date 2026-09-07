@@ -208,7 +208,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                 </div>
             </div>
             
-            <nav className="sidebar-menu">
+            <nav className="sidebar-menu" aria-label="Secciones del panel">
                 {renderMobile
                     ? menuItems.flatMap(item => {
                         if (item.isGroup) {
@@ -225,7 +225,9 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                             setActiveTab(child.id);
                                         }}
                                         className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
+                                        aria-current={activeTab === child.id ? 'page' : undefined}
                                         title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
+                                        aria-disabled={disabled || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                     >
                                         <SidebarIcon Icon={child.icon} size={20} />
@@ -246,8 +248,10 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         setActiveTab(item.id);
                                     }}
                                     className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                                    aria-current={activeTab === item.id ? 'page' : undefined}
                                     title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
-                                    style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                                    aria-disabled={disabled || undefined}
+                                        style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
                                     <SidebarIcon Icon={item.icon} size={20} />
                                     <span className="nav-label-mobile">{item.label}</span>
@@ -265,6 +269,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                     <button 
                                         onClick={() => toggleGroup(item.id)} 
                                         className={`nav-item nav-group-header ${isActiveGroup ? 'active-group' : ''}`}
+                                        aria-expanded={!!isExpanded}
                                     >
                                         <div className="nav-item-inner">
                                             <SidebarIcon Icon={item.icon} size={20} />
@@ -290,8 +295,10 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                                         setActiveTab(child.id);
                                                     }}
                                                     className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
+                                        aria-current={activeTab === child.id ? 'page' : undefined}
                                                     title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
-                                                    style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                                                    aria-disabled={disabled || undefined}
+                                        style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                                 >
                                                     <SidebarIcon Icon={child.icon} size={18} />
                                                     <span className="nav-text">{child.label}</span>
@@ -314,8 +321,10 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         setActiveTab(item.id);
                                     }} 
                                     className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+                                    aria-current={activeTab === item.id ? 'page' : undefined}
                                     title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
-                                    style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+                                    aria-disabled={disabled || undefined}
+                                        style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
                                 >
                                     <SidebarIcon Icon={item.icon} size={20} />
                                     <span className="nav-text">{item.label}</span>

@@ -138,7 +138,7 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                             {/* Header */}
                             <div className="column-header">
                                 <span className={`dot ${col.dotClass}`}></span>
-                                <h3>{col.title}</h3>
+                                <h2>{col.title}</h2>
                                 <span className="count">{ordersInColumn.length}</span>
                             </div>
 

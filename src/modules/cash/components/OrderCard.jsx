@@ -439,7 +439,7 @@ const OrderCard = ({
                                         </span>
                                     ) : null}
                                     <TypeIcon size={18} className="order-type-icon" aria-label={fulfillmentLabel} />
-									<h4 className="card-client-name">{order.display_name || order.client_name}</h4>
+									<h3 className="card-client-name">{order.display_name || order.client_name}</h3>
                                     {isVip ? (
                                         <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
                                             <Star size={14} aria-hidden />
@@ -474,7 +474,7 @@ const OrderCard = ({
                         <div className="card-client">
                             <div className="card-client-name-row">
                                 <TypeIcon size={18} className="order-type-icon order-type-icon--normal" aria-label={fulfillmentLabel} />
-								<h4 className="card-client-name">{order.display_name || order.client_name}</h4>
+								<h3 className="card-client-name">{order.display_name || order.client_name}</h3>
                                 {isVip ? (
                                     <span className="order-vip-icon" title={`Cliente habitual · ${clientData.total_orders} pedidos`}>
                                         <Star size={14} aria-hidden />
@@ -566,6 +566,7 @@ const OrderCard = ({
                                                     <input
                                                         type="checkbox"
                                                         className="order-item-checkbox"
+                                                        aria-label={`${isPrepared ? 'Marcar como pendiente' : 'Marcar como preparado'}: ${item.name ?? 'Producto'}`}
                                                         checked={isPrepared}
                                                         onChange={() => togglePrepared(idx)}
                                                     />
