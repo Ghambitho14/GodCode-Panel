@@ -19,7 +19,7 @@ const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc
 const inputClass =
     `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const hintClass =
-    `mt-2 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
+    `mt-2 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted-strong`;
 const billChipClass =
     `rounded-[12px] border border-gc-border bg-gc-card px-2.5 py-1.5 ${textScale.micro} font-bold text-gc-text shadow-none transition-colors hover:!border-gc-accent hover:!text-gc-accent`;
 const confirmBtnClass = cn(
@@ -556,10 +556,8 @@ const PaymentDetails = ({
                         <label className={`flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`}>
                             <span>Efectivo</span>
                             <input
-                                type="number"
-                                inputMode="numeric"
-                                min="0"
-                                step="1"
+                                type="text"
+                                inputMode="decimal"
                                 className={inputClass}
                                 value={manualOrder.cash_amount || ''}
                                 onChange={(e) => updateCashAmount(e.target.value)}
@@ -569,10 +567,8 @@ const PaymentDetails = ({
                         <label className={`flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`}>
                             <span>Tarjeta</span>
                             <input
-                                type="number"
-                                inputMode="numeric"
-                                min="0"
-                                step="1"
+                                type="text"
+                                inputMode="decimal"
                                 className={inputClass}
                                 value={manualOrder.card_amount || ''}
                                 onChange={(e) => updateCardAmount(e.target.value)}
@@ -606,10 +602,9 @@ const PaymentDetails = ({
             <div ref={cashTenderRef} className={cn(sectionCardClass, 'animate-fade-in scroll-mt-3')}>
                 <SectionHeader icon={Coins} tone="accent">Efectivo recibido</SectionHeader>
                 <input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        step="1"
+                        type="text"
+                        inputMode="decimal"
+                        aria-label="Efectivo recibido"
                         className={inputClass}
                         value={manualOrder.cash_tendered === '' ? '' : manualOrder.cash_tendered}
                         onChange={(e) => updateCashTendered(e.target.value)}

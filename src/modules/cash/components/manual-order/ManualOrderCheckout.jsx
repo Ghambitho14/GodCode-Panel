@@ -56,7 +56,7 @@ export function resolveWizardStepRoles({
 }
 
 export const stepNavBackClass =
-	`flex max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-all`;
+	`flex min-h-[44px] max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-[background-color,border-color,color,box-shadow]`;
 export const stepNavNextClass = cn(
 	primaryActionButtonClass,
 	`flex-1 px-6 ${textScale.body} gap-0`,
@@ -834,7 +834,7 @@ export default function ManualOrderCheckout({
 					<Button
 						variant="default"
 						type="button"
-						className="manual-order-mobile-cart-fab"
+						className="manual-order-mobile-cart-fab manual-order-tap-44"
 						onClick={toggleCartSheet}
 						aria-expanded={cartSheetOpen}
 						aria-controls="manual-order-mobile-cart-sheet"
@@ -880,7 +880,7 @@ export default function ManualOrderCheckout({
 										size="sm"
 										align="start"
 										className="manual-order-mobile-cart-bar__ves"
-										secondaryClassName="!text-gc-text-muted/70 !font-medium"
+										secondaryClassName="!font-medium"
 									/>
 								</span>
 							) : (
@@ -929,7 +929,7 @@ export default function ManualOrderCheckout({
 							) : null}
 							<Button variant="default"
 								type="button"
-								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full transition-all duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
+								className="manual-order-steps-nav__btn manual-order-steps-nav__btn--next manual-order-steps-nav__btn--next-step1 w-full transition-transform duration-200 hover:!-translate-y-0.5 active:!translate-y-0"
 								onClick={goNextStep}
 								disabled={!hasCartItems}
 							>

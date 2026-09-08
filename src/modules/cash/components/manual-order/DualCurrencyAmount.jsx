@@ -108,7 +108,7 @@ export default function DualCurrencyAmount({
 				<span
 					className={cn(
 						secondarySize,
-						'leading-tight text-gc-text-muted/75',
+						'leading-tight text-gc-text-muted',
 						layout === 'inline' && !hidePrimary && 'before:mr-0.5 before:content-["≈"]',
 						secondaryClassName,
 					)}

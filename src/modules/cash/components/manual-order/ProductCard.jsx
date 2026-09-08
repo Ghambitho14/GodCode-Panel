@@ -83,7 +83,7 @@ const ProductCard = ({
         <Button variant="default"
             type="button"
             onClick={handleAddClick}
-            className="flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-gc-accent p-0 text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
+            className="manual-order-tap-44 flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-gc-accent p-0 text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
             aria-label={`Agregar ${product.name}`}
         >
             +
@@ -104,7 +104,7 @@ const ProductCard = ({
             <Button variant="default"
                 type="button"
                 onClick={handleAddClick}
-                className="flex aspect-square h-6 w-6 min-h-6 min-w-6 items-center justify-center !rounded-full bg-transparent p-0 text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
+                className="manual-order-tap-44 flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-transparent p-0 sm:h-6 sm:w-6 sm:min-h-6 sm:min-w-6 text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
                 aria-label="Aumentar cantidad"
             >
                 +

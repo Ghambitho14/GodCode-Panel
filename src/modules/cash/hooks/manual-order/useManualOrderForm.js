@@ -129,9 +129,23 @@ export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'C
         }));
     }, []);
 
+    // Lo que teclea el cajero llega como string y puede traer coma decimal
+    // ("2,50"): `Number` devolvia NaN y el envio se guardaba como 0. Los valores
+    // calculados llegan como number y se dejan intactos, porque una tarifa como
+    // 3.333 tiene mas decimales de los que admite la moneda y el parser la leeria
+    // como separador de miles.
     const updateDeliveryFee = useCallback((val) => {
-        setForm(prev => ({ ...prev, delivery_fee: Number(val) || 0 }));
-    }, []);
+        if (typeof val === 'number') {
+            setForm(prev => ({ ...prev, delivery_fee: Number.isFinite(val) ? val : 0 }));
+            return;
+        }
+        const currency = moneyOptions.currency ?? 'CLP';
+        const parsed = parseMoneyInput(val, { currency, locale: moneyOptions.locale, fractionDigits: moneyOptions.fractionDigits });
+        setForm(prev => ({
+            ...prev,
+            delivery_fee: parsed.valid ? minorToMajor(parsed.minor, currency, moneyOptions.fractionDigits) : 0,
+        }));
+    }, [moneyOptions.currency, moneyOptions.locale, moneyOptions.fractionDigits]);
 
     const updateDeliveryNamedAreaId = useCallback((val) => {
         setForm((prev) => ({

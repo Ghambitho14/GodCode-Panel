@@ -34,13 +34,13 @@ const sectionCardClass = '@container manual-order-step-card flex min-h-0 flex-co
 const inputClass =
     `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const hintClass =
-    `mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
+    `mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted-strong`;
 const inlineActionClass =
     `inline-flex min-h-[42px] items-center gap-1.5 self-start rounded-[12px] border border-gc-border bg-gc-card px-3.5 py-2 ${textScale.body} font-semibold text-gc-text transition-colors hover:border-gc-accent/30 disabled:cursor-not-allowed disabled:opacity-50`;
 const fieldLabelClass = `flex flex-col ${spacing.compact} ${textScale.micro} font-semibold text-gc-text-muted`;
 
 const fieldSwitchTrackClass = (on, locked) => cn(
-	'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors',
+	'manual-order-tap-44 relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors',
 	on ? 'border-gc-accent bg-gc-accent' : 'border-gc-border bg-gc-muted',
 	locked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
 );
@@ -955,7 +955,9 @@ const ClientForm = ({
             {inputWithIcon(
                 <Banknote size={14} aria-hidden />,
                 <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
+                    aria-label="Costo de envío"
                     placeholder={
                         canOverrideDeliveryFee
                             ? (showNamedZonePicker || showDistancePricing

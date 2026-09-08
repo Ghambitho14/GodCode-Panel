@@ -318,7 +318,7 @@ const ManualOrderCatalog = ({
                             <h3 className={`mb-2.5 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text sm:mb-3`}>
                                 <span className="h-4 w-0.5 rounded-full bg-gc-accent" aria-hidden />
                                 {cat.name}
-                                <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
+                                <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted-strong`}>
                                     {cat.products.length}
                                 </span>
                             </h3>
@@ -350,7 +350,7 @@ const ManualOrderCatalog = ({
                         <h3 className={`mb-2.5 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text sm:mb-3`}>
                             <span className="h-4 w-0.5 rounded-full bg-gc-text-muted" aria-hidden />
                             Otros
-                            <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted`}>
+                            <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted-strong`}>
                                 {catalog.uncategorized.length}
                             </span>
                         </h3>
@@ -419,7 +419,7 @@ const ManualOrderCatalog = ({
                     {searchVisible ? (
                         <div
                             className={cn(
-                                `manual-order-catalog-toolbar__search relative flex h-10 min-w-0 flex-1 items-center ${pillRadiusClass} border border-gc-accent/25 bg-gc-card shadow-sm`,
+                                `manual-order-catalog-toolbar__search relative flex h-10 min-w-0 flex-1 items-center ${pillRadiusClass} border border-gc-accent/25 bg-gc-card shadow-sm focus-within:border-gc-accent focus-within:ring-2 focus-within:ring-gc-accent/25`,
                                 searchPhase === 'closing' && 'manual-order-catalog-toolbar__search--closing',
                             )}
                             role="search"
@@ -431,7 +431,7 @@ const ManualOrderCatalog = ({
                                 ref={searchInputRef}
                                 id={searchInputId}
                                 type="search"
-                                placeholder="Buscar producto..."
+                                placeholder="Buscar producto…"
                                 className={`h-full w-full min-w-0 bg-transparent pl-9 pr-10 ${textScale.body} text-gc-text outline-none placeholder:text-gc-text-muted [&::-webkit-search-cancel-button]:hidden`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -473,7 +473,7 @@ const ManualOrderCatalog = ({
                                                 type="button"
                                                 onClick={() => scrollToCategory(it.key)}
                                                 className={cn(
-                                                    `manual-order-catalog-category-chip shrink-0 snap-start whitespace-nowrap border px-3.5 py-2 sm:py-1.5 ${pillRadiusClass} ${textScale.body} leading-snug transition-all`,
+                                                    `manual-order-catalog-category-chip shrink-0 snap-start whitespace-nowrap border px-3.5 py-2 sm:py-1.5 ${pillRadiusClass} ${textScale.body} leading-snug transition-[background-color,border-color,color,box-shadow]`,
                                                     isActive
                                                         ? 'border-gc-accent bg-gc-accent font-semibold text-white shadow-sm'
                                                         : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-accent/25 hover:bg-gc-accent/5 hover:text-gc-text',
@@ -494,7 +494,7 @@ const ManualOrderCatalog = ({
                                 type="button"
                                 onClick={openMobileSearch}
                                 className={cn(
-                                    `manual-order-catalog-search-toggle relative flex h-10 w-10 shrink-0 items-center justify-center ${pillRadiusClass} border p-0 shadow-none transition-colors`,
+                                    `manual-order-catalog-search-toggle manual-order-tap-44 relative flex h-10 w-10 shrink-0 items-center justify-center ${pillRadiusClass} border p-0 shadow-none transition-colors`,
                                     hasActiveSearch
                                         ? 'border-gc-accent/30 bg-gc-accent/10 text-gc-accent'
                                         : 'border-gc-border bg-gc-card text-gc-text-muted hover:border-gc-text/20 hover:bg-gc-muted hover:text-gc-text',

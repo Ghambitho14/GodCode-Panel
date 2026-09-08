@@ -11,17 +11,26 @@
   --color-gc-text: var(--admin-text, #1d1d1f);
   --color-gc-text-muted: var(--admin-text-muted, var(--admin-text-muted, #64748b));
   --color-gc-muted: var(--admin-icon-bg, #f5f5f7);
+  /* Texto secundario sobre superficies tintadas. El muted normal (#64748b)
+     baja a 3.91:1 sobre el tinte de acento al 10% de las cajas de aviso;
+     este llega a 6.22:1 sin perder la jerarquia frente al texto principal. */
+  --color-gc-text-muted-strong: #475569;
 
   /* Tenant tokens (fallbacks del panel anterior) */
   --color-gc-primary: var(--accent-primary, #2563eb);
   --color-gc-primary-hover: var(--accent-hover, #1d4ed8);
   --color-gc-secondary: var(--accent-secondary, #3b82f6);
   --color-gc-price: var(--price-color, #2563eb);
-  --color-gc-discount: var(--discount-color, #00e4bb);
+  /* Verde de oferta/exito. #00e4bb daba 1.64:1 sobre blanco (precio rebajado
+     casi invisible) y 1.16:1 en la pastilla OFERTA, que lo usa a la vez como
+     texto y como tinte al 15%. #00705b conserva el tono y cumple AA en los
+     cuatro pares reales: 6.05 sobre blanco, 4.85 sobre su tinte al 15%,
+     5.23 sobre el tinte al 10% y 5.56 sobre el gris #f5f5f7. */
+  --color-gc-discount: var(--discount-color, #00705b);
 
   /* Semantic shortcuts */
   --color-gc-danger: #c31d2d;
-  --color-gc-success: #00e4bb;
+  --color-gc-success: #00705b;
   --color-gc-blue: #0078ff;
   --color-gc-accent: #4f5bff;
   --color-gc-accent-hover: #3d48e6;

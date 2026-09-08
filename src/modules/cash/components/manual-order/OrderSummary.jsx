@@ -82,7 +82,7 @@ const OrderSummary = ({
 					e.stopPropagation();
 					setPrintMenuOpen((v) => !v);
 				}}
-				className="flex h-8 w-8 items-center justify-center rounded-full border border-gc-border bg-gc-card p-0 text-gc-text-muted shadow-none transition-colors hover:border-gc-accent/30 hover:bg-gc-accent/10 hover:text-gc-accent"
+				className="manual-order-tap-44 flex h-8 w-8 items-center justify-center rounded-full border border-gc-border bg-gc-card p-0 text-gc-text-muted shadow-none transition-colors hover:border-gc-accent/30 hover:bg-gc-accent/10 hover:text-gc-accent"
 				title="Imprimir tickets"
 				aria-expanded={printMenuOpen}
 				aria-haspopup="menu"
@@ -172,7 +172,7 @@ const OrderSummary = ({
 									align="start"
 									className="mt-0.5"
 									primaryClassName="text-gc-text"
-									secondaryClassName="text-gc-text-muted/80"
+									secondaryClassName=""
 								/>
 							) : (
 								<p className={cn(textScale.micro, 'mt-0.5 text-gc-text-muted')}>Sin productos</p>

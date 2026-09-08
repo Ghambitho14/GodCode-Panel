@@ -109,8 +109,9 @@
     right: 14px;
     z-index: 20;
     width: auto;
-    min-width: 40px;
-    height: 40px;
+    /* 44px de alto: minimo comodo en pantalla tactil (antes 40). */
+    min-width: 44px;
+    height: 44px;
     padding: 0 13px;
     gap: 7px;
     border-radius: 12px;
@@ -368,9 +369,9 @@
 	}
 
     .manual-order-floating-close {
-        width: 40px;
-        min-width: 40px;
-        height: 40px;
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
         padding: 0;
     }
 
@@ -1765,8 +1766,11 @@
     height: 22px;
     border-radius: 50%;
     border: none;
-    background: color-mix(in srgb, var(--admin-text-muted, #64748b) 28%, #e2e8f0);
-    color: #fff;
+    /* Paso pendiente: circulo claro con numero oscuro. Antes era #fff sobre
+       color-mix(...28%, #e2e8f0) = rgb(191,200,212), o sea 1.69:1 y el numero
+       no se leia. Asi da 6.15:1 y sigue siendo mas silencioso que el activo. */
+    background: #e2e8f0;
+    color: #475569;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2026,7 +2030,8 @@
     padding: 6px 10px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent-primary, #2563eb) 8%, var(--admin-page-bg, #f8fafc));
-    color: var(--admin-text-muted, #64748b);
+    /* Sobre este tinte el muted normal da 4.14:1. */
+    color: #475569;
     font-size: 11px;
     font-weight: 700;
 }
@@ -2041,7 +2046,8 @@
     border: 1px solid color-mix(in srgb, var(--accent-primary, #2563eb) 20%, var(--admin-border, #e2e8f0));
     border-radius: 12px;
     background: color-mix(in srgb, var(--accent-primary, #2563eb) 7%, var(--admin-card-bg, #fff));
-    color: var(--admin-text-muted, #64748b);
+    /* Sobre este tinte el muted normal da 4.32:1. */
+    color: #475569;
     font-size: 11px;
     font-weight: 600;
     line-height: 1.4;
@@ -2378,6 +2384,8 @@
 
 .manual-order-steps-nav__btn {
     flex: 1;
+    /* 44px: los botones del pie quedaban en 40 de alto. */
+    min-height: 44px;
     padding: 12px 14px;
     border-radius: 10px;
     font-size: 13px;
@@ -2473,14 +2481,14 @@
     }
 
     .manual-order-step-1 .manual-order-catalog-count {
-        height: 40px;
-        min-width: 40px;
+        height: 44px;
+        min-width: 44px;
         border-radius: 999px;
     }
 
     .manual-order-step-1 .manual-order-catalog-category-chip {
-        height: 40px;
-        min-height: 40px;
+        height: 44px;
+        min-height: 44px;
         padding-top: 0;
         padding-bottom: 0;
         display: inline-flex;
@@ -2718,7 +2726,8 @@
     padding: 0 0.45rem;
     border-radius: 999px;
     background: color-mix(in srgb, var(--admin-border, #e2e8f0) 55%, #fff);
-    color: var(--admin-text-muted, #64748b);
+    /* Sobre este gris el muted normal se queda en 4.22:1. */
+    color: #475569;
     letter-spacing: -0.01em;
 }
 
@@ -2923,7 +2932,8 @@
     }
 
     .manual-order--mobile .manual-order-catalog-category-chip {
-        min-height: 40px;
+        /* 44px: minimo comodo para el dedo (antes 40). */
+        min-height: 44px;
         padding: 0 14px;
         display: inline-flex;
         align-items: center;
@@ -2932,7 +2942,7 @@
     }
 
     .manual-order--mobile .manual-order-catalog-toolbar__search {
-        height: 40px;
+        height: 44px;
         max-width: 100%;
         transform-origin: right center;
         will-change: transform, opacity;
@@ -3613,6 +3623,34 @@
     .manual-order--mobile
         .manual-order-steps-progress__item:not(.is-active)
         .manual-order-steps-progress__label {
+        display: none;
+    }
+}
+
+/* Area tactil de 44x44 sin alterar el tamano visible del control.
+   Medido en el catalogo a 390px: los "+" de agregar son circulos de 32x32 y el
+   "+" del contador 24x24, por debajo de lo comodo en una tablet de mostrador.
+   El pseudo-elemento agranda solo la zona sensible; el circulo se ve igual.
+   Es hijo del propio boton, asi que el toque sigue activando ese boton. */
+.manual-order-tap-44 {
+    position: relative;
+}
+
+.manual-order-tap-44::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    border-radius: inherit;
+}
+
+/* Con puntero fino (raton) no hace falta ampliar y podria robar clics a los
+   controles vecinos, asi que solo aplica donde el puntero es grueso. */
+@media (pointer: fine) {
+    .manual-order-tap-44::after {
         display: none;
     }
 }

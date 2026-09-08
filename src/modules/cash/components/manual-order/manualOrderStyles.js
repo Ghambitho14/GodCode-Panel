@@ -30,7 +30,7 @@ export const spacing = {
 
 /** Botón de acción principal (CTA) usado en Confirmar, Siguiente y Abrir Mesa. */
 export const primaryActionButtonClass =
-	`flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-transparent bg-gc-accent px-4 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-white shadow-[0_2px_8px_rgba(79,91,255,0.22)] transition-all hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0`;
+	`flex min-h-[44px] items-center justify-center gap-2 rounded-[12px] border border-transparent bg-gc-accent px-4 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-white shadow-[0_2px_8px_rgba(79,91,255,0.22)] transition-[background-color,border-color,color,box-shadow,transform] hover:-translate-y-0.5 hover:bg-gc-accent-hover disabled:cursor-not-allowed disabled:border disabled:border-gc-border disabled:bg-gc-muted disabled:text-gc-text-muted disabled:shadow-none disabled:hover:translate-y-0`;
 
 /**
  * Toggle base (retiro/delivery, mesero/cliente, etc.).
