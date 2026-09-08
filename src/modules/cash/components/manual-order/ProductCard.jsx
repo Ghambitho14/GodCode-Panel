@@ -173,10 +173,10 @@ const ProductCard = ({
                     ahora sigue al ancho de la fila y se topa en text-xl (20px), que es lo
                     que valia antes en las tarjetas anchas. */}
                 <div
-                    className="@container mt-auto flex w-full items-end justify-between gap-2 pt-1"
+                    className="@container mt-auto flex w-full items-center justify-between gap-2 pt-1"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="min-w-0 flex-1 flex flex-col items-start justify-end gap-0.5">
+                    <div className="min-w-0 flex-1 flex flex-col items-start justify-center gap-0.5">
                         {hasDiscount ? (
                             <>
                                 <span className={`${textScale.micro} font-medium text-gc-text-muted line-through tabular-nums`}>
