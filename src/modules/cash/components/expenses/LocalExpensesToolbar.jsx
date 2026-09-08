@@ -20,7 +20,7 @@ function ToolbarDivider() {
 function FilterField({ label, children }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-1">
-			<span className="text-xs font-medium text-[#6b7280]">{label}</span>
+			<span className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{label}</span>
 			{children}
 		</div>
 	);
@@ -74,7 +74,7 @@ export default function LocalExpensesToolbar({
 							onChange={onFilterPeriodChange}
 							options={getReportPeriodOptions()}
 							aria-label="Período"
-							icon={<Calendar size={16} strokeWidth={1.65} className="text-[#6b7280]" />}
+							icon={<Calendar size={16} strokeWidth={1.65} className="text-[var(--admin-text-muted,#64748b)]" />}
 						/>
 						{expenseAgg === 'month' && expenseReferenceYear != null ? (
 							<span className="text-xs font-bold text-[#1a1a1a]">Año {expenseReferenceYear}</span>
@@ -88,7 +88,7 @@ export default function LocalExpensesToolbar({
 					<Select value={String(expenseAgg)} onValueChange={onExpenseAggChange}>
 						<SelectTrigger className="h-10 w-full gap-2 sm:w-auto sm:min-w-[120px]" aria-label="Agrupar por">
 							<span className="flex min-w-0 items-center gap-2">
-								<BarChart3 size={16} strokeWidth={1.65} className="shrink-0 text-[#6b7280]" aria-hidden />
+								<BarChart3 size={16} strokeWidth={1.65} className="shrink-0 text-[var(--admin-text-muted,#64748b)]" aria-hidden />
 								<SelectValue />
 							</span>
 						</SelectTrigger>
@@ -108,7 +108,7 @@ export default function LocalExpensesToolbar({
 					<Select value={String(expenseKindFilter)} onValueChange={onExpenseKindFilterChange}>
 						<SelectTrigger className="h-10 w-full gap-2 sm:w-auto sm:min-w-[148px] sm:max-w-[220px]" aria-label="Tipo">
 							<span className="flex min-w-0 items-center gap-2">
-								<Tag size={16} strokeWidth={1.65} className="shrink-0 text-[#6b7280]" aria-hidden />
+								<Tag size={16} strokeWidth={1.65} className="shrink-0 text-[var(--admin-text-muted,#64748b)]" aria-hidden />
 								<span className="truncate">{kindTriggerLabel}</span>
 							</span>
 						</SelectTrigger>

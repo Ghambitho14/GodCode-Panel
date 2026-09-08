@@ -117,7 +117,7 @@ function ReportSalesChart({
 	return (
 		<div style={{ width: '100%' }} className={showHeader ? 'flex flex-col overflow-hidden' : undefined}>
 			{showHeader ? (
-				<div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] font-semibold text-[#6b7280]">
+				<div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] font-semibold text-[var(--admin-text-muted,#64748b)]">
 					<span className="truncate">{headerTitle}</span>
 					<span className="shrink-0">{filterLabel}</span>
 				</div>

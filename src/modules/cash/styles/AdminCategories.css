@@ -36,7 +36,7 @@
 }
 
 .admin-layout .cat-drag-handle {
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     cursor: grab;
     display: flex;
     align-items: center;
@@ -96,7 +96,7 @@
 .admin-layout .cat-subtitle {
     margin: 0;
     font-size: 0.85rem;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .cat-header-actions {
@@ -467,7 +467,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     border: 1px solid var(--admin-border, #e8ecf1);
 }
 
@@ -480,7 +480,7 @@
 
 .admin-layout .cat-empty-text {
     font-size: 0.9rem;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     margin: 0;
     max-width: 300px;
 }

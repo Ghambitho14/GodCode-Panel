@@ -497,7 +497,7 @@
 .admin-layout .table-footer {
 	padding: 15px 20px;
 	text-align: right;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	font-size: 0.85rem;
 	border-top: 1px solid var(--admin-border, #e8ecf1);
 	background: var(--admin-icon-bg, #f0f2f6);

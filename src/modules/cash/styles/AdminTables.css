@@ -397,7 +397,10 @@
 	--admin-card-bg: #ffffff;
 	--admin-border: #e5e5ea;
 	--admin-text: #14161a;
-	--admin-text-muted: #6b7280;
+	/* Portal: fuera de .admin-layout, asi que necesita el token, pero con el
+	   mismo valor que la base. Antes era var(--admin-text-muted, #64748b) y el detalle de pedido salia
+	   con un gris distinto al resto del panel. */
+	--admin-text-muted: #64748b;
 	--admin-icon-bg: #f5f5f7;
 	--admin-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
 	--admin-shadow-md: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 28px -8px rgba(15, 23, 42, 0.1);
@@ -407,7 +410,7 @@
 	--admin-accent-hover: var(--accent-hover, #1d4ed8);
 	--text-primary: var(--admin-text);
 	--text-secondary: var(--admin-text-muted);
-	--text-muted: #6b7280;
+	--text-muted: var(--admin-text-muted, #64748b);
 	--card-bg: var(--admin-card-bg);
 	--card-border: var(--admin-border);
 	--bg-primary: var(--admin-page-bg);

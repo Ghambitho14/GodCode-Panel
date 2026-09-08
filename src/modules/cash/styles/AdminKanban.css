@@ -21,7 +21,7 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
 }
 
 .admin-layout .kanban-view-toggle {
@@ -41,7 +41,7 @@
     border-radius: 10px;
     border: 1px solid transparent;
     background: transparent;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -170,7 +170,7 @@
 .admin-layout .count {
     margin-left: auto;
     background: #f5f5f7;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
     padding: 3px 9px;
     border-radius: 999px;
     font-size: 0.72rem;
@@ -306,7 +306,7 @@
     justify-content: center;
     min-height: 160px;
     height: auto;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
     opacity: 1;
     font-size: 0.85rem;
     font-weight: 500;
@@ -321,7 +321,7 @@
 /* Icono fantasma opcional si quieres agregar uno en el HTML */
 .admin-layout .empty-zone svg {
     opacity: 0.55;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
 }
 
 /* Pestañas de etapa: ocultas en escritorio salvo vista "una columna" */
@@ -339,7 +339,7 @@
     padding: 10px 5px;
     background: transparent;
     border: none;
-    color: #6b7280;
+    color: var(--admin-text-muted, #64748b);
     border-radius: 10px;
     font-size: 0.85rem;
     font-weight: 600;

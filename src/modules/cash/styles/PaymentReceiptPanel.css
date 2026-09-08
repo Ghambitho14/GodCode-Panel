@@ -26,7 +26,7 @@
 }
 
 .payment-receipt-panel__eyebrow {
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     font-size: .72rem;
     font-weight: 800;
     letter-spacing: .08em;
@@ -63,7 +63,7 @@
 .payment-receipt-panel__status--uploading { background: #fef3c7; color: #92400e; }
 .payment-receipt-panel__status--failed { background: #fee2e2; color: #991b1b; }
 .payment-receipt-panel__status--empty,
-.payment-receipt-panel__method { background: var(--admin-icon-bg, #f3f4f6); color: var(--admin-text-muted, #6b7280); }
+.payment-receipt-panel__method { background: var(--admin-icon-bg, #f3f4f6); color: var(--admin-text-muted, var(--admin-text-muted, #64748b)); }
 .payment-receipt-panel__method { text-transform: capitalize; }
 
 .payment-receipt-panel__viewer {

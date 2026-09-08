@@ -90,7 +90,7 @@ export default function LocalExpenseCategoryCard({
 							subtitle={bucketFilter === 'nonzero' ? 'Con movimiento' : 'Todos'}
 						/>
 					) : (
-						<div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[#6b7280]">
+						<div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--admin-text-muted,#64748b)]">
 							{loading ? 'Cargando…' : emptyLabel}
 						</div>
 					)}
@@ -100,10 +100,10 @@ export default function LocalExpenseCategoryCard({
 					<table className="w-full text-sm">
 						<thead className="sticky top-0 bg-[#f5f5f7]">
 							<tr>
-								<th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[#6b7280]">
+								<th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-[var(--admin-text-muted,#64748b)]">
 									Período
 								</th>
-								<th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[#6b7280]">
+								<th className="px-4 py-2.5 text-right text-xs font-bold uppercase tracking-wider text-[var(--admin-text-muted,#64748b)]">
 									Total
 								</th>
 							</tr>
@@ -111,7 +111,7 @@ export default function LocalExpenseCategoryCard({
 						<tbody>
 							{visibleBuckets.length === 0 ? (
 								<tr>
-									<td colSpan={2} className="px-4 py-6 text-center text-sm text-[#6b7280]">
+									<td colSpan={2} className="px-4 py-6 text-center text-sm text-[var(--admin-text-muted,#64748b)]">
 										{loading ? 'Cargando…' : 'Sin períodos para mostrar.'}
 									</td>
 								</tr>

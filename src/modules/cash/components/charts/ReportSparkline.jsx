@@ -10,7 +10,8 @@ import { Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 const TREND_UP = '#16a34a';
 const TREND_DOWN = '#dc2626';
-const TREND_NEUTRAL = '#6b7280';
+// Literal a proposito: va a recharts como atributo SVG y var() no resuelve ahi
+const TREND_NEUTRAL = '#64748b';
 const ACCENT_BLUE = '#2563eb';
 const SPARK_MARGIN = { top: 4, right: 0, left: 0, bottom: 4 };
 const Y_DOMAIN = ['dataMin', 'dataMax'];

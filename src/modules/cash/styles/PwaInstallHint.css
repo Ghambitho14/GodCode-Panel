@@ -54,7 +54,7 @@
 	height: 34px;
 	min-width: 34px;
 	padding: 0;
-	color: var(--admin-text-muted, #6e6e73);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 @media (min-width: 1025px) {

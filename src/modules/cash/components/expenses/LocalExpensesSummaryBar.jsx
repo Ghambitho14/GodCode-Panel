@@ -16,7 +16,7 @@ function SummaryStat({ label, value, icon: Icon, subtext }) {
 				{Icon ? (
 					<Icon size={14} strokeWidth={2} className="text-emerald-600" aria-hidden />
 				) : null}
-				<span className="truncate text-xs font-medium text-[#6b7280] sm:text-sm">{label}</span>
+				<span className="truncate text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">{label}</span>
 			</div>
 			<p className="text-[clamp(15px,13cqi,24px)] font-bold leading-tight tabular-nums tracking-tight text-[#1a1a1a] [overflow-wrap:anywhere]">{value}</p>
 			{subtext != null ? (

@@ -61,14 +61,14 @@
 .settings-container .form-group label {
     display: block;
     font-size: 0.9rem;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     margin-bottom: 8px;
     font-weight: 500;
 }
 
 .settings-container .form-hint {
     font-size: 0.8rem;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     margin: 6px 0 0;
     line-height: 1.4;
 }
@@ -113,7 +113,7 @@
 .settings-container .input-icon {
     position: absolute;
     left: 15px;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     pointer-events: none;
     z-index: 1;
 }

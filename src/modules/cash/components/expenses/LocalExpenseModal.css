@@ -39,7 +39,7 @@
 .admin-layout .local-expense-modal-subtitle {
 	margin: 4px 0 0;
 	font-size: 0.78rem;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	line-height: 1.45;
 }
 
@@ -52,7 +52,7 @@
 	border: none;
 	border-radius: 10px;
 	background: transparent;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	cursor: pointer;
 	flex-shrink: 0;
 }
@@ -74,7 +74,7 @@
 	border: 1px solid var(--admin-border, #e5e7eb);
 	border-radius: 10px;
 	background: transparent;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	font-size: 0.82rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -95,7 +95,7 @@
 	margin: 0 0 14px;
 	font-size: 0.78rem;
 	line-height: 1.45;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .local-expense-modal-field {
@@ -107,7 +107,7 @@
 	margin-bottom: 6px;
 	font-size: 0.78rem;
 	font-weight: 600;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .local-expense-modal-categories {
@@ -121,7 +121,7 @@
 	border-radius: 999px;
 	border: 1px solid var(--admin-border, #e5e7eb);
 	background: var(--admin-icon-bg, #f3f4f6);
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	font-size: 0.75rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -143,7 +143,7 @@
 	top: 50%;
 	transform: translateY(-50%);
 	font-weight: 700;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	pointer-events: none;
 }
 
@@ -202,7 +202,7 @@
 	margin: 8px 0 0;
 	font-size: 0.7rem;
 	line-height: 1.4;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .local-expense-modal-summary {
@@ -219,7 +219,7 @@
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .local-expense-modal-summary-row {
@@ -297,7 +297,7 @@
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .local-expense-modal-preview-value {

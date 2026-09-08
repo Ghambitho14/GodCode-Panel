@@ -81,7 +81,7 @@
 .admin-layout .user-email {
 	font-size: 0.72rem;
 	font-weight: 500;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	text-align: left;
 	white-space: nowrap;
 	overflow: hidden;
@@ -116,7 +116,7 @@
 	justify-content: center;
 	flex-shrink: 0;
 	background: var(--admin-icon-bg, #f0f2f6);
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	border: 1px solid transparent;
 	transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -194,7 +194,7 @@
 	border-radius: 14px;
 	background: transparent;
 	border: none;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	font-weight: 500;
 	font-size: 0.9rem;
 	line-height: 1.25;
@@ -274,7 +274,7 @@
 	font-weight: 800;
 	letter-spacing: 0.07em;
 	text-transform: uppercase;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	flex: 0 1 auto;
 }
 
@@ -343,7 +343,7 @@
 	padding: 0 4px;
 	font-size: 0.72rem;
 	font-weight: 500;
-	color: var(--admin-text-muted, #6b7280);
+	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 	line-height: 1.45;
 }
 

@@ -142,7 +142,7 @@
 .admin-layout .rpt-month-clear {
     background: var(--admin-icon-bg, #f0f2f6);
     border: 1px solid var(--admin-border, #e8ecf1);
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     width: 26px;
     height: 26px;
     border-radius: 999px;
@@ -323,7 +323,7 @@
     margin: 6px 0 0;
     font-size: 0.78rem;
     line-height: 1.45;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     font-weight: 500;
 }
 
@@ -365,7 +365,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     flex-shrink: 0;
 }
 
@@ -386,7 +386,7 @@
     font-weight: 800;
     line-height: 1.35;
     font-variant-numeric: tabular-nums;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     background: var(--admin-page-bg, #f4f6f9);
     border: 1px solid var(--admin-border, #e8ecf1);
 }
@@ -401,7 +401,7 @@
     margin: 0 0 12px;
     font-size: 0.78rem;
     line-height: 1.5;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .rpt-expenses-breakdown strong {
@@ -415,7 +415,7 @@
     font-size: 0.68rem;
     font-weight: 700;
     background: var(--admin-icon-bg, #f3f4f6);
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     border: 1px solid var(--admin-border, #e5e7eb);
     white-space: nowrap;
 }
@@ -520,7 +520,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     flex-shrink: 0;
 }
 
@@ -648,7 +648,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     white-space: nowrap;
 }
 
@@ -677,7 +677,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     padding-right: 2px;
 }
 
@@ -727,7 +727,7 @@
     padding: 8px 12px;
     font-size: 0.74rem;
     line-height: 1.4;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     background: color-mix(in srgb, var(--admin-page-bg, #f4f6f9) 85%, var(--admin-card-bg, #fff));
     border: 1px solid var(--admin-border, #e8ecf1);
     border-radius: 10px;
@@ -830,7 +830,7 @@
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .rpt-expense-table td {
@@ -861,7 +861,7 @@
 .admin-layout .rpt-expense-table__empty {
     padding: 18px 14px !important;
     text-align: center;
-    color: var(--admin-text-muted, #6b7280) !important;
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b)) !important;
     font-size: 0.82rem;
 }
 
@@ -1170,7 +1170,7 @@
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
     background: transparent;
     cursor: pointer;
     transition: background 0.18s ease, color 0.18s ease;
@@ -1314,7 +1314,7 @@
     align-items: center;
     gap: 8px;
     font-size: 0.82rem;
-    color: var(--admin-text-muted, #6b7280);
+    color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
 }
 
 .admin-layout .rpt-payment-icon {

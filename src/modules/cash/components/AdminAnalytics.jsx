@@ -241,14 +241,14 @@ function resolveExpenseReferenceYear(analyticsDate, reportRange) {
 
 const TrendBadge = ({ value, isSignificant = true }) => {
     if (value == null || !Number.isFinite(value)) {
-        return <Badge variant="outline" className="text-[10px] font-bold text-[#6b7280]">—</Badge>;
+        return <Badge variant="outline" className="text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]">—</Badge>;
     }
     if (value === 0) return <Badge variant="outline" className="gap-0.5 text-[10px] font-bold">0%</Badge>;
     if (!isSignificant) {
         return (
             <Badge
                 variant="outline"
-                className="gap-0.5 text-[10px] font-bold text-[#6b7280]"
+                className="gap-0.5 text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]"
                 title="Período anterior con pocos datos. Comparar con precaución."
             >
                 {Math.abs(value)}%
@@ -413,7 +413,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPl
                     <p className="text-[clamp(16px,11.5cqi,28px)] font-bold leading-tight tracking-tight tabular-nums text-[#14161a] [overflow-wrap:anywhere]">{formatKpiValue(meta.key, value, fmt, fmtPlain)}</p>
                 )}
             </div>
-            {subtitle && <p className="mt-1 text-[11px] font-medium text-[#6b7280] sm:text-xs">{subtitle}</p>}
+            {subtitle && <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-muted,#64748b)] sm:text-xs">{subtitle}</p>}
             <div className="mt-auto flex h-8 items-end pt-2 sm:h-12 sm:pt-4">
                 <ReportSparkline
                     values={sparklineValues}
@@ -1412,7 +1412,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-black tracking-tight text-[#1a1a1a] sm:text-2xl">Reportes</h1>
-                    <p className="text-xs font-medium text-[#6b7280] sm:text-sm">
+                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
                         Resumen de ventas, pedidos y métricas clave
                     </p>
                 </div>
@@ -1466,7 +1466,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     refundCount={refundBreakdown.count}
                     formatMoney={fmt}
                 />
-                <p className="text-xs font-medium text-[#6b7280] sm:text-sm">
+                <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
                     Mercadería, arriendo, sueldo y gastos operativos. Los retiros de efectivo hechos en Caja también
                     aparecen aquí para control del CEO.
                 </p>
@@ -1530,24 +1530,24 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 <div className="space-y-2">
                     <div className="flex items-baseline justify-between gap-3">
                         <h4 className="text-sm font-bold text-[#1a1a1a]">Movimientos recientes</h4>
-                        <span className="text-xs font-semibold text-[#6b7280]">Últimos 80</span>
+                        <span className="text-xs font-semibold text-[var(--admin-text-muted,#64748b)]">Últimos 80</span>
                     </div>
                     <div className="max-h-[280px] overflow-auto rounded-xl border border-[#e5e5ea]">
                         <table className="w-full text-sm">
                             <thead className="sticky top-0 bg-[#f5f5f7]">
                                 <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Fecha</th>
-                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Tipo</th>
-                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Sucursal</th>
-                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Método</th>
-                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[#6b7280]">Detalle</th>
-                                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[#6b7280]">Monto</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Fecha</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Tipo</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Sucursal</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Método</th>
+                                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Detalle</th>
+                                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-[var(--admin-text-muted,#64748b)]">Monto</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {!filteredManualExpenseRows || filteredManualExpenseRows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-6 text-center text-sm text-[#6b7280]">
+                                        <td colSpan={6} className="px-4 py-6 text-center text-sm text-[var(--admin-text-muted,#64748b)]">
                                             {loadingExpenses
                                                 ? 'Cargando…'
                                                 : manualExpenseRows.length || refundExpenseRows.length
@@ -1619,7 +1619,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <CardContent>
                 <div className="grid items-end gap-3 sm:grid-cols-[auto_1fr]">
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">Seleccionar mes</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-[var(--admin-text-muted,#64748b)]">Seleccionar mes</label>
                         <AdminMenuSelect
                             className="rpt-export-month-select min-w-[200px]"
                             value={analyticsDate}
@@ -1691,12 +1691,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             {reportPeriodHeader}
 
             {multiCurrencyWarning ? (
-                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[#6b7280]">
+                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[var(--admin-text-muted,#64748b)]">
                     {multiCurrencyWarning}
                 </p>
             ) : null}
             {analyticsSource === 'fallback' && (
-                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[#6b7280]">
+                <p className="rounded-xl border border-[#e5e5ea] bg-white p-3 text-xs font-semibold text-[var(--admin-text-muted,#64748b)]">
                     Mostrando hasta 2000 pedidos; las métricas pueden estar truncadas.
                 </p>
             )}
@@ -1772,7 +1772,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     height={260}
                                 />
                             ) : (
-                                <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center text-[#6b7280]">
+                                <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center text-[var(--admin-text-muted,#64748b)]">
                                     <LineChart size={44} strokeWidth={1.5} className="text-[#2563eb]/55" aria-hidden />
                                     <p className="text-base font-bold text-[#1a1a1a]">Sin datos de ventas</p>
                                     <span className="max-w-[28ch] text-sm">No hay ventas en este período. Probá otro rango o canal.</span>
@@ -1792,14 +1792,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             <CardContent className="space-y-4">
                                 <div>
                                     <p className="text-2xl font-bold text-[#14161a]">{peakHour.hour}</p>
-                                    <p className="text-xs font-medium text-[#6b7280]">{peakHour.count} pedidos en este horario</p>
+                                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{peakHour.count} pedidos en este horario</p>
                                 </div>
                                 {topPeakHours.length > 0 ? (
                                     <div className="space-y-2">
                                         <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Top horarios</p>
                                         {topPeakHours.map((row, idx) => (
                                             <div key={`${row.label}-${row.count}`} className="flex items-center gap-3">
-                                                <span className="w-[4.5rem] shrink-0 text-xs font-medium text-[#6b7280]">{row.label}</span>
+                                                <span className="w-[4.5rem] shrink-0 text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{row.label}</span>
                                                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
                                                     <div
                                                         className="h-full rounded-full bg-[var(--admin-accent,#2563eb)] rpt-animate-bar"
@@ -1820,7 +1820,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                         <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Por franja</p>
                                         {peakHourDistribution.map((b, idx) => (
                                             <div key={`${b.label}-${b.pct}`} className="flex items-center gap-3">
-                                                <span className="w-20 text-xs font-medium text-[#6b7280]">{b.label}</span>
+                                                <span className="w-20 text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{b.label}</span>
                                                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5f5f7]">
                                                     <div
                                                         className="h-full rounded-full bg-[#93c5fd] rpt-animate-bar"
@@ -1845,9 +1845,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </CardHeader>
                         <CardContent>
                             {loadingTopProducts ? (
-                                <div className="py-8 text-center text-sm text-[#6b7280]">Cargando top productos…</div>
+                                <div className="py-8 text-center text-sm text-[var(--admin-text-muted,#64748b)]">Cargando top productos…</div>
                             ) : topProducts.length === 0 ? (
-                                <div className="py-8 text-center text-sm text-[#6b7280]">No hay datos de productos en este período.</div>
+                                <div className="py-8 text-center text-sm text-[var(--admin-text-muted,#64748b)]">No hay datos de productos en este período.</div>
                             ) : (
                                 <div className="space-y-3">
                                     {topProducts.map((p, i) => {
@@ -1868,7 +1868,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                 </div>
                                                 <div className="shrink-0 text-right">
                                                     <p className="text-sm font-bold text-[#1a1a1a]">{fmt(p.revenue)}</p>
-                                                    <p className="text-xs font-medium text-[#6b7280]">{p.qty} uds</p>
+                                                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{p.qty} uds</p>
                                                 </div>
                                             </div>
                                         );
@@ -1910,7 +1910,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                 </div>
                                                 <div className="shrink-0 text-right">
                                                     <p className="font-bold text-[#1a1a1a]">{fmt(value)}</p>
-                                                    <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
+                                                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{pct}%</p>
                                                 </div>
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
@@ -1946,7 +1946,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 <p className="text-[28px] font-bold leading-none tracking-tight text-[#14161a]">
                                     {fmtPlain(newClientsInfo.count)}
                                 </p>
-                                <p className="mt-1 text-xs font-medium text-[#6b7280]">
+                                <p className="mt-1 text-xs font-medium text-[var(--admin-text-muted,#64748b)]">
                                     altas en {reportRange.displayLabel}
                                 </p>
                             </div>
@@ -1964,7 +1964,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                 <p className="font-bold text-[#14161a]">
                                     {fmtPlain(newClientsInfo.total)} registrados en total
                                 </p>
-                                <p className="text-xs font-medium text-[#6b7280]">
+                                <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">
                                     Base acumulada de clientes (no es % del periodo)
                                 </p>
                             </div>
@@ -1988,7 +1988,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                             <span className="min-w-0 truncate font-medium text-[#14161a]">{b.name}</span>
                                             <div className="shrink-0 text-right">
                                                     <p className="font-bold text-[#14161a]">{fmt(b.total)}</p>
-                                                    <p className="text-xs font-medium text-[#6b7280]">{pct}%</p>
+                                                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{pct}%</p>
                                                 </div>
                                             </div>
                                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">

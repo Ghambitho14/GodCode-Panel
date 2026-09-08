@@ -13,7 +13,8 @@ function buildDonutData(data) {
 		.filter((d) => d && d.value > 0)
 		.map((d) => ({
 			...d,
-			color: PAYMENT_COLORS[d.label] || '#6b7280',
+			// Literal a proposito: va a recharts como atributo SVG y var() no resuelve ahi
+			color: PAYMENT_COLORS[d.label] || '#64748b',
 		}));
 }
 
@@ -48,7 +49,7 @@ function ReportPaymentDonut({ data = [], currency = 'CLP' }) {
 
 	if (total === 0) {
 		return (
-			<div className="flex h-48 items-center justify-center text-sm text-[#6b7280]">
+			<div className="flex h-48 items-center justify-center text-sm text-[var(--admin-text-muted,#64748b)]">
 				Sin datos de pagos
 			</div>
 		);
@@ -87,11 +88,11 @@ function ReportPaymentDonut({ data = [], currency = 'CLP' }) {
 					</PieChart>
 				</ResponsiveContainer>
 				<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-					<span className="text-[10px] font-bold uppercase tracking-wider text-[#6b7280]">Total</span>
+					<span className="text-[10px] font-bold uppercase tracking-wider text-[var(--admin-text-muted,#64748b)]">Total</span>
 					<span className="text-base font-black text-[#1a1a1a]">{formatMoney(total, { currency })}</span>
 				</div>
 			</div>
-			<div className="flex w-full flex-wrap items-center justify-center gap-2 text-[10px] font-semibold text-[#6b7280]">
+			<div className="flex w-full flex-wrap items-center justify-center gap-2 text-[10px] font-semibold text-[var(--admin-text-muted,#64748b)]">
 				{chartData.map((segment) => {
 					const pct = Math.round((segment.value / total) * 100);
 					return (
