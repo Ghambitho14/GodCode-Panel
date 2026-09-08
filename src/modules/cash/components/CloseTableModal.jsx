@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { isoFractionDigits, minorToMajor } from '@/lib/money/minor-units';
 import { normalizeConfiguredPaymentMethods, validatePaymentLines } from '../domain/payment-methods';
 import { useReceiptUpload } from '../hooks/manual-order/useReceiptUpload';
+import { isVenezuelaCountry } from '@/lib/geo/tenant-locale';
 
 
 
@@ -159,7 +160,15 @@ export default function CloseTableModal({
 
 	if (!isOpen || !order) return null;
 
-	const currency = String(order.currency || branch?.currency || 'CLP').toUpperCase();
+	/* En Venezuela la moneda contable es USD aunque la sucursal tenga VES
+	   configurada: lo dice resolveEffectiveCurrency y lo usa el resto de la app.
+	   Leyendo la moneda en crudo, este flujo se saltaba la regla y los botones de
+	   metodo de pago decian VES mientras los importes de la misma pantalla salian
+	   en dolares. Solo se fuerza para Venezuela; el resto de paises conservan la
+	   precedencia que tenian. */
+	const currency = isVenezuelaCountry(branch?.country)
+		? 'USD'
+		: String(order.currency || branch?.currency || 'CLP').toUpperCase();
 	const fractionDigits = isoFractionDigits(currency, branch?.manual_order_settings?.currencyFractionDigits);
 	const isV2Order = order.manual_order_mode === 'session' || order.manual_order_mode === 'quick_sale';
 	const paymentMethods = normalizeConfiguredPaymentMethods(branch?.payment_methods, { accountingCurrency: currency });

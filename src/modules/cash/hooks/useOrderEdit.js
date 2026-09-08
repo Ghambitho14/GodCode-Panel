@@ -14,6 +14,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { validateImageFile } from '@/shared/utils/supabaseStorage';
 import { getFormStrategy } from '@/lib/geo/country-forms';
+import { isVenezuelaCountry } from '@/lib/geo/tenant-locale';
 import { getCountryProfile, normalizeInternationalPhone } from '@/lib/geo/country-profiles';
 import { majorToMinor, minorToMajor, parseMoneyInput, sumMinor, isoFractionDigits, formatMinor } from '@/lib/money/minor-units';
 import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resolveOrderCouponCode, isMixedPaymentBreakdown, normalizePaymentBreakdown, buildPaymentBreakdownForOrder } from '@/shared/utils/orderUtils';
@@ -166,7 +167,15 @@ export const useOrderEdit = (
 	formCountry = 'CL',
 ) => {
 	const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
-	const currency = String(branch?.currency ?? initialOrder?.currency ?? 'CLP').toUpperCase();
+	/* En Venezuela la moneda contable es USD aunque la sucursal tenga VES
+	   configurada: lo dice resolveEffectiveCurrency y lo usa el resto de la app.
+	   Leyendo la moneda en crudo, este flujo se saltaba la regla y los botones de
+	   metodo de pago decian VES mientras los importes de la misma pantalla salian
+	   en dolares. Solo se fuerza para Venezuela; el resto de paises conservan la
+	   precedencia que tenian. */
+	const currency = isVenezuelaCountry(branch?.country)
+		? 'USD'
+		: String(branch?.currency ?? initialOrder?.currency ?? 'CLP').toUpperCase();
 	const fractionDigits = isoFractionDigits(currency, branch?.manual_order_settings?.currencyFractionDigits);
 	const countryProfile = useMemo(() => getCountryProfile(formCountry, { currency }), [formCountry, currency]);
 	const manualOrderSettings = useMemo(() => normalizeManualOrderSettings(branch?.manual_order_settings), [branch?.manual_order_settings]);
