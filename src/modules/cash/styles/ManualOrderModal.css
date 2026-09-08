@@ -282,9 +282,9 @@
 		display: inline-flex !important;
 		align-items: center;
 		justify-content: center;
-		width: 40px;
-		height: 40px;
-		min-width: 40px;
+		width: 44px;
+		height: 44px;
+		min-width: 44px;
 		padding: 0 !important;
 		margin: 0;
 		border: 1px solid var(--admin-border, #e2e8f0) !important;
@@ -3628,6 +3628,10 @@
 }
 
 /* Area tactil de 44x44 sin alterar el tamano visible del control.
+   OJO: declara `position: relative` y esta regla va al final del fichero, asi
+   que a igual especificidad gana a cualquier `position` anterior. No la
+   apliques a elementos posicionados (absolute/fixed): al FAB del carrito le
+   anulaba su `position: absolute` y lo devolvia al flujo, estirando el dock.
    Medido en el catalogo a 390px: los "+" de agregar son circulos de 32x32 y el
    "+" del contador 24x24, por debajo de lo comodo en una tablet de mostrador.
    El pseudo-elemento agranda solo la zona sensible; el circulo se ve igual.

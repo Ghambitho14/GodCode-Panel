@@ -834,7 +834,7 @@ export default function ManualOrderCheckout({
 					<Button
 						variant="default"
 						type="button"
-						className="manual-order-mobile-cart-fab manual-order-tap-44"
+						className="manual-order-mobile-cart-fab"
 						onClick={toggleCartSheet}
 						aria-expanded={cartSheetOpen}
 						aria-controls="manual-order-mobile-cart-sheet"

@@ -24,7 +24,10 @@ const CartItemCard = ({
     const subtotal = getOrderItemLineTotal(item);
     const noteOpen = !readOnly && isItemNoteOpen?.(item);
 	const noteText = String(item.note ?? '').trim();
-	const controlSize = compact ? 'h-9 w-9 min-h-9 min-w-9' : 'min-h-[40px] min-w-[40px] h-10 w-10';
+	// 40px visibles + `manual-order-tap-44` = 44 efectivos. En compacto eran 36.
+	const controlSize = compact
+		? 'manual-order-tap-44 h-10 w-10 min-h-10 min-w-10'
+		: 'manual-order-tap-44 min-h-[40px] min-w-[40px] h-10 w-10';
 
     const handleMinus = (e) => {
         e.stopPropagation();
@@ -106,7 +109,7 @@ const CartItemCard = ({
                     </Button>
                 </div>
 
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-2">
                     <Button
 						variant="outline"
                         type="button"
