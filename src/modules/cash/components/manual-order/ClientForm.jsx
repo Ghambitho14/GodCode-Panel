@@ -1023,7 +1023,7 @@ const ClientForm = ({
 										? 'grid-cols-1'
 										: visibleModes.length === 2
 											? 'grid-cols-1 @min-[220px]:grid-cols-2'
-											: 'grid-cols-1 @min-[340px]:grid-cols-3',
+											: 'grid-cols-1 @min-[420px]:grid-cols-3',
 								)}>
 									{channels.mesa ? (
 										<Button variant="outline"
@@ -1302,7 +1302,7 @@ const ClientForm = ({
 							? 'grid-cols-1'
 							: visibleModes.length === 2
 								? 'grid-cols-1 @min-[220px]:grid-cols-2'
-								: 'grid-cols-1 @min-[340px]:grid-cols-3',
+								: 'grid-cols-1 @min-[420px]:grid-cols-3',
 					)}>
 						{resolvedLocalChannels.mesa ? (
 							<Button variant="outline"

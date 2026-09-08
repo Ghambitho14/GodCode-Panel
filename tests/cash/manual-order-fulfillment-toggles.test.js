@@ -33,7 +33,7 @@ describe('toggles de tipo de entrega del pedido manual', () => {
 	it('las rejillas de toggles responden al contenedor, no al viewport', () => {
 		const viewportVariants = clientForm.match(/(?<!@)min-\[\d+px\]:grid-cols-/g);
 		expect(viewportVariants).toBeNull();
-		expect(clientForm).toContain('@min-[340px]:grid-cols-3');
+		expect(clientForm).toContain('@min-[420px]:grid-cols-3');
 		expect(clientForm).toContain('@min-[220px]:grid-cols-2');
 	});
 });
