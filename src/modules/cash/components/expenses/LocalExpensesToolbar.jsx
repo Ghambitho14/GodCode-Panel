@@ -14,7 +14,7 @@ import ReportPeriodSelect from '../ReportPeriodSelect';
 import { getReportPeriodOptions } from '../../utils/reportPeriodRange';
 
 function ToolbarDivider() {
-	return <div className="mb-1.5 hidden h-8 w-px shrink-0 bg-[#e5e5ea] sm:block" aria-hidden />;
+	return <div className="mb-1.5 hidden h-8 w-px shrink-0 bg-[#e5e5ea] 2xl:block" aria-hidden />;
 }
 
 function FilterField({ label, children }) {
@@ -52,8 +52,8 @@ export default function LocalExpensesToolbar({
 		: 'Todos';
 
 	return (
-		<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
-			<div className="mb-1 flex w-full min-w-0 items-center gap-2.5 sm:w-auto">
+		<div className="flex flex-col gap-3 2xl:flex-row 2xl:flex-wrap 2xl:items-end 2xl:gap-4">
+			<div className="mb-1 flex w-full min-w-0 items-center gap-2.5 2xl:w-auto">
 				<span
 					className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
 					aria-hidden
@@ -65,7 +65,7 @@ export default function LocalExpensesToolbar({
 
 			<ToolbarDivider />
 
-			<div className="grid w-full grid-cols-1 gap-3 sm:flex sm:min-w-0 sm:flex-1 sm:flex-wrap sm:items-end">
+			<div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end 2xl:min-w-0 2xl:flex-1">
 				<FilterField label="Período">
 					<div className="flex flex-wrap items-center gap-2">
 						<ReportPeriodSelect
@@ -125,7 +125,7 @@ export default function LocalExpensesToolbar({
 
 			<ToolbarDivider />
 
-			<div className="mb-0.5 flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:flex-wrap">
+			<div className="mb-0.5 flex w-full items-center gap-2 2xl:ml-auto 2xl:w-auto 2xl:flex-wrap">
 				<Button
 					variant="default"
 					type="button"
