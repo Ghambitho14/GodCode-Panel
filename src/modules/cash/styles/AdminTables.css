@@ -693,9 +693,20 @@
 
 .admin-layout .table-session-receipt__item {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 12px;
+}
+
+/*
+ * La caja de preparacion colgaba dentro de la columna del nombre y se quedaba
+ * corta por la derecha (238px en una fila de 324): parecia desalineada con su
+ * propia fila. Se le da el ancho completo dejandola envolver.
+ */
+.admin-layout .table-session-receipt__item .order-line-lifecycle {
+	flex: 1 1 100%;
+	width: 100%;
 }
 
 button.table-session-receipt__item {

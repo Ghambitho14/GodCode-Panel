@@ -85,7 +85,7 @@ export default function OrderDetailMetaCards({
 						{statusExtra}
 					</div>
 					<ul className="order-detail-facts">
-						<li>{createdAt.toLocaleString(locale)}</li>
+						<li>{createdAt.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}</li>
 						{branch?.name ? <li>{branch.name}</li> : null}
 					</ul>
 				</div>

@@ -48,7 +48,6 @@ import {
     isLegacyGlobalKitchenNote,
     ORDERS_PANEL_SELECT,
     sanitizeOrder,
-    formatOrderRef,
     parseOrderItems,
     structuredAddressRows,
 } from '@/shared/utils/orderUtils';
@@ -208,7 +207,6 @@ const OrderDetailModal = ({
     const fulfillmentKind = getOrderFulfillmentKind(liveOrder);
     const fulfillmentLabel = getOrderFulfillmentDisplayLabel(liveOrder);
     const sessionNumber = liveOrder.shift_sequence ?? liveOrder.id;
-    const orderRef = formatOrderRef(liveOrder.id);
 
     const clientPhone = resolveOrderClientPhoneForDisplay(liveOrder);
     const clientRut = resolveOrderClientRutForDisplay(liveOrder);
@@ -375,10 +373,7 @@ const OrderDetailModal = ({
                                         </span>
                                     ) : null}
                                 </h2>
-                                <p className="table-session-receipt__order-id">
-                                    Detalle · Pedido{' '}
-                                    <strong className="table-session-receipt__order-code">#{orderRef}</strong>
-                                </p>
+                                <p className="table-session-receipt__order-id">Detalle del pedido</p>
                                 <div className="table-session-receipt__meta">
                                     <span className="order-detail-status-chip">{statusLabel}</span>
                                     <span
@@ -471,7 +466,7 @@ const OrderDetailModal = ({
                                     ) : null}
                                     <div className="order-detail-receipt-dl__row">
                                         <dt>Fecha</dt>
-                                        <dd>{createdAt.toLocaleString(locale)}</dd>
+                                        <dd>{createdAt.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}</dd>
                                     </div>
                                 </dl>
                                 {showCajaHint ? (
@@ -579,71 +574,71 @@ const OrderDetailModal = ({
                                                         {itemNote ? (
                                                             <span className="table-session-receipt__item-note">{itemNote}</span>
                                                         ) : null}
-                                                        {lifecycleLine ? (
-                                                            <div className="order-line-lifecycle" aria-label={`Preparación de ${item.name}`}>
-                                                                <span className={`order-line-lifecycle__status is-${lifecycleLine.status}`}>
-                                                                    {lifecycleLine.status === 'preparing'
-                                                                        ? 'Preparando'
-                                                                        : lifecycleLine.status === 'ready'
-                                                                            ? 'Listo'
-                                                                            : lifecycleLine.status === 'served'
-                                                                                ? 'Servido'
-                                                                                : lifecycleLine.status === 'voided'
-                                                                                    ? 'Anulado'
-                                                                                    : lifecycleLine.status === 'legacy_unknown'
-                                                                                        ? 'Estado heredado'
-                                                                                        : 'Pendiente'}
-                                                                </span>
-                                                                <span className="order-line-lifecycle__counts">
-                                                                    Pte. {pendingQuantity}
-                                                                    {' · '}Prep. {Number(lifecycleLine.quantity_preparing) || 0}
-                                                                    {' · '}Listo {Number(lifecycleLine.quantity_prepared) || 0}
-                                                                    {' · '}Servido {Number(lifecycleLine.quantity_served) || 0}
-                                                                </span>
-                                                                <div className="order-line-lifecycle__actions">
-                                                                    {pendingQuantity > 0 ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            disabled={lineBusy}
-                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'preparing')}
-                                                                        >
-                                                                            {lineBusy ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />}
-                                                                            Preparar 1
-                                                                        </Button>
-                                                                    ) : null}
-                                                                    {Number(lifecycleLine.quantity_preparing) > 0 ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            disabled={lineBusy}
-                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'ready')}
-                                                                        >
-                                                                            <CheckCircle2 size={14} />
-                                                                            Marcar 1 listo
-                                                                        </Button>
-                                                                    ) : null}
-                                                                    {Number(lifecycleLine.quantity_prepared) > 0 ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            disabled={lineBusy}
-                                                                            onClick={() => transitionOrderLine(lifecycleLine, 'served')}
-                                                                        >
-                                                                            <UtensilsCrossed size={14} />
-                                                                            Servir 1
-                                                                        </Button>
-                                                                    ) : null}
-                                                                </div>
-                                                            </div>
-                                                        ) : null}
                                                     </div>
                                                     <span className="table-session-receipt__item-price">
                                                         {fmt(getOrderItemLineTotal(item))}
                                                     </span>
+                                                    {lifecycleLine ? (
+                                                        <div className="order-line-lifecycle" aria-label={`Preparación de ${item.name}`}>
+                                                            <span className={`order-line-lifecycle__status is-${lifecycleLine.status}`}>
+                                                                {lifecycleLine.status === 'preparing'
+                                                                    ? 'Preparando'
+                                                                    : lifecycleLine.status === 'ready'
+                                                                        ? 'Listo'
+                                                                        : lifecycleLine.status === 'served'
+                                                                            ? 'Servido'
+                                                                            : lifecycleLine.status === 'voided'
+                                                                                ? 'Anulado'
+                                                                                : lifecycleLine.status === 'legacy_unknown'
+                                                                                    ? 'Estado heredado'
+                                                                                    : 'Pendiente'}
+                                                            </span>
+                                                            <span className="order-line-lifecycle__counts">
+                                                                Pendiente {pendingQuantity}
+                                                                {' · '}Preparando {Number(lifecycleLine.quantity_preparing) || 0}
+                                                                {' · '}Listo {Number(lifecycleLine.quantity_prepared) || 0}
+                                                                {' · '}Servido {Number(lifecycleLine.quantity_served) || 0}
+                                                            </span>
+                                                            <div className="order-line-lifecycle__actions">
+                                                                {pendingQuantity > 0 ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        disabled={lineBusy}
+                                                                        onClick={() => transitionOrderLine(lifecycleLine, 'preparing')}
+                                                                    >
+                                                                        {lineBusy ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />}
+                                                                        Preparar 1
+                                                                    </Button>
+                                                                ) : null}
+                                                                {Number(lifecycleLine.quantity_preparing) > 0 ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        disabled={lineBusy}
+                                                                        onClick={() => transitionOrderLine(lifecycleLine, 'ready')}
+                                                                    >
+                                                                        <CheckCircle2 size={14} />
+                                                                        Marcar 1 listo
+                                                                    </Button>
+                                                                ) : null}
+                                                                {Number(lifecycleLine.quantity_prepared) > 0 ? (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        disabled={lineBusy}
+                                                                        onClick={() => transitionOrderLine(lifecycleLine, 'served')}
+                                                                    >
+                                                                        <UtensilsCrossed size={14} />
+                                                                        Servir 1
+                                                                    </Button>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    ) : null}
                                                 </li>
                                             );
                                         })}
@@ -803,7 +798,7 @@ const OrderDetailModal = ({
                                     </Button>
                                 ) : null}
                             </div>
-                            <Button variant="default" type="button" size="sm" className="table-session-receipt__cta" onClick={onClose}>
+                            <Button variant="outline" type="button" size="sm" className="order-detail-receipt-close" onClick={onClose}>
                                 Cerrar
                             </Button>
                         </footer>

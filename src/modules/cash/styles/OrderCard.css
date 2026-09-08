@@ -2814,9 +2814,12 @@
     gap: 8px;
 }
 
+/* Rejilla de 2 columnas iguales. Antes era flex con `flex: 1 1 50%`, asi que
+   con 5 acciones la ultima crecia a ancho completo y el pie quedaba con tres
+   anchos distintos: parecia descuidado, no intencionado. */
 .admin-layout .order-detail-receipt-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
 }
 
@@ -2829,7 +2832,6 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    flex: 1 1 calc(50% - 3px);
     min-height: 36px;
     height: auto;
     padding: 6px 10px;
@@ -2950,4 +2952,20 @@
     min-height: 44px;
     flex: 1 1 100%;
   }
+}
+
+/* Cerrar es la accion menos importante del pie y ademas ya esta la X de la
+   cabecera: no debe llevar el mismo azul solido que "Marcar pagado". */
+.admin-layout .order-detail-receipt-close {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-card-bg, #fff);
+    color: var(--admin-text);
+    font-weight: 650;
+}
+
+.admin-layout .order-detail-receipt-close:hover {
+    background: var(--admin-icon-bg);
 }
