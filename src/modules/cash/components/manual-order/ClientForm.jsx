@@ -30,7 +30,7 @@ import SectionHeader from './SectionHeader';
 import { requirementsFor } from '../../domain/manual-order-settings';
 import { resolveEffectiveCountry, isVenezuelaCountry } from '@/lib/geo/tenant-locale';
 
-const sectionCardClass = 'manual-order-step-card flex min-h-0 flex-col overflow-visible rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
+const sectionCardClass = '@container manual-order-step-card flex min-h-0 flex-col overflow-visible rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 const inputClass =
     `w-full rounded-[12px] border border-gc-border bg-gc-page px-3.5 py-3 ${textScale.body} text-gc-text placeholder:text-gc-text-muted focus:border-gc-accent focus:outline-none focus:ring-2 focus:ring-gc-accent/15`;
 const hintClass =
@@ -1022,8 +1022,8 @@ const ClientForm = ({
 									visibleModes.length === 1
 										? 'grid-cols-1'
 										: visibleModes.length === 2
-											? 'grid-cols-1 min-[400px]:grid-cols-2'
-											: 'grid-cols-1 min-[400px]:grid-cols-3',
+											? 'grid-cols-1 @min-[220px]:grid-cols-2'
+											: 'grid-cols-1 @min-[340px]:grid-cols-3',
 								)}>
 									{channels.mesa ? (
 										<Button variant="outline"
@@ -1106,7 +1106,7 @@ const ClientForm = ({
 						</p>
 
 						{isMesa ? (
-							<div className={`mb-3 grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
+							<div className={`mb-3 grid grid-cols-1 ${spacing.normal} @min-[220px]:grid-cols-2`}>
 								<Button variant="outline"
 									type="button"
 									className={cn('manual-order-toggle', toggleBaseClass, isMesero && selectedToggleActiveClass)}
@@ -1301,8 +1301,8 @@ const ClientForm = ({
 						visibleModes.length <= 1
 							? 'grid-cols-1'
 							: visibleModes.length === 2
-								? 'grid-cols-1 min-[400px]:grid-cols-2'
-								: 'grid-cols-1 min-[400px]:grid-cols-3',
+								? 'grid-cols-1 @min-[220px]:grid-cols-2'
+								: 'grid-cols-1 @min-[340px]:grid-cols-3',
 					)}>
 						{resolvedLocalChannels.mesa ? (
 							<Button variant="outline"
@@ -1370,7 +1370,7 @@ const ClientForm = ({
 							<p className={`mb-2 ${textScale.micro} font-semibold uppercase tracking-wide text-gc-text-muted`}>
 								Pago
 							</p>
-							<div className={`grid grid-cols-1 ${spacing.normal} min-[400px]:grid-cols-2`}>
+							<div className={`grid grid-cols-1 ${spacing.normal} @min-[220px]:grid-cols-2`}>
 								<Button
 									variant="outline"
 									type="button"

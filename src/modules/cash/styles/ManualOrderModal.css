@@ -3602,3 +3602,17 @@
 		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 	}
 }
+
+/* Stepper en pantallas muy estrechas.
+   Las tres etiquetas piden 333px de contenido y el header solo deja 313px a
+   375px de viewport (reserva 52px para la X de cerrar), asi que flex las
+   encogia y se leia "Produ...", "Entr...", "Pago opci...". Por debajo de 400px
+   se mantienen los circulos de los tres pasos y solo se rotula el actual, que
+   es la unica etiqueta que aporta informacion en ese ancho. */
+@media (max-width: 400px) {
+    .manual-order--mobile
+        .manual-order-steps-progress__item:not(.is-active)
+        .manual-order-steps-progress__label {
+        display: none;
+    }
+}
