@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ShoppingBag, Printer, ChefHat, Banknote, ChevronDown } from 'lucide-react';
+import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import CartItemCard from './CartItemCard';
@@ -34,6 +36,16 @@ const OrderSummary = ({
     const [openNoteIds, setOpenNoteIds] = useState(() => new Set());
 	const [compactExpanded, setCompactExpanded] = useState(false);
     const printMenuRef = useRef(null);
+    const printPanelRef = useRef(null);
+    // El menu se saca por portal: dentro del arbol lo recortaba el
+    // `overflow: hidden` del resumen compacto (medido: 81 de sus 94px de alto).
+    const PRINT_MENU_W = 176;
+    const PRINT_MENU_H = 94;
+    const printMenuPos = useAnchoredMenuPosition(printMenuRef, printMenuOpen, {
+        menuWidth: PRINT_MENU_W,
+        menuHeight: PRINT_MENU_H,
+        align: 'right',
+    });
 
     const isItemNoteOpen = (item) => openNoteIds.has(item.id) || (item.note ?? '').length > 0;
 
@@ -47,11 +59,19 @@ const OrderSummary = ({
     useEffect(() => {
         if (!printMenuOpen) return;
         const onDown = (ev) => {
-            const el = printMenuRef.current;
-            if (el && !el.contains(ev.target)) setPrintMenuOpen(false);
+            const anchor = printMenuRef.current;
+            const panel = printPanelRef.current;
+            if (anchor && anchor.contains(ev.target)) return;
+            if (panel && panel.contains(ev.target)) return;
+            setPrintMenuOpen(false);
         };
+        const onKey = (ev) => { if (ev.key === 'Escape') setPrintMenuOpen(false); };
         document.addEventListener('mousedown', onDown);
-        return () => document.removeEventListener('mousedown', onDown);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDown);
+            document.removeEventListener('keydown', onKey);
+        };
     }, [printMenuOpen]);
 
     const totalQty = manualOrder.items.reduce((acc, i) => acc + i.quantity, 0);
@@ -90,15 +110,18 @@ const OrderSummary = ({
 			>
 				<Printer size={14} />
 			</Button>
-			{printMenuOpen && (
+			{printMenuOpen && printMenuPos && createPortal(
 				<div
-					className="absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg"
+					ref={printPanelRef}
+					className="pointer-events-auto fixed z-[1200] rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg"
+					style={{ top: printMenuPos.top, left: printMenuPos.left, width: PRINT_MENU_W }}
 					role="menu"
+					onClick={(e) => e.stopPropagation()}
 				>
 					<Button
 						variant="ghost"
 						type="button"
-						className={`flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left ${textScale.body} font-bold text-gc-text shadow-none transition-colors hover:bg-gc-muted`}
+						className={`flex min-h-[44px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left ${textScale.body} font-bold text-gc-text shadow-none transition-colors hover:bg-gc-muted`}
 						role="menuitem"
 						onClick={() => {
 							printManualKitchen();
@@ -111,7 +134,7 @@ const OrderSummary = ({
 					<Button
 						variant="ghost"
 						type="button"
-						className={`flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left ${textScale.body} font-bold text-gc-text shadow-none transition-colors hover:bg-gc-muted`}
+						className={`flex min-h-[44px] w-full items-center gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left ${textScale.body} font-bold text-gc-text shadow-none transition-colors hover:bg-gc-muted`}
 						role="menuitem"
 						onClick={() => {
 							printManualCaja();
@@ -121,7 +144,8 @@ const OrderSummary = ({
 						<Banknote size={14} className="text-gc-success" />
 						Ticket caja
 					</Button>
-				</div>
+				</div>,
+				document.querySelector('.manual-order-portal-scope') ?? document.body,
 			)}
 		</div>
 	) : null;
