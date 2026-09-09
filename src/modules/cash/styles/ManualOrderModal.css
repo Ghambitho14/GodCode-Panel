@@ -3658,3 +3658,23 @@
         display: none;
     }
 }
+
+/* Pulso al anadir un producto. Sustituye al cambio de tamano del control, que
+   hacia "saltar" la tarjeta al pasar de + a contador. Solo escala y opacidad,
+   que van por compositor, y se anula con prefers-reduced-motion. */
+@keyframes manual-order-add-pulse {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+
+.manual-order-add-pulse {
+    animation: manual-order-add-pulse 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .manual-order-add-pulse {
+        animation: none;
+    }
+}

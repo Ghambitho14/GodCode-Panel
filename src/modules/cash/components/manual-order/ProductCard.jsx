@@ -26,6 +26,15 @@ const ProductCard = ({
     const hasDiscount = Boolean(product.has_discount) && product.discount_price != null && Number(product.discount_price) > 0;
     const unitPrice = hasDiscount ? Number(product.discount_price) : Number(product.price);
 
+    // Realimentacion al anadir: un pulso breve en el control, sin que cambie de
+    // tamano. Se apaga al terminar para poder repetirse en el siguiente +.
+    const [pulse, setPulse] = React.useState(false);
+    const prevQuantity = React.useRef(quantity);
+    React.useEffect(() => {
+        if (quantity > prevQuantity.current) setPulse(true);
+        prevQuantity.current = quantity;
+    }, [quantity]);
+
     const handleAddClick = (e) => {
         e.stopPropagation();
         try {
@@ -104,7 +113,7 @@ const ProductCard = ({
             <Button variant="default"
                 type="button"
                 onClick={handleAddClick}
-                className="manual-order-tap-44 flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-transparent p-0 sm:h-6 sm:w-6 sm:min-h-6 sm:min-w-6 text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
+                className="manual-order-tap-44 flex aspect-square h-6 w-6 min-h-6 min-w-6 items-center justify-center !rounded-full bg-transparent p-0 text-sm leading-none text-white transition-colors hover:bg-white/15 active:scale-[0.93]"
                 aria-label="Aumentar cantidad"
             >
                 +
@@ -124,7 +133,7 @@ const ProductCard = ({
             tabIndex={0}
         >
             {hasDiscount && (
-                <span className={`pointer-events-none absolute left-2 top-2 z-10 rounded-[4px] bg-gc-discount/15 px-1.5 py-0.5 ${textScale.micro} font-bold uppercase tracking-wide text-gc-discount`}>
+                <span className={`pointer-events-none absolute left-2 top-2 z-10 rounded-[4px] border border-gc-discount/25 bg-white px-1.5 py-0.5 shadow-xs ${textScale.micro} font-bold uppercase tracking-wide text-gc-discount`}>
                     Oferta
                 </span>
             )}
@@ -192,7 +201,10 @@ const ProductCard = ({
                             </span>
                         )}
                     </div>
-                    <div className="shrink-0 self-end">
+                    <div
+                        className={cn('shrink-0 self-end', pulse && 'manual-order-add-pulse')}
+                        onAnimationEnd={() => setPulse(false)}
+                    >
                         {floatingAction}
                     </div>
                 </div>
