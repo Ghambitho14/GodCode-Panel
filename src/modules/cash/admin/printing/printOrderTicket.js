@@ -33,6 +33,70 @@ function schedulePrintAfterLoad(printWindow, hasLogo) {
 	}
 }
 
+
+/**
+ * En movil y en la PWA instalada `window.open` no sirve para imprimir: los
+ * navegadores bloquean la ventana con mucha mas frecuencia y, sobre todo,
+ * `print()` no bloquea como en escritorio, asi que el `close()` que va detras
+ * cierra la ventana antes de que el dialogo nativo llegue a aparecer y no sale
+ * nada. El iframe oculto no lo bloquea el antipopups, funciona dentro de la
+ * PWA y deja el documento vivo hasta que el usuario termina.
+ */
+function shouldPrintInline() {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+	const standalone = window.matchMedia('(display-mode: standalone)').matches
+		|| window.navigator?.standalone === true;
+	const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+	return Boolean(standalone || coarsePointer);
+}
+
+/** Imprime `html` desde un iframe oculto. Devuelve false si no hay DOM. */
+function printViaIframe(html, hasLogo) {
+	if (typeof document === 'undefined' || !document.body) return false;
+
+	const frame = document.createElement('iframe');
+	frame.setAttribute('aria-hidden', 'true');
+	frame.setAttribute('title', 'Ticket');
+	frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;';
+	document.body.appendChild(frame);
+
+	let cleaned = false;
+	const cleanup = () => {
+		if (cleaned) return;
+		cleaned = true;
+		window.removeEventListener('afterprint', cleanup);
+		frame.remove();
+	};
+
+	frame.addEventListener('load', () => {
+		const win = frame.contentWindow;
+		if (!win) { cleanup(); return; }
+
+		const runPrint = () => {
+			// El iframe se retira al terminar, no justo despues de print():
+			// en movil el dialogo es asincrono y quitarlo antes lo cancela.
+			win.addEventListener('afterprint', cleanup);
+			window.addEventListener('afterprint', cleanup);
+			window.setTimeout(cleanup, 60000);
+			win.focus();
+			win.print();
+		};
+
+		const logo = hasLogo ? win.document.querySelector('.c-logo') : null;
+		if (logo && !(logo.complete && logo.naturalWidth > 0)) {
+			const timeout = window.setTimeout(runPrint, 2000);
+			const onSettled = () => { window.clearTimeout(timeout); window.setTimeout(runPrint, 150); };
+			logo.addEventListener('load', onSettled, { once: true });
+			logo.addEventListener('error', onSettled, { once: true });
+			return;
+		}
+		window.setTimeout(runPrint, logo ? 100 : 60);
+	}, { once: true });
+
+	frame.srcdoc = html;
+	return true;
+}
+
 /**
  * @param {Window} printWindow
  * @param {string} html
@@ -61,18 +125,26 @@ function writePrintHtml(printWindow, html) {
 export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl = null, options = {}) => {
 	const variant = options.variant === 'kitchen' ? 'kitchen' : 'cashier';
 	const previewWindowWidth = 520;
-	const printWindow = window.open('', '', `width=${previewWindowWidth},height=700`);
-	if (!printWindow) {
-		return false;
-	}
-
 	const hasLogo = variant === 'cashier' && Boolean(resolveSafeLogoUrl(logoUrl));
+
+	// Movil y PWA van por iframe. En escritorio se sigue abriendo la ventana de
+	// vista previa, y si el navegador la bloquea ya no se falla: se cae al
+	// iframe en vez de pedirle al cajero que cambie la configuracion.
+	const inline = shouldPrintInline();
+	const printWindow = inline ? null : window.open('', '', `width=${previewWindowWidth},height=700`);
+	const useIframe = inline || !printWindow;
 
 	const finish = (printOptions) => {
 		const html = buildTicketHtml(order, branchName, logoUrl, variant, printOptions);
+		if (useIframe) {
+			printViaIframe(html, hasLogo);
+			return;
+		}
 		writePrintHtml(printWindow, html);
 		schedulePrintAfterLoad(printWindow, hasLogo);
 	};
+
+	if (useIframe && typeof document === 'undefined') return false;
 
 	const resolvedRate = resolveTicketExchangeRate({
 		branch: options.branch ?? null,
@@ -85,12 +157,14 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 		&& resolvedRate == null;
 
 	if (needsBcvFetch) {
-		writePrintHtml(
-			printWindow,
-			'<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Ticket</title></head>'
-			+ '<body style="font-family:system-ui,sans-serif;padding:16px;font-size:14px">'
-			+ 'Preparando ticket…</body></html>',
-		);
+		if (!useIframe) {
+			writePrintHtml(
+				printWindow,
+				'<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Ticket</title></head>'
+				+ '<body style="font-family:system-ui,sans-serif;padding:16px;font-size:14px">'
+				+ 'Preparando ticket…</body></html>',
+			);
+		}
 		void fetchBcvRate()
 			.then((bcvRate) => {
 				finish({
