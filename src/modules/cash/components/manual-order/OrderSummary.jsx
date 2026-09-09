@@ -113,7 +113,7 @@ const OrderSummary = ({
 			{printMenuOpen && printMenuPos && createPortal(
 				<div
 					ref={printPanelRef}
-					className="pointer-events-auto fixed z-[1200] rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg"
+					className="manual-order-fade-in pointer-events-auto fixed z-[1200] rounded-xl border border-gc-border bg-gc-card p-1.5 shadow-lg"
 					style={{ top: printMenuPos.top, left: printMenuPos.left, width: PRINT_MENU_W }}
 					role="menu"
 					onClick={(e) => e.stopPropagation()}

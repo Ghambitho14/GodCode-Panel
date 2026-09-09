@@ -1141,11 +1141,16 @@ export default function ManualOrderCheckout({
 	const desktopCheckoutShell = (
 		<div className="manual-order-checkout-shell">
 			{checkoutOverview}
-			<div className={cn(
-				`manual-order-checkout-stage manual-order-checkout-stage--classic grid w-full flex-1 grid-cols-1 ${spacing.normal} items-start`,
-				isClientStep && 'manual-order-checkout-stage--client',
-				isPaymentStep && 'manual-order-checkout-stage--payment',
-			)}>
+			{/* `key` por paso: fuerza el remontaje para que la entrada se reproduzca
+			    en cada cambio. Sin esto el contenido se sustituia de golpe. */}
+			<div
+				key={isClientStep ? 'stage-client' : 'stage-payment'}
+				className={cn(
+					`manual-order-checkout-stage manual-order-checkout-stage--classic manual-order-step-enter grid w-full flex-1 grid-cols-1 ${spacing.normal} items-start`,
+					isClientStep && 'manual-order-checkout-stage--client',
+					isPaymentStep && 'manual-order-checkout-stage--payment',
+				)}
+			>
 				{isClientStep ? (
 					<>
 						<div className="manual-order-checkout-main">

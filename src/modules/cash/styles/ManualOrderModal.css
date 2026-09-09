@@ -3678,3 +3678,36 @@
         animation: none;
     }
 }
+
+/* Entrada de bloques que se montan a mitad del flujo.
+   `animate-fade-in` se usaba ya en tres sitios de PaymentDetails, pero la clase
+   no existia ni en CSS ni generada por Tailwind, asi que esas secciones
+   aparecian de golpe. Se define aqui, y se reutiliza en el resto del flujo. */
+@keyframes manual-order-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in,
+.manual-order-fade-in {
+    animation: manual-order-fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Cambio de paso del asistente: sin esto el contenido se sustituye de golpe. */
+.manual-order-step-enter {
+    animation: manual-order-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .manual-order-fade-in,
+    .manual-order-step-enter {
+        animation: none;
+    }
+}

@@ -793,7 +793,7 @@ const ClientForm = ({
     );
 
     const deliveryFields = isDelivery ? (
-        <div className={`mt-3 flex flex-col ${spacing.normal}`}>
+        <div key="entrega-delivery" className={`manual-order-fade-in mt-3 flex flex-col ${spacing.normal}`}>
             {namedAreaAutoMode ? (
                 <>
                     {inputWithIcon(
@@ -982,7 +982,7 @@ const ClientForm = ({
             ) : null}
         </div>
     ) : (
-        <p className={hintClass}>
+        <p key="entrega-retiro" className={`${hintClass} manual-order-fade-in`}>
             El cliente retira en el local. No se requieren datos de despacho.
         </p>
     );
