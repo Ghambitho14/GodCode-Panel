@@ -414,7 +414,39 @@ process.on("unhandledRejection", (reason) => {
 
 logBoot();
 
+/**
+ * Security headers applied to every response.
+ *
+ * Mirrors the set the Portal (`saas-godcode-admin`) emits from `proxy.ts`, so
+ * both apps present the same posture. Kept deliberately conservative: no
+ * `script-src` or `default-src`, because the panel is a Vite SPA with a service
+ * worker, Supabase Storage images and Cloudinary assets. Locking those down
+ * needs a nonce pipeline; the directives below already close clickjacking,
+ * MIME sniffing and base-tag injection without that work.
+ *
+ * `Strict-Transport-Security` is only sent when the request arrived over HTTPS
+ * (directly or through a proxy), since sending it over plain HTTP is ignored by
+ * browsers and would break local development on http://localhost.
+ */
+function applySecurityHeaders(req, res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+  res.setHeader(
+    "Content-Security-Policy",
+    "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self';",
+  );
+
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const isHttps = forwardedProto === "https" || Boolean(req.socket?.encrypted);
+  if (isHttps) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+}
+
 const server = createServer((req, res) => {
+  applySecurityHeaders(req, res);
   handleRequest(req, res).catch((error) => {
     console.error("[server] error inesperado:", error);
     json(res, 500, { error: "Error de servidor." });
