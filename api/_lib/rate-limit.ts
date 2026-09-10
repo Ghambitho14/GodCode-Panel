@@ -76,7 +76,20 @@ async function kvIncrement(key: string, windowSeconds: number): Promise<number |
 }
 
 async function incrementCounter(key: string, windowSeconds: number): Promise<number> {
-	const kvCount = await kvIncrement(key, windowSeconds);
+	// `kvIncrement` hace fetch contra Vercel KV. Si la red falla, el fetch
+	// rechaza: sin este catch la excepción subiría hasta el handler de login y
+	// devolvería 500, dejando el login caído mientras el KV esté caído.
+	// Degradar al contador en memoria mantiene el límite (por instancia) y el
+	// login operativo.
+	let kvCount: number | null = null;
+	try {
+		kvCount = await kvIncrement(key, windowSeconds);
+	} catch (error) {
+		console.warn(
+			"[rate-limit] KV inaccesible, se degrada a memoria por instancia:",
+			error instanceof Error ? error.message : String(error),
+		);
+	}
 	if (kvCount != null) return kvCount;
 	return memoryIncrement(key, windowSeconds);
 }
