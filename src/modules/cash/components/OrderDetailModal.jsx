@@ -184,6 +184,12 @@ const OrderDetailModal = ({
         return () => window.removeEventListener('keydown', onEsc);
     }, [order, onClose]);
 
+    const shareLocale = useMemo(() => ({
+        branch,
+        company: companyProfile,
+        exchangeRate: orderMoney.exchangeRate,
+    }), [branch, companyProfile, orderMoney.exchangeRate]);
+
     if (!order || typeof document === 'undefined') return null;
 
     const items = parseOrderItems(liveOrder?.items);
@@ -240,12 +246,6 @@ const OrderDetailModal = ({
         company: companyProfile,
         exchangeRate: orderMoney.exchangeRate,
     });
-
-    const shareLocale = useMemo(() => ({
-        branch,
-        company: companyProfile,
-        exchangeRate: orderMoney.exchangeRate,
-    }), [branch, companyProfile, orderMoney.exchangeRate]);
 
     const transitionOrderLine = async (line, targetStatus) => {
         if (!line?.id || transitioningLineId) return;

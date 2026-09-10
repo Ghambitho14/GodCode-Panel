@@ -88,8 +88,7 @@ export const LocationProvider = ({ children, companyId }) => {
             } catch {
                 /* ignore */
             } finally {
-                if (!alive) return;
-                setLoadingBranches(false);
+                if (alive) setLoadingBranches(false);
             }
         };
 

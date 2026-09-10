@@ -8,7 +8,7 @@ interface LoginShellProps {
 
 type AccessMode = "caja" | "admin";
 
-export function LoginShell({ }: LoginShellProps) {
+export function LoginShell(_props: LoginShellProps) {
   const [accessMode, setAccessMode] = useState<AccessMode>("caja");
 
   const handleTabChange = (mode: AccessMode) => {

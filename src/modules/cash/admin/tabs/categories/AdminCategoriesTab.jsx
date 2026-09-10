@@ -98,7 +98,7 @@ export default function AdminCategoriesTab() {
 										const product = products.find((p) => p.id === (item.id ?? item.product_id));
 										if (!product || product.category_id !== c.id) return itemSum;
 										const qty = Math.max(0, Number(item.quantity) || 1);
-										const price = Number(item.price) ?? 0;
+										const price = Number(item.price) || 0;
 										return itemSum + price * qty;
 									}, 0);
 								}, 0);

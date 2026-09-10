@@ -705,7 +705,7 @@ export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormali
 	const allowedPayRaw =
 		o.allowedPaymentMethodsForDelivery ?? o.allowed_payment_methods_for_delivery;
 
-	let deliveryPricingStrategy = parseDeliveryPricingStrategy(
+	const deliveryPricingStrategy = parseDeliveryPricingStrategy(
 		stratRaw,
 		namedParsed.length,
 	);

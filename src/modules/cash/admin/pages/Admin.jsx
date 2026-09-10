@@ -43,7 +43,7 @@ const ProductModal = React.lazy(() => import('../products/components/ProductModa
 const CategoryModal = React.lazy(() => import('../products/components/CategoryModal'));
 const ClientDetailsPanel = React.lazy(() => import('../../components/ClientDetailsPanel'));
 import { supabase, TABLES } from '@/integrations/supabase';
-import { AdminProvider, useAdmin } from './AdminProvider';
+import { useAdmin } from './AdminProvider';
 import { Toaster } from 'sileo';
 import 'sileo/styles.css';
 import '../../styles/AdminSileo.css';
@@ -853,11 +853,3 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
   </>
   );
 };
-
-const Admin = () => (
-  <AdminProvider companyName={companyName} logoUrl={logoUrl}>
-    <AdminPage />
-  </AdminProvider>
-);
-
-export default Admin;
