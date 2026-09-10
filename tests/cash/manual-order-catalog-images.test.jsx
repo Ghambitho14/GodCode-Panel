@@ -14,7 +14,6 @@ vi.mock('@/modules/cash/components/ProgressiveProductImage', () => ({
 	default: ({ enabled }) => <span data-testid="progressive-image" data-enabled={String(enabled)} />,
 }));
 
-import ManualOrderCatalog from '@/modules/cash/components/manual-order/ManualOrderCatalog';
 import ProductCard from '@/modules/cash/components/manual-order/ProductCard';
 
 const product = {
@@ -46,27 +45,8 @@ afterEach(() => {
 });
 
 describe('imágenes del catálogo de pedido manual', () => {
-	it('las activa al entrar y el botón las oculta y vuelve a mostrar', async () => {
-		const user = userEvent.setup();
-		render(
-			<ManualOrderCatalog
-				products={[product]}
-				categories={[]}
-				addItem={vi.fn()}
-				updateQuantity={vi.fn()}
-				removeItem={vi.fn()}
-				getQty={() => 0}
-			/>,
-		);
-
-		const hideButton = screen.getByRole('button', { name: 'Ocultar imágenes de productos' });
-		expect(hideButton).toHaveAttribute('aria-pressed', 'true');
-		await user.click(hideButton);
-		expect(screen.getByRole('button', { name: 'Mostrar imágenes de productos' })).toHaveAttribute('aria-pressed', 'false');
-		await user.click(screen.getByRole('button', { name: 'Mostrar imágenes de productos' }));
-		expect(screen.getByRole('button', { name: 'Ocultar imágenes de productos' })).toBeTruthy();
-	});
-
+	// El botón de ocultar/mostrar imágenes se retiró de la UI: `showProductImages`
+	// va fijo a `true` en ManualOrderCatalog y solo queda como puerta del lazy-load.
 	it('habilita cada imagen solo cuando su tarjeta entra en el área cercana visible', () => {
 		const { rerender } = render(
 			<ProductCard

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const storageMocks = vi.hoisted(() => ({
 	getSignedImageUrl: vi.fn(),
 	isSupabaseStorageUrl: vi.fn((value) => /supabase|storage\/v1/i.test(String(value))),
+	isCloudinaryImageUrl: vi.fn((value) => /(?:^|\/\/)(?:[^/]*\.)?cloudinary\.com(?:\/|$)/i.test(String(value ?? '').trim())),
 	extractStoragePath: vi.fn((value, bucket) => String(value).startsWith(`${bucket}/`)
 		? String(value).slice(bucket.length + 1)
 		: value),

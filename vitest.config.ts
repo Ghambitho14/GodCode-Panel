@@ -6,6 +6,7 @@ export default mergeConfig(
 	defineConfig({
 		test: {
 			environment: "jsdom",
+			setupFiles: ["./tests/setup/jsdom-polyfills.js"],
 			passWithNoTests: true,
 			include: ["tests/**/*.{test,spec}.{ts,tsx,js,jsx}"],
 			exclude: ["tests/e2e/**", "node_modules/**"],
