@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "release/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+      - "release/**"
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Bloquea con 0 errores. Los ~267 warnings heredados quedan visibles pero
+      # no cortan el merge; `npm run lint:strict` es el objetivo a alcanzar.
+      - name: Run ESLint
+        run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+
+  test:
+    name: Tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run unit tests
+        run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, typecheck, test]
+
+    env:
+      # Sin .env en el runner. Vite inlinea import.meta.env en build, así que
+      # basta con placeholders sintácticamente válidos: nada sale a la red.
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_ANON_KEY: ci-build-anon-placeholder
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-anon-placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build app
+        run: npm run build
+
+  knip:
+    name: Dead code (Knip)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Informativo: hoy Knip reporta exports sin usar y duplicados que aún no se
+    # han limpiado. No bloquea el merge; sirve para que la deuda sea visible.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run Knip
+        run: npm run knip
