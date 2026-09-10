@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
+import { computeCouponDiscountAmount as computeCouponDiscount } from "@/lib/coupon-discount";
 
 export type DiscountCouponRow = {
 	id: string;
@@ -26,18 +27,15 @@ export function couponCodesMatch(a: string | null | undefined, b: string | null 
 	return normalizeCouponCode(a).toUpperCase() === normalizeCouponCode(b).toUpperCase();
 }
 
-/** Replica la cuenta de la RPC `create_order_transaction` (truncado monetario estándar). */
+/**
+ * Descuento de un cupón concreto.
+ *
+ * La aritmética vive en `@/lib/coupon-discount`, que es idéntica a la del Portal
+ * y está fijada por `coupon-discount-contract-cases.ts` en ambos repositorios.
+ * Aquí solo se desempaqueta la fila.
+ */
 export function computeCouponDiscountAmount(subtotal: number, row: DiscountCouponRow): number {
-	const s = Math.max(0, Number(subtotal) || 0);
-	if (row.discount_type === "percent") {
-		const p = Math.min(100, Math.max(0, Number(row.discount_value) || 0));
-		return Math.round((s * (p / 100)) * 100) / 100;
-	}
-	if (row.discount_type === "fixed_amount") {
-		const v = Math.max(0, Number(row.discount_value) || 0);
-		return Math.min(s, v);
-	}
-	return 0;
+	return computeCouponDiscount(subtotal, row.discount_type, row.discount_value);
 }
 
 /** Busca cupón activo por código (insensible a mayúsculas), alineado con la RPC. */
