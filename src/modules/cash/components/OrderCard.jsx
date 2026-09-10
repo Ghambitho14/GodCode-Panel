@@ -18,7 +18,6 @@ import {
     getOrderCouponDiscountMeta,
     getOrderTileKind,
     getOrderFulfillmentDisplayLabel,
-    getOrderFulfillmentKind,
     isOrderDelivery,
     isOrderPaymentDeferred,
     isMenuOrder,

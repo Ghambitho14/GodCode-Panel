@@ -13,28 +13,6 @@ const ITEM_TYPES = [
 
 const BEVERAGE_KIND_PRESETS = ["Agua", "Refresco", "Jugo natural", "Té y café", "Cerveza", "Otro"];
 
-function parseTagsInput(s) {
-	const parts = String(s || "")
-		.split(/[,;]/)
-		.map((t) => t.trim())
-		.filter(Boolean);
-	const out = [];
-	const seen = new Set();
-	for (const t of parts) {
-		if (out.length >= 16) break;
-		const k = t.toLowerCase();
-		if (seen.has(k)) continue;
-		seen.add(k);
-		out.push(t.slice(0, 48));
-	}
-	return out;
-}
-
-function tagsToInput(tags) {
-	if (!Array.isArray(tags)) return "";
-	return tags.filter(Boolean).join(", ");
-}
-
 /** Evita NaN en inputs type="number" (React exige valor finito o cadena vacía). */
 function finiteNum(n, fallback = 0) {
 	const x = typeof n === "number" ? n : Number(n);
@@ -50,10 +28,8 @@ const InventoryItemModal = ({
 	branchId,
 	branches,
 	companyId,
-	existingCategoryLabels = [],
 	newItemPreset = null,
 }) => {
-	const categoryListId = `inv-cat-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 	const beverageKindListId = `inv-bev-kind-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 	const [formData, setFormData] = useState({
 		name: "",
@@ -91,7 +67,6 @@ const InventoryItemModal = ({
 			}
 		} else {
 			const presetName = newItemPreset?.name != null ? String(newItemPreset.name).trim() : "";
-			const presetCat = newItemPreset?.category != null ? String(newItemPreset.category).trim() : "";
 			const presetType =
 				newItemPreset?.itemType && String(newItemPreset.itemType).trim()
 					? String(newItemPreset.itemType).trim()

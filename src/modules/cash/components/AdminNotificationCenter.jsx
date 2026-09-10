@@ -31,7 +31,7 @@ export default function AdminNotificationCenter({
 	const rootRef = useRef(null);
 	const triggerRef = useRef(null);
 	const popoverRef = useRef(null);
-	const { pos: popoverPos, updatePos: updatePopoverPos, setPos: setPopoverPos } = useHeaderPopoverPosition(triggerRef);
+	const { pos: popoverPos, updatePos: updatePopoverPos } = useHeaderPopoverPosition(triggerRef);
 
 	const pausedByStock = useMemo(
 		() => (products || []).filter((p) => p.inventory_pause_reason === "out_of_stock"),

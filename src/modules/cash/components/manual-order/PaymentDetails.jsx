@@ -280,7 +280,6 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
  */
 const PaymentDetails = ({
     manualOrder,
-    branch,
     branchDeliveryCfg = null,
     updateCouponCode,
     couponPreview,

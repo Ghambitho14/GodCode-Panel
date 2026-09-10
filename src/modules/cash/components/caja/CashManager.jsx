@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     Unlock, Lock, History, 
     Clock, Calendar, TrendingUp, TrendingDown,
-    ArrowUpCircle, ArrowDownCircle, Eye, XCircle,
+    ArrowUpCircle, ArrowDownCircle, XCircle,
     DollarSign, CreditCard, ChevronRight, Truck,
     MapPin, Banknote, Smartphone, Loader2,
 } from 'lucide-react';

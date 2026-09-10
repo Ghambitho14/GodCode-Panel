@@ -46,13 +46,17 @@ export default tseslint.config(
 			"react-hooks/immutability": "warn",
 			"react-hooks/static-components": "warn",
 			"react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+			// A `error` desde que la deuda quedo en cero (discrepancia nº16): dejarla
+			// en `warn` es lo que permitio que se acumularan 88 sin que nadie mirase.
 			// Prefijo `_` marca lo intencionadamente sin usar (igual que en el Portal).
-			"@typescript-eslint/no-unused-vars": ["warn", {
+			"@typescript-eslint/no-unused-vars": ["error", {
 				varsIgnorePattern: "^_",
 				argsIgnorePattern: "^_",
 				destructuredArrayIgnorePattern: "^_",
 			}],
-			"no-console": ["warn", { allow: ["warn", "error"] }],
+			// Tambien a `error`: las trazas de depuracion sueltas ya estan fuera y el
+			// logging real de la app pasa por `src/shared/monitor.js`.
+			"no-console": ["error", { allow: ["warn", "error"] }],
 			// `try { … } catch {}` es el idioma del panel para lecturas best-effort
 			// (sessionStorage, permisos de geolocalización). Un bloque vacío ahí es
 			// deliberado; el resto de bloques vacíos siguen siendo error.

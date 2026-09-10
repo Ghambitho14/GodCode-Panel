@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Check } from 'lucide-react';
+import { Minus } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
 import ProgressiveProductImage from '@/modules/cash/components/ProgressiveProductImage';

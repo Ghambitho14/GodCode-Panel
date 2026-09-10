@@ -1,6 +1,5 @@
 import React, {
 	memo,
-	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -12,7 +11,6 @@ const TREND_UP = '#16a34a';
 const TREND_DOWN = '#dc2626';
 // Literal a proposito: va a recharts como atributo SVG y var() no resuelve ahi
 const TREND_NEUTRAL = '#64748b';
-const ACCENT_BLUE = '#2563eb';
 const SPARK_MARGIN = { top: 4, right: 0, left: 0, bottom: 4 };
 const Y_DOMAIN = ['dataMin', 'dataMax'];
 const DEFAULT_WIDTH = 160;

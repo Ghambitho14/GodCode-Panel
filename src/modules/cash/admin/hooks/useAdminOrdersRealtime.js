@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { supabase, TABLES } from '@/integrations/supabase';
+import { supabase } from '@/integrations/supabase';
 import { subscribeMonitored, closeMonitoredChannel } from '@/shared/subscribeMonitored';
 import { mergeOrderInMemory } from '@/shared/utils/orderUtils';
 import { playOrderNotificationSound, primeOrderNotificationAudio } from '../utils/playOrderNotificationSound';

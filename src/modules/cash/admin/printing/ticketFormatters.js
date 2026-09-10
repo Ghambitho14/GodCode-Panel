@@ -1,4 +1,4 @@
-import { normalizeCurrencyCode, createMoneyFormatter } from '@/shared/utils/money';
+import { normalizeCurrencyCode } from '@/shared/utils/money';
 import { formatOrderAmount } from '@/lib/money/order-amount';
 import { escapeHtml } from './thermalUtils';
 import {
@@ -10,7 +10,6 @@ import {
 	isMenuOrder,
 	isOrderDelivery,
 	isOrderPaymentDeferred,
-	isLegacyGlobalKitchenNote,
 	resolveItemKitchenNote,
 	getOrderItemLineTotal,
 } from '@/shared/utils/orderUtils';

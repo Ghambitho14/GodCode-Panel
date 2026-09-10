@@ -86,7 +86,6 @@ export default function TableSessionReceipt({
 	order,
 	formatMoney,
 	formatOrderTotal,
-	kind,
 	mode = 'session',
 	titleId,
 	statusLabel,

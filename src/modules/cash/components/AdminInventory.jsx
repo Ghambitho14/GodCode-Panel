@@ -74,7 +74,6 @@ const AdminInventory = ({
 	const { locale } = useBranchMoney();
 	const {
 		items,
-		setItems,
 		companyInventoryItems,
 		loading,
 		cartCatalogCategoryHints,

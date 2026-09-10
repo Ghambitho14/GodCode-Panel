@@ -25,7 +25,7 @@ import { normalizeManualOrderSettings } from '../domain/manual-order-settings';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { buildCouponPreview } from '@/lib/discount-coupon';
-import { canOverrideDeliveryFee } from '../utils/deliveryFeePermissions';
+import {  } from '../utils/deliveryFeePermissions';
 import { deliveryFieldsFromClientRecord, maybeSaveClientDefaultDeliveryAddress } from '../services/clientService';
 import {
 	COUPON_PREVIEW_ERR_MSG,

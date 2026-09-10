@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getFormStrategy } from '@/lib/geo/country-forms';
-import { parseLocalOrderChannels } from '@/lib/delivery-settings';
 import { deliveryFieldsFromClientRecord, normalizeManualPhone } from '../../services/clientService';
 import {
     MANUAL_ORDER_INITIAL_FORM_STATE,
@@ -19,16 +18,10 @@ const initialFormState = MANUAL_ORDER_INITIAL_FORM_STATE;
  * nombre del cliente, RUT (formateo y validación), teléfono, notas del pedido, tipo de despacho,
  * dirección de entrega, kilómetros, tarifas y comprobantes de pago.
  */
-export const useManualOrderForm = (enabledLocalChannels = null, formCountry = 'CL', moneyOptions = {}, openMesaMode = false) => {
+// OJO: `_enabledLocalChannels` se acepta por compatibilidad de posicion con los
+// llamantes, pero el hook ya no lo lee. Ver la nota de la discrepancia nº16.
+export const useManualOrderForm = (_enabledLocalChannels = null, formCountry = 'CL', moneyOptions = {}, openMesaMode = false) => {
     const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
-    const resolvedChannels = useMemo(
-        () => parseLocalOrderChannels(enabledLocalChannels),
-        [
-            enabledLocalChannels?.mesa,
-            enabledLocalChannels?.retiro,
-            enabledLocalChannels?.delivery,
-        ],
-    );
     const [form, setForm] = useState(() => ({ ...initialFormState }));
     const [rutValid, setRutValid] = useState(true);
     const [phoneValid, setPhoneValid] = useState(true);

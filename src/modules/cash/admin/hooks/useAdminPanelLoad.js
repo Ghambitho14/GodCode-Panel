@@ -42,7 +42,6 @@ import {
 import { monitor } from '@/shared/monitor';
 
 /** Mínimo entre refrescos automáticos al volver al tab del navegador. */
-const DATA_STALE_MS = 60_000;
 
 /**
  * Carga y refresco de datos del panel (pedidos, clientes, catálogo, inventario).
@@ -130,14 +129,12 @@ export function useAdminPanelLoad({
 			branchRaw,
 			isAllBranches,
 		});
-		console.log('[useAdminPanelLoad] applyCatalogToState categories=%s products=%s', categoriesData?.length, mergedProducts?.length);
 		setCategories(categoriesData);
 		setProducts(mergedProducts);
 	}, [setCategories, setProducts]);
 
 	const fetchOrders = useCallback(async ({ force = false, generation } = {}) => {
 		if (!selectedBranchId || !companyId) return;
-		console.log('[useAdminPanelLoad] fetchOrders start selectedBranchId=%s force=%s', selectedBranchId, force);
 		const gen = generation ?? loadGenerationRef.current;
 		const isAllBranches = selectedBranchId === 'all';
 		const cleanOrders = await getBranchOrders(companyId, selectedBranchId, async () => {
@@ -155,10 +152,8 @@ export function useAdminPanelLoad({
 			return (data || []).map(sanitizeOrder);
 		}, { force });
 		if (!isLoadGenerationCurrent(loadGenerationRef, gen)) {
-			console.log('[useAdminPanelLoad] fetchOrders aborted stale gen');
 			return;
 		}
-		console.log('[useAdminPanelLoad] fetchOrders setting orders length=%s', cleanOrders?.length);
 		setOrders((prev) =>
 			orderMoveInFlightRef.current.size > 0
 				? mergeOrdersFromServer(prev, cleanOrders, selectedBranchId)

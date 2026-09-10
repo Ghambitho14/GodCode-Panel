@@ -477,11 +477,9 @@ export async function deleteStorageObject(pathOrUrl, bucket) {
     try {
         const { error } = await supabase.storage.from(bucket).remove([path]);
         if (error) {
-            // eslint-disable-next-line no-console
             console.warn('[deleteStorageObject]', error.message);
         }
     } catch (err) {
-        // eslint-disable-next-line no-console
         console.warn('[deleteStorageObject]', err instanceof Error ? err.message : err);
     }
 }

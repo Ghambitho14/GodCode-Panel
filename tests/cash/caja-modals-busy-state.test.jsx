@@ -1,6 +1,6 @@
 import React from 'react';
 import { cleanup, render, fireEvent, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/modules/cash/hooks/useBranchMoney', () => ({
 	useBranchMoney: () => ({

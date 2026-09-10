@@ -13,7 +13,6 @@ import {
 	buildOrderDeliveryDriverPack,
 	shareDeliveryPackViaWhatsApp,
 	sanitizeOrder,
-	getOrderFulfillmentKind,
 	getOrderFulfillmentDisplayLabel,
 	resolveOrderClientPhoneForDisplay,
 	isLegacyGlobalKitchenNote,
@@ -134,7 +133,6 @@ export default function CashOrderDetailPanel({
 	const telHref = telDigits
 		? `tel:+${telDigits.startsWith('56') ? telDigits : `56${telDigits}`}`
 		: null;
-	const fulfillmentKind = getOrderFulfillmentKind(displayOrder);
 	const fulfillmentLabel = getOrderFulfillmentDisplayLabel(displayOrder);
 	const sessionNumber = displayOrder.shift_sequence ?? null;
 

@@ -94,8 +94,12 @@ function log(level, area, event, context) {
 		if (payload) console.warn(prefix, payload);
 		else console.warn(prefix);
 	} else if (payload) {
+		// Esta funcion ES la fachada de logging de la app: aqui console.info no es
+		// una traza olvidada, es el destino final del nivel `info`.
+		// eslint-disable-next-line no-console
 		console.info(prefix, payload);
 	} else {
+		// eslint-disable-next-line no-console
 		console.info(prefix);
 	}
 }

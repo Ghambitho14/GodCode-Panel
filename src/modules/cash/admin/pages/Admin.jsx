@@ -1,9 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
-  Loader2, Search, Filter,
-  Package, PlusCircle, X, Trash2, Plus, Edit, RefreshCw, List, ShoppingBag, Tag, LayoutGrid, ArrowUpDown, Eye, EyeOff, Upload, HelpCircle, Store, Image, ImageOff,
+  Loader2,
+  PlusCircle, Plus, RefreshCw, HelpCircle, Store,
 } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
 import OrderDetailModal from '../../components/OrderDetailModal';
@@ -42,7 +42,7 @@ const ManualOrderModal = React.lazy(() => import('../../components/ManualOrderMo
 const ProductModal = React.lazy(() => import('../products/components/ProductModal'));
 const CategoryModal = React.lazy(() => import('../products/components/CategoryModal'));
 const ClientDetailsPanel = React.lazy(() => import('../../components/ClientDetailsPanel'));
-import { supabase, TABLES } from '@/integrations/supabase';
+import {  } from '@/integrations/supabase';
 import { useAdmin } from './AdminProvider';
 import { Toaster } from 'sileo';
 import 'sileo/styles.css';
@@ -50,9 +50,8 @@ import '../../styles/AdminSileo.css';
 import { Button } from "@/components/ui/button";
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 
-export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, primaryColor, storefrontMenuUrl = null }) => {
+export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, storefrontMenuUrl = null }) => {
   const {
-    navigate,
     activeTab, setActiveTab,
     products,
     categories,
@@ -63,19 +62,9 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     isBranchLocked,
     isHistoryView, setIsHistoryView,
     ordersViewMode,
-    ordersPanelSettingsReady,
     localOrderChannels,
-    historyPeriod, setHistoryPeriod,
-    historyOrders, historyLoading,
     isOpenMesaModal, setIsOpenMesaModal, manualOrderMode, setManualOrderMode,
     pendingSeatReservation, setPendingSeatReservation,
-    mobileTab, setMobileTab,
-    searchQuery, setSearchQuery,
-    filterCategory, setFilterCategory,
-    filterStatus, setFilterStatus,
-    viewMode, setViewMode,
-    showProductPhotos, setShowProductPhotos,
-    sortOrder, setSortOrder,
     refreshing,
     isMobile,
     isModalOpen, setIsModalOpen,
@@ -91,32 +80,23 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     showNotify,
     loadData,
     refreshAllData,
-    refreshOrders,
     upsertOrder,
     refreshClients,
     refreshCatalog,
     refreshCatalogAndInventory,
     refreshBranches,
     handleSelectClient,
-    moveOrder,
-    closeOrderSession,
-    markOrderSessionPaid,
     uploadReceiptToOrder,
     handleReceiptFileChange,
     handleSaveProduct,
-    deleteProduct,
-    toggleProductActive,
     scopeModal,
     handleScopeConfirm,
     setScopeModal,
     handleSaveCategory,
-    deleteCategory,
     categoryToDelete,
     setCategoryToDelete,
     confirmDeleteCategory,
     kanbanColumns,
-    processedProducts,
-    productStats,
     userRole,
     userEmail,
     signOut,
@@ -127,8 +107,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     productToDelete,
     setProductToDelete,
     confirmDeleteProduct,
-    reorderCategories,
-    toggleCategoryActive,
     resolvedTabLabels,
     adminShortcutsEnabled,
     menuCapabilities,
@@ -136,7 +114,6 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, prima
     lastDataRefreshAt,
     loading,
     inventoryBranchRows,
-    companyId,
     cashSystem,
   } = useAdmin();
   const { locale } = useBranchMoney();

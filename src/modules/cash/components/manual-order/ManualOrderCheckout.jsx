@@ -89,7 +89,6 @@ export function useManualOrderCheckoutFlow({
 	openMesaMode = false,
 	openMesaChargeNow,
 	isEditMode,
-	editOrder,
 	rutValid,
 	phoneValid,
 	orderStep,

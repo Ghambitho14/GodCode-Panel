@@ -29,7 +29,7 @@ export default function OrderNotificationSoundControl() {
     const rootRef = useRef(null);
     const triggerRef = useRef(null);
     const popoverRef = useRef(null);
-    const { pos: popoverPos, updatePos: updatePopoverPos, setPos: setPopoverPos } = useHeaderPopoverPosition(triggerRef);
+    const { pos: popoverPos, updatePos: updatePopoverPos } = useHeaderPopoverPosition(triggerRef);
 
     useEffect(() => {
         const sync = () => setMode(getOrderSoundMode());

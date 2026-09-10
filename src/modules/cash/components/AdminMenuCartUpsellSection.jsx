@@ -459,11 +459,6 @@ export default function AdminMenuCartUpsellSection({
 		setModalOpen(true);
 	};
 
-	const openEdit = (idx) => {
-		setEditingIndex(idx);
-		setModalOpen(true);
-	};
-
 	const openEditForItem = (catalogItem) => {
 		const idx = items.findIndex((i) => i.id === catalogItem.id);
 		if (idx < 0) return;

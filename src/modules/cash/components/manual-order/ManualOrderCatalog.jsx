@@ -263,10 +263,6 @@ const ManualOrderCatalog = ({
         }, 450);
     };
 
-    const scrollToSection = (sectionRef) => {
-        scrollWithinCatalog(sectionRef?.current, 12);
-    };
-
     // Highlight first category by default when catalog loads
     useEffect(() => {
         if (activeCategory == null && sidebarCategories.length > 0) {

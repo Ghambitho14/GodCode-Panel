@@ -460,7 +460,7 @@ export const AdminProvider = ({
 					}
 				}
 			}
-		} catch (error) {
+		} catch {
 			/* ignore */
 		}
 		sessionRestoredRef.current = true;

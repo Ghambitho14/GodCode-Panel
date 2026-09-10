@@ -99,7 +99,6 @@ function proxyToSupabaseDev(req: IncomingMessage, res: ServerResponse) {
     },
   );
   proxyReq.on("error", (error) => {
-    // eslint-disable-next-line no-console
     console.error("[gc-bff-dev] proxy error:", error);
     if (!res.headersSent) {
       res.statusCode = 502;
@@ -163,7 +162,6 @@ function proxyToSupabaseUpgradeDev(
   });
 
   proxyReq.on("response", (proxyRes) => {
-    // eslint-disable-next-line no-console
     console.error(
       "[gc-bff-dev] ws upgrade rechazado:",
       proxyRes.statusCode,
@@ -173,7 +171,6 @@ function proxyToSupabaseUpgradeDev(
   });
 
   proxyReq.on("error", (error) => {
-    // eslint-disable-next-line no-console
     console.error("[gc-bff-dev] ws proxy error:", error);
     socket.destroy();
   });
@@ -222,7 +219,6 @@ export function bffDevPlugin(mode: string): Plugin {
             await handler(reqShim, wrapResponse(res));
           } catch (error) {
             const message = error instanceof Error ? error.message : "Error de servidor.";
-            // eslint-disable-next-line no-console
             console.error(`[gc-bff-dev] /api/auth/${route} fallo:`, error);
             if (!res.headersSent) {
               res.statusCode = 500;
@@ -242,7 +238,6 @@ export function bffDevPlugin(mode: string): Plugin {
         try {
           proxyToSupabaseUpgradeDev(req, socket, head);
         } catch (error) {
-          // eslint-disable-next-line no-console
           console.error("[gc-bff-dev] ws upgrade error:", error);
           socket.destroy();
         }

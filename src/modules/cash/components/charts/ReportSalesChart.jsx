@@ -81,7 +81,6 @@ function ReportSalesChart({
 	points = [],
 	kind = 'area',
 	filter = 'all',
-	currency = 'CLP',
 	height = 400,
 	showHeader = false,
 	color = BRAND,

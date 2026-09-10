@@ -34,7 +34,6 @@ import {
     shareDeliveryPackViaWhatsApp,
     getOrderFulfillmentKind,
     getOrderFulfillmentDisplayLabel,
-    getPaymentLabel,
     getOrderPaymentDisplayLabel,
     getOrderItemLineTotal,
     isOrderPaymentDeferred,

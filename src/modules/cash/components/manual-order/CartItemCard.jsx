@@ -20,7 +20,6 @@ const CartItemCard = ({
 	const { formatMoney: fallbackFormatMoney } = useOrderMoney();
 	const formatMoney = formatMoneyOverride ?? fallbackFormatMoney;
     const hasDiscount = Boolean(item.has_discount) && item.discount_price != null && Number(item.discount_price) > 0;
-    const unit = hasDiscount ? Number(item.discount_price) : Number(item.price);
     const subtotal = getOrderItemLineTotal(item);
     const noteOpen = !readOnly && isItemNoteOpen?.(item);
 	const noteText = String(item.note ?? '').trim();

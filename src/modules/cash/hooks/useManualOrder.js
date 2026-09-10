@@ -5,7 +5,6 @@ import { useCouponValidation } from './manual-order/useCouponValidation';
 import { useReceiptUpload } from './manual-order/useReceiptUpload';
 import { createManualOrder } from '../admin/orders/services/orders';
 import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
-import { getFormStrategy } from '@/lib/geo/country-forms';
 import { getCountryProfile, normalizeInternationalPhone, validateProfileDocument } from '@/lib/geo/country-profiles';
 import { localeForCurrency, fractionDigitsForCurrency } from '@/shared/utils/money';
 import { majorToMinor, minorToMajor, sumMinor } from '@/lib/money/minor-units';
@@ -95,7 +94,6 @@ export const useManualOrder = (
 	const currency = useMemo(() => resolveEffectiveCurrency(branch, companyProfile), [branch, companyProfile]);
 	const manualOrderSettings = useMemo(() => normalizeManualOrderSettings(manualSettingsRaw ?? branch?.manual_order_settings, localOrderChannels), [manualSettingsRaw, branch?.manual_order_settings, localOrderChannels]);
 	const fractionDigits = useMemo(() => fractionDigitsForCurrency(currency, manualOrderSettings.currencyFractionDigits), [currency, manualOrderSettings.currencyFractionDigits]);
-	const formStrategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
 	const countryProfile = useMemo(() => getCountryProfile(formCountry, { currency }), [formCountry, currency]);
 	const locale = useMemo(() => countryProfile.locale || localeForCurrency(currency), [countryProfile.locale, currency]);
 	const v2Enabled = isManualOrderV2Enabled({ ...branch, manual_order_settings: manualOrderSettings });

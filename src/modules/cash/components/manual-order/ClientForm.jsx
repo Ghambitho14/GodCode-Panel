@@ -143,7 +143,6 @@ const ClientForm = ({
     openMesaMode = false,
     branchDeliveryCfgLoading = false,
     enabledLocalChannels = null,
-    isEditMode = false,
 	showQuickSalePaymentChoice = false,
 	quickSalePaymentActive = false,
 	quickSalePaymentHint = null,
@@ -164,7 +163,6 @@ const ClientForm = ({
     const clientSearchRef = useRef(null);
 	const autofilledWaiterForTableRef = useRef(null);
 
-    const isPickup = manualOrder.order_type !== 'delivery';
     const isDelivery = manualOrder.order_type === 'delivery';
 	const companyKey = companyId || branch?.company_id || companyProfile?.id || null;
 	const branchKey = branch?.id || null;
