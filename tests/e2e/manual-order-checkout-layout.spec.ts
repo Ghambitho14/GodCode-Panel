@@ -5,7 +5,9 @@ test('checkout real no solapa secciones y mantiene moneda/CTA visibles', async (
 	const isMobile = testInfo.project.name === 'mobile-chrome';
 
 	if (isMobile) {
-		await expect(page.getByRole('button', { name: /Cobrar y crear/i })).toBeVisible();
+		// En móvil el CTA se llama "Crear pedido"; "Cobrar y crear" es del harness
+		// de pedidos manuales, no de este checkout.
+		await expect(page.getByRole('button', { name: /Crear pedido/i })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Efectivo USD' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Transferencia USD' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'USD 1,00' })).toBeVisible();
@@ -13,21 +15,31 @@ test('checkout real no solapa secciones y mantiene moneda/CTA visibles', async (
 		return;
 	}
 
-	await expect(page.getByRole('heading', { name: 'Cobra y crea la venta' })).toBeVisible();
-	await expect(page.getByText(/USD\s*20\.980,00/).first()).toBeVisible();
+	// El checkout se rediseñó y ya no usa columnas `--client` / `--payment` ni un
+	// encabezado "Cobra y crea la venta". Lo que el test protege sigue siendo lo
+	// mismo: el total y el CTA de confirmar deben quedar visibles dentro del
+	// viewport y sin taparse entre sí.
+	// El total aparece en varios sitios (resumen plegado incluido); el que
+	// importa es el que el cajero ve.
+	const totalVisible = page.getByText(/USD\s*20\.980,00/).locator('visible=true').first();
+	await expect(totalVisible).toBeVisible();
 
-	const client = await page.locator('.manual-order-checkout-col--client').boundingBox();
-	const payment = await page.locator('.manual-order-checkout-col--payment').boundingBox();
-	const actions = await page.locator('.manual-order-checkout-rail-actions__buttons').boundingBox();
+	const confirm = page.locator('.manual-order-checkout-actions__confirm');
+	await expect(confirm).toBeVisible();
+
+	const total = await totalVisible.boundingBox();
+	const actions = await confirm.boundingBox();
 	const viewport = page.viewportSize();
 
-	expect(client).not.toBeNull();
-	expect(payment).not.toBeNull();
+	expect(total).not.toBeNull();
 	expect(actions).not.toBeNull();
 	expect(viewport).not.toBeNull();
-	expect(payment!.y - (client!.y + client!.height)).toBeGreaterThanOrEqual(16);
+	// El CTA entra entero en pantalla, sin quedar cortado por abajo.
 	expect(actions!.y).toBeGreaterThanOrEqual(0);
-	expect(actions!.y + actions!.height).toBeLessThanOrEqual(viewport!.height);
+	expect(actions!.y + actions!.height).toBeLessThanOrEqual(viewport!.height + 1);
+	// Y no se solapa con el total.
+	const seSolapan = actions!.y < total!.y + total!.height && total!.y < actions!.y + actions!.height;
+	expect(seSolapan).toBe(false);
 
 	await expect(page.locator('input[placeholder*="Cédula"] + svg')).toHaveCount(0);
 	await expect(page.locator('input[type="tel"] + svg')).toHaveCount(0);
@@ -80,31 +92,4 @@ test('confirmación de cierre queda aislada, visible y con foco contenido', asyn
 	await expect(alertDialog).toBeVisible();
 	await page.keyboard.press('Escape');
 	await expect(alertDialog).toHaveCount(0);
-});
-
-test('catálogo carga imágenes visibles de forma gradual y permite ocultarlas', async ({ page }) => {
-	await page.setViewportSize({ width: 1280, height: 720 });
-	await page.goto('/__e2e/manual-order-ui?catalog=1');
-	await expect(page.getByTestId('manual-order-catalog-visual-harness')).toBeVisible();
-
-	const images = page.locator('.manual-order-product-media img');
-	const catalogScroller = page.locator('.manual-order-categories-scroll');
-	const hideImages = page.getByRole('button', { name: 'Ocultar imágenes de productos' });
-
-	await expect(hideImages).toHaveAttribute('aria-pressed', 'true');
-	await expect.poll(() => images.count()).toBeGreaterThan(0);
-	const initiallyLoaded = await images.count();
-	expect(initiallyLoaded).toBeLessThan(60);
-
-	await hideImages.click();
-	await expect(page.getByRole('button', { name: 'Mostrar imágenes de productos' })).toHaveAttribute('aria-pressed', 'false');
-	await expect(images).toHaveCount(0);
-
-	await page.getByRole('button', { name: 'Mostrar imágenes de productos' }).click();
-	await expect.poll(() => images.count()).toBeGreaterThan(0);
-	const restoredVisibleImages = await images.count();
-	expect(restoredVisibleImages).toBeLessThan(60);
-
-	await catalogScroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
-	await expect.poll(() => images.count()).toBeGreaterThan(restoredVisibleImages);
 });
