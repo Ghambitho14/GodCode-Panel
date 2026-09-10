@@ -1,4 +1,5 @@
 import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
+import { SHARED_THEME_CSS_VARS } from "@/shared/utils/theme-css-var-contract";
 
 /**
  * Construye un bloque CSS con variables del tenant (`.tenant-theme-vars { ... }`).
@@ -10,8 +11,9 @@ import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
  *
  * También aplica a `.manual-order-portal-scope` (modal portaleado en body).
  *
- * Si `theme_config` es null o le faltan campos, cada token cae a su default
- * y la UI sigue viendose como hoy (no rompe nada).
+ * Los nombres de los tokens salen de `theme-css-var-contract.ts`, que es el mismo
+ * fichero en el Portal: así un renombrado no puede desincronizar los dos repos en
+ * silencio. Los valores sí son propios del Panel — ver `FIXED_PALETTE`.
  */
 
 const toRgba = (hex: string, alpha: number, fallback: string) => {
@@ -40,6 +42,11 @@ type CompanyRow = {
 	theme_config?: DatabaseCompanyTheme | null;
 };
 
+/**
+ * El Panel POS no se tematiza por tenant: es una herramienta interna de caja y
+ * usa siempre la misma paleta. El parámetro `theme_config` se acepta para que la
+ * firma case con la del storefront, pero no se lee.
+ */
 const FIXED_PALETTE = {
 	primary: "#2563eb",
 	secondary: "#3b82f6",
@@ -49,15 +56,29 @@ const FIXED_PALETTE = {
 	background: "#f8fafc",
 };
 
-export function buildTenantThemeCss(_company: CompanyRow | null): string {
+/** Valor de cada token compartido. Las claves son el contrato, no texto libre. */
+export function buildTenantThemeCssVarEntries(
+	_company: CompanyRow | null,
+): Array<[(typeof SHARED_THEME_CSS_VARS)[number], string]> {
 	const primaryColor = FIXED_PALETTE.primary;
-	const secondaryColor = FIXED_PALETTE.secondary;
-	const priceColor = FIXED_PALETTE.price;
-	const discountColor = FIXED_PALETTE.discount;
-	const hoverColor = FIXED_PALETTE.hover;
-	const accentShadow = toRgba(primaryColor, 0.3, "rgba(37, 99, 235, 0.3)");
-	const accentShadowStrong = toRgba(primaryColor, 0.5, "rgba(37, 99, 235, 0.5)");
-	const cardBorder = toRgba(primaryColor, 0.18, "rgba(37, 99, 235, 0.18)");
-	const backgroundColor = FIXED_PALETTE.background;
-	return `.tenant-theme-vars,.manual-order-portal-scope{--tenant-primary:${sanitizeCssValue(primaryColor)};--accent-primary:${sanitizeCssValue(primaryColor)};--accent-secondary:${sanitizeCssValue(secondaryColor)};--price-color:${sanitizeCssValue(priceColor)};--discount-color:${sanitizeCssValue(discountColor)};--accent-hover:${sanitizeCssValue(hoverColor)};--accent-shadow:${sanitizeCssValue(accentShadow)};--accent-shadow-strong:${sanitizeCssValue(accentShadowStrong)};--card-border:${sanitizeCssValue(cardBorder)};--bg-primary:${sanitizeCssValue(backgroundColor)};--tenant-bg-image:none;}`;
+	return [
+		["--tenant-primary", primaryColor],
+		["--accent-primary", primaryColor],
+		["--accent-secondary", FIXED_PALETTE.secondary],
+		["--price-color", FIXED_PALETTE.price],
+		["--discount-color", FIXED_PALETTE.discount],
+		["--accent-hover", FIXED_PALETTE.hover],
+		["--accent-shadow", toRgba(primaryColor, 0.3, "rgba(37, 99, 235, 0.3)")],
+		["--accent-shadow-strong", toRgba(primaryColor, 0.5, "rgba(37, 99, 235, 0.5)")],
+		["--card-border", toRgba(primaryColor, 0.18, "rgba(37, 99, 235, 0.18)")],
+		["--bg-primary", FIXED_PALETTE.background],
+		["--tenant-bg-image", "none"],
+	];
+}
+
+export function buildTenantThemeCss(company: CompanyRow | null): string {
+	const declarations = buildTenantThemeCssVarEntries(company)
+		.map(([name, value]) => `${name}:${sanitizeCssValue(value)};`)
+		.join("");
+	return `.tenant-theme-vars,.manual-order-portal-scope{${declarations}}`;
 }
