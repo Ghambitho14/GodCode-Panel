@@ -82,3 +82,71 @@ describe('manual order payment lines', () => {
 		});
 	});
 });
+
+describe('metodos configurados que el registro no traia', () => {
+	// Una sucursal con MercadoPago activo no veia el metodo en el selector de
+	// cobro: `normalizeRawDefinition` devolvia null y se filtraba sin avisar.
+	// Si era el unico metodo de la sucursal, el panel se quedaba sin ninguno.
+	it('MercadoPago sobrevive junto a otros metodos', () => {
+		const methods = normalizePaymentMethods(['efectivo', 'mercadopago'], { accountingCurrency: 'CLP' });
+		expect(methods.map((method) => method.id)).toEqual(['efectivo', 'mercadopago']);
+	});
+
+	it('MercadoPago se clasifica igual que Stripe: tarjeta liquidada por webhook', () => {
+		const [method] = normalizePaymentMethods(['mercadopago'], { accountingCurrency: 'CLP' });
+		expect(method).toMatchObject({
+			id: 'mercadopago',
+			rail: 'card',
+			evidencePolicy: 'optional',
+			settlementTrigger: 'gateway_webhook',
+		});
+	});
+
+	it('una sucursal con un solo metodo no reconocido ya no se queda sin ninguno', () => {
+		// El caso grave: sin metodos, el panel no puede cobrar nada.
+		expect(normalizePaymentMethods(['mercadopago'], { accountingCurrency: 'CLP' })).toHaveLength(1);
+		expect(normalizeConfiguredPaymentMethods(['yape'], { accountingCurrency: 'PEN' })).toHaveLength(1);
+	});
+
+	it('se puede cobrar un pedido con un metodo no reconocido', () => {
+		const methods = normalizeConfiguredPaymentMethods(['efectivo', 'mercadopago'], { accountingCurrency: 'CLP' });
+		const result = validatePaymentLines(
+			[{ id: 'l1', methodId: 'mercadopago', amountMinor: 1000, currency: 'CLP' }],
+			{ totalMinor: 1000, currency: 'CLP' },
+			methods,
+		);
+		expect(result.valid).toBe(true);
+		expect(deriveLegacyPaymentFields(result.lines, 'CLP')).toMatchObject({
+			payment_type: 'tarjeta',
+			payment_method_specific: 'mercadopago',
+		});
+	});
+
+	// El defecto calca la rama `else` de payment_method_policy_v3, que es quien
+	// decide al liquidar. Los metodos del registro siguen por su propia rama.
+	it.each([
+		['yape', 'online', 'manual_verification', 'none'],
+		['transferencia_bancaria', 'online', 'evidence_uploaded', 'required'],
+		['cash_usd', 'cash', 'cash_confirmation', 'none'],
+		['mercadopago', 'card', 'gateway_webhook', 'optional'],
+	])('clasifica %s como %s', (key, rail, settlementTrigger, evidencePolicy) => {
+		const [method] = normalizePaymentMethods([key], { accountingCurrency: 'USD' });
+		expect(method).toMatchObject({ rail, settlementTrigger, evidencePolicy });
+	});
+
+	it('un metodo desconocido no se da por cobrado solo: exige verificacion manual', () => {
+		const [method] = normalizePaymentMethods(['metodo_raro_del_local'], { accountingCurrency: 'CLP' });
+		expect(method.settlementTrigger).toBe('manual_verification');
+	});
+
+	it('una clave heredada de Object.prototype no cuenta como metodo conocido', () => {
+		// `PAYMENT_METHOD_REGISTRY['constructor']` devuelve el constructor de Object,
+		// que es truthy: sin la guarda de hasOwnProperty se colaba como definicion.
+		const [method] = normalizePaymentMethods(['constructor'], { accountingCurrency: 'CLP' });
+		expect(method).toMatchObject({ id: 'constructor', rail: 'online' });
+	});
+
+	it('sigue descartando entradas sin nombre', () => {
+		expect(normalizePaymentMethods(['', '   ', null], { accountingCurrency: 'CLP' })).toEqual([]);
+	});
+});

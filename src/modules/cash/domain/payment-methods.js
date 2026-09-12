@@ -15,13 +15,47 @@ export const PAYMENT_METHOD_REGISTRY = Object.freeze({
 	zelle: { id: 'zelle', label: 'Zelle', rail: 'online', currency: 'USD', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
 	paypal: { id: 'paypal', label: 'PayPal', rail: 'online', currencyMode: 'accounting', evidencePolicy: 'required', settlementTrigger: 'evidence_uploaded' },
 	stripe: { id: 'stripe', label: 'Stripe', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional', settlementTrigger: 'gateway_webhook' },
+	mercadopago: { id: 'mercadopago', label: 'MercadoPago', rail: 'card', currencyMode: 'accounting', evidencePolicy: 'optional', settlementTrigger: 'gateway_webhook' },
 });
+
+/**
+ * Definición por defecto para un método configurado que no está en el registro.
+ *
+ * La tabla `payment_methods` del Portal deja que cada empresa declare su propio
+ * `method_name`, así que este registro nunca va a ser la lista completa. Antes,
+ * un método desconocido devolvía `null` y desaparecía **en silencio**: no salía
+ * en el selector de cobro, y si era el único que tenía la sucursal, la caja se
+ * quedaba sin ningún método con el que cobrar.
+ *
+ * Los valores calcan la rama `else` de `payment_method_policy_v3` (migración
+ * `20260821_canonicalize_efectivo_payment_method.sql`), que es quien decide de
+ * verdad al liquidar: rail `online`, sin comprobante obligatorio y sin darse por
+ * cobrado solo — alguien tiene que verificarlo a mano.
+ *
+ * Es solo un defecto: si la empresa tiene fila en `payment_methods`, el servidor
+ * usa su `rail` / `settlement_trigger` / `settlement_currency`. Esta app no lee
+ * esa tabla, así que aquí no se puede reflejar esa personalización.
+ */
+function deriveUnknownDefinition(key) {
+	return {
+		id: key,
+		label: key,
+		rail: 'online',
+		currencyMode: 'accounting',
+		evidencePolicy: 'none',
+		settlementTrigger: 'manual_verification',
+	};
+}
 
 function normalizeRawDefinition(raw, accountingCurrency) {
 	const source = typeof raw === 'string' ? { id: raw } : (raw && typeof raw === 'object' ? raw : {});
 	const key = String(source.id ?? source.key ?? source.method ?? '').trim().toLowerCase();
-	const base = PAYMENT_METHOD_REGISTRY[key];
-	if (!base) return null;
+	if (!key) return null;
+	// `Object.prototype` está en la cadena de un objeto literal: sin esta guarda,
+	// un método llamado "constructor" o "toString" pasaría por conocido.
+	const base = Object.prototype.hasOwnProperty.call(PAYMENT_METHOD_REGISTRY, key)
+		? PAYMENT_METHOD_REGISTRY[key]
+		: deriveUnknownDefinition(key);
 	const currency = String(source.currency ?? base.currency ?? accountingCurrency).trim().toUpperCase();
 	const evidencePolicyRaw = source.evidencePolicy ?? source.evidence_policy;
 	const settlementTriggerRaw = source.settlementTrigger ?? source.settlement_trigger;
