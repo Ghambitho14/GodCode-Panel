@@ -23,6 +23,7 @@ import {
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
+import { toSafeHttpUrl } from '@/shared/utils/safeUrl';
 import OrderDetailMetaCards from '../OrderDetailMetaCards';
 import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
@@ -118,7 +119,8 @@ export default function CashOrderDetailPanel({
 		displayOrder.delivery_address && typeof displayOrder.delivery_address === 'object' && !Array.isArray(displayOrder.delivery_address)
 			? displayOrder.delivery_address
 			: null;
-	const mapsUrl = addrObj?.maps_url ? String(addrObj.maps_url).trim() : '';
+	// `maps_url` lo escribe el storefront: se sanea antes de pintarlo en un href.
+	const mapsUrl = toSafeHttpUrl(addrObj?.maps_url) ?? '';
 	const handoff =
 		displayOrder.handoff_code != null && String(displayOrder.handoff_code).trim() !== ''
 			? String(displayOrder.handoff_code).trim()

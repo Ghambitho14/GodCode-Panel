@@ -84,14 +84,36 @@ export const supabase: SupabaseClient = createClient(url, anonKey, {
   accessToken: () => getAccessToken(),
 });
 
+/**
+ * Empuja el token actual a los canales de Realtime.
+ *
+ * `setAuth()` va **sin argumento** a propósito, y no es un detalle de estilo:
+ * pasarle un token explícito marca `_manuallySetToken` en `realtime-js`, y con
+ * esa marca puesta el cliente deja de renovar el JWT en cada heartbeat (la
+ * renovación está detrás de `if (!this._isManualToken())`). El socket se queda
+ * con el token del arranque, y cuando expira los canales mueren en silencio.
+ *
+ * Sin argumento, `_performAuth` invoca el callback `accessToken` de arriba
+ * —o sea `getAccessToken()`, con su refresh proactivo y su lock single-flight—
+ * y de paso **limpia** la marca. Eso importa porque `supabase-js` la enciende
+ * él solo al construir el cliente cuando se usa la opción `accessToken`: sin
+ * esta llamada, la renovación automática nace apagada aunque este archivo no
+ * tocara `setAuth` en absoluto.
+ */
 function syncRealtimeAuth(): void {
-  void getAccessToken().then((token) => {
-    if (token) supabase.realtime.setAuth(token);
-  });
+  void supabase.realtime.setAuth();
 }
 
 onAuthEvent((event) => {
   if (event === "signed_in" || event === "token_refreshed") {
     syncRealtimeAuth();
+    return;
+  }
+  if (event === "signed_out") {
+    // Cerrar la sesión no basta para soltar el socket: `setAuth()` sin sesión
+    // resuelve a `null`, y `_performAuth` no propaga un token nulo a los
+    // canales, así que el WebSocket seguiría abierto y autenticado con el JWT
+    // viejo hasta que expirara. Hay que tirar los canales explícitamente.
+    void supabase.removeAllChannels();
   }
 });

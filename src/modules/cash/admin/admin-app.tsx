@@ -211,7 +211,7 @@ export function AdminApp({
 				const r2 = await supabase
 					.from(TABLES.users)
 					.select("company_id, role, branch_id")
-					.ilike("email", emailNorm)
+					.eq("email", emailNorm)
 					.maybeSingle();
 				row = r2.data;
 			}

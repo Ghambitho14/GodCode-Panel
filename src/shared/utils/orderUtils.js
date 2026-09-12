@@ -1,6 +1,7 @@
 /** Etiquetas para método de pago específico (coincide con keys del carrito/SaaS). */
 import { formatMoney, normalizeCurrencyCode, minorToMajor, majorToMinor, fractionDigitsForCurrency } from '@/shared/utils/money';
 import { formatOrderAmountForShare, shareIdLabelFromLocale } from '@/lib/money/order-amount';
+import { toSafeHttpUrl } from '@/shared/utils/safeUrl';
 
 export const PAYMENT_METHOD_LABELS = {
 	efectivo: 'Efectivo',
@@ -481,9 +482,10 @@ export function buildOrderWhatsAppShareText(order, branchName, shareLocale = {})
 				lines.push(al);
 			}
 		}
+		// `maps_url` lo escribe el storefront: no se propaga si no es http(s).
 		const mapsUrl =
-			addr && typeof addr === 'object' && !Array.isArray(addr) && addr.maps_url
-				? String(addr.maps_url).trim()
+			addr && typeof addr === 'object' && !Array.isArray(addr)
+				? toSafeHttpUrl(addr.maps_url) ?? ''
 				: '';
 		if (mapsUrl) {
 			lines.push(`Mapa: ${mapsUrl}`);
@@ -530,9 +532,10 @@ export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = 
 	} else {
 		lines.push('(Sin dirección guardada en el pedido)');
 	}
+	// `maps_url` lo escribe el storefront: no se propaga si no es http(s).
 	const mapsUrl =
-		addr && typeof addr === 'object' && !Array.isArray(addr) && addr.maps_url
-			? String(addr.maps_url).trim()
+		addr && typeof addr === 'object' && !Array.isArray(addr)
+			? toSafeHttpUrl(addr.maps_url) ?? ''
 			: '';
 	if (mapsUrl) {
 		lines.push('');

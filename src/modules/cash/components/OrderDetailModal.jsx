@@ -25,6 +25,7 @@ import { isVenezuelaCountry, resolveEffectiveCountry } from '@/lib/geo/tenant-lo
 import { paymentMethodUsesBolivaresInVenezuela } from '@/lib/money/venezuela-payment-copy';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
+import { toSafeHttpUrl } from '@/shared/utils/safeUrl';
 import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
 import {
     isOrderDelivery,
@@ -202,7 +203,8 @@ const OrderDetailModal = ({
         liveOrder.delivery_address && typeof liveOrder.delivery_address === 'object' && !Array.isArray(liveOrder.delivery_address)
             ? liveOrder.delivery_address
             : null;
-    const mapsUrl = addrObj?.maps_url ? String(addrObj.maps_url).trim() : '';
+    // `maps_url` lo escribe el storefront: se sanea antes de pintarlo en un href.
+    const mapsUrl = toSafeHttpUrl(addrObj?.maps_url) ?? '';
     const handoff =
         liveOrder.handoff_code != null && String(liveOrder.handoff_code).trim() !== ''
             ? String(liveOrder.handoff_code).trim()

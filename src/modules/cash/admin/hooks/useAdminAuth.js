@@ -217,7 +217,7 @@ export function useAdminAuth({
 
 				.select('role,branch_id,company_id')
 
-				.ilike('email', normalizedEmail)
+				.eq('email', normalizedEmail)
 
 				.eq('company_id', companyIdRef.current)
 

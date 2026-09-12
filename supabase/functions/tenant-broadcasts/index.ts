@@ -117,7 +117,7 @@ async function getTenantContext(
 	const { data: rows, error: usersError } = await admin
 		.from("users")
 		.select("id, company_id, role")
-		.ilike("email", auth.email);
+		.eq("email", auth.email);
 
 	if (usersError) {
 		return { error: usersError.message, status: 500 };
