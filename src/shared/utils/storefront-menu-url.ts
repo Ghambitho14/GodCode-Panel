@@ -1,3 +1,5 @@
+import { toSafeHttpUrl } from "@/shared/utils/safeUrl";
+
 const TENANT_PROTOCOL = (
 	import.meta.env.VITE_PUBLIC_TENANT_PROTOCOL
 	|| import.meta.env.VITE_TENANT_PROTOCOL
@@ -21,18 +23,21 @@ const STOREFRONT_ORIGIN = (
 function readUrlCandidate(value: unknown): string | null {
 	const trimmed = String(value ?? "").trim();
 	if (!trimmed) return null;
-	try {
-		const parsed = new URL(trimmed);
-		if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-			return parsed.href;
-		}
-	} catch {
-		/* path relativo u otro formato */
-	}
+
+	const absolute = toSafeHttpUrl(trimmed);
+	if (absolute) return absolute;
+
+	// Ruta relativa: se resuelve contra el storefront a propósito — a diferencia de
+	// `maps_url`, aquí sí es un valor nuestro y `/mi-local` es una forma legítima
+	// de configurarlo. El resultado vuelve a pasar por el saneo porque la base
+	// también sale de configuración.
 	if (trimmed.startsWith("/")) {
-		return `${STOREFRONT_ORIGIN}${trimmed}`;
+		return toSafeHttpUrl(`${STOREFRONT_ORIGIN}${trimmed}`);
 	}
-	return trimmed;
+
+	// Falla cerrado: sin esto un `javascript:…` volvía intacto y terminaba en el
+	// href del enlace al menú público.
+	return null;
 }
 
 function extractFromIntegration(raw: unknown): string | null {
@@ -57,16 +62,8 @@ function extractCustomDomain(raw: unknown): string | null {
 	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
 	const root = raw as Record<string, unknown>;
 	for (const key of ["customDomain", "custom_domain", "domain", "publicDomain", "public_domain"]) {
-		const value = root[key];
-		if (typeof value !== "string") continue;
-		const trimmed = value.trim();
-		if (!trimmed) continue;
-		try {
-			const parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
-			return parsed.href.replace(/\/+$/, "");
-		} catch {
-			/* no es un dominio válido */
-		}
+		const resolved = readCustomDomain(root[key]);
+		if (resolved) return resolved;
 	}
 	return null;
 }
@@ -84,12 +81,20 @@ function readCustomDomain(value: unknown): string | null {
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
 	if (!trimmed) return null;
-	try {
-		const parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
-		return parsed.href.replace(/\/+$/, "");
-	} catch {
-		return null;
-	}
+
+	// Un dominio se escribe normalmente sin esquema (`mitienda.com`), así que se
+	// asume `https://`. Pero solo cuando de verdad no hay esquema: prefijar algo
+	// que ya trae uno (`javascript:`, `httpx:`) produce una URL sin sentido en vez
+	// de un rechazo, y `startsWith("http")` dejaba pasar `httpx:` tal cual.
+	// `(?!\d)` para no confundir un puerto (`mitienda.com:8080`) con un esquema.
+	const hasScheme = /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(trimmed);
+	if (hasScheme && !/^https?:\/\//i.test(trimmed)) return null;
+
+	const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+	const safe = toSafeHttpUrl(candidate);
+	if (!safe) return null;
+
+	return safe.replace(/\/+$/, "");
 }
 
 export function resolveStorefrontMenuUrl(options: {
