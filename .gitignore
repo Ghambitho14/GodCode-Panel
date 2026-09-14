@@ -62,3 +62,7 @@ GodCode/
 
 .codex/
 .claude/settings.local.json
+
+# Config local de máquina / artefactos de la CLI de Supabase (no versionar)
+.mcp.json
+supabase/.temp/

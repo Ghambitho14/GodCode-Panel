@@ -1,5 +1,31 @@
 # Agent Notes
 
+## Memoria del proyecto: vault de Obsidian (leer SIEMPRE al empezar)
+
+La memoria y la base de conocimiento de este proyecto viven en un **vault de Obsidian
+alojado en el VPS**, no en este repo. No se autocarga en contexto: hay que consultarlo
+activamente.
+
+- **Vault:** `/home/ghambitho/obsidian/vaults/GodCode` en el VPS
+  (`ghambitho@100.102.143.14`, por Tailscale).
+- **Al iniciar cualquier sesión de trabajo sobre este proyecto**, consultar el vault
+  antes de asumir contexto: buscar notas relacionadas con la tarea en curso
+  (decisiones de arquitectura, incidentes, trabajo previo).
+- **Al terminar** un bloque de trabajo con conclusiones que valga la pena conservar
+  (auditorías, decisiones, incidentes, cambios de infraestructura), dejar una nota de
+  sesión en el vault.
+- **Empezar siempre por `00-Indice.md`**, que lista las notas de sesión existentes.
+- Acceso: **MCP de Obsidian** (`obsidian_list_files_in_vault`, `obsidian_get_file_contents`,
+  `obsidian_simple_search`, `obsidian_append_content`). Si el MCP no está cargado en la
+  sesión, el vault también se lee y escribe por SSH directo sobre esa ruta — son archivos
+  Markdown planos.
+- UI web para el usuario: `http://100.102.143.14:8014` (solo por Tailscale).
+- Estructura del vault: **mínima a propósito**. No inventar carpetas; dejar que crezca según
+  lo que realmente haga falta guardar. Las notas de sesión van en la raíz, con nombre
+  `AAAA-MM-DD Tema.md`, y se enlazan desde `00-Indice.md`.
+
+> Operativo y verificado el 2026-08-31.
+
 ## Supabase Storage / Buckets
 
 All images are stored in private Supabase Storage buckets and organized by `companyId`.
