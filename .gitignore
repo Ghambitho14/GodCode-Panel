@@ -66,3 +66,8 @@ GodCode/
 # Config local de máquina / artefactos de la CLI de Supabase (no versionar)
 .mcp.json
 supabase/.temp/
+
+# Config local de Claude Code y material de video (no versionar)
+.claude/
+VIDEO/
+skills-lock.json
