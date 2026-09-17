@@ -15,6 +15,9 @@ export const OPEN_MESA_CAJA_DEFAULTS = {
 /** Estado inicial del formulario de pedido manual / edición. */
 export const MANUAL_ORDER_INITIAL_FORM_STATE = {
 	client_name: '',
+	// Quién compra: 'quick' es el comprador rápido de caja (se escribe a mano) y
+	// 'affiliated' obliga a elegir una ficha con cuenta en el menú digital.
+	client_kind: 'quick',
 	client_rut: OPEN_MESA_CAJA_DEFAULTS.client_rut,
 	client_phone: OPEN_MESA_CAJA_DEFAULTS.client_phone,
 	// No asumir efectivo: tanto venta rápida como el cobro de una sesión

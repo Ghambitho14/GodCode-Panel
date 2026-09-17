@@ -8,6 +8,7 @@ import { downloadExcel } from '@/shared/utils/exportUtils';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import { fetchMenuClientAccounts } from '@/modules/cash/services/menuAccountsService';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
@@ -19,6 +20,15 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
     const [isFormOpen, setIsFormOpen] = useState(false);
+    /** Pestaña visible: cuentas del menú o fichas sueltas ("compradores rápidos"). */
+    const [view, setView] = useState('accounts');
+    /**
+     * Cuentas del menú digital. Llegan por RPC porque `menu_client_accounts` es
+     * deny-all en RLS; solo traen el vínculo con la ficha y datos operativos, no
+     * los personales (esos están cifrados y el panel no puede descifrarlos).
+     */
+    const [menuAccounts, setMenuAccounts] = useState([]);
+    const [accountsFailed, setAccountsFailed] = useState(false);
     
     // --- ESTADOS DE TABLA AVANZADA ---
     const [sortConfig, setSortConfig] = useState({ key: 'last_order_at', direction: 'desc' });
@@ -149,6 +159,20 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
         };
     }, [menuOpenClientId, closeKebabMenu]);
 
+    useEffect(() => {
+        let alive = true;
+        // Sin empresa el servicio ya responde vacío: nada de setState síncrono aquí.
+        void (async () => {
+            const result = await fetchMenuClientAccounts(companyId);
+            if (!alive) return;
+            setMenuAccounts(result.accounts);
+            setAccountsFailed(!result.ok);
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [companyId]);
+
     // Calcular métricas derivadas por cliente usando orders
     const enrichedClients = useMemo(() => {
         if (!Array.isArray(clients)) return [];
@@ -211,9 +235,67 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
         });
     }, [clients, orders]);
 
+    const clientsById = useMemo(() => {
+        const map = new Map();
+        enrichedClients.forEach((client) => map.set(client.id, client));
+        return map;
+    }, [enrichedClients]);
+
+    /** Fichas que respaldan una cuenta: no son compradores rápidos. */
+    const accountClientIds = useMemo(
+        () => new Set(menuAccounts.map((a) => a.clientId).filter(Boolean)),
+        [menuAccounts],
+    );
+
+    /**
+     * Pestaña "Cuentas": una fila por cuenta del menú. Los datos legibles salen
+     * de la ficha vinculada; una cuenta sin ficha es alguien que se registró y
+     * todavía no abrió el carrito, así que no tiene nombre que mostrar.
+     */
+    const accountRows = useMemo(() => menuAccounts.map((account) => {
+        const client = account.clientId ? clientsById.get(account.clientId) ?? null : null;
+        const base = client ?? {
+            id: null,
+            name: '',
+            phone: '',
+            email: '',
+            totalOrders: 0,
+            total_orders: 0,
+            total_spent: 0,
+            fidelityPoints: 0,
+            segment: 'none',
+            status: 'inactive',
+            last_order_at: null,
+        };
+        return {
+            ...base,
+            rowId: `account-${account.id}`,
+            menuAccount: account,
+            // Planos para que el ordenamiento de la tabla los trate como cualquier columna.
+            accountLastLoginAt: account.lastLoginAt,
+            accountCreatedAt: account.createdAt,
+        };
+    }), [menuAccounts, clientsById]);
+
+    /** Pestaña "Compradores rápidos": fichas del POS/menú sin cuenta detrás. */
+    const quickRows = useMemo(
+        () => enrichedClients
+            .filter((client) => !accountClientIds.has(client.id))
+            .map((client) => ({ ...client, rowId: client.id, menuAccount: null })),
+        [enrichedClients, accountClientIds],
+    );
+
+    const visibleRows = view === 'accounts' ? accountRows : quickRows;
+
+    const changeView = useCallback((next) => {
+        closeKebabMenu();
+        setView(next);
+        setCurrentPage(1);
+    }, [closeKebabMenu]);
+
     // Filtrar
     const filteredClients = useMemo(() => {
-        return enrichedClients.filter(client => {
+        return visibleRows.filter(client => {
             // Texto
             const searchLower = searchTerm.toLowerCase();
             const matchesSearch = 
@@ -233,7 +315,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
 
             return true;
         });
-    }, [enrichedClients, searchTerm, activeFilter]);
+    }, [visibleRows, searchTerm, activeFilter]);
 
     // --- ORDENAMIENTO (SORTING) ---
     const sortedClients = useMemo(() => {
@@ -248,7 +330,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 if (bVal === null || bVal === undefined) bVal = '';
 
                 // Manejo específico de fechas y strings
-                if (sortConfig.key === 'last_order_at') {
+                if (sortConfig.key === 'last_order_at' || sortConfig.key === 'accountLastLoginAt') {
                     aVal = aVal ? new Date(aVal).getTime() : 0;
                     bVal = bVal ? new Date(bVal).getTime() : 0;
                 } else if (typeof aVal === 'string') {
@@ -271,7 +353,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
     }, [sortedClients, currentPage]);
 
     const kebabOpenClient = useMemo(
-        () => (menuOpenClientId ? paginatedClients.find((c) => c.id === menuOpenClientId) ?? null : null),
+        () => (menuOpenClientId ? paginatedClients.find((c) => c.rowId === menuOpenClientId) ?? null : null),
         [menuOpenClientId, paginatedClients],
     );
 
@@ -319,7 +401,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
 
         const idLabel = getFormStrategy(resolveEffectiveCountry(selectedBranch, companyProfile)).idName;
         const dataToExport = filteredClients.map(c => ({
-            Nombre: c.name || 'Sin Nombre',
+            Nombre: c.name || (c.menuAccount ? 'Cuenta sin pedidos' : 'Sin Nombre'),
             Teléfono: c.phone || '',
             Email: c.email || '',
             [idLabel]: c.rut || '',
@@ -327,10 +409,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             'Total Gastado ($)': c.total_spent || 0,
             'Puntos Fidelity': c.fidelityPoints || 0,
             Segmento: c.segment || 'none',
-            Estado: c.status || 'inactive'
+            Estado: c.status || 'inactive',
+            'Cuenta del menú': c.menuAccount ? 'Sí' : 'No',
+            'Último ingreso': c.accountLastLoginAt || ''
         }));
 
-        downloadExcel(dataToExport, `Clientes_CRM_${new Date().toISOString().split('T')[0]}.xls`);
+        const fileTag = view === 'accounts' ? 'Cuentas' : 'Compradores_Rapidos';
+        downloadExcel(dataToExport, `Clientes_${fileTag}_${new Date().toISOString().split('T')[0]}.xls`);
         showNotify('Base de clientes exportada', 'success');
     };
 
@@ -425,6 +510,36 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 </div>
             </div>
 
+            {/* PESTAÑAS: arriba quienes tienen cuenta; abajo las fichas sueltas */}
+            <div className="clients-view-tabs" role="tablist" aria-label="Tipo de cliente">
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view === 'accounts'}
+                    className={`clients-view-tab ${view === 'accounts' ? 'is-active' : ''}`}
+                    onClick={() => changeView('accounts')}
+                >
+                    Cuentas
+                    <span className="clients-view-tab__count">{accountRows.length}</span>
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view === 'quick'}
+                    className={`clients-view-tab ${view === 'quick' ? 'is-active' : ''}`}
+                    onClick={() => changeView('quick')}
+                >
+                    Compradores rápidos
+                    <span className="clients-view-tab__count">{quickRows.length}</span>
+                </button>
+            </div>
+
+            {view === 'accounts' && accountsFailed ? (
+                <p className="clients-accounts-warning">
+                    No se pudieron leer las cuentas del menú digital. Vuelve a cargar la página o revisa la conexión.
+                </p>
+            ) : null}
+
             {/* FILTROS */}
             <div className="clients-filters">
                 <div className="filter-btn-trigger">
@@ -472,7 +587,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                             <th onClick={() => handleSort('name')} className="sortable-th">
                                 CLIENTE {sortConfig.key === 'name' && <ArrowUpDown size={12} />}
                             </th>
-                            <th className="hide-mobile">CANAL</th>
+                            {view === 'accounts' ? (
+                                <th onClick={() => handleSort('accountLastLoginAt')} className="sortable-th hide-mobile">
+                                    ÚLTIMO INGRESO {sortConfig.key === 'accountLastLoginAt' && <ArrowUpDown size={12} />}
+                                </th>
+                            ) : (
+                                <th className="hide-mobile">CANAL</th>
+                            )}
                             <th onClick={() => handleSort('fidelityPoints')} className="sortable-th text-center">
                                 PUNTOS {sortConfig.key === 'fidelityPoints' && <ArrowUpDown size={12} />}
                             </th>
@@ -490,37 +611,43 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                     </thead>
                     <tbody>
                         {paginatedClients.map(client => (
-                            <tr key={client.id} onClick={() => onSelectClient && onSelectClient(client)} style={{ cursor: 'pointer' }}>
+                            <tr
+                                key={client.rowId}
+                                onClick={() => { if (client.id) onSelectClient?.(client); }}
+                                style={{ cursor: client.id ? 'pointer' : 'default' }}
+                            >
                                 <td data-label="Cliente">
                                     <div className="client-card-header">
                                         <div className="client-card-header__title-row">
-                                            <h4>{client.name || 'Sin Nombre'}</h4>
-                                            <div
-                                                className="clients-row-kebab-wrap"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
-                                                    data-clients-kebab-id={client.id}
-                                                    aria-expanded={menuOpenClientId === client.id}
-                                                    aria-haspopup="menu"
-                                                    aria-controls={menuOpenClientId === client.id ? 'clients-kebab-menu-popover' : undefined}
-                                                    id={menuOpenClientId === client.id ? 'clients-kebab-trigger-active' : undefined}
-                                                    aria-label="Más acciones"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (menuOpenClientId === client.id) {
-                                                            closeKebabMenu();
-                                                        } else {
-                                                            updateKebabMenuPosFromButton(e.currentTarget);
-                                                            setMenuOpenClientId(client.id);
-                                                        }
-                                                    }}
+                                            <h4>{client.name || (client.menuAccount && !client.menuAccount.clientId ? 'Cuenta sin pedidos' : 'Sin Nombre')}</h4>
+                                            {client.id ? (
+                                                <div
+                                                    className="clients-row-kebab-wrap"
+                                                    onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
-                                                </button>
-                                            </div>
+                                                    <button
+                                                        type="button"
+                                                        className="admin-icon-btn admin-icon-btn--sm clients-kebab-trigger"
+                                                        data-clients-kebab-id={client.rowId}
+                                                        aria-expanded={menuOpenClientId === client.rowId}
+                                                        aria-haspopup="menu"
+                                                        aria-controls={menuOpenClientId === client.rowId ? 'clients-kebab-menu-popover' : undefined}
+                                                        id={menuOpenClientId === client.rowId ? 'clients-kebab-trigger-active' : undefined}
+                                                        aria-label="Más acciones"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (menuOpenClientId === client.rowId) {
+                                                                closeKebabMenu();
+                                                            } else {
+                                                                updateKebabMenuPosFromButton(e.currentTarget);
+                                                                setMenuOpenClientId(client.rowId);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <MoreVertical size={16} strokeWidth={1.5} aria-hidden />
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                         </div>
                                         {client.phone ? (
                                             <div className="client-card-header__contact-row">
@@ -537,13 +664,33 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                             </div>
                                         ) : null}
                                         {client.email ? <span className="client-email">{client.email}</span> : null}
+                                        {client.menuAccount && !client.menuAccount.clientId ? (
+                                            <span className="clients-account-note">
+                                                Registrada el {client.accountCreatedAt
+                                                    ? new Date(client.accountCreatedAt).toLocaleDateString(locale)
+                                                    : '-'}
+                                            </span>
+                                        ) : null}
+                                        {client.menuAccount && client.menuAccount.isActive === false ? (
+                                            <span className="clients-account-note clients-account-note--off">Cuenta desactivada</span>
+                                        ) : null}
                                     </div>
                                 </td>
-                                <td className="hide-mobile" data-label="Canal">
-                                    <span className="clients-channel-label">
-                                        {client.source === 'pos' ? 'PDV' : 'Menú digital'}
-                                    </span>
-                                </td>
+                                {view === 'accounts' ? (
+                                    <td className="hide-mobile" data-label="Último ingreso">
+                                        <span className="clients-channel-label">
+                                            {client.accountLastLoginAt
+                                                ? new Date(client.accountLastLoginAt).toLocaleDateString(locale)
+                                                : 'Sin ingresos'}
+                                        </span>
+                                    </td>
+                                ) : (
+                                    <td className="hide-mobile" data-label="Canal">
+                                        <span className="clients-channel-label">
+                                            {client.source === 'pos' ? 'PDV' : 'Menú digital'}
+                                        </span>
+                                    </td>
+                                )}
                                 <td className="text-center" data-label="Puntos">
                                     <span className="points-badge">
                                         <AdminIconSlot
@@ -580,6 +727,15 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 </td>
                             </tr>
                         ))}
+                        {paginatedClients.length === 0 ? (
+                            <tr className="clients-empty-row">
+                                <td colSpan={7}>
+                                    {view === 'accounts'
+                                        ? 'Todavía nadie se registró en el menú digital.'
+                                        : 'No hay compradores rápidos con estos filtros.'}
+                                </td>
+                            </tr>
+                        ) : null}
                     </tbody>
                 </table>
             </div>
@@ -661,20 +817,26 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 </button>
                             </>
                         ) : null}
-                        <button
-                            type="button"
-                            role="menuitem"
-                            className="clients-kebab-menu__item clients-kebab-menu__item--danger"
-                            disabled={deletingClientId === kebabOpenClient.id}
-                            onClick={() => void handleDeleteClient(kebabOpenClient)}
-                        >
-                            {deletingClientId === kebabOpenClient.id ? (
-                                <Loader2 size={16} aria-hidden className="clients-kebab-menu__icon animate-spin" />
-                            ) : (
-                                <Trash2 size={16} aria-hidden className="clients-kebab-menu__icon" />
-                            )}
-                            Eliminar cliente
-                        </button>
+                        {kebabOpenClient.menuAccount ? (
+                            <p className="clients-kebab-menu__note">
+                                No se puede eliminar: esta ficha respalda una cuenta del menú digital.
+                            </p>
+                        ) : (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="clients-kebab-menu__item clients-kebab-menu__item--danger"
+                                disabled={deletingClientId === kebabOpenClient.id}
+                                onClick={() => void handleDeleteClient(kebabOpenClient)}
+                            >
+                                {deletingClientId === kebabOpenClient.id ? (
+                                    <Loader2 size={16} aria-hidden className="clients-kebab-menu__icon animate-spin" />
+                                ) : (
+                                    <Trash2 size={16} aria-hidden className="clients-kebab-menu__icon" />
+                                )}
+                                Eliminar cliente
+                            </button>
+                        )}
                     </div>,
                     kebabPortalTarget,
                 )

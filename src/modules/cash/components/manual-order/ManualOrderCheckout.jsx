@@ -157,7 +157,17 @@ export function useManualOrderCheckoutFlow({
 				: 'pickup'
 	);
 
+	/**
+	 * Con "cliente afiliado" no basta escribir un nombre: hay que elegir una ficha
+	 * con cuenta del menú, y esa elección es la que deja `selected_client_id`.
+	 */
+	const isAffiliatedSelectionValid = () => (
+		String(manualOrder.client_kind ?? 'quick') !== 'affiliated'
+		|| Boolean(String(manualOrder.selected_client_id ?? '').trim())
+	);
+
 	const isContextCustomerValid = () => {
+		if (!isAffiliatedSelectionValid()) return false;
 		const requirements = requirementsFor(manualOrder.manualOrderSettings, fulfillmentForValidation());
 		const name = String(manualOrder.client_name ?? '').trim();
 		const phone = String(manualOrder.client_phone ?? '').trim();
@@ -467,6 +477,7 @@ export default function ManualOrderCheckout({
 
 	const {
 		updateClientName,
+		updateClientKind,
 		updateCouponCode,
 		couponPreview,
 		updatePaymentType,
@@ -524,6 +535,7 @@ export default function ManualOrderCheckout({
 			updateDeliveryFee={updateDeliveryFee}
 			updateDeliveryNamedAreaId={updateDeliveryNamedAreaId}
 			updateClientName={updateClientName}
+			updateClientKind={updateClientKind}
 			applyClientRecord={applyClientRecord}
 			handleRutChange={handleRutChange}
 			handlePhoneChange={handlePhoneChange}

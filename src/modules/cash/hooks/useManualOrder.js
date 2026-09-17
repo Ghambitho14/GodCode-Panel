@@ -124,7 +124,7 @@ export const useManualOrder = (
 
 	const {
 		form, rutValid, phoneValid, includeDocument, includePhone, setIncludeDocument, setIncludePhone,
-		updateClientName, updateCouponCode, updateNote, updateOrderType,
+		updateClientName, updateClientKind, updateCouponCode, updateNote, updateOrderType,
 		updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference,
 		updateDeliveryKm, updateDeliveryFee, updateDeliveryNamedAreaId, updatePaymentType, updatePaymentMode,
 		updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
@@ -536,7 +536,7 @@ export const useManualOrder = (
 	return {
 		manualOrder, loading, rutValid, phoneValid, includeDocument, includePhone, setIncludeDocument, setIncludePhone,
 		receiptFile, receiptPreview,
-		updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
+		updateClientName, updateClientKind, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow: handleChargeNowChange, updatePaymentLines,
 		handleRutChange, handlePhoneChange, applyClientRecord, handleFileChange, removeReceipt,
 		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,

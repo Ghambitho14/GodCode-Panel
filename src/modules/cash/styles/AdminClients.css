@@ -151,6 +151,105 @@
 	height: 16px;
 }
 
+/* PESTANAS DE TIPO DE CLIENTE: cuentas del menu arriba, fichas sueltas abajo */
+.admin-layout .clients-view-tabs {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 14px;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.admin-layout .clients-view-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 16px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--admin-text-muted, #64748b);
+	font-family: inherit;
+	font-size: 0.9rem;
+	font-weight: 600;
+	line-height: 1.2;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-layout .clients-view-tab:hover {
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .clients-view-tab.is-active {
+	background: var(--admin-card-bg, #fff);
+	border-color: color-mix(in srgb, var(--accent-primary, #2563eb) 40%, var(--admin-border, #e8ecf1));
+	color: var(--admin-text, #0f172a);
+	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+/* Cuantas filas tiene cada pestana, sin obligar a entrar para verlo */
+.admin-layout .clients-view-tab__count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 22px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--admin-icon-bg, #f0f2f6);
+	color: inherit;
+	font-size: 0.75rem;
+	font-weight: 700;
+}
+
+.admin-layout .clients-view-tab.is-active .clients-view-tab__count {
+	background: color-mix(in srgb, var(--accent-primary, #2563eb) 16%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .clients-accounts-warning {
+	margin: 0 0 12px;
+	padding: 10px 14px;
+	border: 1px solid #fed7aa;
+	border-radius: 10px;
+	background: #fff7ed;
+	color: #9a3412;
+	font-size: 0.85rem;
+}
+
+/* Dato propio de la cuenta bajo el nombre: fecha de registro o baja logica */
+.admin-layout .clients-account-note {
+	display: block;
+	margin-top: 2px;
+	font-size: 0.78rem;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .clients-account-note--off {
+	color: #b45309;
+	font-weight: 600;
+}
+
+.admin-layout .clients-empty-row td {
+	padding: 28px 16px;
+	text-align: center;
+	color: var(--admin-text-muted, #64748b);
+	font-size: 0.9rem;
+}
+
+/* Explicacion en el kebab cuando no se ofrece eliminar la ficha */
+.admin-layout .clients-kebab-menu__note,
+.clients-kebab-menu--portal .clients-kebab-menu__note {
+	margin: 0;
+	padding: 10px 14px;
+	color: var(--admin-text-muted, #64748b);
+	font-size: 0.8rem;
+	line-height: 1.35;
+}
+
 /* FILTERS TABS */
 .admin-layout .clients-filters {
 	display: flex;
