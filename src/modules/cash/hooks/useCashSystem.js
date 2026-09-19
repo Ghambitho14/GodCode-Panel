@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase, TABLES } from '@/integrations/supabase';
-import { subscribeMonitored, markMonitoredChannelClosing } from '@/shared/subscribeMonitored';
+import { subscribeMonitored, closeMonitoredChannel } from '@/shared/subscribeMonitored';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { cashService } from '../services/cashService';
 import {
@@ -251,8 +251,7 @@ export const useCashSystem = (showNotify, branchId, orders = [], options = {}) =
                 clearTimeout(movementsRefreshTimerRef.current);
                 movementsRefreshTimerRef.current = null;
             }
-            markMonitoredChannelClosing(channel);
-            channel.unsubscribe();
+            closeMonitoredChannel(supabase, channel);
         };
     }, [enabled, activeShiftId, consumeLocalRealtimeInsert, debouncedLoadMovements, refreshShiftMeta, prependMovement]);
 

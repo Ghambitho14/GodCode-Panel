@@ -31,8 +31,7 @@ html.pwa-standalone {
 		padding-bottom: calc(72px + var(--pwa-safe-bottom));
 	}
 
-	html.pwa-standalone .admin-layout .admin-sidebar,
-	html.pwa-standalone .admin-layout .admin-sidebar:hover {
+	html.pwa-standalone .admin-layout .admin-sidebar {
 		padding-bottom: max(8px, var(--pwa-safe-bottom));
 		padding-left: max(8px, var(--pwa-safe-left));
 		padding-right: max(8px, var(--pwa-safe-right));

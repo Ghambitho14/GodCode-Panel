@@ -864,7 +864,7 @@
 
 @media (min-width: 1025px) {
 	.admin-layout .header-actions {
-		justify-content: flex-end;
+		justify-content: center;
 	}
 
 	/* Pedidos sin título visible: centrar la barra (no space-between → derecha) */
@@ -2153,6 +2153,95 @@
 
 	.admin-layout .content-header:not(:has(.content-header-title-block--visually-collapsed)) .header-actions {
 		flex: 1 1 auto;
-		justify-content: flex-end;
+		justify-content: center;
+	}
+}
+
+/* Teléfono (≤767px): los atajos de teclado no existen en táctil; su botón
+   solo quitaba sitio en la fila de iconos. */
+@media (max-width: 767px) {
+	.admin-layout .header-actions--mobile-toolbar .header-action-shortcuts {
+		display: none;
+	}
+}
+
+/* Shell compacto: en las pestañas que no son Pedidos, la sucursal deja de
+   ocupar una fila entera y va a la derecha del reloj, como ya hace Pedidos.
+   Misma rejilla de tres columnas (iconos | reloj | sucursal): con flex-wrap la
+   fila se quedaba a 5px de caber (min-width del reloj + paddings) y la
+   sucursal saltaba de línea. El botón principal de la pestaña ocupa la fila 2. */
+@media (max-width: 1024px) {
+	.admin-layout .header-actions.header-actions--mobile-toolbar:has(.header-actions-cluster:not(.header-actions-cluster--orders)) {
+		display: grid;
+		grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+		align-items: center;
+		column-gap: 8px;
+		row-gap: 8px;
+		width: 100%;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-actions-toolbar-row {
+		grid-column: 1;
+		grid-row: 1;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-clock.admin-header-clock {
+		grid-column: 2;
+		grid-row: 1;
+		flex: unset;
+		width: 100%;
+		min-width: 0;
+		margin-left: 0;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch,
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-branch.admin-branch-select {
+		grid-column: 3;
+		grid-row: 1;
+		flex: unset;
+		width: auto;
+		max-width: min(42vw, 160px);
+		min-width: 0;
+		margin-left: 0;
+		justify-self: end;
+	}
+
+	.admin-layout .header-actions--mobile-toolbar .header-actions-cluster:not(.header-actions-cluster--orders) .header-action-generic {
+		grid-column: 1 / -1;
+	}
+}
+
+/* Escritorio (≥1280px): el clúster de acciones ocupa siempre el centro exacto
+   de la cabecera, en todas las pestañas. Antes se centraba en el hueco que
+   dejaba el título, y como el título cambia de ancho de una pestaña a otra
+   ("Caja y Turnos" vs. "Opciones de sucursal") el clúster se desplazaba.
+   Rejilla de tres columnas: título | clúster | columna vacía del mismo ancho. */
+@media (min-width: 1280px) {
+	.admin-layout .content-header {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		align-items: center;
+	}
+
+	.admin-layout .content-header-title-block {
+		grid-column: 1;
+		max-width: none;
+	}
+
+	.admin-layout .content-header .header-actions,
+	.admin-layout .content-header:has(.content-header-title-block--visually-collapsed) .header-actions {
+		grid-column: 2;
+		flex: none;
+		width: auto;
+		max-width: none;
+		justify-content: center;
+	}
+}
+
+/* Entre 1280 y 1439px la columna del título mide ~230px: el h1 baja un punto
+   para que "Opciones de sucursal" entre sin puntos suspensivos. */
+@media (min-width: 1280px) and (max-width: 1439px) {
+	.admin-layout .content-header h1 {
+		font-size: 1.375rem;
 	}
 }

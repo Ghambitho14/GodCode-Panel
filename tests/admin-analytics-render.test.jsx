@@ -91,6 +91,6 @@ describe('AdminAnalytics mount probe', () => {
 
 		const probe = screen.queryByTestId('probe-error');
 		expect(probe).toBeNull();
-		expect(screen.getByText('Reportes')).toBeTruthy();
+		expect(screen.getByText('Resumen')).toBeTruthy();
 	});
 });

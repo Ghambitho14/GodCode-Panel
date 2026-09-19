@@ -55,6 +55,72 @@ export function parseCustomDay(value) {
 }
 
 export const CUSTOM_DAY_MENU_VALUE = 'day';
+export const CUSTOM_RANGE_MENU_VALUE = 'range';
+
+/** @param {string} value */
+export function isCustomRangePeriod(value) {
+	return String(value).startsWith('range:');
+}
+
+/**
+ * `range:YYYY-MM-DD..YYYY-MM-DD` (ambos extremos inclusive). Si vienen al
+ * revés se ordenan; si el formato no es válido devuelve null.
+ * @param {string} value
+ * @returns {{ from: string, to: string } | null}
+ */
+export function parseCustomRange(value) {
+	if (!isCustomRangePeriod(value)) return null;
+	const m = /^range:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(String(value));
+	if (!m) return null;
+	const [from, to] = m[1] <= m[2] ? [m[1], m[2]] : [m[2], m[1]];
+	return { from, to };
+}
+
+/** @param {string} from @param {string} to */
+export function buildCustomRangeValue(from, to) {
+	return `range:${from}..${to}`;
+}
+
+/** @param {string} ymd */
+function ymdToLocalDate(ymd) {
+	const [y, mo, d] = ymd.split('-').map(Number);
+	return new Date(y, mo - 1, d);
+}
+
+/**
+ * Contra qué se compara el período. 'previous' = el tramo inmediatamente
+ * anterior de la misma duración (lo que ya hacía el panel); 'year' = las
+ * mismas fechas del año pasado; 'none' = sin comparación.
+ */
+export const COMPARISON_MODE_OPTIONS = [
+	{ value: 'previous', label: 'vs. período anterior' },
+	{ value: 'year', label: 'vs. año anterior' },
+	{ value: 'none', label: 'Sin comparar' },
+];
+
+/** @param {string} mode */
+export function comparisonModeLabel(mode) {
+	return mode === 'year' ? 'mismo período del año anterior' : 'período anterior';
+}
+
+/**
+ * Ajusta prevStart/prevEnd/hasComparison de un rango ya resuelto según el modo.
+ * @template {{ start: Date | null, end: Date | null }} R
+ * @param {R} range
+ * @param {string} mode
+ * @returns {R}
+ */
+export function applyComparisonMode(range, mode) {
+	if (!range) return range;
+	if (mode === 'none') {
+		return { ...range, prevStart: null, prevEnd: null, hasComparison: false };
+	}
+	if (mode === 'year' && range.start && range.end) {
+		const shift = (d) => new Date(d.getFullYear() - 1, d.getMonth(), d.getDate());
+		return { ...range, prevStart: shift(range.start), prevEnd: shift(range.end), hasComparison: true };
+	}
+	return range;
+}
 
 export function getReportPeriodOptions() {
 	return [
@@ -62,6 +128,7 @@ export function getReportPeriodOptions() {
 		{ value: 'week', label: 'Semana actual' },
 		{ value: 'month', label: 'Mes actual' },
 		{ value: CUSTOM_DAY_MENU_VALUE, label: 'Día específico' },
+		{ value: CUSTOM_RANGE_MENU_VALUE, label: 'Rango de fechas' },
 		{ value: '7', label: '7 días' },
 		{ value: '15', label: '15 días' },
 		{ value: '30', label: '30 días' },
@@ -85,6 +152,18 @@ export function getCashShiftHistoryPeriodOptions() {
 
 /** @param {string} periodValue @param {Array<{ value: string, label: string }>} [options] */
 export function formatReportPeriodLabel(periodValue, options, locale) {
+	const customRange = parseCustomRange(periodValue);
+	if (customRange) {
+		const from = ymdToLocalDate(customRange.from);
+		const to = ymdToLocalDate(customRange.to);
+		const sameYear = from.getFullYear() === to.getFullYear();
+		const fromLabel = from.toLocaleDateString(locale, sameYear
+			? { day: 'numeric', month: 'short' }
+			: { day: 'numeric', month: 'short', year: 'numeric' });
+		const toLabel = to.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+		return `${fromLabel} – ${toLabel}`;
+	}
+
 	const custom = parseCustomDay(periodValue);
 	if (custom) {
 		const [y, mo, d] = custom.split('-').map(Number);
@@ -120,6 +199,8 @@ export function reportPeriodExportSlug(periodValue) {
 	if (periodValue === 'month') return 'mes_actual';
 	const custom = parseCustomDay(periodValue);
 	if (custom) return `dia_${custom}`;
+	const customRange = parseCustomRange(periodValue);
+	if (customRange) return `rango_${customRange.from}_${customRange.to}`;
 	const n = parseInt(periodValue, 10);
 	if (Number.isFinite(n) && n > 0) return `ultimos_${n}d`;
 	return 'periodo';
@@ -237,6 +318,26 @@ export function resolveReportPeriodRange(periodValue, now = new Date()) {
 			prevEnd: start,
 			chartDateKeys: chartKeysBetween(start, end),
 			dayCount: 1,
+			displayLabel: formatReportPeriodLabel(periodValue),
+			fetchStartIso: start.toISOString(),
+			fetchEndIso: end.toISOString(),
+			hasComparison: true,
+		};
+	}
+
+	const customRange = parseCustomRange(periodValue);
+	if (customRange) {
+		const start = ymdToLocalDate(customRange.from);
+		const end = addLocalDays(ymdToLocalDate(customRange.to), 1);
+		const chartDateKeys = chartKeysBetween(start, end);
+		const prevStart = addLocalDays(start, -chartDateKeys.length);
+		return {
+			start,
+			end,
+			prevStart,
+			prevEnd: start,
+			chartDateKeys,
+			dayCount: chartDateKeys.length,
 			displayLabel: formatReportPeriodLabel(periodValue),
 			fetchStartIso: start.toISOString(),
 			fetchEndIso: end.toISOString(),

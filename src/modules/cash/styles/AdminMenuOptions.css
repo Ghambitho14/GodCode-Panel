@@ -1969,3 +1969,20 @@
 	white-space: nowrap;
 	border: 0;
 }
+
+/* La tira se desplaza en horizontal en pantallas estrechas; la barra gris del
+   navegador bajo los chips parecía un error de layout. Sin barra, y en
+   pantallas compactas un fundido en el borde derecho como pista de que hay más. */
+.admin-layout .admin-branch-options__subtabs.admin-menu-options-subtabs {
+	scrollbar-width: none;
+}
+
+.admin-layout .admin-branch-options__subtabs.admin-menu-options-subtabs::-webkit-scrollbar {
+	display: none;
+}
+
+@media (max-width: 1024px) {
+	.admin-layout .admin-branch-options__subtabs.admin-menu-options-subtabs {
+		mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+	}
+}

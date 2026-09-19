@@ -1655,3 +1655,20 @@
         font-size: clamp(0.875rem, 2.6vw, 0.9375rem);
     }
 }
+
+/* La tira se desplaza en horizontal en pantallas estrechas; la barra gris del
+   navegador bajo los chips parecía un error de layout. Sin barra, y en
+   pantallas compactas un fundido en el borde derecho como pista de que hay más. */
+.admin-layout .inventory-subtabs {
+    scrollbar-width: none;
+}
+
+.admin-layout .inventory-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    .admin-layout .inventory-subtabs {
+        mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    }
+}

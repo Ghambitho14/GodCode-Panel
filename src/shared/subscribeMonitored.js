@@ -17,6 +17,12 @@ export function markMonitoredChannelClosing(channel) {
 
 /**
  * Cierra un canal suscrito vía subscribeMonitored (cleanup intencional).
+ *
+ * La baja tiene que ser síncrona: `supabase.channel(topic)` reutiliza el canal
+ * que siga registrado con ese topic, y si el viejo aún está en la lista cuando
+ * el remontaje crea "el nuevo", devuelve el viejo ya suscrito y `.on()` lanza
+ * «cannot add postgres_changes callbacks after subscribe()».
+ *
  * @param {import('@supabase/supabase-js').SupabaseClient} supabase
  * @param {ReturnType<import('@supabase/supabase-js').SupabaseClient['channel']>} channel
  */

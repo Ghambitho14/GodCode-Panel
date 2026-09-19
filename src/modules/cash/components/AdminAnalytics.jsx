@@ -3,7 +3,7 @@ import {
     ArrowUpRight, ArrowDownRight, Calendar,
     ShoppingBag, Users, DollarSign, CreditCard,
     Smartphone, TrendingUp, Package, Clock, MapPin, Truck,
-    BarChart3, AreaChart, Wallet, Banknote, Download, Loader2, Eye, ExternalLink, LineChart,
+    BarChart3, AreaChart, ArrowLeftRight, Wallet, Banknote, Download, Loader2, Eye, LineChart,
     Receipt, RotateCcw,
 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -23,6 +23,11 @@ import {
     isInReportRange,
     reportPeriodExportSlug,
     resolveReportPeriodRange,
+    formatReportPeriodLabel,
+    getReportPeriodOptions,
+    applyComparisonMode,
+    comparisonModeLabel,
+    COMPARISON_MODE_OPTIONS,
 } from '../utils/reportPeriodRange';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { resolveEffectiveCountry, resolveEffectiveCurrency } from '@/lib/geo/tenant-locale';
@@ -60,7 +65,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 const CHART_KIND_OPTIONS = [
     { value: 'area', label: 'Área', Icon: AreaChart },
     { value: 'bar-solid', label: 'Barras', Icon: BarChart3 },
-    { value: 'bar-gradient', label: 'Barras degradado', Icon: BarChart3 },
 ];
 
 const PAYMENT_META = [
@@ -87,7 +91,9 @@ function calcTrendPercent(current, prev) {
     const c = Number(current);
     const p = Number(prev);
     if (!Number.isFinite(c) || !Number.isFinite(p)) return null;
-    if (p === 0) return c > 0 ? 100 : 0;
+    // Sin base no hay porcentaje: "100%" sobre USD 0,00 era el dato mas
+    // enganoso del tablero. null -> la insignia muestra "—" con tooltip.
+    if (p === 0) return null;
     const pct = Math.round(((c - p) / p) * 100);
     return Number.isFinite(pct) ? pct : null;
 }
@@ -241,7 +247,15 @@ function resolveExpenseReferenceYear(analyticsDate, reportRange) {
 
 const TrendBadge = ({ value, isSignificant = true }) => {
     if (value == null || !Number.isFinite(value)) {
-        return <Badge variant="outline" className="text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]">—</Badge>;
+        return (
+            <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]"
+                title="Sin datos del período anterior para comparar."
+            >
+                —
+            </Badge>
+        );
     }
     if (value === 0) return <Badge variant="outline" className="gap-0.5 text-[10px] font-bold">0%</Badge>;
     if (!isSignificant) {
@@ -402,6 +416,8 @@ function resolveTopProductsRange(reportRange) {
 }
 
 const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPlain, subtitle, showTrend, trendSignificant = true }) => {
+    // Una linea plana de ceros no informa nada; solo se dibuja si hay señal.
+    const hasSignal = Array.isArray(sparklineValues) && sparklineValues.some((v) => Number(v) > 0);
     return (
         <Card className="@container flex min-w-0 flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
@@ -414,6 +430,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPl
                 )}
             </div>
             {subtitle && <p className="mt-1 text-[11px] font-medium text-[var(--admin-text-muted,#64748b)] sm:text-xs">{subtitle}</p>}
+            {hasSignal ? (
             <div className="mt-auto flex h-8 items-end pt-2 sm:h-12 sm:pt-4">
                 <ReportSparkline
                     values={sparklineValues}
@@ -424,6 +441,72 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPl
                     color="#2563eb"
                     valueFormatter={(v) => formatSparklineValue(meta.key, v, fmt, fmtPlain)}
                 />
+            </div>
+            ) : null}
+        </Card>
+    );
+});
+
+/**
+ * Resultado del período: el número que el dueño viene a mirar. Ventas menos
+ * gastos operativos y devoluciones; los retiros de caja se muestran aparte
+ * porque no son un gasto del negocio.
+ */
+const NetResultCard = memo(({ net, prevNet, hasComparison, comparisonLabel, trendSignificant, sales, cost, withdrawals, periodLabel, loading, fmt }) => {
+    const negative = Number(net) < 0;
+    let comparison = null;
+    if (hasComparison && !loading) {
+        const prev = Number(prevNet);
+        if (!Number.isFinite(prev)) {
+            comparison = <span>Sin datos del período anterior para comparar.</span>;
+        } else {
+            // La comparacion se expresa en dinero, no solo en porcentaje: con una
+            // base negativa o cero el porcentaje miente (pasar de -55 a 0 es una
+            // mejora, pero como porcentaje sale "-100%"). El porcentaje solo
+            // acompaña cuando la base es positiva.
+            const diff = Number(net) - prev;
+            const pct = prev > 0 ? Math.round((diff / prev) * 100) : null;
+            const up = diff > 0;
+            const flat = diff === 0;
+            const tone = flat ? '' : up ? 'text-[#00705b]' : 'text-[#c31d2d]';
+            const Arrow = up ? ArrowUpRight : ArrowDownRight;
+            comparison = (
+                <span className="inline-flex flex-wrap items-center gap-x-1.5">
+                    {flat ? null : <Arrow size={14} aria-hidden className={tone} />}
+                    <span className={`font-semibold ${tone}`}>
+                        {flat ? 'Igual' : `${up ? '+' : '−'}${fmt(Math.abs(diff))}`}
+                        {pct != null && !flat ? ` (${Math.abs(pct)}%)` : ''}
+                    </span>
+                    <span>vs. {comparisonLabel} ({fmt(prev)})</span>
+                    {!trendSignificant ? <span className="text-[var(--admin-text-muted,#64748b)]">· pocos pedidos en la base</span> : null}
+                </span>
+            );
+        }
+    }
+    return (
+        <Card className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Utilidad neta · {periodLabel}</p>
+                    {loading ? (
+                        <Skeleton className="mt-2 h-10 w-44" />
+                    ) : (
+                        <p className={`mt-1 text-[clamp(28px,4vw,40px)] font-bold leading-none tracking-tight tabular-nums ${negative ? 'text-[#c31d2d]' : 'text-[#14161a]'}`}>
+                            {fmt(net)}
+                        </p>
+                    )}
+                    <p className="mt-2 min-h-[1.25rem] text-sm text-[var(--admin-text-muted,#64748b)]">
+                        {loading ? null : (comparison ?? <span>Ventas menos gastos operativos y devoluciones del período.</span>)}
+                    </p>
+                </div>
+                <dl className="grid grid-cols-3 gap-x-5 gap-y-1 text-sm sm:gap-x-8">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Ventas</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Gastos y devol.</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Retiros de caja</dt>
+                    <dd className="font-semibold tabular-nums text-[#14161a]">{fmt(sales)}</dd>
+                    <dd className="font-semibold tabular-nums text-[#14161a]">{fmt(cost)}</dd>
+                    <dd className="font-semibold tabular-nums text-[var(--admin-text-muted,#64748b)]" title="Dinero retirado por el dueño; no se descuenta de la utilidad.">{fmt(withdrawals)}</dd>
+                </dl>
             </div>
         </Card>
     );
@@ -464,7 +547,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const [filterPeriod, setFilterPeriod] = useState(() => (view === 'expensesOnly' ? 'month' : '7'));
     const [chartTab, setChartTab] = useState('all');
     const [chartKind, setChartKind] = useState('area');
-    const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0 });
+    /** 'previous' | 'year' | 'none' — ver COMPARISON_MODE_OPTIONS. */
+    const [compareMode, setCompareMode] = useState('previous');
+    /** total/prevTotal: todos los movimientos (KPI "Gastos"). cost/prevCost: solo
+     *  gastos operativos + devoluciones, lo que resta de verdad a la utilidad;
+     *  los retiros de caja son dinero del dueño, no un gasto. */
+    const [expensesData, setExpensesData] = useState({ total: 0, prevTotal: 0, cost: 0, prevCost: 0 });
     const [loadingExpenses, setLoadingExpenses] = useState(false);
     const [manualExpenseRows, setManualExpenseRows] = useState([]);
     const [refundExpenseRows, setRefundExpenseRows] = useState([]);
@@ -484,8 +572,13 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const [reportAnchorDate] = useState(() => new Date());
     const reportRange = useMemo(
-        () => resolveReportPeriodRange(filterPeriod, reportAnchorDate),
-        [filterPeriod, reportAnchorDate],
+        () => applyComparisonMode(resolveReportPeriodRange(filterPeriod, reportAnchorDate), compareMode),
+        [filterPeriod, reportAnchorDate, compareMode],
+    );
+
+    const reportPeriodLabel = useMemo(
+        () => formatReportPeriodLabel(filterPeriod, getReportPeriodOptions(), locale).toLowerCase(),
+        [filterPeriod, locale],
     );
 
     const expenseChartRange = useMemo(
@@ -875,7 +968,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         if (!cancelled) {
                             setManualExpenseRows([]);
                             setRefundExpenseRows([]);
-                            setExpensesData({ total: 0, prevTotal: 0 });
+                            setExpensesData({ total: 0, prevTotal: 0, cost: 0, prevCost: 0 });
                         }
                         return;
                     }
@@ -922,19 +1015,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 }
                 if (cancelled) return;
 
-                const total = currentRows.reduce((acc, m) => acc + (Number(m.amount) || 0), 0)
-                    + currentRefunds.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
-                const prevTotal = prevRows.reduce((acc, m) => acc + (Number(m.amount) || 0), 0)
-                    + prevRefunds.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+                const sumAmounts = (rows) => rows.reduce((acc, m) => acc + (Number(m.amount) || 0), 0);
+                const total = sumAmounts(currentRows) + sumAmounts(currentRefunds);
+                const prevTotal = sumAmounts(prevRows) + sumAmounts(prevRefunds);
+                const cost = sumAmounts(currentRows.filter(isOperatingLocalExpense)) + sumAmounts(currentRefunds);
+                const prevCost = sumAmounts(prevRows.filter(isOperatingLocalExpense)) + sumAmounts(prevRefunds);
                 setManualExpenseRows(currentRows);
                 setRefundExpenseRows(currentRefunds);
-                setExpensesData({ total, prevTotal });
+                setExpensesData({ total, prevTotal, cost, prevCost });
             } catch (err) {
                 console.error('Error fetching expenses for analytics:', err);
                 if (!cancelled) {
                     setManualExpenseRows([]);
                     setRefundExpenseRows([]);
-                    setExpensesData({ total: 0, prevTotal: 0 });
+                    setExpensesData({ total: 0, prevTotal: 0, cost: 0, prevCost: 0 });
                 }
             } finally {
                 if (!cancelled) setLoadingExpenses(false);
@@ -962,7 +1056,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const reportChartData = useMemo(() => {
         const emptyResult = {
             salesChartPoints: [],
-            kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.total || 0) },
+            kpis: { total: 0, count: 0, ticket: 0, deliveryTotal: 0, deliveryCount: 0, net: -(expensesData.cost || 0), prevNet: -(expensesData.prevCost || 0) },
             trends: { total: 0, count: 0, ticket: 0, delivery: 0, expenses: 0, net: 0 },
             paymentBreakdown: { cash: 0, card: 0, online: 0 },
             branchStats: [],
@@ -1102,18 +1196,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 .sort((a, b) => b.total - a.total);
         }
 
-        const totalNet = totalSales - (expensesData.total || 0);
-        const prevNet = prevSales - (expensesData.prevTotal || 0);
+        const totalNet = totalSales - (expensesData.cost || 0);
+        const prevNet = prevSales - (expensesData.prevCost || 0);
 
-        const prevTotalDeliveryFees = prev
-            .filter((o) => {
-                const fee = Number(o?.delivery_fee);
-                return Number.isFinite(fee) && fee > 0;
-            })
-            .reduce((a, o) => a + Number(o.delivery_fee), 0);
-        const trendDelivery = prevTotalDeliveryFees === 0
-            ? deliveryTotal > 0 ? 100 : 0
-            : Math.round(((deliveryTotal - prevTotalDeliveryFees) / prevTotalDeliveryFees) * 100);
+        // Con RPC los pedidos crudos del período anterior ya no se descargan;
+        // el total de delivery previo viene en el resumen.
+        const prevTotalDeliveryFees = analyticsSource === 'rpc' && analyticsSummary?.prev
+            ? Number(analyticsSummary.prev.deliveryTotal) || 0
+            : prev
+                .filter((o) => {
+                    const fee = Number(o?.delivery_fee);
+                    return Number.isFinite(fee) && fee > 0;
+                })
+                .reduce((a, o) => a + Number(o.delivery_fee), 0);
+        const trendDelivery = calcTrendPercent(deliveryTotal, prevTotalDeliveryFees);
 
         const prevCountForSignificance = analyticsSource === 'rpc' && analyticsSummary?.prev
             ? analyticsSummary.prev.orderCount
@@ -1128,15 +1224,14 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 deliveryTotal,
                 deliveryCount,
                 net: totalNet,
+                prevNet,
             },
             trends: {
                 total: calcTrendPercent(totalSales, prevSales),
                 count: calcTrendPercent(count, prevCount),
                 ticket: calcTrendPercent(ticket, prevTicket),
                 delivery: trendDelivery,
-                expenses: !expensesData.prevTotal
-                    ? expensesData.total > 0 ? 100 : 0
-                    : Math.round(((expensesData.total - expensesData.prevTotal) / expensesData.prevTotal) * 100),
+                expenses: calcTrendPercent(expensesData.total, expensesData.prevTotal),
                 net: calcTrendPercent(totalNet, prevNet),
             },
             trendSignificance: {
@@ -1175,11 +1270,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
         return {
             count: currentNew,
-            trend: !range.hasComparison
-                ? null
-                : prevNew === 0
-                    ? (currentNew > 0 ? 100 : 0)
-                    : Math.round(((currentNew - prevNew) / prevNew) * 100),
+            trend: range.hasComparison ? calcTrendPercent(currentNew, prevNew) : null,
             total: clients.length,
         };
     }, [clients, reportRange]);
@@ -1329,39 +1420,54 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
     const salesChartTitle = reportRange.dayCount === 1 ? 'Ventas por hora' : 'Ventas por día';
 
+    // 'bar-gradient' era un tema visual, no otra lectura de los datos; quien lo
+    // tuviera guardado cae en barras normales.
     const activeChartKind =
-        chartKind === 'bar-gradient'
-            ? 'bar-gradient'
-            : chartKind === 'bar-solid' || chartKind === 'bar'
-              ? 'bar-solid'
-              : 'area';
+        chartKind === 'bar-solid' || chartKind === 'bar' || chartKind === 'bar-gradient'
+            ? 'bar-solid'
+            : 'area';
 
     const reportPeriodHeader = (
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h2 className="text-base font-bold tracking-tight text-[#1a1a1a] sm:text-lg">Resumen</h2>
-                    <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
-                        Resumen de ventas, pedidos y métricas clave
-                    </p>
-                </div>
-                <div className="sm:hidden">
-                    <ReportPeriodSelect
-                        className="rpt-period-select--compact w-[150px]"
-                        value={filterPeriod}
-                        onChange={setFilterPeriod}
-                        aria-label="Rango de fechas del informe"
-                        icon={<Calendar size={16} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
-                    />
-                </div>
+            <div>
+                <h2 className="text-base font-bold tracking-tight text-[#1a1a1a] sm:text-lg">Resumen</h2>
+                <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
+                    Resumen de ventas, pedidos y métricas clave
+                </p>
             </div>
-            <div className="hidden sm:flex sm:w-auto">
+            {/* Teléfono: período y comparación en una fila, a partes iguales */}
+            <div className="rpt-summary-filters flex gap-2 sm:hidden">
+                <ReportPeriodSelect
+                    className="rpt-period-select--compact w-full"
+                    value={filterPeriod}
+                    onChange={setFilterPeriod}
+                    aria-label="Rango de fechas del informe"
+                    icon={<Calendar size={16} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
+                />
+                <AdminMenuSelect
+                    className="rpt-period-select--compact rpt-compare-select w-full"
+                    value={compareMode}
+                    onChange={setCompareMode}
+                    options={COMPARISON_MODE_OPTIONS}
+                    aria-label="Comparar con"
+                    icon={<ArrowLeftRight size={16} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
+                />
+            </div>
+            <div className="hidden sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
                 <ReportPeriodSelect
                     className="w-full sm:w-[260px]"
                     value={filterPeriod}
                     onChange={setFilterPeriod}
                     aria-label="Rango de fechas del informe"
                     icon={<Calendar size={18} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
+                />
+                <AdminMenuSelect
+                    className="rpt-compare-select sm:w-[220px]"
+                    value={compareMode}
+                    onChange={setCompareMode}
+                    options={COMPARISON_MODE_OPTIONS}
+                    aria-label="Comparar con"
+                    icon={<ArrowLeftRight size={18} strokeWidth={1.65} className="text-[var(--admin-accent,#2563eb)]" />}
                 />
             </div>
         </header>
@@ -1562,8 +1668,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         {[
                             { action: 'download', label: 'Descargar Excel', Icon: Download, variant: 'default' },
-                            { action: 'modal', label: 'Ver (modal)', Icon: Eye, variant: 'outline' },
-                            { action: 'tab', label: 'Ver (pestaña)', Icon: ExternalLink, variant: 'outline' },
+                            { action: 'modal', label: 'Vista previa', Icon: Eye, variant: 'outline' },
                         ].map(({ action, label, Icon, variant }) => (
                             <Button
                                 key={action}
@@ -1630,7 +1735,22 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 </p>
             )}
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+            <NetResultCard
+                net={kpis.net}
+                prevNet={kpis.prevNet}
+                trendSignificant={trendSignificance?.net ?? true}
+                hasComparison={reportRange.hasComparison}
+                comparisonLabel={comparisonModeLabel(compareMode)}
+                sales={kpis.total}
+                cost={expensesData.cost}
+                withdrawals={manualExpenseBreakdown.withdrawals}
+                periodLabel={reportPeriodLabel}
+                loading={(loadingAnalyticsOrders && kpis.count === 0) || loadingExpenses}
+                fmt={fmt}
+            />
+
+            {/* 3 columnas en xl (antes 4 -> fila huérfana de 2 tarjetas) */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 {KPI_META.map((meta) => {
                     const value = meta.key === 'clients' ? newClientsInfo.count : meta.key === 'expenses' ? expensesData.total : kpis[meta.key];
                     const trendKey = meta.key === 'clients' ? null : resolveKpiTrendKey(meta.key);
@@ -1817,6 +1937,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                            {paymentMethodsTotal > 0 ? (<>
                             <ReportPaymentDonut
                                 data={paymentDonutData}
                                 currency={currency}
@@ -1852,6 +1973,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     );
                                 })}
                             </div>
+                            </>) : (
+                                <div className="py-8 text-center text-sm text-[var(--admin-text-muted,#64748b)]">Sin pagos registrados en este período.</div>
+                            )}
                         </CardContent>
                     </Card>
 

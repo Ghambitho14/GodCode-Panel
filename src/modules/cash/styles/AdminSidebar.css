@@ -206,15 +206,6 @@
 	font-weight: 700;
 }
 
-/* Etiquetas siempre visibles (barra ancha) */
-.admin-layout .nav-text,
-.admin-layout .nav-chevron {
-	opacity: 1;
-	max-width: none;
-	overflow: visible;
-	transition: none;
-}
-
 .admin-layout .nav-text {
 	flex: 1;
 	min-width: 0;
@@ -339,8 +330,7 @@
    MÓVIL — barra inferior
    ========================================= */
 @media (max-width: 1024px) {
-	.admin-layout .admin-sidebar,
-	.admin-layout .admin-sidebar:hover {
+	.admin-layout .admin-sidebar {
 		width: 100% !important;
 		height: auto !important;
 		position: fixed !important;
@@ -403,8 +393,7 @@
 	}
 
 	/* Misma “tile” para cada acción: evita anchos distintos según el texto */
-	.admin-layout .sidebar-menu > .nav-item,
-	.admin-layout .admin-sidebar:hover .sidebar-menu > .nav-item {
+	.admin-layout .sidebar-menu > .nav-item {
 		width: 72px;
 		min-width: 72px;
 		max-width: 72px;

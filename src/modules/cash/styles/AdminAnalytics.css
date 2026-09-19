@@ -101,6 +101,64 @@
     max-width: min(100%, 260px);
 }
 
+.admin-layout .rpt-period-select--with-range .rpt-period-menu-select.admin-branch-select {
+    max-width: min(100%, 200px);
+}
+
+.admin-layout .rpt-period-range-inputs {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.admin-layout .rpt-period-range-inputs .rpt-period-day-input {
+    min-width: 0;
+    width: 150px;
+}
+
+.admin-layout .rpt-period-range-sep {
+    color: var(--admin-text-muted, #64748b);
+    font-weight: 600;
+}
+
+@media (min-width: 640px) {
+    .admin-layout .rpt-compare-select.admin-branch-select {
+        max-width: min(100%, 220px);
+    }
+}
+
+/* Teléfono: los dos filtros del resumen se reparten la fila; el de rango
+   puede desplegar sus dos fechas debajo, a todo el ancho. */
+.admin-layout .rpt-summary-filters {
+    flex-wrap: wrap;
+}
+
+.admin-layout .rpt-summary-filters > .rpt-period-select,
+.admin-layout .rpt-summary-filters > .rpt-compare-select {
+    flex: 1 1 45%;
+    min-width: 0;
+}
+
+/* Con rango activo el selector de período se queda la fila entera para que
+   las dos fechas se lean completas; la comparación baja a la siguiente. */
+.admin-layout .rpt-summary-filters > .rpt-period-select--with-range {
+    flex-basis: 100%;
+}
+
+.admin-layout .rpt-summary-filters > .rpt-period-select {
+    justify-content: flex-start;
+}
+
+.admin-layout .rpt-summary-filters .rpt-period-range-inputs {
+    flex: 1 1 100%;
+}
+
+.admin-layout .rpt-summary-filters .rpt-period-range-inputs .rpt-period-day-input {
+    flex: 1 1 0;
+    width: auto;
+}
+
 .admin-layout .rpt-export-month-select .admin-branch-select__trigger {
     min-height: 40px;
     border-radius: 12px;

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { useAntiZoom, syncMobileViewportVars } from "./use-anti-zoom";
+import { useEffect, useRef } from "react";
 import { PwaInstallHint } from "./components/PwaInstallHint";
 import { isStandaloneDisplayMode } from "./utils/pwa-install";
 import "./styles/pwa-standalone.css";
@@ -10,27 +9,35 @@ interface AppShellProps {
 
 /** Shell visual legado (clases `tenant-*` conservadas para paridad 1:1). */
 export function AppShell({ children }: AppShellProps) {
-  const [scrollY, setScrollY] = useState(0);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const bgLayerRef = useRef<HTMLDivElement | null>(null);
 
+  // Parallax del fondo. Escribe el transform en el nodo directamente: antes
+  // cada evento de scroll pasaba por `setState`, re-renderizaba el shell y un
+  // segundo efecto aplicaba el mismo transform. Un rAF colapsa las rafagas de
+  // scroll en una sola pintura por frame.
   useEffect(() => {
-    const handleScroll = () => {
-      const shell = document.querySelector(".tenant-shell-root");
-      const y =
-        shell instanceof HTMLElement ? shell.scrollTop : window.scrollY;
-      setScrollY(y);
+    const shell = shellRef.current;
+    const layer = bgLayerRef.current;
+    if (!shell || !layer) return;
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const y = shell.scrollTop || window.scrollY;
+      layer.style.transform = `translateY(${-y * 0.1}px)`;
     };
-    handleScroll();
-    const shell = document.querySelector(".tenant-shell-root");
-    shell?.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+    paint();
+    shell.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      shell?.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("scroll", handleScroll);
+      if (frame) cancelAnimationFrame(frame);
+      shell.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
     };
   }, []);
-
-  useAntiZoom();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -55,20 +62,8 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, []);
 
-  useEffect(() => {
-    const sync = () => syncMobileViewportVars();
-    const shell = document.querySelector(".tenant-shell-root");
-    shell?.addEventListener("scroll", sync, { passive: true });
-    return () => shell?.removeEventListener("scroll", sync);
-  }, []);
-
-  useEffect(() => {
-    if (!bgLayerRef.current) return;
-    bgLayerRef.current.style.transform = `translateY(${-scrollY * 0.1}px)`;
-  }, [scrollY]);
-
   return (
-    <div className="tenant-shell-root">
+    <div ref={shellRef} className="tenant-shell-root">
       <div ref={bgLayerRef} className="app-bg-layer tenant-shell-bg-layer" />
       <div id="app-content-layer" className="app-wrapper tenant-content-layer">
         {children}

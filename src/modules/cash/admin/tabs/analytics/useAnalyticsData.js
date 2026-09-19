@@ -105,34 +105,46 @@ export function useAnalyticsData({
 			}
 
 			try {
-				const fallbackStartIso =
-					reportRange.prevStart?.toISOString()
-					?? reportRange.fetchStartIso
-					?? reportRange.start?.toISOString()
-					?? null;
-				const fallbackEndIso =
-					reportRange.end?.toISOString() ?? reportRange.fetchEndIso ?? null;
-
-				let q = supabase
-					.from(TABLES.orders)
-					.select(ORDERS_ANALYTICS_METRICS_SELECT)
-					.eq('company_id', companyId);
-				if (fallbackStartIso) {
-					q = q.gte('created_at', fallbackStartIso);
-				}
-				if (fallbackEndIso) {
-					q = q.lt('created_at', fallbackEndIso);
-				}
-				if (selectedBranch?.id && selectedBranch.id !== 'all') {
-					q = q.eq('branch_id', selectedBranch.id);
-				}
-				const data = await fetchAllPaginated(
-					q.order('created_at', { ascending: false }),
+				const rpcUsable = Boolean(
+					rpcSummary && !rpcError && !rpcNotGranted && hasAnalyticsChartBuckets(rpcSummary),
 				);
+
+				const fetchWindow = async (startIso, endIso) => {
+					if (!startIso || !endIso) return [];
+					let q = supabase
+						.from(TABLES.orders)
+						.select(ORDERS_ANALYTICS_METRICS_SELECT)
+						.eq('company_id', companyId)
+						.gte('created_at', startIso)
+						.lt('created_at', endIso);
+					if (selectedBranch?.id && selectedBranch.id !== 'all') {
+						q = q.eq('branch_id', selectedBranch.id);
+					}
+					return fetchAllPaginated(q.order('created_at', { ascending: false }));
+				};
+
+				const currentStartIso = reportRange.start?.toISOString() ?? reportRange.fetchStartIso ?? null;
+				const currentEndIso = reportRange.end?.toISOString() ?? reportRange.fetchEndIso ?? null;
+
+				// La RPC ya trae totales, desglose por día/hora, sucursales y pagos de
+				// ambos períodos. Los pedidos crudos solo hacen falta para lo que la
+				// RPC no cubre (sparklines por día de ticket/delivery, vista por hora),
+				// y eso es solo del período actual. Antes se bajaba también todo el
+				// período anterior aunque la RPC hubiera respondido; con "vs. año
+				// anterior" eso era un año entero de pedidos por cada cambio de filtro.
+				// Sin RPC se bajan las dos ventanas por separado, nunca el hueco entre ellas.
+				const windows = rpcUsable || !reportRange.hasComparison
+					? [[currentStartIso, currentEndIso]]
+					: [
+						[currentStartIso, currentEndIso],
+						[reportRange.prevStart?.toISOString() ?? null, reportRange.prevEnd?.toISOString() ?? null],
+					];
+				const chunks = await Promise.all(windows.map(([s, e]) => fetchWindow(s, e)));
 				if (cancelled) return;
+				const data = chunks.flat();
 
 				setAnalyticsOrders(data);
-				if (rpcSummary && !rpcError && !rpcNotGranted && hasAnalyticsChartBuckets(rpcSummary)) {
+				if (rpcUsable) {
 					setAnalyticsSummary(rpcSummary);
 					setAnalyticsSource('rpc');
 				} else {

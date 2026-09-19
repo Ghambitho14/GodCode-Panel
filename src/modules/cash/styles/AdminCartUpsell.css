@@ -451,6 +451,12 @@
 		align-items: stretch;
 	}
 
+	/* En columna, el `flex: 1 1 200px` del bloque de texto pasa a ser ALTO y
+	   dejaba 180px de hueco vacío entre "1 en catálogo" y el interruptor. */
+	.admin-cart-upsell-catalog-head__main {
+		flex: 0 0 auto;
+	}
+
 	.admin-cart-upsell-catalog-toggle {
 		justify-content: space-between;
 		width: 100%;
