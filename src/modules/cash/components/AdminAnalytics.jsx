@@ -37,6 +37,7 @@ import {
 } from '../services/analyticsExportUtils';
 import { fetchAllPaginated } from '@/shared/utils/fetchAllPaginated';
 import { downloadExcel, openSpreadsheetInNewTab } from '@/shared/utils/exportUtils';
+import { maskSealedPii } from '@/shared/utils/sealedPii';
 import SpreadsheetPreviewModal from './SpreadsheetPreviewModal';
 import { isValidBranchId } from '@/shared/utils/safeIds';
 import { useAdmin } from '../admin/pages/AdminProvider';
@@ -814,8 +815,9 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                 Fecha: d.toLocaleDateString(locale),
                 Hora: d.toLocaleTimeString(locale),
                 Cliente: order.client_name,
-                [exportIdLabel]: order.client_rut,
-                Teléfono: order.client_phone,
+                // Un cliente con cuenta tiene estos datos cifrados: el export no los revela.
+                [exportIdLabel]: maskSealedPii(order.client_rut),
+                Teléfono: maskSealedPii(order.client_phone),
                 Items: itemsText,
                 Total: order.total,
                 Moneda: orderCurrency,

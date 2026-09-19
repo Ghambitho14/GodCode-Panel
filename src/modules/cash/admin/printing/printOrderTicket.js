@@ -3,6 +3,8 @@ import { fetchBcvRate } from '@/lib/money/bcv-rate';
 import { resolveTicketExchangeRate } from '@/lib/money/order-amount';
 import { resolveSafeLogoUrl } from './thermalUtils';
 import { buildTicketHtml } from './ticketHtml';
+import { revealOrderContact } from '@/modules/cash/services/clientPiiService';
+import { orderHasSealedContact } from '@/shared/utils/sealedPii';
 
 function schedulePrintAfterLoad(printWindow, hasLogo) {
 	const runPrint = () => {
@@ -134,14 +136,29 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 	const printWindow = inline ? null : window.open('', '', `width=${previewWindowWidth},height=700`);
 	const useIframe = inline || !printWindow;
 
-	const finish = (printOptions) => {
-		const html = buildTicketHtml(order, branchName, logoUrl, variant, printOptions);
+	const render = (ticketOrder, printOptions) => {
+		const html = buildTicketHtml(ticketOrder, branchName, logoUrl, variant, printOptions);
 		if (useIframe) {
 			printViaIframe(html, hasLogo);
 			return;
 		}
 		writePrintHtml(printWindow, html);
 		schedulePrintAfterLoad(printWindow, hasLogo);
+	};
+
+	/**
+	 * El ticket del cliente lleva teléfono y dirección: en un pedido de cuenta vienen
+	 * cifrados y se revelan justo antes de imprimir. Si no se puede, se imprime con
+	 * esos datos enmascarados. El de cocina no los muestra.
+	 */
+	const finish = (printOptions) => {
+		if (variant !== 'cashier' || !orderHasSealedContact(order)) {
+			render(order, printOptions);
+			return;
+		}
+		void revealOrderContact(order)
+			.then((revealed) => render(revealed, printOptions))
+			.catch(() => render(order, printOptions));
 	};
 
 	if (useIframe && typeof document === 'undefined') return false;

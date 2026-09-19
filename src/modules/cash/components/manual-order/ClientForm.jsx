@@ -11,6 +11,7 @@ import {
 } from '@/lib/delivery-settings';
 import { filterClientsByNameOrPhone } from '../../services/clientService';
 import { accountClientIdSet, fetchMenuClientAccountsCached } from '../../services/menuAccountsService';
+import { maskSealedPii } from '@/shared/utils/sealedPii';
 import {
     getLocalFulfillmentMode,
     isManualNamedDeliveryMode,
@@ -163,6 +164,8 @@ const ClientForm = ({
     const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
     /** Ids de `clients` con cuenta del menú: los únicos elegibles como afiliados. */
     const [affiliatedIds, setAffiliatedIds] = useState(() => new Set());
+    /** Cuenta descifrada por id de ficha: nombre, teléfono y documento reales. */
+    const [accountByClientId, setAccountByClientId] = useState(() => new Map());
     const [affiliatedLoaded, setAffiliatedLoaded] = useState(false);
 	const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 	const [recentWaiters, setRecentWaiters] = useState([]);
@@ -204,6 +207,9 @@ const ClientForm = ({
 			const result = await fetchMenuClientAccountsCached(companyKey);
 			if (!alive) return;
 			setAffiliatedIds(accountClientIdSet(result.accounts));
+			setAccountByClientId(new Map(
+				result.accounts.filter((a) => a.clientId).map((a) => [a.clientId, a]),
+			));
 			setAffiliatedLoaded(true);
 		})();
 		return () => {
@@ -215,21 +221,41 @@ const ClientForm = ({
 
 	const isAffiliatedKind = String(manualOrder.client_kind ?? 'quick') === 'affiliated';
 
-	/** Fichas elegibles en modo afiliado: las que respaldan una cuenta del menú. */
+	/**
+	 * Fichas elegibles en modo afiliado: las que respaldan una cuenta del menú. Esa
+	 * ficha solo guarda un nombre corto y datos cifrados, así que se muestran los de
+	 * la cuenta ya descifrada; si no llegaron, lo cifrado se enmascara.
+	 */
 	const affiliatedClients = useMemo(
-		() => (Array.isArray(clients) ? clients : []).filter((client) => affiliatedIds.has(String(client?.id ?? ''))),
+		() => (Array.isArray(clients) ? clients : [])
+			.filter((client) => affiliatedIds.has(String(client?.id ?? '')))
+			.map((client) => {
+				const account = accountByClientId.get(String(client.id));
+				return {
+					...client,
+					name: account?.fullName || client.name,
+					phone: account?.phone || maskSealedPii(client.phone),
+					rut: account?.document || maskSealedPii(client.rut),
+				};
+			}),
+		[clients, affiliatedIds, accountByClientId],
+	);
+
+	/** Compradores rápidos: las fichas que no respaldan una cuenta. */
+	const quickClients = useMemo(
+		() => (Array.isArray(clients) ? clients : []).filter((client) => !affiliatedIds.has(String(client?.id ?? ''))),
 		[clients, affiliatedIds],
 	);
 
     const clientSuggestions = useMemo(
         () => {
-			if (!isAffiliatedKind) return filterClientsByNameOrPhone(clients, manualOrder.client_name);
+			if (!isAffiliatedKind) return filterClientsByNameOrPhone(quickClients, manualOrder.client_name);
 			// Con pocos afiliados escribir para verlos es absurdo: al enfocar salen todos.
 			const query = normalizeSearch(manualOrder.client_name);
 			if (!query) return affiliatedClients.slice(0, 8);
 			return filterClientsByNameOrPhone(affiliatedClients, manualOrder.client_name);
 		},
-        [isAffiliatedKind, clients, affiliatedClients, manualOrder.client_name],
+        [isAffiliatedKind, quickClients, affiliatedClients, manualOrder.client_name],
     );
 
     const clientSelectOpts = useMemo(

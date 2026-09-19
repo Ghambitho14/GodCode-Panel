@@ -56,6 +56,7 @@ import { Button } from "@/components/ui/button";
 import { manualOrderV2Service } from '../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
 import { parseMoneyInput, formatMinor, isoFractionDigits } from '@/lib/money/minor-units';
+import { useRevealedOrderContact } from '@/modules/cash/hooks/useRevealedOrderContact';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -90,6 +91,9 @@ const OrderDetailModal = ({
         return getFormStrategy(country).idName;
     }, [branch, companyProfile]);
     const [liveOrder, setLiveOrder] = useState(order);
+    // Teléfono, documento y dirección de un cliente con cuenta llegan cifrados: se
+    // revelan al abrir el detalle y solo se usan para mostrarlos y compartirlos.
+    const { order: contactOrder } = useRevealedOrderContact(liveOrder);
     const [refreshingOrder, setRefreshingOrder] = useState(false);
 	const [paymentLedger, setPaymentLedger] = useState([]);
 	const [refundForm, setRefundForm] = useState({ paymentLineId: '', amount: '', reason: '' });
@@ -198,10 +202,10 @@ const OrderDetailModal = ({
     );
     const itemCount = items.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0);
     const isDelivery = isOrderDelivery(liveOrder);
-    const addrLines = deliveryAddressLines(liveOrder.delivery_address);
+    const addrLines = deliveryAddressLines(contactOrder.delivery_address);
     const addrObj =
-        liveOrder.delivery_address && typeof liveOrder.delivery_address === 'object' && !Array.isArray(liveOrder.delivery_address)
-            ? liveOrder.delivery_address
+        contactOrder.delivery_address && typeof contactOrder.delivery_address === 'object' && !Array.isArray(contactOrder.delivery_address)
+            ? contactOrder.delivery_address
             : null;
     // `maps_url` lo escribe el storefront: se sanea antes de pintarlo en un href.
     const mapsUrl = toSafeHttpUrl(addrObj?.maps_url) ?? '';
@@ -215,8 +219,8 @@ const OrderDetailModal = ({
     const fulfillmentLabel = getOrderFulfillmentDisplayLabel(liveOrder);
     const sessionNumber = liveOrder.shift_sequence ?? liveOrder.id;
 
-    const clientPhone = resolveOrderClientPhoneForDisplay(liveOrder);
-    const clientRut = resolveOrderClientRutForDisplay(liveOrder);
+    const clientPhone = resolveOrderClientPhoneForDisplay(contactOrder);
+    const clientRut = resolveOrderClientRutForDisplay(contactOrder);
     const clientDisplay = resolveOrderClientNameForDisplay(liveOrder, fulfillmentKind);
     const showCajaHint = isCajaGenericIdentity(clientRut, clientPhone);
     const whatsAppHref = clientPhone ? buildWhatsAppUrl(clientPhone) : null;
@@ -290,7 +294,7 @@ const OrderDetailModal = ({
     };
 
     const handleCopyShare = async () => {
-        const text = buildOrderWhatsAppShareText(liveOrder, branch?.name, shareLocale);
+        const text = buildOrderWhatsAppShareText(contactOrder, branch?.name, shareLocale);
         try {
             await navigator.clipboard.writeText(text);
             showNotify?.('Resumen del pedido copiado.', 'success');
@@ -300,7 +304,7 @@ const OrderDetailModal = ({
     };
 
     const handleDeliveryWhatsApp = async () => {
-        const text = buildOrderDeliveryDriverPack(liveOrder, branch?.name ?? null, branch?.address ?? null, shareLocale);
+        const text = buildOrderDeliveryDriverPack(contactOrder, branch?.name ?? null, branch?.address ?? null, shareLocale);
         await shareDeliveryPackViaWhatsApp(text, {
             onError: (msg) => showNotify?.(msg, 'error'),
         });

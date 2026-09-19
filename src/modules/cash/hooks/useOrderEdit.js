@@ -25,6 +25,8 @@ import { normalizeManualOrderSettings } from '../domain/manual-order-settings';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { buildCouponPreview } from '@/lib/discount-coupon';
+import { revealOrderContact } from '../services/clientPiiService';
+import { isSealedDeliveryAddress, isSealedPiiValue, orderHasSealedContact } from '@/shared/utils/sealedPii';
 import {  } from '../utils/deliveryFeePermissions';
 import { deliveryFieldsFromClientRecord, maybeSaveClientDefaultDeliveryAddress } from '../services/clientService';
 import {
@@ -124,16 +126,20 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 		: normalizeManualOrderType(initialOrder.channel ?? 'pickup');
 	const localFulfillmentMode = deriveLocalFulfillmentFromOrder(initialOrder);
 	const mesaPartyMode = deriveMesaPartyModeFromOrder(initialOrder);
-	const flatAddr = flattenDeliveryAddress(initialOrder.delivery_address);
+	// Los datos cifrados de un cliente con cuenta no entran al formulario: se rellenan
+	// cuando se revelan (ver el efecto en useOrderEdit).
+	const flatAddr = flattenDeliveryAddress(
+		isSealedDeliveryAddress(initialOrder.delivery_address) ? null : initialOrder.delivery_address,
+	);
 	const storedBreakdown = isMixedPaymentBreakdown(initialOrder.payment_breakdown)
 		? normalizePaymentBreakdown(initialOrder.payment_breakdown)
 		: null;
 
-	const rawRut = String(initialOrder.client_rut ?? '');
+	const rawRut = isSealedPiiValue(initialOrder.client_rut) ? '' : String(initialOrder.client_rut ?? '');
 	return {
 		client_name: String(localFulfillmentMode === 'mesa' ? (initialOrder.operator_reference ?? initialOrder.client_name ?? '') : (initialOrder.client_name ?? '')),
 		client_rut: isBlankClientDocument(rawRut) ? '' : rawRut,
-		client_phone: String(initialOrder.client_phone ?? ''),
+		client_phone: isSealedPiiValue(initialOrder.client_phone) ? '' : String(initialOrder.client_phone ?? ''),
 		items,
 		total: computedTotal,
 		payment_type: String(initialOrder.payment_type ?? 'tienda'),
@@ -216,6 +222,42 @@ export const useOrderEdit = (
 	});
 	const [includeDocument, setIncludeDocumentState] = useState(() => initialIncludeDocument);
 	const [includePhone, setIncludePhoneState] = useState(() => initialIncludePhone);
+
+	/**
+	 * Pedido de un cliente con cuenta: teléfono, documento y dirección llegan
+	 * cifrados. Se revelan y se ponen en el formulario para que el pedido se pueda
+	 * editar y guardar; la base conserva los datos de la cuenta aunque se cambien aquí.
+	 */
+	const contactLocked = orderHasSealedContact(initialOrder);
+	useEffect(() => {
+		if (!contactLocked) return undefined;
+		let alive = true;
+		revealOrderContact(initialOrder)
+			.then((revealed) => {
+				if (!alive) return;
+				const flat = flattenDeliveryAddress(
+					isSealedDeliveryAddress(revealed.delivery_address) ? null : revealed.delivery_address,
+				);
+				const rut = isSealedPiiValue(revealed.client_rut) ? '' : String(revealed.client_rut ?? '');
+				const phone = isSealedPiiValue(revealed.client_phone) ? '' : String(revealed.client_phone ?? '');
+				setManualOrder((prev) => ({
+					...prev,
+					...(rut && !isBlankClientDocument(rut) ? { client_rut: rut } : {}),
+					...(phone ? { client_phone: phone } : {}),
+					...(prev.order_type === 'delivery' && flat.delivery_address
+						? { delivery_address: flat.delivery_address, delivery_reference: flat.delivery_reference }
+						: {}),
+				}));
+				if (rut && !isBlankClientDocument(rut)) setIncludeDocumentState(true);
+				if (phone) setIncludePhoneState(true);
+			})
+			.catch(() => {
+				if (alive) showNotify?.('No se pudieron ver los datos del cliente con cuenta.', 'warning');
+			});
+		return () => {
+			alive = false;
+		};
+	}, [contactLocked, initialOrder, showNotify]);
 
 	const setIncludeDocument = useCallback((enabled) => {
 		const next = Boolean(enabled);
@@ -1010,6 +1052,8 @@ export const useOrderEdit = (
 	return {
 		manualOrder: manualOrderView,
 		loading,
+		/** El pedido es de un cliente con cuenta: sus datos de contacto son de la cuenta. */
+		contactLocked,
 		rutValid,
 		phoneValid,
 		includeDocument,

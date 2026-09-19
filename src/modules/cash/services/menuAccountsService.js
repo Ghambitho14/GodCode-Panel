@@ -1,37 +1,44 @@
 import { supabase } from '@/integrations/supabase';
+import { fetchDecryptedAccounts } from '@/modules/cash/services/clientPiiService';
 
 /**
  * Cuentas del menú digital para el listado de clientes del panel.
  *
  * `menu_client_accounts` es deny-all en RLS y sus columnas personales están
- * cifradas con una llave que vive fuera de la base, así que no se puede leer
- * con la anon key ni sacarle nada legible. La RPC
- * `menu_client_accounts_panel_list` (SECURITY DEFINER, con guardia de empresa
- * adentro) devuelve solo el esqueleto: con qué ficha de `clients` está
- * vinculada la cuenta y cuatro datos operativos. Nombre, teléfono y métricas
- * salen de esa ficha, que el panel ya lee en claro.
+ * cifradas con una llave que vive fuera de la base. La Edge Function `client-pii`
+ * tiene esa llave y devuelve las cuentas de la empresa con nombre, teléfono y
+ * documento en claro. Si la función no responde (aún no desplegada, sin llave),
+ * se cae a la RPC `menu_client_accounts_panel_list`, que solo da el esqueleto:
+ * con qué ficha de `clients` está vinculada cada cuenta. Entonces el nombre sale
+ * de esa ficha, como antes.
  */
 const RPC_NAME = 'menu_client_accounts_panel_list';
 
+const text = (value) => {
+	const s = String(value ?? '').trim();
+	return s || null;
+};
+
 /**
+ * Acepta la fila de la RPC (snake_case) o la de la Edge Function (camelCase).
  * @param {unknown} row
- * @returns {{ id: string, clientId: string|null, preferredBranchId: string|null, documentCountry: string|null, isActive: boolean, lastLoginAt: string|null, createdAt: string|null }|null}
+ * @returns {{ id: string, clientId: string|null, fullName: string|null, phone: string|null, document: string|null, preferredBranchId: string|null, documentCountry: string|null, isActive: boolean, lastLoginAt: string|null, createdAt: string|null }|null}
  */
 function normalizeAccount(row) {
 	if (!row || typeof row !== 'object') return null;
-	const id = String(row.id ?? '').trim();
+	const id = text(row.id);
 	if (!id) return null;
-	const clientId = String(row.client_id ?? '').trim();
-	const branchId = String(row.preferred_branch_id ?? '').trim();
-	const country = String(row.document_country ?? '').trim();
 	return {
 		id,
-		clientId: clientId || null,
-		preferredBranchId: branchId || null,
-		documentCountry: country || null,
-		isActive: row.is_active !== false,
-		lastLoginAt: row.last_login_at ?? null,
-		createdAt: row.created_at ?? null,
+		clientId: text(row.clientId ?? row.client_id),
+		fullName: text(row.fullName),
+		phone: text(row.phone),
+		document: text(row.document),
+		preferredBranchId: text(row.preferredBranchId ?? row.preferred_branch_id),
+		documentCountry: text(row.documentCountry ?? row.document_country),
+		isActive: (row.isActive ?? row.is_active) !== false,
+		lastLoginAt: row.lastLoginAt ?? row.last_login_at ?? null,
+		createdAt: row.createdAt ?? row.created_at ?? null,
 	};
 }
 
@@ -42,6 +49,13 @@ function normalizeAccount(row) {
 export async function fetchMenuClientAccounts(companyId) {
 	const id = String(companyId ?? '').trim();
 	if (!id) return { ok: true, accounts: [], error: null };
+
+	try {
+		const decrypted = await fetchDecryptedAccounts();
+		return { ok: true, accounts: decrypted.map(normalizeAccount).filter(Boolean), error: null };
+	} catch (fnError) {
+		console.warn('[clientes] cuentas sin descifrar (client-pii):', fnError?.message || fnError);
+	}
 
 	const { data, error } = await supabase.rpc(RPC_NAME, { p_company_id: id });
 	if (error) {

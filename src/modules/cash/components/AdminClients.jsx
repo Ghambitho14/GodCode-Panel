@@ -9,6 +9,7 @@ import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { fetchMenuClientAccounts } from '@/modules/cash/services/menuAccountsService';
+import { maskSealedPii } from '@/shared/utils/sealedPii';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
@@ -248,13 +249,19 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
     );
 
     /**
-     * Pestaña "Cuentas": una fila por cuenta del menú. Los datos legibles salen
-     * de la ficha vinculada; una cuenta sin ficha es alguien que se registró y
-     * todavía no abrió el carrito, así que no tiene nombre que mostrar.
+     * Pestaña "Cuentas": una fila por cuenta del menú. Nombre, teléfono y documento
+     * salen de la cuenta ya descifrada (Edge Function `client-pii`); la ficha
+     * vinculada aporta las métricas. Si la función no respondió, se usa lo que
+     * tenga la ficha, que para cuentas nuevas es solo un nombre corto.
      */
     const accountRows = useMemo(() => menuAccounts.map((account) => {
         const client = account.clientId ? clientsById.get(account.clientId) ?? null : null;
-        const base = client ?? {
+        const personal = {
+            ...(account.fullName ? { name: account.fullName } : {}),
+            ...(account.phone ? { phone: account.phone } : {}),
+            ...(account.document ? { rut: account.document } : {}),
+        };
+        const empty = {
             id: null,
             name: '',
             phone: '',
@@ -267,6 +274,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             status: 'inactive',
             last_order_at: null,
         };
+        const merged = { ...(client ?? empty), ...personal };
+        // Sin la función, la ficha de una cuenta solo tiene datos cifrados: se enmascaran
+        // aquí para que ni la tabla, ni la exportación, ni el WhatsApp vean `enc:v1:`.
+        const base = { ...merged, phone: maskSealedPii(merged.phone), rut: maskSealedPii(merged.rut) };
         return {
             ...base,
             rowId: `account-${account.id}`,

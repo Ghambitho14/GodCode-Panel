@@ -1,6 +1,7 @@
 import { normalizeCurrencyCode } from '@/shared/utils/money';
 import { formatOrderAmount } from '@/lib/money/order-amount';
 import { escapeHtml } from './thermalUtils';
+import { maskSealedPii } from '@/shared/utils/sealedPii';
 import {
 	deliveryAddressLines,
 	getFulfillmentKindLabel,
@@ -201,7 +202,8 @@ export function clientReferenceLineHtml(order) {
 export function clientPhoneForTicket(order) {
 	const raw = order?.client_phone;
 	if (raw == null || raw === '') return '';
-	return String(raw).trim();
+	// Si no se pudo revelar, nunca se imprime el texto cifrado.
+	return maskSealedPii(String(raw).trim());
 }
 
 /**

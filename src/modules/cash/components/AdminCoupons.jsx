@@ -6,6 +6,7 @@ import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
 import { fetchMenuClientAccountsCached } from "@/modules/cash/services/menuAccountsService";
+import { isSealedPiiValue } from "@/shared/utils/sealedPii";
 import { Button } from "@/components/ui/button";
 import CouponDateTimeField from "@/modules/cash/components/CouponDateTimeField";
 import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
@@ -265,22 +266,26 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		(id) => {
 			const c = clients.find((x) => x.id === id);
 			if (!c) return String(id ?? "").slice(0, 8) + "…";
-			const ph = String(c.phone ?? "").trim();
+			// La ficha de una cuenta guarda el teléfono cifrado: no se muestra.
+			const ph = isSealedPiiValue(c.phone) ? "" : String(c.phone ?? "").trim();
 			return `${String(c.name ?? "").trim() || "(Sin nombre)"}${ph ? ` · ${ph}` : ""}`;
 		},
 		[clients],
 	);
 
 	/**
-	 * Los datos de la cuenta están cifrados fuera del alcance del panel: el nombre
-	 * sale de la ficha que la cuenta respalda. Sin ficha todavía no ha pedido nada.
+	 * Nombre y teléfono salen de la cuenta ya descifrada (Edge Function `client-pii`).
+	 * Si la función no respondió, se usa la ficha que la cuenta respalda; sin ficha,
+	 * la cuenta todavía no ha pedido nada.
 	 */
 	const accountLabel = useCallback(
 		(id) => {
 			const account = accounts.find((a) => a.id === id);
 			if (!account) return `Cuenta ${String(id ?? "").slice(0, 8)}…`;
 			let label;
-			if (account.clientId) {
+			if (account.fullName) {
+				label = `${account.fullName}${account.phone ? ` · ${account.phone}` : ""}`;
+			} else if (account.clientId) {
 				label = clientLabel(account.clientId);
 			} else {
 				const since = account.createdAt ? new Date(account.createdAt).toLocaleDateString(locale) : "";

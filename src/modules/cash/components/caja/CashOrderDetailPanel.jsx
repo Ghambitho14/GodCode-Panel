@@ -25,6 +25,7 @@ import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
 import { toSafeHttpUrl } from '@/shared/utils/safeUrl';
 import OrderDetailMetaCards from '../OrderDetailMetaCards';
+import { useRevealedOrderContact } from '@/modules/cash/hooks/useRevealedOrderContact';
 import '@/modules/cash/styles/OrderCard.css';
 import './CashOrderDetailPanel.css';
 import { Button } from "@/components/ui/button";
@@ -109,9 +110,13 @@ export default function CashOrderDetailPanel({
         exchangeRate: orderMoney.exchangeRate,
     }), [branch, companyProfile, orderMoney.exchangeRate]);
 
+    // Teléfono, documento y dirección de un cliente con cuenta llegan cifrados: se
+    // revelan al abrir el detalle. Solo cambian esos campos del pedido.
+    const { order: contactOrder } = useRevealedOrderContact(liveOrder ?? order);
+
     if (!order || typeof document === 'undefined') return null;
 
-    const displayOrder = liveOrder ?? order;
+    const displayOrder = contactOrder ?? liveOrder ?? order;
 	const items = parseOrderItems(displayOrder.items);
 	const isDelivery = isOrderDelivery(displayOrder);
 	const addrLines = deliveryAddressLines(displayOrder.delivery_address);
