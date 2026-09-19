@@ -66,6 +66,10 @@ describe('analytics summary normalization', () => {
 			previous: { orders: 1, total_sales: 100 },
 		});
 		expect(hasAnalyticsChartBuckets(incomplete)).toBe(false);
+		// La RPC llama `previous` al período anterior; leerlo es lo que hace
+		// posible cualquier tendencia. (Regresión: antes solo se leía `prev`.)
+		expect(incomplete.prev.totalSales).toBe(100);
+		expect(incomplete.prev.orderCount).toBe(1);
 
 		const complete = normalizeAnalyticsSummary({
 			current: { order_count: 5, total_sales: 900, by_day: { '2026-07-24': 900 } },

@@ -37,8 +37,8 @@ describe('minor units money domain', () => {
 		expect(majorToMinor(-1.005, 'USD')).toBe(-101);
 		expect(minorToMajor(1051, 'USD')).toBe(10.51);
 		expect(sumMinor([1000, 50, 1])).toBe(1051);
-		expect(formatMinor(1051, { currency: 'USD', locale: 'en-US' })).toBe('$10.51');
+		expect(formatMinor(1051, { currency: 'USD', locale: 'en-US' })).toBe('USD 10.51');
 		expect(formatMinor(Number.MAX_SAFE_INTEGER, { currency: 'USD', locale: 'en-US' }))
-			.toBe('$90,071,992,547,409.91');
+			.toBe('USD 90,071,992,547,409.91');
 	});
 });

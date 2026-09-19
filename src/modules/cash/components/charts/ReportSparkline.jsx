@@ -88,8 +88,8 @@ function ReportSparkline({
 	trend = null,
 	showTrend = false,
 	height = 40,
-	showDots = false,
 	color = null,
+	endMarkerColor = null,
 	valueFormatter = null,
 }) {
 	const containerRef = useRef(null);
@@ -102,11 +102,16 @@ function ReportSparkline({
 	const singleValueLabel = singleValue && Number.isFinite(Number(data[0]?.valor))
 		? (valueFormatter ? valueFormatter(data[0].valor) : data[0].valor)
 		: '';
-	const dotProps = singleValue
-		? { r: 3.5, fill: stroke, stroke: '#fff', strokeWidth: 2 }
-		: showDots
-			? { r: 2.5, fill: '#fff', stroke, strokeWidth: 1.5 }
-			: false;
+	// Un solo marcador, en el ultimo punto (el periodo actual), con anillo del
+	// color de la superficie para que se lea sobre la linea. Un punto en cada
+	// dato convertia la linea en un collar de perlas ilegible.
+	const markerFill = endMarkerColor || stroke;
+	const lastIndex = data.length - 1;
+	const renderEndDot = (props) => {
+		const { cx, cy, index } = props;
+		if (index !== lastIndex || !Number.isFinite(cx) || !Number.isFinite(cy)) return null;
+		return <circle key="spark-end" cx={cx} cy={cy} r={4} fill={markerFill} stroke="#fff" strokeWidth={2} />;
+	};
 
 	return (
 		<div ref={containerRef} style={{ width: '100%', height, minHeight: height, overflow: 'hidden' }}>
@@ -135,7 +140,10 @@ function ReportSparkline({
 						dataKey="valor"
 						stroke={stroke}
 						strokeWidth={2}
-						dot={dotProps}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						dot={renderEndDot}
+						activeDot={{ r: 4, fill: markerFill, stroke: '#fff', strokeWidth: 2 }}
 						isAnimationActive={false}
 					/>
 				</LineChart>

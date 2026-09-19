@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import ReportSalesChart from '@/modules/cash/components/charts/ReportSalesChart';
 import ReportSparkline from '@/modules/cash/components/charts/ReportSparkline';
-import ReportPaymentDonut from '@/modules/cash/components/charts/ReportPaymentDonut';
+import ReportPaymentShare from '@/modules/cash/components/charts/ReportPaymentShare';
 
 describe('recharts runtime (no mock)', () => {
 	it('ReportSalesChart renders in jsdom', () => {
@@ -31,10 +31,10 @@ describe('recharts runtime (no mock)', () => {
 		expect(container.querySelector('.recharts-surface')).not.toBeNull();
 	});
 
-	it('ReportPaymentDonut renders in jsdom', () => {
+	it('ReportPaymentShare renders in jsdom', () => {
 		const { container } = render(
 			<div style={{ width: 300, height: 208 }}>
-				<ReportPaymentDonut
+				<ReportPaymentShare
 					data={[
 						{ label: 'Efectivo', value: 30000 },
 						{ label: 'Tarjeta', value: 20000 },
@@ -43,6 +43,6 @@ describe('recharts runtime (no mock)', () => {
 				/>
 			</div>,
 		);
-		expect(container.innerHTML.length).toBeGreaterThan(0);
+		expect(container.querySelector('[role="img"]')).not.toBeNull();
 	});
 });

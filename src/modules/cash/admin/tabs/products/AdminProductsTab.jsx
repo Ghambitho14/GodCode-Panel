@@ -1,9 +1,10 @@
 import React from 'react';
 import {
-	Search, Filter, Package, Eye, EyeOff, LayoutGrid, List, ArrowUpDown, Image, ImageOff,
+	Search, Filter, Eye, LayoutGrid, List, ArrowUpDown, Image, ImageOff,
 } from 'lucide-react';
 import AdminErrorBoundary from '../../../components/AdminErrorBoundary';
 import InventoryCard from '../../../components/InventoryCard';
+import '../../../styles/AdminProducts.css';
 import { useAdmin } from '../../pages/AdminProvider';
 import { Button } from "@/components/ui/button";
 import {
@@ -59,53 +60,8 @@ export default function AdminProductsTab() {
 			onRetry={() => refreshCatalog()}
 		>
 			<div className="products-view animate-fade">
-				<div className="admin-stats-bar glass">
-					<div className="admin-stats-bar__metrics">
-						<div className="admin-stats-bar__item">
-							<div className="admin-stats-bar__icon" aria-hidden>
-								<Package size={16} />
-							</div>
-							<div className="admin-stats-bar__copy">
-								<span className="admin-stats-bar__label">Total</span>
-								<strong className="admin-stats-bar__value">{productStats.total}</strong>
-							</div>
-						</div>
-						<div className="admin-stats-bar__divider" aria-hidden />
-						<div className="admin-stats-bar__item">
-							<div className="admin-stats-bar__icon admin-stats-bar__icon--success" aria-hidden>
-								<Eye size={16} />
-							</div>
-							<div className="admin-stats-bar__copy">
-								<span className="admin-stats-bar__label">Activos</span>
-								<strong className="admin-stats-bar__value admin-stats-bar__value--success">{productStats.active}</strong>
-							</div>
-						</div>
-						<div className="admin-stats-bar__divider" aria-hidden />
-						<div className="admin-stats-bar__item">
-							<div className="admin-stats-bar__icon admin-stats-bar__icon--danger" aria-hidden>
-								<EyeOff size={16} />
-							</div>
-							<div className="admin-stats-bar__copy">
-								<span className="admin-stats-bar__label">Pausados</span>
-								<strong className="admin-stats-bar__value admin-stats-bar__value--danger">{productStats.paused}</strong>
-							</div>
-						</div>
-					</div>
-					<Button
-						type="button"
-						variant="secondary"
-						className={`admin-stats-bar__photos-toggle${showProductPhotos ? ' is-on' : ''}`}
-						onClick={() => setShowProductPhotos((v) => !v)}
-						aria-pressed={showProductPhotos}
-						title={showProductPhotos ? 'Ocultar fotos en la lista de productos' : 'Mostrar fotos en la lista de productos'}
-					>
-						{showProductPhotos ? <Image size={16} aria-hidden /> : <ImageOff size={16} aria-hidden />}
-						<span>{showProductPhotos ? 'Fotos visibles' : 'Fotos ocultas'}</span>
-					</Button>
-				</div>
-
-				<div className="admin-toolbar glass">
-					<div className="admin-toolbar-row">
+				<div className="admin-toolbar products-toolbar glass">
+					<div className="products-toolbar__row">
 						<div className="search-box">
 							<Search size={18} aria-hidden />
 							<input
@@ -116,6 +72,49 @@ export default function AdminProductsTab() {
 							/>
 						</div>
 
+						<div className="products-toolbar__views">
+							<div className="admin-toolbar-view-toggle" role="group" aria-label="Modo de vista">
+								<Button
+									type="button"
+									variant="secondary"
+									size="icon"
+									className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
+									onClick={() => setViewMode('grid')}
+									title="Vista Grilla"
+									aria-label="Vista grilla"
+									aria-pressed={viewMode === 'grid'}
+								>
+									<LayoutGrid size={18} />
+								</Button>
+								<Button
+									type="button"
+									variant="secondary"
+									size="icon"
+									className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`}
+									onClick={() => setViewMode('list')}
+									title="Vista Lista"
+									aria-label="Vista lista"
+									aria-pressed={viewMode === 'list'}
+								>
+									<List size={18} />
+								</Button>
+							</div>
+							<Button
+								type="button"
+								variant="secondary"
+								size="icon"
+								className={`btn-icon-toggle products-toolbar__photos${showProductPhotos ? ' active' : ''}`}
+								onClick={() => setShowProductPhotos((v) => !v)}
+								aria-pressed={showProductPhotos}
+								title={showProductPhotos ? 'Ocultar fotos en la lista de productos' : 'Mostrar fotos en la lista de productos'}
+								aria-label={showProductPhotos ? 'Ocultar fotos en la lista de productos' : 'Mostrar fotos en la lista de productos'}
+							>
+								{showProductPhotos ? <Image size={18} aria-hidden /> : <ImageOff size={18} aria-hidden />}
+							</Button>
+						</div>
+					</div>
+
+					<div className="products-toolbar__filters">
 						<div className="filter-box">
 							<Filter size={18} aria-hidden />
 							<Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -144,9 +143,7 @@ export default function AdminProductsTab() {
 								</SelectContent>
 							</Select>
 						</div>
-					</div>
 
-					<div className="admin-toolbar-actions">
 						<div className="filter-box filter-box--compact">
 							<ArrowUpDown size={18} aria-hidden />
 							<Select value={sortOrder} onValueChange={setSortOrder}>
@@ -160,35 +157,18 @@ export default function AdminProductsTab() {
 								</SelectContent>
 							</Select>
 						</div>
-
-						<div className="admin-toolbar-view-toggle" role="group" aria-label="Modo de vista">
-							<Button
-								type="button"
-								variant="secondary"
-								size="icon"
-								className={`btn-icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
-								onClick={() => setViewMode('grid')}
-								title="Vista Grilla"
-								aria-label="Vista grilla"
-								aria-pressed={viewMode === 'grid'}
-							>
-								<LayoutGrid size={18} />
-							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								size="icon"
-								className={`btn-icon-toggle ${viewMode === 'list' ? 'active' : ''}`}
-								onClick={() => setViewMode('list')}
-								title="Vista Lista"
-								aria-label="Vista lista"
-								aria-pressed={viewMode === 'list'}
-							>
-								<List size={18} />
-							</Button>
-						</div>
 					</div>
 				</div>
+
+				<p className="products-summary" aria-live="polite">
+					<span><strong>{productStats.total}</strong> {productStats.total === 1 ? 'producto' : 'productos'}</span>
+					<span className="products-summary__sep" aria-hidden>·</span>
+					<span><strong>{productStats.active}</strong> {productStats.active === 1 ? 'activo' : 'activos'}</span>
+					<span className="products-summary__sep" aria-hidden>·</span>
+					<span className={productStats.paused > 0 ? 'products-summary__paused' : undefined}>
+						<strong>{productStats.paused}</strong> {productStats.paused === 1 ? 'pausado' : 'pausados'}
+					</span>
+				</p>
 
 				<div className={`inventory-grid${viewMode === 'list' ? ' list-mode' : ''}${showProductPhotos ? '' : ' inventory-grid--no-photos'}`}>
 					{processedProducts.map((p) => (

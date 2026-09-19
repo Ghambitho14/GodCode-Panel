@@ -91,11 +91,15 @@ export function formatMoney(amount, opts = {}) {
 		return new Intl.NumberFormat(locale, {
 			style: 'currency',
 			currency,
+			// Código ISO, no símbolo: "$" es a la vez peso chileno, argentino,
+			// mexicano y dólar, y el panel sirve a varios países. "CLP 13.621.200"
+			// no deja dudas; Venezuela opera en USD y lo ve como "USD".
+			currencyDisplay: 'code',
 			maximumFractionDigits: fractionDigits,
 			minimumFractionDigits: fractionDigits,
 		}).format(value);
 	} catch {
-		return `$${value.toLocaleString(locale)}`;
+		return `${currency} ${value.toLocaleString(locale)}`;
 	}
 }
 

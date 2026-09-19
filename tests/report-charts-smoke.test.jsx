@@ -14,7 +14,7 @@ vi.mock('recharts', async (importOriginal) => {
 });
 
 import ReportSalesChart from '@/modules/cash/components/charts/ReportSalesChart';
-import ReportPaymentDonut from '@/modules/cash/components/charts/ReportPaymentDonut';
+import ReportPaymentShare from '@/modules/cash/components/charts/ReportPaymentShare';
 import ReportSparkline from '@/modules/cash/components/charts/ReportSparkline';
 
 describe('report charts smoke test', () => {
@@ -37,9 +37,9 @@ describe('report charts smoke test', () => {
 		expect(screen.getByText('2 ene')).toBeTruthy();
 	});
 
-	it('renders ReportPaymentDonut with Recharts', () => {
+	it('renders ReportPaymentShare as a 100% stacked bar', () => {
 		const { container } = render(
-			<ReportPaymentDonut
+			<ReportPaymentShare
 				data={[
 					{ label: 'Efectivo', value: 30000 },
 					{ label: 'Tarjeta', value: 20000 },
@@ -48,8 +48,11 @@ describe('report charts smoke test', () => {
 				currency="CLP"
 			/>,
 		);
-		expect(container.querySelector('.recharts-surface')).not.toBeNull();
-		expect(screen.getByText(/Efectivo/)).toBeTruthy();
+		const bar = container.querySelector('[role="img"]');
+		expect(bar).not.toBeNull();
+		expect(bar.getAttribute('aria-label')).toMatch(/Efectivo 50 %/);
+		expect(bar.children).toHaveLength(3);
+		expect(screen.getByText(/Total cobrado/)).toBeTruthy();
 	});
 
 	it('renders ReportSparkline with positive trend color', () => {

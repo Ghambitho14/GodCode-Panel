@@ -159,6 +159,8 @@ export function formatMinor(minor, options = {}) {
 	const formatter = new Intl.NumberFormat(options.locale, {
 		style: 'currency',
 		currency,
+		// Mismo criterio que formatMoney: código ISO, nunca el símbolo ambiguo "$".
+		currencyDisplay: 'code',
 		minimumFractionDigits: digits,
 		maximumFractionDigits: digits,
 	});

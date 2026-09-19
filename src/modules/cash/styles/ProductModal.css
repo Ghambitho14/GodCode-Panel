@@ -906,3 +906,314 @@
     gap: 16px;
   }
 }
+
+/* =========================================
+   Producto: formulario a dos columnas (foto | datos)
+   Antes: una sola columna de 520px con la zona de foto de 180px arriba, así que
+   todo el formulario vivía detrás de un scroll. Con 760px y la foto en su
+   columna, en escritorio entra sin desplazarse.
+   ========================================= */
+.admin-layout .modal-content.product-modal-content {
+  max-width: 760px;
+}
+
+.admin-layout .product-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+.admin-layout .product-form__media {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-layout .product-form__media .product-image-section {
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1.5px dashed color-mix(in srgb, var(--admin-text-muted, #64748b) 45%, var(--admin-border, #e5e5ea));
+  background: var(--admin-icon-bg, #f5f5f7);
+}
+
+.admin-layout .product-form__media .product-image-section:hover,
+.admin-layout .product-form__media .product-image-section.dragging {
+  border-color: var(--admin-accent, #2563eb);
+  background: color-mix(in srgb, var(--admin-accent, #2563eb) 6%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .product-form__media .image-preview-container,
+.admin-layout .product-form__media .image-preview {
+  width: 100%;
+  height: 100%;
+}
+
+.admin-layout .product-form__media .image-preview {
+  object-fit: cover;
+}
+
+.admin-layout .product-form__media .icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--admin-card-bg, #fff);
+  border: 1px solid var(--admin-border, #e5e5ea);
+  color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .product-form__media .drop-text {
+  font-size: 0.82rem;
+  color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .product-form__media .drop-text span {
+  color: var(--admin-accent, #2563eb);
+  font-weight: 700;
+}
+
+.admin-layout .product-form__media-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .product-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-layout .product-form__fields .form-group {
+  margin: 0;
+}
+
+/* Precio con la moneda como prefijo */
+.admin-layout .product-form__money {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--admin-border, #e5e5ea);
+  border-radius: 10px;
+  background: var(--admin-card-bg, #fff);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-layout .product-form__money:focus-within {
+  border-color: var(--admin-accent, #2563eb);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent, #2563eb) 18%, transparent);
+}
+
+.admin-layout .product-form__money.error {
+  border-color: var(--admin-danger, #ef4444);
+}
+
+.admin-layout .product-form__money-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--admin-text-muted, #64748b);
+  background: var(--admin-icon-bg, #f5f5f7);
+  border-right: 1px solid var(--admin-border, #e5e5ea);
+}
+
+.admin-layout .product-form__money .form-input {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .product-form__money .form-input:focus {
+  box-shadow: none;
+  border: 0;
+}
+
+/* Categoría: el mismo desplegable que usa el resto del panel */
+.admin-layout .product-form__select.admin-branch-select {
+  width: 100%;
+  max-width: none;
+}
+
+.admin-layout .product-form__select .admin-branch-select__trigger {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.admin-layout .product-form__select.error .admin-branch-select__trigger {
+  border-color: var(--admin-danger, #ef4444);
+}
+
+/* Opciones: una lista, no dos cajas */
+.admin-layout .product-form__options {
+  border: 1px solid var(--admin-border, #e5e5ea);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-layout .product-form__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--admin-card-bg, #fff);
+}
+
+.admin-layout .product-form__option + .product-form__option,
+.admin-layout .product-form__option-field {
+  border-top: 1px solid var(--admin-border, #e5e5ea);
+}
+
+.admin-layout .product-form__option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  background: var(--admin-icon-bg, #f5f5f7);
+  color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .product-form__option.is-on .product-form__option-icon {
+  background: color-mix(in srgb, var(--admin-accent, #2563eb) 12%, var(--admin-card-bg, #fff));
+  color: var(--admin-accent, #2563eb);
+}
+
+.admin-layout .product-form__option .switch-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-layout .product-form__option .switch-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .product-form__option .switch-desc {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .product-form__option-field {
+  padding: 12px 14px 14px;
+  background: color-mix(in srgb, var(--admin-icon-bg, #f5f5f7) 60%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .product-form__option-field label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+@media (min-width: 720px) {
+  .admin-layout .product-form {
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+}
+
+/* Teléfono: la zona de foto a ancho completo y cuadrada ocupaba media pantalla
+   (343px) antes del primer campo; apaisada deja el nombre a la vista. */
+@media (max-width: 719px) {
+  .admin-layout .product-form__media .product-image-section {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* Controles del formulario a una sola altura (44px). Medido: el input de
+   nombre daba 49px, el precio con prefijo 51 y el desplegable de categoría 42,
+   así que la fila Precio | Categoría quedaba escalonada. */
+.admin-layout .product-form__fields .form-input {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.admin-layout .product-form__fields textarea.form-input {
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+.admin-layout .product-form__money {
+  min-height: 44px;
+}
+
+.admin-layout .product-form__money .form-input {
+  min-height: 42px;
+  padding: 9px 12px;
+}
+
+.admin-layout .product-form__money-prefix {
+  min-width: 52px;
+  justify-content: center;
+  padding: 0 10px;
+}
+
+.admin-layout .product-form__select .admin-branch-select__trigger {
+  min-height: 44px;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+/* Legibilidad: nada por debajo de 12,5px */
+.admin-layout .product-form__media-hint,
+.admin-layout .product-form__option .switch-desc {
+  font-size: 0.78rem;
+}
+
+/* Cambiar / quitar foto siempre visibles: en táctil no existe el hover del
+   recuadro, que era la única forma de llegar a "Quitar imagen". */
+.admin-layout .product-form__media-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-layout .product-form__media-btn {
+  flex: 1 1 0;
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--admin-border, #e5e5ea);
+  background: var(--admin-card-bg, #fff);
+  color: var(--admin-text, #1d1d1f);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.admin-layout .product-form__media-btn:hover {
+  background: var(--admin-icon-bg, #f5f5f7);
+}
+
+.admin-layout .product-form__media-btn--danger {
+  color: var(--admin-danger-hover, #b91c1c);
+}
+
+.admin-layout .product-form__media-btn--danger:hover {
+  background: color-mix(in srgb, var(--admin-danger, #ef4444) 10%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .product-form__media-btn:focus-visible {
+  outline: 2px solid var(--admin-accent, #2563eb);
+  outline-offset: 2px;
+}

@@ -24,11 +24,13 @@ export function formatCartMoney(amount, currency) {
 		return new Intl.NumberFormat(locale, {
 			style: 'currency',
 			currency: code,
+			// Código ISO, como formatMoney; los bolívares ya salen arriba como "Bs.".
+			currencyDisplay: 'code',
 			maximumFractionDigits: fractionDigits,
 			minimumFractionDigits: fractionDigits,
 		}).format(value);
 	} catch {
-		return `$${value.toLocaleString(locale)}`;
+		return `${code} ${value.toLocaleString(locale)}`;
 	}
 }
 

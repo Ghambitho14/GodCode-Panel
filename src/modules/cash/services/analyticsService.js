@@ -98,7 +98,10 @@ export function normalizeAnalyticsSummary(raw) {
 	const row = /** @type {Record<string, unknown>} */ (raw);
 	return {
 		current: normalizeAnalyticsPeriodSummary(row.current),
-		prev: normalizeAnalyticsPeriodSummary(row.prev),
+		// La RPC `admin_analytics_summary` entrega el período anterior como
+		// `previous`; aquí solo se leía `prev`, así que la comparación llegaba
+		// siempre vacía y todas las tendencias salían "sin base".
+		prev: normalizeAnalyticsPeriodSummary(row.prev ?? row.previous),
 	};
 }
 

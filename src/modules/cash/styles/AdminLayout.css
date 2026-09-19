@@ -2219,7 +2219,11 @@
 @media (min-width: 1280px) {
 	.admin-layout .content-header {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		/* La columna del título nunca baja de su contenido: con el clúster
+		   ancho (pestañas con botón principal) "Menú y carta" se recortaba a
+		   1280px. Si el título no cabe en su mitad, el clúster cede unos px
+		   hacia la derecha en esa pestaña; antes que recortar el título. */
+		grid-template-columns: minmax(max-content, 1fr) auto minmax(0, 1fr);
 		align-items: center;
 	}
 

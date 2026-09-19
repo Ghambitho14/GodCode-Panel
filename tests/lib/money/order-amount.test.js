@@ -18,7 +18,7 @@ describe('formatOrderAmount', () => {
 			company: { country: 'VE' },
 			paymentMethod: 'pago_movil',
 		});
-		expect(out).toBe('$10.00');
+		expect(out).toBe('USD 10.00');
 	});
 
 	it('dual display con tasa y método local', () => {
@@ -30,7 +30,7 @@ describe('formatOrderAmount', () => {
 			},
 			paymentMethod: 'pago_movil',
 		});
-		expect(out).toContain('$10.00');
+		expect(out).toContain('USD 10.00');
 		expect(out).toContain('Bs.');
 	});
 

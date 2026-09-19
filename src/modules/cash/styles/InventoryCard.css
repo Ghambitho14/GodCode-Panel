@@ -1,497 +1,440 @@
 /* =========================================
-   INVENTORY CARDS — tema claro (Jobie-like)
+   MENÚ Y CARTA — tarjeta de producto
+   Lectura de carta: foto, nombre, precio; el estado y las acciones en el pie,
+   en voz baja. Sin pastillas de colores compitiendo con la foto.
    ========================================= */
 
 .admin-layout .inventory-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-	gap: 22px;
+	grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+	gap: 18px;
 	padding-bottom: 40px;
 	animation: fadeIn 0.4s ease-out;
 }
 
+.admin-layout .inventory-grid.inventory-grid--no-photos {
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 14px;
+}
+
 .admin-layout .inventory-card {
-	background: var(--admin-card-bg, #fff);
-	border: 1px solid var(--admin-border, #e2e8f0);
-	border-radius: 14px;
-	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
-	overflow: hidden;
-	position: relative;
-	transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.2s ease;
-	cursor: pointer;
-	-webkit-user-select: none;
-	user-select: none;
 	display: flex;
 	flex-direction: column;
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
+	min-width: 0;
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e5e5ea);
+	border-radius: 14px;
+	overflow: hidden;
+	cursor: pointer;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .admin-layout .inventory-card:hover {
-	transform: translateY(-4px);
-	border-color: color-mix(in srgb, var(--accent-primary) 22%, var(--admin-border));
-	box-shadow: var(--admin-shadow-md, 0 12px 40px rgba(15, 23, 42, 0.12));
+	border-color: color-mix(in srgb, var(--admin-text-muted, #64748b) 45%, var(--admin-border, #e5e5ea));
+	box-shadow: var(--admin-shadow-md);
 }
 
 .admin-layout .inventory-card:focus-visible {
-	outline: 2px solid var(--admin-accent, var(--accent-primary));
-	outline-offset: 4px;
+	outline: 2px solid var(--admin-accent, #2563eb);
+	outline-offset: 2px;
 }
 
-.admin-layout .inventory-card.inactive {
-	opacity: 0.88;
-}
-
-.admin-layout .inventory-card.inactive .inv-img-wrapper img {
-	filter: grayscale(100%);
-	opacity: 0.65;
-}
-
+/* Foto */
 .admin-layout .inv-img-wrapper {
-	width: 100%;
-	aspect-ratio: 16 / 9;
 	position: relative;
+	aspect-ratio: 4 / 3;
+	background: var(--admin-icon-bg, #f5f5f7);
 	overflow: hidden;
-	background: var(--admin-icon-bg, #f8fafc);
 }
 
 .admin-layout .inv-img-wrapper img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
-	transition: transform 0.5s ease;
+	display: block;
+	transition: transform 0.35s ease, filter 0.25s ease;
 }
 
 .admin-layout .inventory-card:hover .inv-img-wrapper img {
-	transform: scale(1.05);
+	transform: scale(1.03);
 }
 
-.admin-layout .inv-status-toggle {
+.admin-layout .inventory-card.inactive .inv-img-wrapper img {
+	filter: grayscale(0.7) brightness(1.04);
+}
+
+/* Interruptor pausar / activar */
+.admin-layout .inv-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 9px;
+	border: 1px solid var(--admin-border, #e5e5ea);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #1d1d1f);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-layout .inv-toggle--overlay {
 	position: absolute;
 	top: 10px;
 	right: 10px;
-	width: 36px;
-	height: 36px;
-	border-radius: 10px;
-	background: rgba(255, 255, 255, 0.92);
-	border: 1px solid var(--admin-border, #e2e8f0);
-	color: var(--admin-text, #0f172a);
+	background: rgba(255, 255, 255, 0.94);
 	box-shadow: var(--admin-shadow-sm);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: all 0.2s;
-	z-index: 2;
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
 }
 
-.admin-layout .inv-status-toggle:hover {
-	background: var(--admin-card-bg);
-	color: var(--admin-accent);
-	border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--admin-border));
-	transform: scale(1.06);
+.admin-layout .inv-toggle.is-off {
+	color: var(--admin-text-muted, #64748b);
 }
 
-.admin-layout .inv-status-toggle.off {
-	background: color-mix(in srgb, var(--admin-danger, #ef4444) 12%, var(--admin-card-bg));
-	color: var(--admin-danger, #ef4444);
-	border-color: rgba(220, 38, 38, 0.35);
+.admin-layout .inv-toggle:hover {
+	background: var(--admin-icon-bg, #f5f5f7);
+	border-color: color-mix(in srgb, var(--admin-text-muted, #64748b) 40%, var(--admin-border, #e5e5ea));
 }
 
+.admin-layout .inv-toggle:focus-visible,
+.admin-layout .inv-icon-btn:focus-visible {
+	outline: 2px solid var(--admin-accent, #2563eb);
+	outline-offset: 2px;
+}
+
+/* Texto */
 .admin-layout .inv-info {
-	padding: 16px;
 	display: flex;
 	flex-direction: column;
-	flex: 1;
-	gap: 12px;
-}
-
-.admin-layout .inv-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
 	gap: 10px;
+	padding: 14px 16px 12px;
+	flex: 1;
+	min-width: 0;
 }
 
-.admin-layout .inv-title-row {
+.admin-layout .inv-main {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	flex: 1;
+	min-width: 0;
 }
 
-.admin-layout .inv-header h4 {
-	font-size: 1rem;
-	font-weight: 700;
+.admin-layout .inv-name {
 	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 700;
 	line-height: 1.3;
-	color: var(--admin-text, #0f172a);
+	letter-spacing: -0.01em;
+	color: var(--admin-text, #1d1d1f);
 	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
 	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 	overflow: hidden;
-}
-
-.admin-layout .badge-special {
-	font-size: 0.75rem;
-	color: var(--admin-accent, var(--accent-secondary));
-	font-weight: 600;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
+	overflow-wrap: anywhere;
 }
 
 .admin-layout .inv-description {
-	font-size: 0.85rem;
-	color: var(--admin-text-muted, #64748b);
 	margin: 0;
-	line-height: 1.4;
+	font-size: 0.8rem;
+	line-height: 1.45;
+	color: var(--admin-text-muted, #64748b);
 	display: -webkit-box;
-	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
 	overflow: hidden;
-	text-overflow: ellipsis;
+	overflow-wrap: anywhere;
 }
 
-.admin-layout .price-container {
+/* Precio */
+.admin-layout .inv-price-row {
 	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	text-align: right;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 8px;
+	margin-top: auto;
 }
 
 .admin-layout .inv-price {
-	font-weight: 800;
-	color: var(--admin-text, #0f172a);
 	font-size: 1rem;
-	white-space: nowrap;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	color: var(--admin-text, #1d1d1f);
+	font-variant-numeric: tabular-nums;
 }
 
-.admin-layout .inv-price.discount {
-	color: var(--discount-color, #25d366);
-	font-size: 1.1rem;
+.admin-layout .inv-price--offer {
+	color: var(--color-gc-discount, #00705b);
 }
 
 .admin-layout .inv-price-original {
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+	font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .inv-badge-special {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.68rem;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 10%, var(--admin-card-bg, #fff));
+	color: var(--admin-accent, #2563eb);
+}
+
+/* Pie: estado + acciones */
+.admin-layout .inv-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding-top: 10px;
+	border-top: 1px solid var(--admin-border, #e5e5ea);
+}
+
+.admin-layout .inv-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	font-size: 0.75rem;
-	text-decoration: line-through;
-	color: var(--admin-text-muted, #94a3b8);
-	margin-bottom: 2px;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .inv-status-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--admin-text-muted, #64748b);
+	opacity: 0.55;
+}
+
+.admin-layout .inv-status.is-active {
+	color: var(--color-gc-success, #00705b);
+}
+
+.admin-layout .inv-status.is-active .inv-status-dot {
+	background: var(--color-gc-success, #00705b);
+	opacity: 1;
 }
 
 .admin-layout .inv-actions {
-	display: flex;
-	justify-content: space-between;
+	display: inline-flex;
 	align-items: center;
-	margin-top: auto;
-	padding-top: 12px;
-	border-top: 1px solid var(--admin-border, #e2e8f0);
+	gap: 2px;
 }
 
-.admin-layout .inventory-card .status-badge {
-	font-size: 0.65rem;
-	padding: 4px 8px;
-	border-radius: 8px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-}
-
-.admin-layout .inventory-card .status-badge.active {
-	background: rgba(37, 211, 102, 0.12);
-	color: #25d366;
-	border: 1px solid rgba(37, 211, 102, 0.25);
-}
-
-.admin-layout .inventory-card .status-badge.paused {
-	background: var(--admin-icon-bg, #f8fafc);
-	color: var(--admin-text-muted, #64748b);
-	border: 1px solid var(--admin-border, #e2e8f0);
-}
-
-.admin-layout .action-buttons {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.admin-layout .inventory-card .action-buttons .btn-edit-sm,
-.admin-layout .inventory-card .action-buttons .btn-trash-sm,
-.admin-layout .inventory-card .action-buttons .btn-icon-sm {
-	width: 32px !important;
-	height: 32px !important;
-	min-width: 32px !important;
-	min-height: 32px !important;
-	padding: 0 !important;
-	border-radius: 10px !important;
-	box-shadow: none !important;
+.admin-layout .inv-icon-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-}
-
-.admin-layout .inventory-card .action-buttons .btn-edit-sm {
-	background: var(--admin-accent, #2563eb) !important;
-	border: 1px solid transparent !important;
-	color: #fff !important;
-}
-
-.admin-layout .inventory-card .action-buttons .btn-edit-sm:hover {
-	filter: brightness(1.05);
-}
-
-.admin-layout .btn-icon-sm,
-.admin-layout .btn-trash-sm {
-	background: var(--admin-icon-bg, #f8fafc);
-	border: 1px solid var(--admin-border, #e2e8f0);
-	color: var(--admin-text-muted, #64748b);
-	cursor: pointer;
-	padding: 8px;
-	border-radius: 10px;
-	transition: all 0.2s;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.admin-layout .btn-icon-sm:hover {
-	background: color-mix(in srgb, var(--accent-primary) 10%, var(--admin-icon-bg));
-	color: var(--admin-accent);
-	border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
-}
-
-.admin-layout .btn-trash-sm:hover {
-	background: rgba(220, 38, 38, 0.08);
-	color: var(--admin-danger, #ef4444);
-	border-color: rgba(220, 38, 38, 0.3);
-}
-
-/* Vista lista (una columna, fila horizontal) */
-.admin-layout .inventory-grid.inventory-grid--no-photos {
-	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-	gap: 16px;
-}
-
-.admin-layout .inventory-card.inventory-card--no-photos .inv-info {
-	padding: 12px 14px 14px;
-}
-
-.admin-layout .inventory-card.inventory-card--no-photos .inv-header-top {
-	display: flex;
-	justify-content: flex-end;
-	margin-bottom: 8px;
-}
-
-.admin-layout .inv-status-toggle--inline {
-	position: static;
 	width: 32px;
 	height: 32px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--admin-text-muted, #64748b);
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
 }
 
-.admin-layout .inventory-card.list-view.inventory-card--no-photos .inv-info {
-	padding: 14px 16px;
+.admin-layout .inv-icon-btn:hover {
+	background: var(--admin-icon-bg, #f5f5f7);
+	color: var(--admin-text, #1d1d1f);
 }
 
+.admin-layout .inv-icon-btn--danger:hover {
+	background: color-mix(in srgb, var(--admin-danger, #ef4444) 10%, var(--admin-card-bg, #fff));
+	color: var(--admin-danger-hover, #b91c1c);
+}
+
+.admin-layout .inv-toggle--inline {
+	width: 32px;
+	height: 32px;
+	border-color: transparent;
+	background: transparent;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .inv-toggle--inline.is-on {
+	color: var(--color-gc-success, #00705b);
+}
+
+.admin-layout .inv-toggle--inline:hover {
+	background: var(--admin-icon-bg, #f5f5f7);
+	border-color: transparent;
+}
+
+/* =========================================
+   Vista lista: una fila por producto
+   ========================================= */
 .admin-layout .inventory-grid.list-mode {
 	grid-template-columns: 1fr;
-	gap: 12px;
+	gap: 8px;
 }
 
 .admin-layout .inventory-card.list-view {
 	flex-direction: row;
-	align-items: stretch;
-	max-width: 100%;
-}
-
-.admin-layout .inventory-card.list-view:hover {
-	transform: none;
+	align-items: center;
+	gap: 14px;
+	padding: 10px 12px 10px 10px;
+	border-radius: 12px;
 }
 
 .admin-layout .inventory-card.list-view .inv-img-wrapper {
-	width: 140px;
-	min-width: 140px;
-	max-width: 140px;
+	width: 64px;
+	height: 64px;
 	aspect-ratio: 1;
-	height: auto;
-	align-self: stretch;
+	flex-shrink: 0;
+	border-radius: 10px;
 }
 
 .admin-layout .inventory-card.list-view .inv-info {
-	min-width: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	align-items: center;
+	gap: 16px;
+	padding: 0;
 }
 
-.admin-layout .inventory-card.list-view .inv-actions {
-	gap: 8px;
+.admin-layout .inventory-card.list-view .inv-description {
+	-webkit-line-clamp: 1;
 }
 
+.admin-layout .inventory-card.list-view .inv-price-row {
+	margin-top: 0;
+	justify-content: flex-end;
+	flex-wrap: nowrap;
+}
+
+.admin-layout .inventory-card.list-view .inv-badge-special {
+	margin-left: 4px;
+}
+
+.admin-layout .inventory-card.list-view .inv-footer {
+	padding-top: 0;
+	border-top: 0;
+	gap: 14px;
+}
+
+.admin-layout .inventory-card.list-view .inv-status {
+	min-width: 6.5rem;
+}
+
+/* =========================================
+   Móvil
+   ========================================= */
 @media (max-width: 768px) {
-	/* Grilla mobile: 2 columnas compactas */
 	.admin-layout .inventory-grid:not(.list-mode) {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 10px;
 		padding-bottom: 24px;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode).inventory-grid--no-photos {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .inventory-card:hover {
-		transform: none;
-	}
-
 	.admin-layout .inventory-grid:not(.list-mode) .inv-img-wrapper {
 		aspect-ratio: 1;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode) .inv-status-toggle {
+	.admin-layout .inventory-grid:not(.list-mode) .inv-toggle--overlay {
 		width: 30px;
 		height: 30px;
 		top: 6px;
 		right: 6px;
-		border-radius: 8px;
 	}
 
 	.admin-layout .inventory-grid:not(.list-mode) .inv-info {
-		padding: 10px;
+		padding: 10px 10px 8px;
 		gap: 8px;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode) .inv-header {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 4px;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .inv-header h4 {
-		font-size: 0.82rem;
-		line-height: 1.25;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .price-container {
-		align-items: flex-start;
-		text-align: left;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .inv-price {
-		font-size: 0.86rem;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .inv-price.discount {
-		font-size: 0.9rem;
+	.admin-layout .inventory-grid:not(.list-mode) .inv-name {
+		font-size: 0.85rem;
 	}
 
 	.admin-layout .inventory-grid:not(.list-mode) .inv-description {
 		display: none;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode) .badge-special {
-		font-size: 0.68rem;
+	.admin-layout .inventory-grid:not(.list-mode) .inv-price {
+		font-size: 0.95rem;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode) .inv-actions {
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		gap: 6px;
+	.admin-layout .inventory-grid:not(.list-mode) .inv-footer {
 		padding-top: 8px;
 	}
 
-	.admin-layout .inventory-grid:not(.list-mode) .status-badge {
-		display: inline-flex;
-		align-items: center;
-		flex: 0 1 auto;
-		min-width: 0;
-		max-width: calc(100% - 72px);
-		font-size: 0.55rem;
-		padding: 4px 6px;
-		border-radius: 6px;
-		letter-spacing: 0.02em;
-		line-height: 1.1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .action-buttons {
-		width: auto;
-		flex-shrink: 0;
-		justify-content: flex-end;
-		margin-left: 0;
-		gap: 6px;
-	}
-
-	.admin-layout .inventory-grid:not(.list-mode) .action-buttons .btn-edit-sm,
-	.admin-layout .inventory-grid:not(.list-mode) .action-buttons .btn-trash-sm,
-	.admin-layout .inventory-grid:not(.list-mode) .action-buttons .btn-icon-sm {
-		width: 30px !important;
-		height: 30px !important;
-		min-width: 30px !important;
-		min-height: 30px !important;
-		border-radius: 8px !important;
-	}
-
-	.admin-layout .inventory-grid.list-mode {
-		gap: 10px;
-	}
-
-	/* Lista en mobile: fila compacta (no volver a columna/grilla) */
 	.admin-layout .inventory-card.list-view {
-		flex-direction: row;
-		align-items: stretch;
+		gap: 10px;
+		padding: 8px 10px 8px 8px;
 	}
 
 	.admin-layout .inventory-card.list-view .inv-img-wrapper {
-		width: 84px;
-		min-width: 84px;
-		max-width: 84px;
-		aspect-ratio: 1;
-		height: auto;
-		align-self: stretch;
+		width: 56px;
+		height: 56px;
 	}
 
 	.admin-layout .inventory-card.list-view .inv-info {
-		padding: 10px 12px;
-		gap: 8px;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'main price'
+			'footer footer';
+		gap: 6px 12px;
 	}
 
-	.admin-layout .inventory-card.list-view .inv-header {
-		gap: 8px;
+	.admin-layout .inventory-card.list-view .inv-main {
+		grid-area: main;
 	}
 
-	.admin-layout .inventory-card.list-view .inv-header h4 {
-		font-size: 0.9rem;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
+	.admin-layout .inventory-card.list-view .inv-price-row {
+		grid-area: price;
 	}
 
-	.admin-layout .inventory-card.list-view .inv-description {
-		display: none;
+	.admin-layout .inventory-card.list-view .inv-footer {
+		grid-area: footer;
+		justify-content: space-between;
 	}
+}
 
-	.admin-layout .inventory-card.list-view .inv-price {
-		font-size: 0.9rem;
-	}
+/* Bebidas y Extras usan los mismos botones de acción en sus tarjetas; misma
+   voz baja que en la carta (antes heredaban aquí un cuadrado azul relleno). */
+.admin-layout .admin-cart-upsell-card__actions .btn-edit-sm,
+.admin-layout .admin-cart-upsell-card__actions .btn-trash-sm {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--admin-text-muted, #64748b);
+	box-shadow: none;
+}
 
-	.admin-layout .inventory-card.list-view .inv-actions {
-		padding-top: 8px;
-		flex-wrap: nowrap;
-		gap: 6px;
-	}
+.admin-layout .admin-cart-upsell-card__actions .btn-edit-sm:hover {
+	background: var(--admin-icon-bg, #f5f5f7);
+	color: var(--admin-text, #1d1d1f);
+}
 
-	.admin-layout .inventory-card.list-view .status-badge {
-		font-size: 0.6rem;
-		padding: 3px 6px;
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
+.admin-layout .admin-cart-upsell-card__actions .btn-trash-sm:hover {
+	background: color-mix(in srgb, var(--admin-danger, #ef4444) 10%, var(--admin-card-bg, #fff));
+	color: var(--admin-danger-hover, #b91c1c);
+}
 
-	.admin-layout .inventory-card.list-view.inventory-card--no-photos .inv-info {
-		padding: 12px;
-	}
+/* Legibilidad del pie: 12px se quedaba corto */
+.admin-layout .inv-status {
+	font-size: 0.78rem;
+}
+
+/* Barra de cifras y barra de filtros: mismo padding y controles de 40px, para
+   que las dos cajas midan igual (64 vs 66px) y sus bordes queden a ras. */
+.admin-layout .products-view .admin-stats-bar {
+	/* 11 + 42 (fila de cifras) + 11 + 2 de borde = 66px, igual que la barra de filtros */
+	padding: 11px 12px;
+}
+
+.admin-layout .products-view .admin-stats-bar__photos-toggle {
+	height: 40px !important;
+	min-height: 40px !important;
 }

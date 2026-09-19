@@ -1,0 +1,159 @@
+/* =========================================
+   MENÚ Y CARTA — barra de herramientas
+   Una sola barra: buscador, filtros, orden, vista y fotos. Los contadores
+   (total · activos · pausados) son una línea de texto sobre la rejilla, no una
+   segunda caja con tres iconos. En teléfono: fila 1 buscador + vistas, fila 2
+   filtros como chips desplazables; de ~300px de cabecera a ~130px.
+   ========================================= */
+
+.admin-layout .admin-toolbar.products-toolbar {
+	margin-bottom: 12px;
+	/* En portátiles (contenido ~760px) la fila no cabe: las vistas bajan a una
+	   segunda línea, alineadas a la derecha, en vez de recortar los filtros. */
+	flex-wrap: wrap;
+}
+
+/* En escritorio la fila (buscador + vistas) se disuelve y sus hijos se ordenan
+   con el resto: buscador · filtros · vistas. */
+.admin-layout .products-toolbar__row {
+	display: contents;
+}
+
+.admin-layout .products-toolbar .search-box {
+	order: 1;
+	flex: 1 1 200px;
+	min-width: 160px;
+}
+
+.admin-layout .products-toolbar__filters {
+	order: 2;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+.admin-layout .products-toolbar .filter-box {
+	/* Ancho de su contenido: con flex-shrink los rótulos se recortaban a
+	   "Todas las catego…" a 1280px. */
+	min-width: 0;
+	flex: 0 0 auto;
+}
+
+.admin-layout .products-toolbar__views {
+	order: 3;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.admin-layout .products-toolbar__photos.btn-icon-toggle {
+	width: 40px;
+	height: 40px;
+	border: 1px solid color-mix(in srgb, var(--admin-border, #e2e8f0) 85%, transparent) !important;
+	background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 88%, var(--admin-card-bg, #fff)) !important;
+	color: var(--admin-text-muted, #64748b) !important;
+}
+
+.admin-layout .products-toolbar__photos.btn-icon-toggle.active {
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 10%, var(--admin-card-bg, #fff)) !important;
+	border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 30%, var(--admin-border, #e2e8f0)) !important;
+	color: var(--admin-accent, #2563eb) !important;
+}
+
+/* Contadores como frase */
+.admin-layout .products-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+	margin: 0 0 14px 4px;
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .products-summary strong {
+	font-weight: 700;
+	color: var(--admin-text, #1d1d1f);
+	font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .products-summary .products-summary__paused strong {
+	color: var(--admin-danger-hover, #b91c1c);
+}
+
+.admin-layout .products-summary__sep {
+	opacity: 0.6;
+}
+
+/* =========================================
+   Hasta 1359px (portátiles y tablets): dos filas ordenadas — buscador + vistas
+   arriba, filtros abajo — en vez de dejar que el flex-wrap reparta como caiga.
+   ========================================= */
+@media (max-width: 1359px) {
+	.admin-layout .products-toolbar > .products-toolbar__row {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 8px;
+		flex: 1 1 100%;
+		min-width: 0;
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__row .search-box {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__views {
+		margin-left: 0;
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__filters {
+		flex: 1 1 100%;
+		flex-wrap: wrap;
+	}
+}
+
+/* =========================================
+   Teléfono: filtros como chips desplazables
+   ========================================= */
+@media (max-width: 768px) {
+	.admin-layout .admin-toolbar.products-toolbar {
+		gap: 10px;
+		padding: 10px;
+		margin-bottom: 10px;
+	}
+
+	/* Sin barra de scroll y con fundido de "hay más" */
+	.admin-layout .products-toolbar .products-toolbar__filters {
+		flex-wrap: nowrap;
+		gap: 8px;
+		overflow-x: auto;
+		scrollbar-width: none;
+		padding-bottom: 1px;
+		mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__filters::-webkit-scrollbar {
+		display: none;
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__filters .filter-box {
+		flex: 0 0 auto;
+		height: 36px;
+		min-height: 36px;
+		padding: 0 10px;
+		border-radius: 999px;
+	}
+
+	.admin-layout .products-toolbar .products-toolbar__filters .filter-box .admin-toolbar-select-trigger {
+		font-size: 0.85rem !important;
+	}
+
+	.admin-layout .products-summary {
+		margin: 0 0 10px 2px;
+	}
+}

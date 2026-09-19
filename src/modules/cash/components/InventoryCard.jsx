@@ -1,67 +1,77 @@
 import React, { memo } from 'react';
-import { Eye, EyeOff, Trash, Edit3, Star } from 'lucide-react';
-import AdminIconSlot from './AdminIconSlot';
+import { Eye, EyeOff, Trash2, Pencil, Star } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useFoodFallbackImage } from '@/modules/cash/hooks/useFoodFallbackImage';
 import ProgressiveProductImage from './ProgressiveProductImage';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../constants/productImagePlaceholder';
-import { Button } from "@/components/ui/button";
 
 /**
  * Tarjeta de producto del **menú / carta** (catálogo vendible).
  * El nombre histórico `InventoryCard` se mantiene por imports; en UI se distingue de la pestaña Inventario (insumos).
+ *
+ * Anatomía (arriba → abajo): foto · nombre + descripción · precio (+ oferta,
+ * + "Especial") · pie con estado y acciones. Nombre y precio ya no comparten
+ * fila: con nombres de dos líneas el precio partía el título por la mitad.
  */
 const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, setIsModalOpen, deleteProduct, viewMode = 'grid', showPhotos = true }) => {
     const { formatMoney } = useBranchMoney();
     const rawImageUrl = product.image_url?.trim() || null;
     const categoryName = product.category_name || product.category?.name || '';
     const { url: fallbackUrl } = useFoodFallbackImage(categoryName, product.id, showPhotos);
+    const isList = viewMode === 'list';
+    const active = Boolean(product.is_active);
 
-    // Manejadores de eventos limpios para evitar lógica en el JSX
     const handleEditClick = () => {
         setEditingProduct(product);
         setIsModalOpen(true);
     };
 
     const handleToggleClick = (e) => {
-        e.stopPropagation(); // Detener burbujeo crítico
+        e.stopPropagation();
         toggleProductActive(product, e);
     };
 
     const handleDeleteClick = (e) => {
-        e.stopPropagation(); // Detener burbujeo crítico
+        e.stopPropagation();
         deleteProduct(product.id);
     };
 
-    // Manejo de teclado para accesibilidad (Enter para editar)
+    // Enter / espacio sobre la tarjeta abren la edición; los botones hijos no.
     const handleKeyDown = (e) => {
-        // Evitar que se dispare si el evento viene de un botón hijo (ej. eliminar/toggle)
         if (e.target !== e.currentTarget) return;
-
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleEditClick();
         }
     };
 
-    const statusToggleBtn = (
-        <Button variant="default"
-            className={`inv-status-toggle ${product.is_active ? 'on' : 'off'}${showPhotos && viewMode === 'grid' ? '' : ' inv-status-toggle--inline'}`}
-            onClick={handleToggleClick}
-            title={product.is_active ? 'Pausar venta' : 'Activar venta'}
+    const toggleButton = (extraClass) => (
+        <button
             type="button"
+            className={`inv-toggle ${active ? 'is-on' : 'is-off'} ${extraClass}`}
+            onClick={handleToggleClick}
+            title={active ? 'Pausar venta' : 'Activar venta'}
+            aria-label={active ? 'Pausar venta' : 'Activar venta'}
+            aria-pressed={active}
         >
-            {product.is_active ? <Eye size={16} /> : <EyeOff size={16} />}
-        </Button>
+            {active ? <Eye size={15} strokeWidth={1.75} aria-hidden /> : <EyeOff size={15} strokeWidth={1.75} aria-hidden />}
+        </button>
     );
 
+    const className = [
+        'inventory-card',
+        active ? '' : 'inactive',
+        isList ? 'list-view' : '',
+        showPhotos ? '' : 'inventory-card--no-photos',
+    ].filter(Boolean).join(' ');
+
     return (
-        <div 
-            className={`inventory-card glass ${!product.is_active ? 'inactive' : ''} ${viewMode === 'list' ? 'list-view' : ''}${showPhotos ? '' : ' inventory-card--no-photos'}`}
+        <article
+            className={className}
             onClick={handleEditClick}
             onKeyDown={handleKeyDown}
             role="button"
-            tabIndex={0} // Hace que el div sea "enfocable" con Tab
+            tabIndex={0}
             aria-label={`Editar producto ${product.name}`}
         >
             {showPhotos ? (
@@ -74,91 +84,67 @@ const InventoryCard = memo(({ product, toggleProductActive, setEditingProduct, s
                         placeholderClassName="inv-img-placeholder"
                         preset="catalogCard"
                     />
-                    {viewMode === 'grid' ? statusToggleBtn : null}
+                    {!isList ? toggleButton('inv-toggle--overlay') : null}
                 </div>
             ) : null}
 
             <div className="inv-info">
-                <div className="inv-header">
-                    {viewMode === 'grid' && !showPhotos ? (
-                        <div className="inv-header-top">
-                            {statusToggleBtn}
-                        </div>
+                <div className="inv-main">
+                    <h4 className="inv-name">{product.name}</h4>
+                    {product.description ? (
+                        <p className="inv-description" title={product.description}>
+                            {product.description}
+                        </p>
                     ) : null}
-                    <div className="inv-title-row">
-                        <h4>{product.name}</h4>
-                        {product.is_special && (
-                            <span className="badge-special">
-                                <AdminIconSlot Icon={Star} slotSize="xxs" tone="accent" />
-                                Especial
-                            </span>
-                        )}
-                    </div>
-                    
-                    <div className="price-container">
-                        {product.has_discount && product.discount_price ? (
-                            <>
-                                <span className="inv-price-original">{formatMoney(product.price || 0)}</span>
-                                <span className="inv-price discount">{formatMoney(product.discount_price || 0)}</span>
-                            </>
-                        ) : (
-                            <span className="inv-price">{formatMoney(product.price || 0)}</span>
-                        )}
-                    </div>
                 </div>
 
-                {product.description && (
-                    <p className="inv-description" title={product.description}>
-                        {product.description}
-                    </p>
-                )}
+                <div className="inv-price-row">
+                    {product.has_discount && product.discount_price ? (
+                        <>
+                            <span className="inv-price inv-price--offer">{formatMoney(product.discount_price || 0)}</span>
+                            <s className="inv-price-original">{formatMoney(product.price || 0)}</s>
+                        </>
+                    ) : (
+                        <span className="inv-price">{formatMoney(product.price || 0)}</span>
+                    )}
+                    {product.is_special ? (
+                        <span className="inv-badge-special">
+                            <Star size={12} strokeWidth={2} aria-hidden />
+                            Especial
+                        </span>
+                    ) : null}
+                </div>
 
-                <div className="inv-actions">
-                    <span className={`status-badge ${product.is_active ? 'active' : 'paused'}`}>
-                        {product.is_active ? 'Disponible' : 'Pausado'}
+                <div className="inv-footer">
+                    <span className={`inv-status ${active ? 'is-active' : 'is-paused'}`}>
+                        <span className="inv-status-dot" aria-hidden />
+                        {active ? 'Disponible' : 'Pausado'}
                     </span>
 
-                    <div className="action-buttons">
-                        {viewMode === 'list' ? (
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon"
-                                className={`btn-icon-sm ${product.is_active ? 'text-success' : 'text-muted'}`}
-                                onClick={handleToggleClick}
-                                title={product.is_active ? 'Pausar' : 'Activar'}
-                                aria-label={product.is_active ? 'Pausar venta' : 'Activar venta'}
-                            >
-                                {product.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
-                            </Button>
-                        ) : null}
-
-                        <Button
+                    <div className="inv-actions" onClick={(e) => e.stopPropagation()}>
+                        {isList || !showPhotos ? toggleButton('inv-toggle--inline') : null}
+                        <button
                             type="button"
-                            variant="default"
-                            size="icon"
-                            className="btn-edit-sm"
-                            title="Editar"
+                            className="inv-icon-btn"
+                            onClick={handleEditClick}
+                            title="Editar producto"
                             aria-label="Editar producto"
                         >
-                            <Edit3 size={14} />
-                        </Button>
-
-                        <Button
+                            <Pencil size={15} strokeWidth={1.75} aria-hidden />
+                        </button>
+                        <button
                             type="button"
-                            variant="secondary"
-                            size="icon"
+                            className="inv-icon-btn inv-icon-btn--danger"
                             onClick={handleDeleteClick}
-                            className="btn-trash-sm"
                             title="Eliminar producto"
                             aria-label="Eliminar producto"
                         >
-                            <Trash size={14} />
-                        </Button>
+                            <Trash2 size={15} strokeWidth={1.75} aria-hidden />
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </article>
     );
 });
 

@@ -50,7 +50,7 @@ import LocalExpensesToolbar from './expenses/LocalExpensesToolbar';
 import LocalExpensesSummaryBar from './expenses/LocalExpensesSummaryBar';
 import LocalExpenseCategoryCard from './expenses/LocalExpenseCategoryCard';
 import ReportSalesChart from './charts/ReportSalesChart';
-import ReportPaymentDonut from './charts/ReportPaymentDonut';
+import ReportPaymentShare from './charts/ReportPaymentShare';
 import ReportSparkline from './charts/ReportSparkline';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,7 +70,8 @@ const CHART_KIND_OPTIONS = [
 const PAYMENT_META = [
     { key: 'cash', label: 'Efectivo', Icon: DollarSign, color: '#16a34a', bg: 'bg-[#16a34a]/10' },
     { key: 'card', label: 'Tarjeta', Icon: CreditCard, color: '#2563eb', bg: 'bg-[#2563eb]/10' },
-    { key: 'online', label: 'Transferencia', Icon: Smartphone, color: '#7c3aed', bg: 'bg-[#7c3aed]/10' },
+    // Naranja y no violeta: violeta y azul son indistinguibles para deutan (ΔE 0,4).
+    { key: 'online', label: 'Transferencia', Icon: Smartphone, color: '#ea580c', bg: 'bg-[#ea580c]/10' },
 ];
 
 const KPI_META = [
@@ -245,26 +246,32 @@ function resolveExpenseReferenceYear(analyticsDate, reportRange) {
     return new Date().getFullYear();
 }
 
-const TrendBadge = ({ value, isSignificant = true }) => {
+const TrendBadge = ({ value, isSignificant = true, hasValue = false }) => {
     if (value == null || !Number.isFinite(value)) {
+        // Sin base no hay porcentaje. Si hay valor actual lo decimos con palabra
+        // ("Nuevo": antes no había nada); el tooltip no existe en táctil.
         return (
             <Badge
                 variant="outline"
                 className="text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]"
                 title="Sin datos del período anterior para comparar."
             >
-                —
+                {hasValue ? 'Nuevo' : '—'}
             </Badge>
         );
     }
     if (value === 0) return <Badge variant="outline" className="gap-0.5 text-[10px] font-bold">0%</Badge>;
     if (!isSignificant) {
+        // Base pequeña: el porcentaje va apagado, pero la flecha se queda; un
+        // "100%" sin dirección no dice si subió o bajó.
+        const Arrow = value > 0 ? ArrowUpRight : ArrowDownRight;
         return (
             <Badge
                 variant="outline"
                 className="gap-0.5 text-[10px] font-bold text-[var(--admin-text-muted,#64748b)]"
                 title="Período anterior con pocos datos. Comparar con precaución."
             >
+                <Arrow size={12} aria-hidden />
                 {Math.abs(value)}%
             </Badge>
         );
@@ -422,7 +429,7 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPl
         <Card className="@container flex min-w-0 flex-col p-3 transition-all duration-150 hover:shadow-[0_8px_24px_-12px_rgba(16,24,40,0.12)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] sm:text-[11px]">{meta.label}</p>
-                {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} /> : null}
+                {showTrend ? <TrendBadge value={trend} isSignificant={trendSignificant} hasValue={Number(value) > 0} /> : null}
             </div>
             <div className="mt-1 min-w-0">
                 {loading ? <Skeleton className="h-8 w-28" /> : (
@@ -437,8 +444,8 @@ const KpiCard = memo(({ meta, value, trend, sparklineValues, loading, fmt, fmtPl
                     trend={trend}
                     showTrend={showTrend}
                     height={28}
-                    showDots
-                    color="#2563eb"
+                    color="#94a3b8"
+                    endMarkerColor="#2563eb"
                     valueFormatter={(v) => formatSparklineValue(meta.key, v, fmt, fmtPlain)}
                 />
             </div>
@@ -1250,7 +1257,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     const { salesChartPoints, kpis, trends, paymentBreakdown, branchStats, trendSignificance } = reportChartData;
 
     const paymentDonutData = useMemo(
-        () => PAYMENT_META.map((m) => ({ label: m.label, value: paymentBreakdown[m.key] || 0 })),
+        () => PAYMENT_META.map((m) => ({ label: m.label, value: paymentBreakdown[m.key] || 0, color: m.color })),
         [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.online],
     );
 
@@ -1938,19 +1945,20 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {paymentMethodsTotal > 0 ? (<>
-                            <ReportPaymentDonut
+                            <ReportPaymentShare
                                 data={paymentDonutData}
                                 currency={currency}
+                                formatValue={fmt}
                             />
                             <div className="space-y-2.5">
-                                {PAYMENT_META.map((pm, idx) => {
+                                {PAYMENT_META.map((pm) => {
                                     const value = paymentBreakdown[pm.key] || 0;
                                     const pct = paymentMethodsTotal > 0
                                         ? Math.round((value / paymentMethodsTotal) * 100)
                                         : 0;
                                     const Icon = pm.Icon;
                                     return (
-                                        <div key={`${pm.key}-${pct}`} className="space-y-1.5">
+                                        <div key={pm.key}>
                                             <div className="flex items-center justify-between gap-3 text-sm">
                                                 <div className="flex min-w-0 items-center gap-2">
                                                     <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${pm.bg}`}>
@@ -1962,12 +1970,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                                     <p className="font-bold text-[#1a1a1a]">{fmt(value)}</p>
                                                     <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)]">{pct}%</p>
                                                 </div>
-                                            </div>
-                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f5f5f7]">
-                                                <div
-                                                    className="h-full rounded-full rpt-animate-bar"
-                                                    style={{ '--rpt-bar-width': `${pct}%`, background: pm.color, animationDelay: `${idx * 80}ms` }}
-                                                />
                                             </div>
                                         </div>
                                     );
@@ -2009,7 +2011,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                                     trend={newClientsInfo.trend}
                                     showTrend={reportRange.hasComparison}
                                     height={64}
-                                    color="#16a34a"
+                                    color="#94a3b8"
+                                    endMarkerColor="#16a34a"
                                     valueFormatter={(v) => `${fmtPlain(Math.round(Number(v) || 0))} clientes`}
                                 />
                             </div>

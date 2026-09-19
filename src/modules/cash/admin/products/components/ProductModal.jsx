@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Save, Image as ImageIcon, Loader2, Trash2, DollarSign } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader2, Trash2, Star, Tag } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
+import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
+import AdminMenuSelect from '@/modules/cash/components/AdminMenuSelect';
 
 const INITIAL_STATE = {
   name: '',
@@ -26,6 +28,9 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
      por si otro padre quiere forzar el bloqueo. */
   const [submitting, setSubmitting] = useState(false);
   const busy = saving || submitting;
+  // Moneda de la sucursal como prefijo del precio: "Precio ($)" era ambiguo
+  // (peso chileno, argentino, dólar...). Aquí sale "CLP" / "USD" según el local.
+  const { currency } = useBranchMoney();
 
   const [formData, setFormData] = useState(() => {
     if (product) {
@@ -151,6 +156,12 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
     }
   };
 
+  const categoryOptions = (categories || []).map((cat) => ({ value: cat.id, label: cat.name }));
+  const setField = (name, value) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setIsDirty(true);
+  };
+
   return (
     <div className="modal-overlay" onClick={handleSafeClose} role="dialog" aria-modal="true">
       <div className="modal-content product-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -177,178 +188,196 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
 
         <form onSubmit={handleSubmit} autoComplete="off">
           <div className="modal-form-scroll">
-            <div className="animate-fade">
-              <div
-                className={`product-image-section ${isDragging ? 'dragging' : ''} ${errors.image ? 'error-border' : ''}`}
-                onDragOver={(e) => handleDragEvents(e, true)}
-                onDragLeave={(e) => handleDragEvents(e, false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                  style={{ display: 'none' }}
-                />
+            <div className="product-form animate-fade">
+              <aside className="product-form__media">
+                <div
+                  className={`product-image-section ${isDragging ? 'dragging' : ''} ${errors.image ? 'error-border' : ''}`}
+                  onDragOver={(e) => handleDragEvents(e, true)}
+                  onDragLeave={(e) => handleDragEvents(e, false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                    style={{ display: 'none' }}
+                  />
 
+                  {previewUrl ? (
+                    <div className="image-preview-container">
+                      <img src={previewUrl} alt="Vista previa del producto" className="image-preview" width={400} height={400} />
+                      <div className="image-overlay">
+                        <Button variant="default" type="button" className="" onClick={clearImage} title="Quitar imagen">
+                          <Trash2 size={18} />
+                        </Button>
+                        <span className="overlay-text">Click para cambiar</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="dropzone-placeholder">
+                      <div className="icon-circle">
+                        <ImageIcon size={26} strokeWidth={1.65} />
+                      </div>
+                      <p className="drop-text">
+                        Arrastra una foto o <span>elige un archivo</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
                 {previewUrl ? (
-                  <div className="image-preview-container">
-                    <img src={previewUrl} alt="Preview" className="image-preview" width={400} height={300} />
-                    <div className="image-overlay">
-                      <Button variant="default" type="button" className="" onClick={clearImage} title="Eliminar imagen">
-                        <Trash2 size={18} />
-                      </Button>
-                      <span className="overlay-text">Click para cambiar</span>
-                    </div>
+                  <div className="product-form__media-actions">
+                    <button type="button" className="product-form__media-btn" onClick={() => fileInputRef.current?.click()}>
+                      Cambiar foto
+                    </button>
+                    <button type="button" className="product-form__media-btn product-form__media-btn--danger" onClick={clearImage}>
+                      Quitar
+                    </button>
                   </div>
-                ) : (
-                  <div className="dropzone-placeholder">
-                    <div className="icon-circle">
-                      <ImageIcon size={28} />
-                    </div>
-                    <p className="drop-text">
-                      Arrastra una imagen o <span>haz click aquí</span>
-                    </p>
-                    <p className="drop-hint">JPG, PNG, WEBP (Máx 20MB)</p>
-                  </div>
-                )}
-              </div>
+                ) : null}
+                <p className="product-form__media-hint">
+                  JPG, PNG o WEBP · hasta 20 MB. Se ve en el menú público y en la caja.
+                </p>
+              </aside>
 
-              <div className="form-group">
-                <label>
-                  Nombre del producto <span className="req">*</span>
-                </label>
-                <input
-                  ref={nameInputRef}
-                  className={`form-input ${errors.name ? 'error' : ''}`}
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Ej: Camiseta básica M"
-                />
-                {errors.name && <span className="error-text">{errors.name}</span>}
-              </div>
-
-              <div className="form-row two-col">
+              <div className="product-form__fields">
                 <div className="form-group">
-                  <label>
-                    Precio normal ($) <span className="req">*</span>
+                  <label htmlFor="product-name">
+                    Nombre del producto <span className="req">*</span>
                   </label>
                   <input
-                    type="number"
-                    className={`form-input ${errors.price ? 'error' : ''}`}
-                    name="price"
-                    value={formData.price}
+                    id="product-name"
+                    ref={nameInputRef}
+                    className={`form-input ${errors.name ? 'error' : ''}`}
+                    aria-invalid={Boolean(errors.name)}
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
-                    placeholder="0"
-                    min="0"
+                    placeholder="Ej: Margarita familiar"
                   />
-                  {errors.price && <span className="error-text">{errors.price}</span>}
+                  {errors.name && <span className="error-text">{errors.name}</span>}
+                </div>
+
+                <div className="form-row two-col">
+                  <div className="form-group">
+                    <label htmlFor="product-price">
+                      Precio <span className="req">*</span>
+                    </label>
+                    <div className={`product-form__money ${errors.price ? 'error' : ''}`}>
+                      <span className="product-form__money-prefix" aria-hidden>{currency}</span>
+                      <input
+                        id="product-price"
+                        type="number"
+                        inputMode="decimal"
+                        className="form-input"
+                        aria-invalid={Boolean(errors.price)}
+                        name="price"
+                        value={formData.price}
+                        onChange={handleChange}
+                        placeholder="0"
+                        min="0"
+                        aria-label={`Precio en ${currency}`}
+                      />
+                    </div>
+                    {errors.price && <span className="error-text">{errors.price}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label id="product-category-label">
+                      Categoría <span className="req">*</span>
+                    </label>
+                    <AdminMenuSelect
+                      className={`product-form__select ${errors.category_id ? 'error' : ''}`}
+                      value={formData.category_id}
+                      onChange={(next) => setField('category_id', next)}
+                      options={categoryOptions}
+                      displayLabel={formData.category_id ? undefined : 'Selecciona…'}
+                      icon={<Tag size={16} strokeWidth={1.65} />}
+                      aria-label="Categoría"
+                      menuMinWidth={240}
+                    />
+                    {errors.category_id && <span className="error-text">{errors.category_id}</span>}
+                  </div>
                 </div>
 
                 <div className="form-group">
-                  <label>
-                    Categoría <span className="req">*</span>
-                  </label>
-                  <select
-                    className={`form-input ${errors.category_id ? 'error' : ''}`}
-                    name="category_id"
-                    value={formData.category_id}
+                  <label htmlFor="product-description">Descripción</label>
+                  <textarea
+                    id="product-description"
+                    className="form-input"
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
-                  >
-                    <option value="" disabled>
-                      Selecciona...
-                    </option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.category_id && <span className="error-text">{errors.category_id}</span>}
+                    rows="3"
+                    placeholder="Ingredientes, tamaño, notas para el cliente…"
+                  />
+                </div>
+
+                <div className="product-form__options" role="group" aria-label="Opciones del producto">
+                  <div className={`product-form__option${formData.is_special ? ' is-on' : ''}`}>
+                    <span className="product-form__option-icon" aria-hidden><Star size={16} strokeWidth={1.75} /></span>
+                    <div className="switch-content">
+                      <span className="switch-title">Destacar como especial</span>
+                      <span className="switch-desc">Aparece con una estrella en el menú</span>
+                    </div>
+                    <Button variant="default"
+                      type="button"
+                      className={`menu-carousel-switch menu-carousel-switch--sm menu-carousel-switch--accent${formData.is_special ? ' is-on' : ''}`}
+                      role="switch"
+                      aria-checked={formData.is_special}
+                      aria-label={formData.is_special ? 'Quitar destacado' : 'Destacar como especial'}
+                      onClick={() => setField('is_special', !formData.is_special)}
+                    >
+                      <span className="menu-carousel-switch-knob" aria-hidden />
+                    </Button>
+                  </div>
+
+                  <div className={`product-form__option${formData.has_discount ? ' is-on' : ''}`}>
+                    <span className="product-form__option-icon" aria-hidden><Tag size={16} strokeWidth={1.75} /></span>
+                    <div className="switch-content">
+                      <span className="switch-title">Precio de oferta</span>
+                      <span className="switch-desc">El menú muestra el precio tachado y el rebajado</span>
+                    </div>
+                    <Button variant="default"
+                      type="button"
+                      className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
+                      role="switch"
+                      aria-checked={formData.has_discount}
+                      aria-label={formData.has_discount ? 'Desactivar oferta' : 'Activar oferta'}
+                      onClick={() => setField('has_discount', !formData.has_discount)}
+                    >
+                      <span className="menu-carousel-switch-knob" aria-hidden />
+                    </Button>
+                  </div>
+
+                  {formData.has_discount && (
+                    <div className="product-form__option-field animate-slide-down">
+                      <label htmlFor="product-discount-price">
+                        Precio con oferta <span className="req">*</span>
+                      </label>
+                      <div className={`product-form__money ${errors.discount_price ? 'error' : ''}`}>
+                        <span className="product-form__money-prefix" aria-hidden>{currency}</span>
+                        <input
+                          id="product-discount-price"
+                          type="number"
+                          inputMode="decimal"
+                          className="form-input"
+                          aria-invalid={Boolean(errors.discount_price)}
+                          name="discount_price"
+                          value={formData.discount_price}
+                          onChange={handleChange}
+                          placeholder="Menor que el precio normal"
+                          min="0"
+                          aria-label={`Precio con oferta en ${currency}`}
+                        />
+                      </div>
+                      {errors.discount_price && <span className="error-text">{errors.discount_price}</span>}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <div className="form-group">
-                <label>Descripción</label>
-                <textarea
-                  className="form-input"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows="3"
-                  placeholder="Detalles, variantes, notas..."
-                />
-              </div>
-
-              <div className="switches-container">
-                <div
-                  className={`product-modal-switch-row${formData.is_special ? ' product-modal-switch-row--accent-on' : ''}`}
-                >
-                  <div className="switch-content">
-                    <span className="switch-title">Destacar como especial</span>
-                    <span className="switch-desc">Aparecerá con una estrella en el menú</span>
-                  </div>
-                  <Button variant="default"
-                    type="button"
-                    className={`menu-carousel-switch menu-carousel-switch--sm menu-carousel-switch--accent${formData.is_special ? ' is-on' : ''}`}
-                    role="switch"
-                    aria-checked={formData.is_special}
-                    aria-label={formData.is_special ? 'Quitar destacado' : 'Destacar como especial'}
-                    onClick={() => {
-                      setFormData((prev) => ({ ...prev, is_special: !prev.is_special }));
-                      setIsDirty(true);
-                    }}
-                  >
-                    <span className="menu-carousel-switch-knob" aria-hidden />
-                  </Button>
-                </div>
-
-                <div
-                  className={`product-modal-switch-row${formData.has_discount ? ' product-modal-switch-row--offer-on' : ''}`}
-                >
-                  <div className="switch-content">
-                    <span className="switch-title">Activar oferta</span>
-                    <span className="switch-desc">Mostrará un precio rebajado</span>
-                  </div>
-                  <Button variant="default"
-                    type="button"
-                    className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
-                    role="switch"
-                    aria-checked={formData.has_discount}
-                    aria-label={formData.has_discount ? 'Desactivar oferta' : 'Activar oferta'}
-                    onClick={() => {
-                      setFormData((prev) => ({ ...prev, has_discount: !prev.has_discount }));
-                      setIsDirty(true);
-                    }}
-                  >
-                    <span className="menu-carousel-switch-knob" aria-hidden />
-                  </Button>
-                </div>
-              </div>
-
-              {formData.has_discount && (
-                <div className="form-group animate-slide-down">
-                  <label className="text-success">
-                    Precio oferta ($) <span className="req">*</span>
-                  </label>
-                  <div className="input-with-icon">
-                    <DollarSign size={16} className="input-icon" />
-                    <input
-                      type="number"
-                      className={`form-input ${errors.discount_price ? 'error' : ''}`}
-                      name="discount_price"
-                      value={formData.discount_price}
-                      onChange={handleChange}
-                      placeholder="Debe ser menor al precio normal"
-                    />
-                  </div>
-                  {errors.discount_price && <span className="error-text">{errors.discount_price}</span>}
-                </div>
-              )}
             </div>
           </div>
 
@@ -358,7 +387,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, saving 
             </Button>
             <Button variant="default" type="submit" className="" disabled={busy}>
               {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Save size={18} aria-hidden />}
-              <span>{busy ? 'Guardando…' : 'Guardar producto'}</span>
+              <span>{busy ? 'Guardando…' : product ? 'Guardar cambios' : 'Crear producto'}</span>
             </Button>
           </footer>
         </form>
