@@ -41,7 +41,7 @@
 
 .admin-layout .rpt-title {
     font-size: clamp(1.4rem, 4vw, 2rem);
-    font-weight: 900;
+    font-weight: 800;
     color: var(--admin-text, #0f172a);
     margin: 0;
     letter-spacing: -0.03em;
@@ -225,7 +225,7 @@
 
 .admin-layout .rpt-kpi-value {
     font-size: 1.2rem;
-    font-weight: 900;
+    font-weight: 800;
     color: var(--admin-text, #1a1d21);
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
@@ -1355,7 +1355,7 @@
 /* Peak Hour */
 .admin-layout .rpt-peak-value {
     font-size: 1.3rem;
-    font-weight: 900;
+    font-weight: 800;
     color: var(--admin-text, #1a1d21);
     margin-bottom: 4px;
 }

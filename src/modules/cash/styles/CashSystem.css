@@ -401,7 +401,7 @@
 
 .admin-layout .cash-dribbble-hero--active .cash-dribbble-chip--base {
     color: #047857;
-    font-weight: 850;
+    font-weight: 800;
 }
 
 .admin-layout .cash-dribbble-hero--closed .cash-dribbble-chip {
@@ -897,7 +897,7 @@
 
 .admin-layout .cash-kpi-value {
     font-size: clamp(1.4rem, 3vw, 2rem);
-    font-weight: 900;
+    font-weight: 800;
     color: var(--c-text);
     font-variant-numeric: tabular-nums;
 }
@@ -1685,7 +1685,7 @@
 
 .admin-layout .cash-method-metric-value {
     font-size: clamp(1.15rem, 2vw, 1.35rem);
-    font-weight: 850;
+    font-weight: 800;
     color: #0f172a;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;

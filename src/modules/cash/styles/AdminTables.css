@@ -392,7 +392,7 @@
 
 /* Modal sesión / cerrar mesa (portal en body, encima de cabecera y tiles) */
 .table-session-modal-portal {
-	--admin-font: "Inter", system-ui, -apple-system, sans-serif;
+	--admin-font: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 	--admin-page-bg: #f8fafc;
 	--admin-card-bg: #ffffff;
 	--admin-border: #e5e5ea;

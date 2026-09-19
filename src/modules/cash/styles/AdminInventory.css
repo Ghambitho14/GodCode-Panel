@@ -337,7 +337,21 @@
     flex-wrap: unset;
 }
 
-@media (min-width: 960px) {
+/* Entre 960 y 1179px el contenido mide ~640-760px: tres cifras + el panel de
+   ayuda (280px) no caben en una fila y el panel asomaba por la derecha con
+   scroll horizontal. Aqui las cifras van en una fila y la ayuda ocupa la
+   siguiente, a todo el ancho. */
+@media (min-width: 960px) and (max-width: 1179px) {
+    .admin-layout .inventory-summary.inventory-summary--grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .admin-layout .inventory-summary.inventory-summary--grid .summary-card--actions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (min-width: 1180px) {
     .admin-layout .inventory-summary.inventory-summary--grid {
         grid-template-columns: repeat(3, minmax(156px, 1fr)) minmax(280px, 1.35fr);
     }

@@ -379,7 +379,7 @@
 	background: var(--admin-overlay-scrim);
 	-webkit-backdrop-filter: blur(6px);
 	backdrop-filter: blur(6px);
-	font-family: "Inter", system-ui, -apple-system, sans-serif;
+	font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 	color: var(--admin-text);
 }
 

@@ -969,7 +969,7 @@
     border-radius: 6px;
     background: var(--color-accent-bg);
     color: var(--color-accent);
-    font-weight: 900;
+    font-weight: 800;
     font-size: 0.72rem;
     line-height: 1;
 }
@@ -1955,7 +1955,7 @@
 .admin-layout .order-detail-title {
     margin: 0;
     font-size: clamp(1.35rem, 3vw, 1.65rem);
-    font-weight: 900;
+    font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.15;
     color: var(--admin-text);
@@ -2270,7 +2270,7 @@
 
 .admin-layout .order-detail-handoff-digits {
     font-size: 1.65rem;
-    font-weight: 900;
+    font-weight: 800;
     letter-spacing: 0.12em;
     font-family: ui-monospace, "Cascadia Code", monospace;
     color: var(--admin-text);
@@ -2559,7 +2559,7 @@
 
 .admin-layout .order-detail-total {
     font-size: clamp(1.35rem, 3vw, 1.55rem);
-    font-weight: 900;
+    font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--admin-text);
 }

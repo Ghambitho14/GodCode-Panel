@@ -87,7 +87,7 @@
 
 .admin-layout .cat-title {
     font-size: clamp(1.4rem, 4vw, 2rem);
-    font-weight: 900;
+    font-weight: 800;
     color: var(--admin-text, #1a1d21);
     margin: 0;
     letter-spacing: -0.03em;
@@ -424,14 +424,14 @@
     background: var(--admin-icon-bg, #f8fafc) !important;
 }
 
+/* Editar y Productos comparten peso neutro; solo Borrar lleva color, asi la
+   fila de acciones deja de parecer tres alertas de distinto color. */
 .admin-layout .cat-card-footer .cat-btn-view {
-    color: var(--cat-accent-color) !important;
-    border-color: rgba(var(--cat-accent-color-rgb), 0.35) !important;
+    color: var(--admin-text, #1d1d1f) !important;
 }
 
 .admin-layout .cat-card-footer .cat-btn-view:hover {
-    background: rgba(var(--cat-accent-color-rgb), 0.08) !important;
-    border-color: rgba(var(--cat-accent-color-rgb), 0.5) !important;
+    background: var(--admin-icon-bg, #f8fafc) !important;
 }
 
 .admin-layout .cat-card-footer .cat-btn-delete {

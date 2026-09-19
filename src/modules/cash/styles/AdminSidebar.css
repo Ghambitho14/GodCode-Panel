@@ -106,52 +106,36 @@
 	white-space: nowrap;
 }
 
-/* Contenedor redondo para iconos Lucide (similar a widgets del demo Jobie) */
+/* Iconos de navegación: trazo limpio sin caja; el color lleva el estado */
 .admin-layout .nav-icon-slot {
-	width: 40px;
-	height: 40px;
-	border-radius: 12px;
+	width: 22px;
+	height: 22px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	background: var(--admin-icon-bg, #f0f2f6);
-	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
-	border: 1px solid transparent;
-	transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+	color: var(--admin-text-muted, #64748b);
+	transition: color 0.18s ease;
 }
 
 .admin-layout .nav-icon-slot svg {
-	stroke-width: 1.65;
-}
-
-.admin-layout .nav-sub-menu .nav-icon-slot {
-	width: 34px;
-	height: 34px;
-	border-radius: 10px;
+	width: 20px;
+	height: 20px;
+	stroke-width: 1.75;
 }
 
 .admin-layout .nav-sub-menu .nav-icon-slot svg {
-	stroke-width: 1.6;
+	width: 18px;
+	height: 18px;
 }
 
 .admin-layout .nav-item:hover .nav-icon-slot {
-	background: color-mix(in srgb, var(--accent-primary) 8%, var(--admin-icon-bg));
 	color: var(--admin-text, #1a1d21);
-	border-color: color-mix(in srgb, var(--accent-primary) 15%, var(--admin-border));
 }
 
-.admin-layout .nav-item.active .nav-icon-slot {
-	background: color-mix(in srgb, var(--accent-primary) 18%, #fff);
-	color: var(--accent-primary);
-	border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--admin-border));
-	box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-primary) 15%, transparent);
-}
-
+.admin-layout .nav-item.active .nav-icon-slot,
 .admin-layout .nav-group-header.active-group .nav-icon-slot {
 	color: var(--accent-primary);
-	background: color-mix(in srgb, var(--accent-primary) 12%, var(--admin-icon-bg));
-	border-color: color-mix(in srgb, var(--accent-primary) 20%, var(--admin-border));
 }
 
 /* Menú */
@@ -164,6 +148,8 @@
 	overflow-y: auto;
 	overflow-x: hidden;
 	padding-right: 2px;
+	scrollbar-width: thin;
+	scrollbar-color: var(--admin-border, #e5e5ea) transparent;
 }
 
 .admin-layout .sidebar-footer {
@@ -190,8 +176,8 @@
 	align-items: center;
 	justify-content: flex-start;
 	gap: 12px;
-	padding: 10px 12px;
-	border-radius: 14px;
+	padding: 9px 12px;
+	border-radius: 10px;
 	background: transparent;
 	border: none;
 	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
@@ -205,7 +191,7 @@
 	position: relative;
 	flex-shrink: 0;
 	font-family: inherit;
-	min-height: 44px;
+	min-height: 40px;
 	box-sizing: border-box;
 }
 
@@ -271,7 +257,7 @@
 
 .admin-layout .nav-group-header .nav-text {
 	font-size: 0.72rem;
-	font-weight: 800;
+	font-weight: 700;
 	letter-spacing: 0.07em;
 	text-transform: uppercase;
 	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
@@ -294,16 +280,19 @@
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	padding-left: 8px;
-	margin: 4px 0 10px;
+	padding-left: 10px;
+	/* Sin margen mientras esta plegado: el hueco fantasma hacia que los grupos
+	   quedaran mas separados (46/57/60px) que el resto de filas. */
+	margin: 0 0 0 21px;
 	overflow: hidden;
 	max-height: 0;
 	opacity: 0;
 	transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.25s ease;
-	border-left: 2px solid var(--admin-border, #e8ecf1);
+	border-left: 1px solid var(--admin-border, #e8ecf1);
 }
 
 .admin-layout .nav-sub-menu.expanded {
+	margin: 2px 0 8px 21px;
 	max-height: 480px;
 	opacity: 1;
 }
@@ -311,10 +300,10 @@
 .admin-layout .nav-sub-menu .nav-item {
 	font-size: 0.875rem;
 	font-weight: 500;
-	padding: 8px 10px;
-	border-radius: 12px;
+	padding: 7px 10px;
+	border-radius: 8px;
 	align-items: center;
-	min-height: 44px;
+	min-height: 36px;
 	box-sizing: border-box;
 }
 
@@ -329,7 +318,6 @@
 }
 
 .admin-layout .nav-item.logout .nav-icon-slot {
-	background: rgba(220, 38, 38, 0.08);
 	color: var(--admin-danger, #ef4444);
 }
 
@@ -420,7 +408,7 @@
 		width: 72px;
 		min-width: 72px;
 		max-width: 72px;
-		min-height: 58px;
+		min-height: 56px;
 		box-sizing: border-box;
 		padding: 6px 4px;
 		border-radius: 12px;
@@ -433,21 +421,22 @@
 	}
 
 	.admin-layout .nav-icon-slot {
-		width: 36px;
-		height: 36px;
-		border-radius: 11px;
+		width: 26px;
+		height: 26px;
 		flex-shrink: 0;
 	}
 
 	.admin-layout .nav-icon-slot svg {
-		stroke-width: 1.7;
+		width: 22px;
+		height: 22px;
+		stroke-width: 1.75;
 	}
 
 	.admin-layout .nav-label-mobile {
 		display: -webkit-box !important;
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 2;
-		font-size: 0.58rem;
+		font-size: 0.66rem;
 		font-weight: 600;
 		color: inherit;
 		line-height: 1.15;

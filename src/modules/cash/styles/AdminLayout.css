@@ -5,7 +5,7 @@
 
 .admin-layout {
 	/* Tipografía dashboard (referencia estilo plantillas tipo Jobie) */
-	--admin-font: "Inter", system-ui, -apple-system, sans-serif;
+	--admin-font: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 	--admin-sidebar-width: 268px;
 
 	/* Neutros alineados con portal cuenta (#fbfbfd, blanco, #e5e5ea) */
@@ -150,7 +150,7 @@
 .admin-layout .content-header h1 {
 	font-size: 1.625rem;
 	font-weight: 800;
-	letter-spacing: -0.04em;
+	letter-spacing: -0.025em;
 	margin: 0;
 	color: var(--admin-text);
 	line-height: 1.2;
@@ -864,7 +864,7 @@
 
 @media (min-width: 1025px) {
 	.admin-layout .header-actions {
-		justify-content: center;
+		justify-content: flex-end;
 	}
 
 	/* Pedidos sin título visible: centrar la barra (no space-between → derecha) */
@@ -892,6 +892,11 @@
 		border: 1px solid var(--admin-border);
 		box-shadow: var(--admin-shadow-sm);
 		box-sizing: border-box;
+		/* El cluster debe poder encoger para que su flex-wrap interno actue; con
+		   flex-shrink:0 heredado medía 1061px en un viewport de 1100 y asomaba
+		   por detras de la sidebar y por la derecha (scroll horizontal). */
+		max-width: 100%;
+		flex: 0 1 auto;
 	}
 
 	/* Dentro del cluster los sub-contenedores pierden su caja propia */
@@ -2137,3 +2142,17 @@
 	height: 13px;
 }
 
+
+/* Portátiles (1025–1279px): si el título y el clúster de acciones no caben en
+   una fila, el clúster baja a una segunda línea en vez de recortar el título
+   ("Menú y cart…"). Pedidos, sin título visible, mantiene el clúster centrado. */
+@media (min-width: 1025px) and (max-width: 1279px) {
+	.admin-layout .content-header:not(:has(.content-header-title-block--visually-collapsed)) {
+		flex-wrap: wrap;
+	}
+
+	.admin-layout .content-header:not(:has(.content-header-title-block--visually-collapsed)) .header-actions {
+		flex: 1 1 auto;
+		justify-content: flex-end;
+	}
+}

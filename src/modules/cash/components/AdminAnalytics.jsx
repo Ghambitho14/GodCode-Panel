@@ -1340,7 +1340,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <h1 className="text-xl font-black tracking-tight text-[#1a1a1a] sm:text-2xl">Reportes</h1>
+                    <h2 className="text-base font-bold tracking-tight text-[#1a1a1a] sm:text-lg">Resumen</h2>
                     <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
                         Resumen de ventas, pedidos y métricas clave
                     </p>
@@ -1664,8 +1664,8 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             <div className="grid min-w-0 items-start gap-5 md:grid-cols-1 lg:grid-cols-[1fr_minmax(280px,320px)] xl:grid-cols-[1fr_minmax(300px,380px)]">
                 <div className="flex min-w-0 flex-col gap-5">
                     <Card className="flex h-fit min-w-0 flex-col">
-                        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                            <CardTitle as="h2" className="text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
+                        <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                            <CardTitle as="h2" className="shrink-0 text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
                                 <div className="rpt-chart-kind">
                                     {CHART_KIND_OPTIONS.map(({ value, label, Icon }) => (

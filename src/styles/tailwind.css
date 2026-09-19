@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  /* Fuente sans global: Inter variable (400-900) */
-  --font-sans: "Inter", system-ui, sans-serif;
+  /* Fuente sans global: Plus Jakarta Sans variable (400-800) */
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
 
   /* Admin tokens (fallback claro) */
   --color-gc-page: var(--admin-page-bg, #fffffb);
