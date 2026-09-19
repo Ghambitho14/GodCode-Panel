@@ -608,6 +608,7 @@ export const useOrderEdit = (
 					rawCode,
 					itemsSubtotal: subtotalPreview,
 					clientPhone: String(manualOrder.client_phone ?? '').trim(),
+					clientId: String(manualOrder.selected_client_id ?? '').trim() || null,
 					tablesCoupons: TABLES.discount_coupons,
 					tablesClients: TABLES.clients,
 					tablesRedemptions: TABLES.discount_coupon_redemptions,
@@ -644,7 +645,7 @@ export const useOrderEdit = (
 			cancelled = true;
 			clearTimeout(tid);
 		};
-	}, [branch?.company_id, initialOrder?.id, manualOrder.coupon_code, manualOrder.total, manualOrder.client_phone]);
+	}, [branch?.company_id, initialOrder?.id, manualOrder.coupon_code, manualOrder.total, manualOrder.client_phone, manualOrder.selected_client_id]);
 
 	const submitOrder = async () => {
 		if (!initialOrder?.id) {

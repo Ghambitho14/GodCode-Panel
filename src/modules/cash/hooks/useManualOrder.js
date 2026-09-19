@@ -132,7 +132,7 @@ export const useManualOrder = (
 		selectTable, getInputStyle, restoreForm,
 	} = useManualOrderForm(localOrderChannels, formCountry, { currency, locale, fractionDigits }, openMesaMode);
 
-	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone);
+	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone, form.selected_client_id);
 	const { receiptFile, receiptPreview, handleFileChange, removeReceipt, resetReceipt, restoreReceipt } = useReceiptUpload(showNotify);
 	const [loading, setLoading] = useState(false);
 	const [quote, setQuote] = useState(null);

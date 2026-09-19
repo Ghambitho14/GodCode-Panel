@@ -7,7 +7,7 @@ import { COUPON_PREVIEW_ERR_MSG } from './manualOrderShared';
  * Hook especializado en el estado, validación y debounce del código de descuento
  * contrastándolo en tiempo real con la base de datos de Supabase.
  */
-export const useCouponValidation = (companyId, couponCode, itemsSubtotal, clientPhone) => {
+export const useCouponValidation = (companyId, couponCode, itemsSubtotal, clientPhone, clientId = '') => {
     const [couponPreview, setCouponPreview] = useState(() => ({
         loading: false,
         discount: 0,
@@ -42,6 +42,7 @@ export const useCouponValidation = (companyId, couponCode, itemsSubtotal, client
                     rawCode,
                     itemsSubtotal,
                     clientPhone: String(clientPhone ?? '').trim(),
+                    clientId: String(clientId ?? '').trim() || null,
                     tablesCoupons: TABLES.discount_coupons,
                     tablesClients: TABLES.clients,
                     tablesRedemptions: TABLES.discount_coupon_redemptions,
@@ -81,7 +82,7 @@ export const useCouponValidation = (companyId, couponCode, itemsSubtotal, client
             cancelled = true;
             clearTimeout(tid);
         };
-    }, [companyId, couponCode, itemsSubtotal, clientPhone]);
+    }, [companyId, couponCode, itemsSubtotal, clientPhone, clientId]);
 
     const resetCoupon = () => {
         setCouponPreview({ loading: false, discount: 0, message: '', variant: 'neutral' });

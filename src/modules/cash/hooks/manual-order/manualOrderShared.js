@@ -279,6 +279,8 @@ export const COUPON_PREVIEW_ERR_MSG = {
 	coupon_wrong_client: 'Este cupón solo aplica con el teléfono del cliente autorizado.',
 	coupon_usage_exhausted: 'Este cupón ya no tiene usos disponibles.',
 	coupon_usage_exhausted_client: 'Este cupón ya fue usado con este teléfono.',
+	coupon_wrong_account: 'Este cupón es de una cuenta del menú: elige a ese cliente en "Afiliado".',
+	coupon_usage_exhausted_account: 'Esta cuenta ya usó este cupón.',
 };
 
 /** Normaliza order_type del pedido al valor del formulario (`pickup` | `delivery`). */
