@@ -39,6 +39,7 @@ import {
 } from '../utils/carouselImageFit';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
 import AdminIconSlot from './AdminIconSlot';
+import '../styles/AdminMenuOptions.css';
 import '../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
 

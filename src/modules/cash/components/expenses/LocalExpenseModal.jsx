@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     X, ArrowDownCircle, RotateCcw, DollarSign, CreditCard, FileText, Search, Loader2,
 } from 'lucide-react';
@@ -294,7 +295,7 @@ const LocalExpenseModal = ({
     const methodLabel = paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta';
     const canRefund = foundOrder && orderNet > 5;
 
-    return (
+    return createPortal(
         <div
             className="admin-modal-overlay"
             role="dialog"
@@ -553,7 +554,8 @@ const LocalExpenseModal = ({
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.querySelector('.admin-layout') || document.body,
     );
 };
 
