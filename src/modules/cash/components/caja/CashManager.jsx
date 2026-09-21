@@ -80,6 +80,9 @@ const CashManager = ({
     } = cashSystem;
 
     const [pastShifts, setPastShifts] = useState([]);
+    // Último turno cerrado (getPastShifts viene ordenado por closed_at desc):
+    // da contexto en la cabecera cuando la caja está cerrada.
+    const lastClosedShift = pastShifts[0] || null;
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [viewingShift, setViewingShift] = useState(null);
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
@@ -146,7 +149,7 @@ const CashManager = ({
             id: `cancel-${order.id}`,
             type: 'cancel',
             orderId: order.id,
-            description: `Pedido #${String(order.id).slice(-4)} cancelado`,
+            description: `Pedido #${String(order.id).slice(-4)}`,
             created_at: order.created_at,
             amount: 0,
         }));
@@ -179,88 +182,125 @@ const CashManager = ({
 
     return (
         <div className="cash-container animate-fade">
-            {/* BENTO HERO HEADER — Estilo Dribbble Restaurant Operations */}
+            {/* Cabecera de estado del turno: punto de estado + título + una línea
+                de contexto, acciones a la derecha. Sin caja verde ni chips. */}
             {activeShift ? (
-                <div className="cash-dribbble-hero cash-dribbble-hero--active">
-                    <div className="cash-dribbble-hero__body">
-                        <h1 className="cash-dribbble-title">Caja abierta</h1>
-                        <div className="cash-dribbble-chips">
-                            <span className="cash-dribbble-chip">
-                                <Clock size={13} aria-hidden />
-                                <ElapsedTime since={activeShift.opened_at} />
-                            </span>
-                            <span className="cash-dribbble-chip">
-                                Desde {new Date(activeShift.opened_at).toLocaleTimeString(locale, {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                })}
-                            </span>
-                            {activeShift.opening_balance != null && (
-                                <span className="cash-dribbble-chip cash-dribbble-chip--base">
-                                    Base: {fmt(activeShift.opening_balance || 0)}
+                <section className="cash-hero cash-hero--open" aria-label="Estado de la caja">
+                    <div className="cash-hero__status">
+                        <span className="cash-hero__badge" aria-hidden>
+                            <Unlock size={20} strokeWidth={1.75} />
+                        </span>
+                        <div className="cash-hero__text">
+                            <h1 className="cash-hero__title">Caja abierta</h1>
+                            <p className="cash-hero__meta">
+                                <span>
+                                    Desde las{' '}
+                                    <strong>
+                                        {new Date(activeShift.opened_at).toLocaleTimeString(locale, {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                        })}
+                                    </strong>
                                 </span>
-                            )}
+                                <span className="cash-hero__sep" aria-hidden>·</span>
+                                <span><strong><ElapsedTime since={activeShift.opened_at} /></strong> abierta</span>
+                                {activeShift.opening_balance != null ? (
+                                    <>
+                                        <span className="cash-hero__sep" aria-hidden>·</span>
+                                        <span>Base <strong>{fmt(activeShift.opening_balance || 0)}</strong></span>
+                                    </>
+                                ) : null}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="cash-dribbble-hero__actions" role="group" aria-label="Acciones del turno">
+                    <div className="cash-hero__actions" role="group" aria-label="Acciones del turno">
                         <Button
                             variant="outline"
                             type="button"
-                            className="cash-dribbble-btn cash-dribbble-btn--income"
+                            className="cash-hero__btn"
                             onClick={() => {
                                 setMovementModalVariant('income');
                                 setIsMovementModalOpen(true);
                             }}
                         >
-                            <ArrowUpCircle size={17} className="cash-dribbble-btn__icon" />
+                            <ArrowUpCircle size={16} aria-hidden />
                             <span>Ingreso</span>
                         </Button>
                         <Button
                             variant="outline"
                             type="button"
-                            className="cash-dribbble-btn cash-dribbble-btn--withdraw"
+                            className="cash-hero__btn"
                             onClick={() => {
                                 setMovementModalVariant('cash_withdrawal');
                                 setIsMovementModalOpen(true);
                             }}
                             title="Retiro de efectivo del turno"
                         >
-                            <ArrowDownCircle size={17} className="cash-dribbble-btn__icon" />
+                            <ArrowDownCircle size={16} aria-hidden />
                             <span>Retiro</span>
                         </Button>
                         <Button
-                            variant="outline"
+                            variant="default"
                             type="button"
-                            className="cash-dribbble-btn cash-dribbble-btn--close"
+                            className="cash-hero__btn cash-hero__btn--primary"
                             onClick={() => setIsShiftModalOpen(true)}
                         >
-                            <Lock size={15} className="cash-dribbble-btn__icon" />
+                            <Lock size={15} aria-hidden />
                             <span>Cerrar turno</span>
                         </Button>
                     </div>
-                </div>
+                </section>
             ) : (
-                <div className="cash-dribbble-hero cash-dribbble-hero--closed" aria-label="Sin turno abierto">
-                    <div className="cash-dribbble-hero__body">
-                        <h1 className="cash-dribbble-title">Caja cerrada</h1>
-                        <div className="cash-dribbble-chips">
-                            <span className="cash-dribbble-chip">Sin turno activo</span>
+                <section className="cash-hero cash-hero--closed" aria-label="Estado de la caja">
+                    <div className="cash-hero__status">
+                        <span className="cash-hero__badge" aria-hidden>
+                            <Lock size={20} strokeWidth={1.75} />
+                        </span>
+                        <div className="cash-hero__text">
+                            <h1 className="cash-hero__title">Caja cerrada</h1>
+                            <p className="cash-hero__meta">
+                                {lastClosedShift?.closed_at ? (
+                                    <>
+                                        <span>
+                                            Último cierre{' '}
+                                            <strong>
+                                                {formatShiftOpenedDay(lastClosedShift.closed_at, locale)}
+                                                {', '}
+                                                {new Date(lastClosedShift.closed_at).toLocaleTimeString(locale, {
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </strong>
+                                        </span>
+                                        <span className="cash-hero__sep" aria-hidden>·</span>
+                                        <span>
+                                            <strong>{Number(lastClosedShift.orders_count ?? 0)}</strong>
+                                            {' '}
+                                            {Number(lastClosedShift.orders_count ?? 0) === 1 ? 'pedido' : 'pedidos'}
+                                        </span>
+                                        <span className="cash-hero__sep" aria-hidden>·</span>
+                                        <span>Ventas <strong>{fmt(lastClosedShift.summary?.income || 0)}</strong></span>
+                                    </>
+                                ) : (
+                                    <span>Abre un turno para empezar a registrar ventas y movimientos.</span>
+                                )}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="cash-dribbble-hero__actions">
+                    <div className="cash-hero__actions">
                         <Button
                             variant="default"
                             type="button"
-                            className="cash-dribbble-btn cash-dribbble-btn--open"
+                            className="cash-hero__btn cash-hero__btn--primary"
                             onClick={() => setIsShiftModalOpen(true)}
                         >
-                            <Unlock size={17} />
+                            <Unlock size={16} aria-hidden />
                             <span>Abrir turno</span>
                         </Button>
                     </div>
-                </div>
+                </section>
             )}
 
             {/* TURNO ACTIVO: KPI DASHBOARD */}
@@ -403,7 +443,6 @@ const CashManager = ({
                                                 <span className="cash-recent-desc">{m.description || (m.type === 'sale' ? 'Venta' : m.type === 'income' ? 'Ingreso' : m.type === 'cancel' ? 'Cancelado' : 'Egreso')}</span>
                                                 <span className="cash-recent-time">
                                                     {new Date(m.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
-                                                    {isCancel ? ' · Cancelado' : ''}
                                                     {!isCancel && order && Number(order.delivery_fee) > 0
                                                         ? ` · Envío ${formatOrderAmount({
                                                             amountUsd: Number(order.delivery_fee),
@@ -512,7 +551,7 @@ const CashManager = ({
                                     <div className="cash-history-item-right">
                                         <div className="cash-history-amount-group">
                                             <span className="cash-history-main-amount">
-                                                +{fmt(summary.income)}
+                                                {Number(summary.income) > 0 ? '+' : ''}{fmt(summary.income)}
                                             </span>
                                             <span className="cash-history-sub-amount">
                                                 Efectivo {fmt(summary.cash)}

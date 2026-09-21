@@ -47,7 +47,25 @@ export function formatShiftDuration(openedAt, closedAt = null) {
 }
 
 const TIME_OPTS = { hour: '2-digit', minute: '2-digit' };
-const DAY_OPTS = { day: '2-digit', month: 'short' };
+const DAY_OPTS = { day: 'numeric', month: 'short' };
+
+/**
+ * "15 sept" en cualquier locale. `toLocaleDateString` devolvía "15-sept." en
+ * es-VE (guion y punto), que leído en una lista de turnos parecía un error.
+ * @param {Date} d
+ * @param {string} [locale]
+ */
+function formatDayMonth(d, locale) {
+	try {
+		const parts = new Intl.DateTimeFormat(locale, DAY_OPTS).formatToParts(d);
+		const day = parts.find((p) => p.type === 'day')?.value;
+		const month = parts.find((p) => p.type === 'month')?.value?.replace(/\.$/, '');
+		if (day && month) return `${day} ${month}`;
+	} catch {
+		/* cae al formato del navegador */
+	}
+	return d.toLocaleDateString(locale, DAY_OPTS);
+}
 
 function sameLocalDay(a, b) {
 	return (
@@ -65,7 +83,7 @@ function sameLocalDay(a, b) {
 export function formatShiftOpenedDay(openedAt, locale) {
 	const d = new Date(openedAt);
 	if (!Number.isFinite(d.getTime())) return '—';
-	return d.toLocaleDateString(locale, DAY_OPTS);
+	return formatDayMonth(d, locale);
 }
 
 /**
@@ -86,7 +104,7 @@ export function formatShiftHoursRange(openedAt, closedAt, locale) {
 		return `${startTime} → ${endTime}`;
 	}
 
-	const startDay = start.toLocaleDateString(locale, DAY_OPTS);
-	const endDay = end.toLocaleDateString(locale, DAY_OPTS);
+	const startDay = formatDayMonth(start, locale);
+	const endDay = formatDayMonth(end, locale);
 	return `${startDay} ${startTime} → ${endDay} ${endTime}`;
 }

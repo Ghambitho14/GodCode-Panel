@@ -45,6 +45,17 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 
 	useLockBodyScroll(isOpen);
 
+	/* Escape cierra el diálogo; antes solo se cerraba con el ratón. */
+	useEffect(() => {
+		if (!isOpen) return undefined;
+		const onKeyDown = (event) => {
+			if (event.key === 'Escape') onClose();
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [isOpen, onClose]);
+
+
 	if (!isOpen) return null;
 
 	/* onConfirm es asincrono y devuelve false si falla. Antes se llamaba sin
@@ -85,7 +96,7 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 	const title = isIncome
 		? 'Registrar ingreso'
 		: isCashWithdrawal
-			? 'Sacar efectivo'
+			? 'Retiro de efectivo'
 			: 'Gasto del local';
 
 	const descPlaceholder = isIncome
@@ -94,7 +105,7 @@ const CashMovementModal = ({ isOpen, onClose, variant = 'income', onConfirm }) =
 			? 'Ej: Compra urgente, vuelto, taxi…'
 			: 'Ej: Mercadería, arriendo, sueldo…';
 
-	const submitLabel = isCashWithdrawal ? 'Registrar retiro' : 'Guardar movimiento';
+	const submitLabel = isCashWithdrawal ? 'Registrar retiro' : isIncome ? 'Registrar ingreso' : 'Registrar gasto';
 	const submitClass = isIncome
 		? 'cash-dialog__btn cash-dialog__btn--income'
 		: 'cash-dialog__btn cash-dialog__btn--expense';

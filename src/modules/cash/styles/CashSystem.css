@@ -284,280 +284,6 @@
 .admin-layout .cash-container .flex-center { display: flex; align-items: center; justify-content: center; }
 
 /* ===========================================
-   3. DRIBBBLE-INSPIRED BENTO HERO (Restaurant Operations)
-   =========================================== */
-.admin-layout .cash-dribbble-hero {
-    border-radius: 22px;
-    padding: 18px 22px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    position: relative;
-    overflow: hidden;
-    transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-    text-align: center;
-}
-
-/* Active State: Clean White Card with Crisp Emerald Border */
-.admin-layout .cash-dribbble-hero--active {
-    background: #ffffff;
-    border: 1.5px solid #86efac;
-    color: #0f172a;
-    box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-hero--active,
-.dark .admin-layout .cash-dribbble-hero--active {
-    background: var(--admin-card-bg, #18181b);
-    border: 1.5px solid rgba(52, 211, 153, 0.45);
-    color: #ecfdf5;
-}
-
-/* Closed State: Clean White Card with Crisp Sky Blue Border */
-.admin-layout .cash-dribbble-hero--closed {
-    background: #ffffff;
-    border: 1.5px solid #93c5fd;
-    color: #0f172a;
-    box-shadow: 0 4px 20px -2px rgba(59, 130, 246, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-hero--closed,
-.dark .admin-layout .cash-dribbble-hero--closed {
-    background: var(--admin-card-bg, #18181b);
-    border: 1.5px solid rgba(96, 165, 250, 0.4);
-    color: #f1f5f9;
-}
-
-.admin-layout .cash-dribbble-hero__body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    text-align: center;
-}
-
-.admin-layout .cash-dribbble-title {
-    margin: 0;
-    font-size: 1.38rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    text-transform: none;
-    color: #0f172a;
-    line-height: 1.2;
-    text-align: center;
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-title,
-.dark .admin-layout .cash-dribbble-title {
-    color: #ffffff;
-}
-
-.admin-layout .cash-dribbble-hero--closed .cash-dribbble-title {
-    color: #0f172a;
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-hero--closed .cash-dribbble-title,
-.dark .admin-layout .cash-dribbble-hero--closed .cash-dribbble-title {
-    color: #ffffff;
-}
-
-.admin-layout .cash-dribbble-chips {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* Chips: Floating Pebble Capsules */
-/* Chips: Floating Pebble Capsules */
-.admin-layout .cash-dribbble-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 13px;
-    border-radius: 9999px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-    font-variant-numeric: tabular-nums;
-}
-
-.admin-layout .cash-dribbble-hero--active .cash-dribbble-chip {
-    background: #f0fdf4;
-    border: 1px solid #dcfce7;
-    color: #0f172a;
-}
-
-.admin-layout .cash-dribbble-hero--active .cash-dribbble-chip svg {
-    color: #166534;
-}
-
-.admin-layout .cash-dribbble-hero--active .cash-dribbble-chip--base {
-    color: #047857;
-    font-weight: 800;
-}
-
-.admin-layout .cash-dribbble-hero--closed .cash-dribbble-chip {
-    background: #f0f9ff;
-    border: 1px solid #e0f2fe;
-    color: #0f172a;
-}
-
-.admin-layout .cash-dribbble-hero--closed .cash-dribbble-chip svg {
-    color: #0284c7;
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-chip,
-.dark .admin-layout .cash-dribbble-chip {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #f1f5f9;
-}
-
-[data-theme="dark"] .admin-layout .cash-dribbble-hero--active .cash-dribbble-chip--base,
-.dark .admin-layout .cash-dribbble-hero--active .cash-dribbble-chip--base {
-    color: #6ee7b7;
-}
-
-/* Action Buttons: Clean Floating Pebble Capsules */
-.admin-layout .cash-dribbble-hero__actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-    padding: 10px 18px !important;
-    border-radius: 9999px !important;
-    font-size: 0.86rem !important;
-    font-weight: 750 !important;
-    font-family: inherit !important;
-    cursor: pointer !important;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    background: #f8fafc !important;
-    color: #0f172a !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
-    white-space: nowrap !important;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn:hover {
-    transform: translateY(-2px) !important;
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    color: #000000 !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn:active {
-    transform: translateY(0) !important;
-}
-
-/* Icon accents inside tone-on-tone buttons */
-.admin-layout .cash-container .cash-dribbble-btn--income .cash-dribbble-btn__icon {
-    color: #15803d;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn--withdraw .cash-dribbble-btn__icon {
-    color: #b45309;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn--close {
-    background: #f8fafc !important;
-    color: #0f172a !important;
-    border: 1px solid #e2e8f0 !important;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn--close .cash-dribbble-btn__icon {
-    color: #e11d48;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn--close:hover {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-}
-
-/* Open Shift: Soft Lighter Tone Pebble with Brand Accent */
-.admin-layout .cash-container .cash-dribbble-btn--open {
-    background: #f8fafc !important;
-    color: #0f172a !important;
-    padding: 12px 24px !important;
-    font-size: 0.92rem !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
-}
-
-.admin-layout .cash-container .cash-dribbble-btn--open:hover {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #cbd5e1 !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
-}
-
-/* Dark Mode Tone-on-Tone Overrides */
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn,
-.dark .admin-layout .cash-container .cash-dribbble-btn {
-    background: rgba(255, 255, 255, 0.12) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn:hover,
-.dark .admin-layout .cash-container .cash-dribbble-btn:hover {
-    background: rgba(255, 255, 255, 0.22) !important;
-    color: #ffffff !important;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn--income .cash-dribbble-btn__icon,
-.dark .admin-layout .cash-container .cash-dribbble-btn--income .cash-dribbble-btn__icon {
-    color: #4ade80;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn--withdraw .cash-dribbble-btn__icon,
-.dark .admin-layout .cash-container .cash-dribbble-btn--withdraw .cash-dribbble-btn__icon {
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn--close,
-.dark .admin-layout .cash-container .cash-dribbble-btn--close {
-    background: rgba(239, 68, 68, 0.2) !important;
-    color: #ffffff !important;
-    border-color: rgba(239, 68, 68, 0.35) !important;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn--close:hover,
-.dark .admin-layout .cash-container .cash-dribbble-btn--close:hover {
-    background: rgba(239, 68, 68, 0.3) !important;
-    color: #ffffff !important;
-}
-
-[data-theme="dark"] .admin-layout .cash-container .cash-dribbble-btn--open,
-.dark .admin-layout .cash-container .cash-dribbble-btn--open {
-    background: rgba(255, 255, 255, 0.15) !important;
-    color: #ffffff !important;
-    border-color: rgba(255, 255, 255, 0.25) !important;
-}
-
-/* ===========================================
    4. SECTIONS
    =========================================== */
 .admin-layout .cash-section {
@@ -2139,6 +1865,7 @@
     font-weight: 750;
     color: #0f172a;
     letter-spacing: -0.01em;
+    white-space: nowrap;
 }
 
 [data-theme="dark"] .admin-layout .cash-history-day,
@@ -2155,6 +1882,7 @@
     background: #f1f5f9;
     padding: 1px 7px;
     border-radius: 9999px;
+    white-space: nowrap;
 }
 
 [data-theme="dark"] .admin-layout .cash-history-orders-badge,
@@ -2356,15 +2084,19 @@
         height: 28px;
     }
 
-    /* History cards */
+    /* History cards: sin el avatar de calendario (es igual en todas las filas)
+       para que día, pedidos y horas quepan en una línea junto a los importes. */
     .admin-layout .cash-history-card {
         padding: 12px 14px;
         gap: 10px;
     }
 
     .admin-layout .cash-history-avatar {
-        width: 38px;
-        height: 38px;
+        display: none;
+    }
+
+    .admin-layout .cash-history-title-row {
+        gap: 6px;
     }
 
     /* Empty state */
@@ -4024,4 +3756,157 @@
     .admin-layout .cash-container .cash-dialog__amount-input {
         font-size: 16px;
     }
+}
+
+/* ===========================================
+   CABECERA DE ESTADO DEL TURNO
+   Un tile de estado (candado abierto/cerrado), el título y una línea de
+   contexto; las acciones a la derecha con una sola primaria. Sustituye a la
+   caja verde con chips y tres botones iguales.
+   =========================================== */
+.admin-layout .cash-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    padding: 16px 20px;
+    border-radius: 16px;
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e5e5ea);
+    box-shadow: var(--admin-shadow-sm);
+}
+
+/* El bloque de texto cede ancho antes que las acciones: el botón no baja de
+   línea en portátiles por una frase larga. */
+.admin-layout .cash-hero__status {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 1 280px;
+}
+
+.admin-layout .cash-hero__badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-gc-success, #00705b);
+    background: color-mix(in srgb, var(--color-gc-success, #00705b) 12%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .cash-hero--closed .cash-hero__badge {
+    color: var(--admin-text-muted, #64748b);
+    background: var(--admin-icon-bg, #f5f5f7);
+}
+
+.admin-layout .cash-hero__text {
+    min-width: 0;
+}
+
+.admin-layout .cash-hero__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .cash-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .cash-hero__meta strong {
+    font-weight: 600;
+    color: var(--admin-text, #1d1d1f);
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .cash-hero__sep {
+    opacity: 0.6;
+}
+
+.admin-layout .cash-hero__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.admin-layout .cash-container .cash-hero__btn {
+    min-height: 40px;
+    height: 40px;
+    padding: 0 16px;
+    gap: 8px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: var(--admin-card-bg, #fff);
+    border: 1px solid var(--admin-border, #e5e5ea);
+    color: var(--admin-text, #1d1d1f);
+    box-shadow: none;
+}
+
+.admin-layout .cash-container .cash-hero__btn:hover {
+    background: var(--admin-icon-bg, #f5f5f7);
+    border-color: color-mix(in srgb, var(--admin-text-muted, #64748b) 40%, var(--admin-border, #e5e5ea));
+    color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .cash-container .cash-hero__btn--primary {
+    background: var(--admin-accent, #2563eb);
+    border-color: var(--admin-accent, #2563eb);
+    color: #fff;
+}
+
+.admin-layout .cash-container .cash-hero__btn--primary:hover {
+    background: var(--admin-accent-hover, #1d4ed8);
+    border-color: var(--admin-accent-hover, #1d4ed8);
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    .admin-layout .cash-hero {
+        padding: 14px 16px;
+        gap: 12px;
+    }
+
+    .admin-layout .cash-hero__actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .admin-layout .cash-hero__actions .cash-hero__btn--primary {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Detalle de turno: la columna de resumen ya no lleva su propia barra gris ni
+   tarjetas dentro de tarjetas. */
+.admin-layout .cash-container .cash-shift-detail-summary {
+    scrollbar-width: thin;
+    scrollbar-color: var(--admin-border, #e5e5ea) transparent;
+    gap: 14px;
+}
+
+.admin-layout .cash-container .cash-shift-detail-card {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
 }

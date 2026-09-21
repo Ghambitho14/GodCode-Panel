@@ -161,7 +161,7 @@ export default function CashOrderDetailPanel({
 
 	const panel = (
 		<div
-			className="admin-layout order-detail-overlay cash-order-detail-overlay"
+			className="admin-layout tenant-theme-vars order-detail-overlay cash-order-detail-overlay"
 			onClick={onClose}
 			role="presentation"
 		>
@@ -368,7 +368,7 @@ export default function CashOrderDetailPanel({
 							})}
 						</span>
 					</div>
-					<Button variant="default" type="button" className="admin-btn primary order-detail-done" onClick={onClose}>
+					<Button variant="outline" type="button" className="order-detail-done" onClick={onClose}>
 						Cerrar
 					</Button>
 				</div>

@@ -270,6 +270,17 @@ const CashShiftDetailModal = ({ isOpen, onClose, shift, getTotals, orders = [], 
 
     useLockBodyScroll(isOpen && !!shift);
 
+    /* Escape cierra el diálogo; antes solo se cerraba con el ratón. */
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, onClose]);
+
+
     if (!isOpen || !shift) return null;
 
     const totals = getTotals
