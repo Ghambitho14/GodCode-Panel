@@ -20,6 +20,15 @@
 	box-sizing: border-box;
 }
 
+/* El carrusel es una sola tarjeta con las secciones a hueso, separadas por un
+   filete. El gap del cascarón .admin-branch-options (pensado para tarjetas
+   sueltas en "Opciones de sucursal") dejaba 14px de blanco bajo cada filete,
+   así que los separadores flotaban y la banda gris de recomendaciones no
+   llegaba a tocar la cabecera. */
+.menu-carousel.admin-branch-options {
+	gap: 0;
+}
+
 @media (max-width: 768px) {
 	.menu-carousel-panel-inner {
 		overflow: visible;

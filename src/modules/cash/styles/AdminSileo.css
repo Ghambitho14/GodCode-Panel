@@ -18,10 +18,16 @@
 	filter: drop-shadow(0 12px 32px rgba(15, 23, 42, 0.16));
 }
 
-[data-sileo-title] {
+/* Selector doble: la hoja de la librería se inyecta después de ésta en
+   desarrollo, y con la misma especificidad ganaba ella. */
+[data-sileo-viewport] [data-sileo-title] {
 	font-weight: 600;
 	color: #0f172a;
 	letter-spacing: -0.01em;
+	/* Nuestros avisos son frases completas ("Esta sección no está habilitada
+	   para tu local."), no etiquetas de una palabra: el capitalize de la
+	   librería las convertía en Título De Cada Palabra. */
+	text-transform: none;
 }
 
 :is([data-sileo-badge], [data-sileo-title])[data-state] {

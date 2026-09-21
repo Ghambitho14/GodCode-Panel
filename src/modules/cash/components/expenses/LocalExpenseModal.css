@@ -82,9 +82,9 @@
 }
 
 .admin-layout .local-expense-modal-tab.active {
-	background: var(--admin-accent-soft, rgba(59, 130, 246, 0.1));
-	border-color: var(--admin-accent, #3b82f6);
-	color: var(--admin-accent, #3b82f6);
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 10%, var(--admin-card-bg, #fff));
+	border-color: var(--admin-accent, #2563eb);
+	color: var(--admin-accent, #2563eb);
 }
 
 .admin-layout .local-expense-modal-body {
@@ -128,9 +128,9 @@
 }
 
 .admin-layout .local-expense-modal-chip.active {
-	background: rgba(59, 130, 246, 0.12);
-	border-color: var(--admin-accent, #3b82f6);
-	color: var(--admin-accent, #3b82f6);
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 12%, var(--admin-card-bg, #fff));
+	border-color: var(--admin-accent, #2563eb);
+	color: var(--admin-accent, #2563eb);
 }
 
 .admin-layout .local-expense-modal-amount-wrap {
@@ -140,13 +140,16 @@
 	padding-left: 14px;
 	border: 1px solid var(--admin-border, #e5e7eb);
 	border-radius: 10px;
-	background: var(--admin-input-bg, #fff);
+	background: var(--admin-card-bg, #fff);
 	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* Mismo anillo de foco que el resto del panel: sigue al color del negocio.
+   Con un azul fijo, en un local con acento naranja el borde y el halo no
+   coincidian. */
 .admin-layout .local-expense-modal-amount-wrap:focus-within {
-	border-color: var(--admin-accent, #3b82f6);
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+	border-color: var(--admin-accent, #2563eb);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent, #2563eb) 18%, transparent);
 }
 
 .admin-layout .local-expense-modal-amount-prefix {
@@ -166,7 +169,7 @@
 	padding: 10px 12px;
 	border: 1px solid var(--admin-border, #e5e7eb);
 	border-radius: 10px;
-	background: var(--admin-input-bg, #fff);
+	background: var(--admin-card-bg, #fff);
 	color: var(--admin-text, #0f172a);
 	font-family: inherit;
 	font-size: 0.9rem;
@@ -212,9 +215,9 @@
 }
 
 .admin-layout .local-expense-modal-method.active {
-	border-color: var(--admin-accent, #3b82f6);
-	background: rgba(59, 130, 246, 0.08);
-	color: var(--admin-accent, #3b82f6);
+	border-color: var(--admin-accent, #2563eb);
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 8%, var(--admin-card-bg, #fff));
+	color: var(--admin-accent, #2563eb);
 }
 
 .admin-layout .local-expense-modal-note {

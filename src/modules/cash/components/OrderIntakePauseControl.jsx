@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PauseCircle, PlayCircle, AlertTriangle } from 'lucide-react';
 import { supabase, TABLES, getCurrentUser } from '@/integrations/supabase';
 import {
@@ -31,14 +32,26 @@ export default function OrderIntakePauseControl({
 	const [confirmPos, setConfirmPos] = useState(null);
 	const triggerRef = useRef(null);
 
+	/**
+	 * El diálogo se monta en un portal (ver más abajo), así que sus coordenadas son
+	 * de viewport: hay que calcular también el centro horizontal. Antes bastaba con
+	 * `left: 50%` porque colgaba de la cabecera y heredaba su sistema de referencia.
+	 */
 	const updateConfirmPos = useCallback(() => {
 		if (typeof window === 'undefined') return;
 		const cluster = document.querySelector('.header-actions-cluster');
-		const fallback = document.querySelector('.header-actions');
-		const ref = cluster && cluster.getBoundingClientRect().height > 0 ? cluster : fallback;
+		const headerActions = document.querySelector('.header-actions');
+		const clusterVisible = cluster && cluster.getBoundingClientRect().height > 0;
+		// En móvil el clúster mide 0 de alto; el botón es el último recurso para que
+		// la posición nunca quede sin calcular y el diálogo fuera de pantalla.
+		const ref = clusterVisible ? cluster : (headerActions || triggerRef.current);
 		if (!ref) return;
 		const r = ref.getBoundingClientRect();
-		setConfirmPos({ top: r.bottom + 8 });
+		const width = Math.min(320, window.innerWidth - 24);
+		const half = width / 2;
+		const centered = r.left + r.width / 2;
+		const left = Math.min(Math.max(centered, half + 12), window.innerWidth - half - 12);
+		setConfirmPos({ top: r.bottom + 8, left });
 	}, []);
 
 	const branchValid = isValidBranchId(branchId);
@@ -169,12 +182,18 @@ export default function OrderIntakePauseControl({
 				)}
 			</Button>
 
-				{confirmPauseOpen ? (
+				{/* La cabecera lleva `transform: translate3d(0,0,0)` (truco de sticky en iOS)
+				y en móvil añade `overflow-x: hidden`. Eso convertía a la cabecera en el
+				bloque contenedor de este `position: fixed` y lo recortaba a su alto:
+				en el teléfono el diálogo se montaba pero no se veía nada. En un portal
+				cuelga de `.admin-layout`, que no tiene transform, así que vuelve a ser
+				relativo al viewport (y sigue heredando los tokens del panel). */}
+			{confirmPauseOpen ? createPortal((
 					<div
 						className="order-intake-pause__confirm glass"
 						role="dialog"
 						aria-label="Confirmar pausa de pedidos online"
-						style={confirmPos ? { top: confirmPos.top, left: '50%', transform: 'translateX(-50%)' } : undefined}
+						style={confirmPos ? { top: confirmPos.top, left: confirmPos.left, transform: 'translateX(-50%)' } : undefined}
 					>
 					<div className="order-intake-pause__confirm-head">
 						<AlertTriangle size={18} aria-hidden />
@@ -218,7 +237,7 @@ export default function OrderIntakePauseControl({
 						</Button>
 					</div>
 				</div>
-			) : null}
+			), document.querySelector('.admin-layout') || document.body) : null}
 		</div>
 	);
 }

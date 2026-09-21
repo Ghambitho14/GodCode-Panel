@@ -31,6 +31,9 @@ import "../styles/OrderCard.css";
 import "../styles/ProductModal.css";
 import "../styles/CategoryModal.css";
 import "../styles/InventoryCard.css";
+// Base compartida por "Opciones de sucursal" y "Carrusel": va antes que las
+// hojas de cada pestaña para que aquéllas puedan afinarla.
+import "../styles/AdminBranchOptions.css";
 import "../styles/AdminMenuCarousel.css";
 import "../styles/AdminMenuOptions.css";
 import "../styles/AdminCartUpsell.css";

@@ -1,0 +1,115 @@
+/* =========================================
+   BRANCH OPTIONS — base compartida
+   Cascarón y tipografía que comparten "Opciones de sucursal" y "Carrusel".
+   Desde que el carrusel es pestaña propia ya no se cargan juntos, así que la
+   base vive aparte: el carrusel no tiene por qué importar las ~1900 líneas de
+   AdminMenuOptions.css (subpestañas, envío, mesas, vista de pedidos) que no
+   usa. Se importa antes que la hoja de cada pestaña: ésta es la base y
+   aquéllas mandan.
+   ========================================= */
+
+.admin-branch-options {
+	--branch-options-focus: #2563eb;
+	--branch-options-gap: 14px;
+	--branch-options-radius: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: var(--branch-options-gap);
+	max-width: 100%;
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.admin-branch-options__toolbar {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+}
+
+.admin-branch-options__toolbar-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+.admin-branch-options__toolbar-title h2 {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	color: var(--admin-text, #12151a);
+	line-height: 1.2;
+}
+
+.admin-branch-options__toolbar-title svg {
+	flex-shrink: 0;
+	color: var(--branch-options-focus, #2563eb);
+}
+
+.admin-branch-options__toolbar-hint {
+	margin: 0;
+	max-width: 40rem;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-branch-options__card {
+	padding: 16px 18px;
+	border-radius: var(--branch-options-radius, 14px);
+	border: 1px solid var(--admin-border, #e8ecf1);
+	background: var(--admin-card-bg, #fff);
+	box-shadow: none;
+	overflow: visible;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.admin-branch-options__block {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0 0 18px;
+}
+
+.admin-branch-options__block:last-of-type {
+	margin-bottom: 0;
+}
+
+.admin-branch-options__block-title {
+	margin: 0;
+	font-size: 0.95rem;
+	font-weight: 750;
+	letter-spacing: -0.02em;
+	color: var(--admin-text, #0f172a);
+	line-height: 1.25;
+}
+
+.admin-branch-options__block-hint {
+	margin: 0;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--admin-text, #334155);
+}
+
+.admin-branch-options__block-hint--muted,
+.admin-branch-options__block-hint.admin-branch-options__block-hint--muted {
+	color: var(--admin-text-muted, #64748b);
+	font-weight: 500;
+}
+
+.admin-branch-options__empty {
+	padding: 1.5rem 0.5rem;
+	text-align: center;
+}
+
+.admin-branch-options__empty p {
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+}

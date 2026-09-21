@@ -503,12 +503,19 @@
 	position: relative;
 }
 
+/* Se monta en un portal colgando de .admin-layout, no de la cabecera: las
+   coordenadas son de viewport y el JS fija `top` y `left` bajo el clúster de la
+   cabecera. El ancho respeta las áreas seguras para que en teléfonos estrechos
+   no se salga por los lados. */
 .admin-layout .order-intake-pause__confirm {
 	position: fixed;
-	top: calc(100% + 8px);
-	right: 0;
+	top: 88px;
+	left: 50%;
+	transform: translateX(-50%);
 	z-index: 120;
-	width: min(320px, 92vw);
+	width: min(320px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px));
+	max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
+	box-sizing: border-box;
 	padding: 14px;
 	border-radius: 14px;
 	border: 1px solid var(--admin-border);
@@ -1317,16 +1324,6 @@
 		width: 100%;
 		min-width: 0;
 		justify-content: center;
-	}
-
-	/* Diálogo pausa: centrar horizontalmente bajo el header en mobile */
-	.admin-layout .header-actions--mobile-toolbar .header-actions-orders-row .order-intake-pause__confirm {
-		left: 50% !important;
-		right: auto !important;
-		transform: translateX(-50%) !important;
-		width: min(320px, calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 24px));
-		max-width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px) - 16px);
-		box-sizing: border-box;
 	}
 
 	/* Badge estado: texto más compacto en pantallas muy estrechas */

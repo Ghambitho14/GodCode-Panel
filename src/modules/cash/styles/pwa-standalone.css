@@ -71,3 +71,67 @@ html.pwa-standalone .menu-carousel-editor-overlay {
 	padding: var(--pwa-safe-top) var(--pwa-safe-right) var(--pwa-safe-bottom) var(--pwa-safe-left);
 	box-sizing: border-box;
 }
+
+/* Excepción: en teléfono el modal de producto y el editor del carrusel van a
+   pantalla completa (su overlay se queda con padding 0) y ya colocan las áreas
+   seguras en su propia cabecera y en su pie. Si además se las damos al overlay,
+   el contenido de 100dvh desborda por abajo y el pie con los botones queda
+   fuera de la pantalla. */
+@media (max-width: 600px) {
+	html.pwa-standalone .modal-overlay:has(.product-modal-content) {
+		padding: 0;
+	}
+}
+
+@media (max-width: 640px) {
+	html.pwa-standalone .menu-carousel-editor-overlay {
+		padding: 0;
+	}
+}
+
+/* Avisos (Sileo): su contenedor es fixed contra el borde con 0.75rem de
+   padding. Con la barra de estado translúcida del modo instalado, los avisos
+   de arriba caían sobre el reloj y la señal. */
+html.pwa-standalone [data-sileo-viewport][data-position^="top"] {
+	padding-top: calc(0.75rem + var(--pwa-safe-top));
+}
+
+html.pwa-standalone [data-sileo-viewport][data-position^="bottom"] {
+	padding-bottom: calc(0.75rem + var(--pwa-safe-bottom));
+}
+
+/* Diálogos que se habían quedado fuera de la lista de arriba. Se usa max() en
+   vez de sustituir el relleno: así el diseño no cambia donde ya hay margen de
+   sobra y solo crece cuando el área segura del aparato es mayor. */
+html.pwa-standalone .admin-modal-overlay,
+html.pwa-standalone .admin-danger-overlay,
+html.pwa-standalone .cash-container .modal-overlay {
+	padding-top: max(16px, var(--pwa-safe-top));
+	padding-right: max(16px, var(--pwa-safe-right));
+	padding-bottom: max(16px, var(--pwa-safe-bottom));
+	padding-left: max(16px, var(--pwa-safe-left));
+}
+
+/* La paleta de comandos baja desde arriba: conserva su 12vh de caída. */
+html.pwa-standalone .admin-command-palette-overlay {
+	padding-top: max(12vh, var(--pwa-safe-top));
+	padding-bottom: max(16px, var(--pwa-safe-bottom));
+}
+
+html.pwa-standalone .manual-order-close-confirm {
+	padding-top: max(20px, var(--pwa-safe-top));
+	padding-right: max(20px, var(--pwa-safe-right));
+	padding-bottom: max(20px, var(--pwa-safe-bottom));
+	padding-left: max(20px, var(--pwa-safe-left));
+}
+
+/* Gavetas laterales de alto completo (ficha de cliente, recibo de pago y
+   detalle de pedido en Caja): el fondo sigue llegando a los bordes de la
+   pantalla, pero su contenido se aparta de la barra de estado y del indicador
+   de inicio. */
+html.pwa-standalone .admin-side-panel,
+html.pwa-standalone .cash-order-detail-drawer {
+	padding-top: var(--pwa-safe-top);
+	padding-bottom: var(--pwa-safe-bottom);
+	box-sizing: border-box;
+}

@@ -5,6 +5,7 @@ import AdminBranchTablesSection from "./AdminBranchTablesSection";
 import OrdersViewSwitch from "./OrdersViewSwitch";
 import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
+import "../styles/AdminBranchOptions.css";
 import "../styles/AdminMenuOptions.css";
 import { Button } from "@/components/ui/button";
 

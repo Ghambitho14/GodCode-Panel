@@ -14,6 +14,21 @@ import { ADMIN_SHELL_COMPACT_MAX } from '../constants/responsive';
  * @param {{ current: HTMLElement | null }} triggerRef boton que abre el popover
  * @returns {{ pos: object | null, updatePos: () => void, setPos: Function }}
  */
+/**
+ * Alto de la barra de estado cuando la app corre instalada con la barra
+ * translucida (apple-mobile-web-app-status-bar-style=black-translucent): ahi el
+ * contenido empieza debajo del reloj. Se lee de la variable que define
+ * pwa-standalone.css; en navegador normal no existe y vale 0.
+ */
+function safeTopInset() {
+	if (typeof window === 'undefined') return 0;
+	const raw = getComputedStyle(document.documentElement)
+		.getPropertyValue('--pwa-safe-top')
+		.trim();
+	const n = Number.parseFloat(raw);
+	return Number.isFinite(n) ? n : 0;
+}
+
 export function useHeaderPopoverPosition(triggerRef) {
 	const [pos, setPos] = useState(null);
 
@@ -28,7 +43,9 @@ export function useHeaderPopoverPosition(triggerRef) {
 
 		if (viewportWidth <= ADMIN_SHELL_COMPACT_MAX) {
 			setPos({
-				top: Math.max(54, r.bottom + 8),
+				// El tope de 54px se medía desde el borde fisico de la pantalla:
+				// en la app instalada eso cae sobre la barra de estado.
+				top: Math.max(54 + safeTopInset(), r.bottom + 8),
 				left: 12,
 				right: 12,
 				maxWidth: 400,
