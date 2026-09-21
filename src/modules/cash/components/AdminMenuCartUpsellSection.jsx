@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "../styles/AdminMenuOptions.css";
 import "../styles/AdminCartUpsell.css";
 import "../styles/AdminMenuCarousel.css";
-import { CupSoda, Edit3, Eye, EyeOff, Loader2, Package, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
+import { Edit3, Eye, EyeOff, Loader2, Package, Plus, Search, Trash2, X } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import {
 	uploadCompanyImage,
@@ -104,12 +104,6 @@ export default function AdminMenuCartUpsellSection({
 	const cfg = useMemo(() => {
 		if (isBev) {
 			return {
-				pageTitle: "Bebidas en carrito",
-				pageLead:
-					"Agrupa por categoría propia (aguas, refrescos, jugos…) — no comparten categorías con los artículos del inventario.",
-				pageHelp:
-					"Categoría agrupa en el carrito (Refrescos, Aguas…). Elige el tipo de bebida (Refresco, Agua…). Opcional: vincula un artículo tipo Bebida para descontar stock al vender.",
-				Icon: CupSoda,
 				newLabel: "Nueva bebida",
 				saveSuccess: "Bebidas actualizadas.",
 				helpToggle:
@@ -117,12 +111,6 @@ export default function AdminMenuCartUpsellSection({
 			};
 		}
 		return {
-			pageTitle: "Extras en carrito",
-			pageLead:
-				"Pueden ser complementos solo de menú o enlazarse a un artículo que ya controlas en inventario (salsas, toppings…).",
-			pageHelp:
-				"Categorías aparte (salsas, aderezos…). El vínculo a artículo es opcional: sirve para descontar stock al vender.",
-			Icon: Sparkles,
 			newLabel: "Nuevo extra",
 			saveSuccess: "Extras actualizados.",
 			helpToggle: "Extras opcionales ofrecidos en el carrito para esta sucursal.",
@@ -610,11 +598,9 @@ export default function AdminMenuCartUpsellSection({
 		? isBev
 			? "Bebidas desactivadas para clientes en esta sucursal."
 			: "Extras desactivados para clientes en esta sucursal."
-		: isBev
-			? `${countActive} activas · ${items.length} en catálogo`
-			: `${countActive} activos · ${items.length} en catálogo`;
+		: `${countActive} ${isBev ? (countActive === 1 ? "activa" : "activas") : (countActive === 1 ? "activo" : "activos")} · ${items.length} en catálogo`;
 
-	const { pageTitle, pageLead, pageHelp, Icon, newLabel, helpToggle } = cfg;
+	const { newLabel, helpToggle } = cfg;
 	const lockUi = loading || saving;
 
 	if (!branchId) {
@@ -635,21 +621,45 @@ export default function AdminMenuCartUpsellSection({
 			data-loading={loading ? "true" : "false"}
 			data-variant={variant}
 		>
-			<div className="admin-cart-upsell-toolbar glass animate-fade">
-				<div className="admin-cart-upsell-toolbar__text">
-					<div className="admin-cart-upsell-page-head">
-						<div className="admin-menu-options-card-icon admin-cart-upsell-page-icon" aria-hidden>
-							<Icon size={18} strokeWidth={1.75} />
-						</div>
-						<div className="admin-cart-upsell-page-head__copy">
-							<div className="admin-cart-upsell-page-title-row">
-								<h2 className="admin-cart-upsell-page-title">{pageTitle}</h2>
-								<AdminHelpTip text={pageHelp} className="admin-menu-options-section-label--with-tip" />
-							</div>
-							<p className="admin-cart-upsell-page-lead">{pageLead}</p>
-						</div>
-					</div>
+			{loading && (
+				<div className="admin-menu-options-cart-loading glass animate-fade" aria-live="polite">
+					<Loader2 className="animate-spin" size={20} aria-hidden style={{ marginRight: 8 }} />
+					Cargando…
 				</div>
+			)}
+
+			{/* Una sola barra, con el mismo trato que las de "Menú y carta" y
+			    "Clientes": tarjeta blanca con borde, no una franja gris dentro del
+			    catálogo. El título de la pestaña ya está en la cabecera del panel. */}
+			<div className="admin-toolbar admin-cart-upsell-catalog-head">
+				{sectionOn && items.length > 0 ? (
+					<div className="search-box">
+						<Search size={18} aria-hidden />
+						<input
+							type="search"
+							placeholder={isBev ? "Buscar bebida o categoría…" : "Buscar extra o categoría…"}
+							value={catalogSearch}
+							onChange={(e) => setCatalogSearch(e.target.value)}
+							aria-label={isBev ? "Buscar bebidas" : "Buscar extras"}
+						/>
+					</div>
+				) : null}
+
+				<div className="admin-cart-upsell-catalog-toggle">
+						<button
+							type="button"
+							className={`menu-carousel-switch menu-carousel-switch--sm admin-cart-upsell-catalog-switch ${sectionOn ? "is-on" : ""}`}
+							disabled={lockUi}
+							onClick={() => void persistSectionOnly(!sectionOn)}
+							aria-pressed={sectionOn}
+							aria-label={sectionOn ? "Desactivar sección en carrito para clientes" : "Activar sección en carrito para clientes"}
+						>
+							<span className="menu-carousel-switch-knob" />
+						</button>
+					<span className="admin-cart-upsell-catalog-toggle__label">Mostrar en carrito</span>
+					<AdminHelpTip text={helpToggle} className="admin-menu-options-section-label--with-tip" />
+				</div>
+
 				<div className="admin-cart-upsell-toolbar__actions">
 					{!isBev ? (
 						<Button variant="secondary"
@@ -679,55 +689,13 @@ export default function AdminMenuCartUpsellSection({
 				</div>
 			</div>
 
-			{loading && (
-				<div className="admin-menu-options-cart-loading glass animate-fade" aria-live="polite">
-					<Loader2 className="animate-spin" size={20} aria-hidden style={{ marginRight: 8 }} />
-					Cargando…
-				</div>
-			)}
+			<p className="admin-cart-upsell-summary">{summary}</p>
 
 			<div
 				className={`admin-menu-options-card glass animate-fade admin-menu-options-cart-block ${
 					!sectionOn ? "admin-menu-options-cart-block--dim" : ""
 				}`}
 			>
-				<div className="admin-menu-options-card-head admin-menu-options-card-head--delivery admin-cart-upsell-catalog-head">
-					<div className="admin-cart-upsell-catalog-head__main">
-						<h3 className="admin-cart-upsell-catalog-title">Catálogo</h3>
-						<p className="admin-cart-upsell-catalog-summary">{summary}</p>
-					</div>
-					<div className="admin-cart-upsell-catalog-toggle">
-						<div className="admin-cart-upsell-catalog-toggle__text">
-							<span className="admin-cart-upsell-catalog-toggle__label">Mostrar en carrito</span>
-							<AdminHelpTip text={helpToggle} className="admin-menu-options-section-label--with-tip" />
-						</div>
-						<button
-							type="button"
-							className={`menu-carousel-switch menu-carousel-switch--sm admin-cart-upsell-catalog-switch ${sectionOn ? "is-on" : ""}`}
-							disabled={lockUi}
-							onClick={() => void persistSectionOnly(!sectionOn)}
-							aria-pressed={sectionOn}
-							aria-label={sectionOn ? "Desactivar sección en carrito para clientes" : "Activar sección en carrito para clientes"}
-						>
-							<span className="menu-carousel-switch-knob" />
-						</button>
-					</div>
-				</div>
-
-				{sectionOn && items.length > 0 ? (
-					<div className="admin-cart-upsell-catalog-toolbar">
-						<div className="search-box">
-							<Search size={18} aria-hidden />
-							<input
-								type="search"
-								placeholder={isBev ? "Buscar bebida o categoría…" : "Buscar extra o categoría…"}
-								value={catalogSearch}
-								onChange={(e) => setCatalogSearch(e.target.value)}
-								aria-label={isBev ? "Buscar bebidas" : "Buscar extras"}
-							/>
-						</div>
-					</div>
-				) : null}
 
 				{!sectionOn && (
 					<p className="admin-menu-options-cart-muted">
@@ -800,22 +768,24 @@ export default function AdminMenuCartUpsellSection({
 										} else {
 											stockStatSub = isBev ? "Sin vínculo" : "Opcional";
 										}
-										let limitStatTone = "muted";
 										let limitStatMain;
 										let limitStatSub;
 										if (effMax != null) {
 											limitStatMain = `Hasta ${effMax}`;
 											limitStatSub = "por pedido";
-											limitStatTone = "ok";
 										} else if (item.inventoryItemId) {
 											limitStatMain = "Según stock";
 											limitStatSub = "sin tope manual";
-											limitStatTone = "muted";
 										} else {
 											limitStatMain = "Sin tope";
 											limitStatSub = "por ítem";
-											limitStatTone = "muted";
 										}
+										// Sin vínculo de inventario no hay stock que enseñar, y "sin tope"
+										// es el caso por defecto: ninguno merece una pastilla.
+										const stockChip = item.inventoryItemId
+											? (invMeta ? `${stockStatMain} ${stockStatSub}`.trim() : "Revisa inventario")
+											: null;
+										const limitChip = effMax != null ? `Máx. ${effMax}/pedido` : null;
 										return (
 											<div
 												key={item.id}
@@ -857,22 +827,30 @@ export default function AdminMenuCartUpsellSection({
 														<h4 className="admin-cart-upsell-card__title">{item.name}</h4>
 														<p className="admin-cart-upsell-card__price">{formatPrice(item.price)}</p>
 													</div>
-													<div className="admin-cart-upsell-card__stats" aria-label="Cantidades">
-														<div
-															className={`admin-cart-upsell-card__stat admin-cart-upsell-card__stat--${stockStatTone}`}
-														>
-															<span className="admin-cart-upsell-card__stat-label">Stock</span>
-															<span className="admin-cart-upsell-card__stat-value">{stockStatMain}</span>
-															<span className="admin-cart-upsell-card__stat-sub">{stockStatSub}</span>
-														</div>
-														<div
-															className={`admin-cart-upsell-card__stat admin-cart-upsell-card__stat--${limitStatTone}`}
-														>
-															<span className="admin-cart-upsell-card__stat-label">Límite cliente</span>
-															<span className="admin-cart-upsell-card__stat-value">{limitStatMain}</span>
-															<span className="admin-cart-upsell-card__stat-sub">{limitStatSub}</span>
-														</div>
-													</div>
+													{/* Solo se muestra lo que se sale de lo normal: sin vínculo de
+													    inventario y sin tope por pedido no hay nada que contar, y
+													    seis líneas de micro-texto por tarjeta eran puro ruido. */}
+													{stockChip || limitChip ? (
+														<ul className="admin-cart-upsell-card__chips">
+															{stockChip ? (
+																<li
+																	className={`admin-cart-upsell-chip admin-cart-upsell-chip--${stockStatTone}`}
+																	title={`Stock en la sucursal: ${stockStatMain} ${stockStatSub}`}
+																>
+																	<Package size={13} strokeWidth={1.9} aria-hidden />
+																	{stockChip}
+																</li>
+															) : null}
+															{limitChip ? (
+																<li
+																	className="admin-cart-upsell-chip admin-cart-upsell-chip--limit"
+																	title={`Límite por pedido: ${limitStatMain} ${limitStatSub}`}
+																>
+																	{limitChip}
+																</li>
+															) : null}
+														</ul>
+													) : null}
 													<div className="admin-cart-upsell-card__actions">
 														<button
 															type="button"
@@ -944,10 +922,9 @@ export default function AdminMenuCartUpsellSection({
 					>
 						<header className="modal-header">
 							<div>
+								{/* Sin subtítulo: el título ya dice qué hace, y el precio y la
+								    imagen se ajustan en el editor al que lleva. */}
 								<h3 id="cart-pick-inv-title">Añadir extra desde inventario</h3>
-								<p className="modal-subtitle">
-									Se crea una línea en el carrito con el artículo vinculado; ajusta precio e imagen después.
-								</p>
 							</div>
 							<Button variant="default"
 								type="button"
@@ -959,14 +936,15 @@ export default function AdminMenuCartUpsellSection({
 							</Button>
 						</header>
 						<div className="modal-form-scroll">
-							<div className="form-group">
+							<div className="search-box admin-cart-upsell-pick-inv__search">
+								<Search size={18} aria-hidden />
 								<input
 									type="search"
-									className="form-input"
 									placeholder="Buscar artículo…"
 									value={pickInvSearch}
 									onChange={(e) => setPickInvSearch(e.target.value)}
 									autoComplete="off"
+									aria-label="Buscar artículo del inventario"
 								/>
 							</div>
 							<ul className="admin-cart-upsell-pick-inv__list">
@@ -975,7 +953,10 @@ export default function AdminMenuCartUpsellSection({
 								) : (
 									pickInventoryCandidates.map((o) => (
 										<li key={o.id}>
-											<Button variant="default"
+											{/* Botón corriente, no el componente Button: aquel impone alto
+											    fijo de 40px y disposición en fila, así que el nombre y el
+											    stock se salían de su caja y pisaban la fila siguiente. */}
+											<button
 												type="button"
 												className="admin-cart-upsell-pick-inv__row"
 												disabled={saving}
@@ -983,9 +964,13 @@ export default function AdminMenuCartUpsellSection({
 											>
 												<span className="admin-cart-upsell-pick-inv__name">{o.name}</span>
 												<span className="admin-cart-upsell-pick-inv__meta">
-													{ITEM_TYPE_SHORT[o.item_type] || o.item_type} · {o.stock} {o.unit}
+													{ITEM_TYPE_SHORT[o.item_type] || o.item_type}
 												</span>
-											</Button>
+												<span className="admin-cart-upsell-pick-inv__stock">
+													{o.stock} {o.unit}
+												</span>
+												<Plus size={16} strokeWidth={2} aria-hidden className="admin-cart-upsell-pick-inv__add" />
+											</button>
 										</li>
 									))
 								)}

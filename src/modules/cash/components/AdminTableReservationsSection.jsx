@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Loader2, Plus, UserRound } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import DayPickerPopover from './DayPickerPopover';
 import { branchTablesService } from '../services/branchTablesService';
 import { tableReservationsService } from '../services/tableReservationsService';
 
@@ -17,6 +18,29 @@ function toDateInputValue(d = new Date()) {
 	const m = String(x.getMonth() + 1).padStart(2, '0');
 	const day = String(x.getDate()).padStart(2, '0');
 	return `${y}-${m}-${day}`;
+}
+
+/** Desplaza una fecha `YYYY-MM-DD` en dias, sin tocar husos horarios. */
+function shiftDay(dateStr, days) {
+	const [y, m, d] = String(dateStr || '').split('-').map(Number);
+	const base = new Date(y, (m || 1) - 1, d || 1);
+	base.setDate(base.getDate() + days);
+	return toDateInputValue(base);
+}
+
+/** «hoy», «mañana» o «lun. 21 sept» para que la fecha se lea sin descifrarla. */
+function describeDay(dateStr, locale) {
+	const today = toDateInputValue();
+	if (dateStr === today) return 'Hoy';
+	if (dateStr === shiftDay(today, 1)) return 'Mañana';
+	if (dateStr === shiftDay(today, -1)) return 'Ayer';
+	const [y, m, d] = String(dateStr || '').split('-').map(Number);
+	if (!y) return '';
+	return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString(locale, {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short',
+	});
 }
 
 function toTimeInputValue(d = new Date()) {
@@ -69,6 +93,39 @@ export default function AdminTableReservationsSection({
 	const branchId = selectedBranch?.id;
 	const branchReady = Boolean(branchId && branchId !== 'all' && companyId);
 	const [day, setDay] = useState(() => toDateInputValue());
+	const todayValue = toDateInputValue();
+	const dayLabel = useMemo(() => describeDay(day, undefined), [day]);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const dayFieldRef = useRef(null);
+
+	/*
+	 * Un `input[type=date]` abre el calendario del navegador: un widget del
+	 * sistema que ninguna hoja de estilos puede tocar, asi que en medio de la
+	 * interfaz salia una ventana con otra tipografia, otros colores y sus
+	 * propios botones «Borrar / Hoy».
+	 */
+	const dayField = (
+		<>
+			<button
+				type="button"
+				ref={dayFieldRef}
+				className="admin-table-reservations__day"
+				aria-haspopup="dialog"
+				aria-expanded={pickerOpen}
+				onClick={() => setPickerOpen((v) => !v)}
+			>
+				<CalendarDays size={15} aria-hidden />
+				<span>{dayLabel}</span>
+			</button>
+			<DayPickerPopover
+				anchorRef={dayFieldRef}
+				isOpen={pickerOpen}
+				onClose={() => setPickerOpen(false)}
+				value={day}
+				onChange={setDay}
+			/>
+		</>
+	);
 	const [tables, setTables] = useState([]);
 	const [rows, setRows] = useState([]);
 	const [loading, setLoading] = useState(false);
@@ -216,7 +273,7 @@ export default function AdminTableReservationsSection({
 	if (!branchReady) {
 		return (
 			<div className="admin-table-reservations admin-table-reservations--empty">
-				<p>Elegí una sucursal para gestionar reservas.</p>
+				<p>Elige una sucursal para gestionar reservas.</p>
 			</div>
 		);
 	}
@@ -230,14 +287,7 @@ export default function AdminTableReservationsSection({
 						<h3 className="admin-table-reservations__title">Reservas del día</h3>
 					</div>
 					<div className="admin-table-reservations__toolbar">
-						<label className="admin-table-reservations__day">
-							<span className="sr-only">Día</span>
-							<input
-								type="date"
-								value={day}
-								onChange={(e) => setDay(e.target.value)}
-							/>
-						</label>
+						{dayField}
 						<Button type="button" variant="default" size="sm" onClick={openCreate} disabled={saving}>
 							<Plus size={16} aria-hidden />
 							Nueva
@@ -246,14 +296,37 @@ export default function AdminTableReservationsSection({
 				</header>
 			) : (
 				<div className="admin-table-reservations__toolbar admin-table-reservations__toolbar--compact">
-					<label className="admin-table-reservations__day">
-						<span className="sr-only">Día</span>
-						<input
-							type="date"
-							value={day}
-							onChange={(e) => setDay(e.target.value)}
-						/>
-					</label>
+					{/* Era un `input[type=date]` suelto con el icono del navegador: ni se
+					    parecia al resto de campos ni permitia pasar de dia sin abrir el
+					    calendario. Ahora es un navegador de agenda. */}
+					<div className="admin-table-reservations__daynav">
+						<button
+							type="button"
+							className="admin-table-reservations__daynav-arrow"
+							onClick={() => setDay((d) => shiftDay(d, -1))}
+							aria-label="Día anterior"
+						>
+							<ChevronLeft size={16} aria-hidden />
+						</button>
+						{dayField}
+						<button
+							type="button"
+							className="admin-table-reservations__daynav-arrow"
+							onClick={() => setDay((d) => shiftDay(d, 1))}
+							aria-label="Día siguiente"
+						>
+							<ChevronRight size={16} aria-hidden />
+						</button>
+					</div>
+					{day !== todayValue ? (
+						<button
+							type="button"
+							className="admin-table-reservations__today"
+							onClick={() => setDay(todayValue)}
+						>
+							Hoy
+						</button>
+					) : null}
 					<Button type="button" variant="default" size="sm" onClick={openCreate} disabled={saving}>
 						<Plus size={16} aria-hidden />
 						Nueva
@@ -360,15 +433,22 @@ export default function AdminTableReservationsSection({
 					Cargando…
 				</div>
 			) : rows.length === 0 ? (
-				<p className="admin-table-reservations__empty-hint">No hay reservas para este día.</p>
+				<div className="admin-table-reservations__empty">
+					<CalendarClock size={22} strokeWidth={1.5} aria-hidden />
+					<p>Sin reservas para este día</p>
+				</div>
 			) : (
 				<ul className="admin-table-reservations__list">
-					{rows.map((reservation) => {
+					{rows.map((reservation, idx) => {
 						const table = reservation.table_id ? tableById.get(String(reservation.table_id)) : null;
 						const status = STATUS_LABEL[reservation.status] || reservation.status;
 						const canSeat = reservation.status === 'booked' && Boolean(reservation.table_id);
 						return (
-							<li key={reservation.id} className={`admin-table-reservations__item is-${reservation.status}`}>
+							<li
+								key={reservation.id}
+								className={`admin-table-reservations__item is-${reservation.status}`}
+								style={{ '--row-i': idx }}
+							>
 								<div className="admin-table-reservations__item-main">
 									<div className="admin-table-reservations__item-time">
 										<strong>{formatTime(reservation.starts_at)}</strong>

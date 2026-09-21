@@ -21,6 +21,8 @@ const OrderSummary = ({
     printManualKitchen,
     printManualCaja,
     showCheckoutTotals = false,
+	/** El riel del paso de cobro ya muestra «Total del pedido» justo debajo. */
+	hideCartSubtotal = false,
 	variant = 'default',
 	exchangeRate = null,
 }) => {
@@ -86,8 +88,11 @@ const OrderSummary = ({
         showCheckoutTotals &&
         manualOrder.items.length > 0 &&
         (manualOrder.order_type === 'delivery' || deliveryFeeAmt > 0);
-	// Subtotal dual en sheet y en sidebar desktop (misma familia visual).
-	const showCartSubtotal = !isCompact && !showTotals && manualOrder.items.length > 0;
+	/* Subtotal dual en sheet y en sidebar desktop (misma familia visual).
+	   En el paso de cobro se oculta: el bloque de acciones que va pegado debajo
+	   repite la misma cifra bajo el rotulo «Total del pedido», asi que sin
+	   envio ni cupon quedaban dos cajas seguidas con USD 51,00. */
+	const showCartSubtotal = !isCompact && !showTotals && !hideCartSubtotal && manualOrder.items.length > 0;
 
     const summaryHasFewItems = manualOrder.items.length <= 2 && !showCheckoutTotals && !isSheet && !isCompact;
 
@@ -290,7 +295,7 @@ const OrderSummary = ({
                     <div className={`flex h-full min-h-[140px] flex-col items-center justify-center ${spacing.normal} text-center`}>
                         <div>
                             <p className={`${textScale.emphasis} font-semibold text-gc-text`}>Carrito vacío</p>
-                            <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>Agregá productos para armar el pedido.</p>
+                            <p className={`mt-0.5 ${textScale.micro} text-gc-text-muted`}>Agrega productos para armar el pedido.</p>
                         </div>
                     </div>
                 ) : (
@@ -327,7 +332,7 @@ const OrderSummary = ({
                         )}
                     </div>
 					<div className="mt-3 flex items-center justify-between pt-1">
-                        <span className={`${textScale.micro} font-black uppercase tracking-wider text-gc-text-muted`}>Total</span>
+                        <span className={`${textScale.body} font-semibold text-gc-text`}>Total</span>
 						<DualCurrencyAmount
 							amount={checkoutTotal}
 							currency={accountingCurrency}
@@ -350,7 +355,7 @@ const OrderSummary = ({
 					)}
 				>
 					<div className="min-w-0 pt-0.5">
-						<span className={cn(textScale.micro, 'block font-semibold uppercase tracking-wide text-gc-text-muted')}>
+						<span className={cn(textScale.body, 'block font-semibold text-gc-text-muted')}>
 							Subtotal
 						</span>
 					</div>

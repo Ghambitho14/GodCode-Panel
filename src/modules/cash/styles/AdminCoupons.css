@@ -853,3 +853,110 @@
 		padding-right: 8px;
 	}
 }
+
+
+/* =========================================
+   Cupones — una sola barra
+   Eran tres filas apiladas: título con icono y recuento, una frase de aviso, y
+   buscador con filtros. El título repetía la cabecera del panel y la frase
+   explicaba algo que el propio formulario ya impone. Ahora es una barra y el
+   recuento va en su línea, como en Clientes y Menú y carta.
+   ========================================= */
+
+/* El selector repite la cadena de la regla antigua, que ponía la barra en
+   columna y le ganaba por especificidad. */
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar.admin-toolbar {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+	margin-bottom: 10px;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar .search-box {
+	flex: 1 1 200px;
+	min-width: 160px;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar .admin-coupons__chips {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar .admin-coupons__toolbar-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.admin-layout .admin-coupons__summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+	margin: 0 0 12px 4px;
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .admin-coupons__summary strong {
+	font-weight: 700;
+	color: var(--admin-text, #1d1d1f);
+	font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+	.admin-layout .admin-toolbar.admin-coupons__toolbar .search-box {
+		flex: 1 1 100%;
+		flex-wrap: nowrap;
+		gap: 8px;
+		align-items: center;
+	}
+
+	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar .admin-coupons__chips {
+		flex: 1 1 100%;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.admin-layout .admin-coupons__toolbar .admin-coupons__chips::-webkit-scrollbar {
+		display: none;
+	}
+
+	.admin-layout .admin-coupons__toolbar .admin-coupons__chips .filter-chip {
+		flex: 0 0 auto;
+	}
+
+	:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__toolbar .admin-coupons__toolbar-actions {
+		flex: 1 1 100%;
+		margin-left: 0;
+		flex-wrap: nowrap;
+	}
+
+	.admin-layout .admin-coupons__toolbar .admin-coupons__toolbar-actions > * {
+		flex: 1 1 0;
+		min-width: 0;
+		justify-content: center;
+	}
+}
+
+/* Los rótulos de sección iban en mayúsculas sostenidas de 0.7rem, más
+   pequeños que las etiquetas de los campos que agrupan. Pasan a caja normal
+   y a un tamaño que los pone por encima, como en el resto de formularios. */
+.admin-layout .coupon-form-modal__section-title {
+	font-size: 0.9375rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-transform: none;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .admin-coupons__dates-always {
+	color: var(--admin-text-muted, #64748b);
+}

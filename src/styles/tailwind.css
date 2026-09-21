@@ -32,11 +32,47 @@
   --color-gc-danger: #c31d2d;
   --color-gc-success: #00705b;
   --color-gc-blue: #0078ff;
+  /* Respaldo. El valor real lo pone el bloque de ambitos de mas abajo: aqui
+     no se puede leer `--accent-primary` (ver el comentario alli). */
   --color-gc-accent: #4f5bff;
   --color-gc-accent-hover: #3d48e6;
 }
 
 @layer base {
+  /*
+   * Acento del asistente de Pedido manual.
+   *
+   * Iba en indigo fijo (#4f5bff) mientras el panel ya tenia su acento en
+   * `--accent-primary`, y se notaba dentro del propio asistente: el boton
+   * principal del paso 1 lo pinta el CSS del pie (#2563eb) y el del paso 2
+   * esta variable (#4f5bff), dos azules distintos para la misma accion en
+   * pasos seguidos.
+   *
+   * La indireccion NO puede ir en `@theme`, porque eso declara en `:root` y
+   * las custom properties se sustituyen donde se declaran: alli
+   * `--accent-primary` vale #e63946 (el que trae el storefront), no el
+   * #2563eb que el tema del panel pone en `.manual-order-portal-scope`, y el
+   * valor ya resuelto se hereda hacia dentro. Repetida en los ambitos que si
+   * llevan el acento del panel, cada uno resuelve el suyo.
+   */
+  .tenant-theme-vars,
+  .manual-order-portal-scope,
+  .table-session-modal-portal,
+  .admin-layout {
+    --color-gc-accent: var(--accent-primary, #4f5bff);
+    --color-gc-accent-hover: var(--accent-hover, #3d48e6);
+  }
+
+  /* Sombra del CTA principal. Estaba escrita a mano como rgba(79,91,255,.22),
+     asi que quedaba indigo debajo de un boton ya teñido con el acento. */
+  :root,
+  .tenant-theme-vars,
+  .manual-order-portal-scope,
+  .table-session-modal-portal,
+  .admin-layout {
+    --gc-accent-shadow: color-mix(in srgb, var(--color-gc-accent) 24%, transparent);
+  }
+
   html {
     font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;

@@ -53,7 +53,9 @@ const ClientDetailsPanel = ({
         ? String(selectedClient.name)
         : 'Sin nombre';
 
-    const inactivityLabel = stats.daysSince == null ? '—' : `${stats.daysSince} días`;
+    const inactivityLabel = stats.daysSince == null
+        ? '—'
+        : `${stats.daysSince} ${stats.daysSince === 1 ? 'día' : 'días'}`;
 
     // --- 2. HELPERS DE RENDERIZADO (Limpieza) ---
 
@@ -146,7 +148,10 @@ const ClientDetailsPanel = ({
                         <div className="client-info">
                             <h3 className="client-name">{clientName}</h3>
                             <div className="client-meta">
-                                <span className="meta-tag">{idLabel}: {selectedClient.rut || 'N/A'}</span>
+                                {/* Sin "N/A": un dato vacío no merece una línea. */}
+                                {selectedClient.rut ? (
+                                    <span className="meta-tag">{idLabel}: {selectedClient.rut}</span>
+                                ) : null}
                                 {selectedClient.phone && <span className="meta-tag">{selectedClient.phone}</span>}
                             </div>
                         </div>
@@ -166,11 +171,14 @@ const ClientDetailsPanel = ({
 
                     {/* KPIs */}
                     <div className="kpi-grid panel-kpi">
+                        {/* Los cuatro iconos iban en colores distintos (verde, azul,
+                            naranja) sin que el color dijera nada del dato. Mismo
+                            tratamiento para los cuatro. */}
                         <div className="kpi-card side-kpi">
                             <div className="kpi-icon-sm"><DollarSign size={14}/></div>
                             <div>
-                                <span className="kpi-label">GASTO TOTAL</span>
-                                <span className="kpi-value text-accent-success">
+                                <span className="kpi-label">Gasto total</span>
+                                <span className="kpi-value">
                                     {formatMoney(selectedClient.total_spent || 0)}
                                 </span>
                             </div>
@@ -178,30 +186,30 @@ const ClientDetailsPanel = ({
                         <div className="kpi-card side-kpi">
                             <div className="kpi-icon-sm"><Package size={14}/></div>
                             <div>
-                                <span className="kpi-label">PEDIDOS</span>
+                                <span className="kpi-label">Pedidos</span>
                                 <span className="kpi-value">{selectedClient.total_orders || 0}</span>
                             </div>
                         </div>
                         <div className="kpi-card side-kpi">
-                            <div className="kpi-icon-sm kpi-icon-trending"><TrendingUp size={14}/></div>
+                            <div className="kpi-icon-sm"><TrendingUp size={14}/></div>
                             <div>
-                                <span className="kpi-label">TICKET PROM.</span>
-                                <span className="kpi-value kpi-value-light">
+                                <span className="kpi-label">Ticket prom.</span>
+                                <span className="kpi-value">
                                     {formatMoney(stats.avgTicket)}
                                 </span>
                             </div>
                         </div>
                         <div className="kpi-card side-kpi">
-                            <div className="kpi-icon-sm kpi-icon-inactive"><Clock size={14}/></div>
+                            <div className="kpi-icon-sm"><Clock size={14}/></div>
                             <div>
-                                <span className="kpi-label">INACTIVIDAD</span>
-                                <span className="kpi-value kpi-value-light">{inactivityLabel}</span>
+                                <span className="kpi-label">Inactividad</span>
+                                <span className="kpi-value">{inactivityLabel}</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="section-divider">
-                        <h4 className="section-title">Historial de Compras</h4>
+                        <h4 className="section-title">Historial de compras</h4>
                     </div>
 
                     {clientHistoryLoading ? (

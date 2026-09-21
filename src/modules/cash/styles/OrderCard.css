@@ -6,7 +6,13 @@
     /* Paleta semántica consolidada para OrderCard */
     --color-critical: #DC2626;
     --color-critical-bg: #FEF2F2;
-    --color-accent: #2563EB;
+    /*
+     * El resto del panel tira de `--accent-primary` (el color del negocio) a
+     * traves de `--admin-accent`; aqui estaba clavado en azul, asi que un local
+     * con otra marca veia toda su interfaz en su color menos los botones del
+     * tablero de cocina. El azul se queda de reserva por si no hay tema.
+     */
+    --color-accent: var(--accent-primary, #2563EB);
     --color-accent-bg: #EFF6FF;
     --color-success: #16A34A;
     --color-success-bg: #F0FDF4;
@@ -492,7 +498,7 @@
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action--pay-now) {
-	grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 34px;
+	grid-template-columns: 34px minmax(0, 1.35fr) minmax(0, 1fr) 34px;
 }
 
 .admin-layout .kanban-card--receipt-clean .card-actions:has(.btn-action--pay-now) .btn-action--pay-now {
@@ -1483,10 +1489,10 @@
 }
 
 .admin-layout .card-total .total-label {
-    font-size: 0.62rem;
+    font-size: 0.78rem;
     color: var(--color-text-secondary);
-    letter-spacing: 0.1em;
-    font-weight: 700;
+    letter-spacing: 0;
+    font-weight: 600;
 }
 
 .admin-layout .card-total-amounts {
@@ -1542,8 +1548,13 @@
     align-items: center;
 }
 
+/*
+ * «A Cocina» y «Cobrar» salian con el mismo azul solido y el mismo ancho: dos
+ * acciones distintas reclamando la misma atencion. La que mueve el pedido de
+ * etapa es la principal y se lleva mas sitio; cobrar queda de apoyo.
+ */
 .admin-layout .card-actions:has(.btn-action--pay-now) {
-    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 40px;
+    grid-template-columns: 40px minmax(0, 1.35fr) minmax(0, 1fr) 40px;
 }
 
 .admin-layout .card-actions:has(.btn-action--pay-now) .btn-action--pay-now {
@@ -1628,6 +1639,19 @@
 
 .admin-layout .btn-action--deliver:hover {
     background: #1d4ed8;
+}
+
+/* Accion de apoyo: mismo idioma que el boton principal, sin su peso. */
+.admin-layout .btn-action.btn-action--pay-now {
+    background: color-mix(in srgb, var(--color-accent) 10%, #fff);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+    box-shadow: none;
+}
+
+.admin-layout .btn-action.btn-action--pay-now:hover {
+    background: color-mix(in srgb, var(--color-accent) 18%, #fff);
+    border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .admin-layout .kanban-card .btn-icon-action {
@@ -1755,7 +1779,7 @@
 .admin-layout .card-kanban-meta-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-top: 6px;
     flex-wrap: wrap;
 }
@@ -1763,28 +1787,6 @@
 .admin-layout .card-kanban-meta-row .order-card-header-tools {
     margin-left: auto;
     flex-shrink: 0;
-}
-
-.admin-layout .order-detail-link {
-    margin-left: auto;
-    background: transparent;
-    border: none;
-    padding: 0;
-    color: var(--color-text-secondary);
-    font-size: 0.7rem;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    transition: color 0.2s;
-}
-
-.admin-layout .order-detail-link:hover {
-    color: var(--color-text-primary);
 }
 
 /* Menú impresión: reimprimir ticket cocina o ticket caja */
@@ -2381,6 +2383,11 @@
     color: var(--admin-text-muted, #64748b);
 }
 
+/*
+ * La pastilla de entrega sigue viva en el panel de caja
+ * (OrderDetailMetaCards); en el modal de detalle se quito porque repetia el
+ * titulo, pero la regla tiene que quedarse para ese otro uso.
+ */
 .admin-layout .order-detail-fulfillment {
     display: inline-flex;
     align-items: center;
@@ -2859,36 +2866,31 @@
     background: rgba(37, 211, 102, 0.1);
 }
 
-.admin-layout .order-detail-panel--receipt .order-detail-fulfillment {
-    margin-bottom: 8px;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 8px 12px;
-    font-size: 0.88rem;
-}
-
+/* Estaba en mitad del scroll, dentro de «Entrega» y con aspecto de accion
+   secundaria: es la unica accion de dinero del modal y ahora abre el pie. */
 .admin-layout .order-detail-panel--receipt .order-detail-mark-paid-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 10px;
+    margin: 0;
     width: 100%;
-    min-height: 36px;
+    min-height: 42px;
     height: auto;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
+    font-weight: 700;
     border-radius: 10px;
     box-shadow: none;
 }
 
 .admin-layout .order-detail-panel--receipt .table-session-receipt__cta {
     border-radius: 10px;
-    background: #2563eb;
+    background: var(--admin-accent, #2563eb);
     min-height: 40px;
 }
 
 .admin-layout .order-detail-panel--receipt .table-session-receipt__cta:hover:not(:disabled) {
-    background: #1d4ed8;
+    filter: brightness(0.94);
 }
 
 .admin-layout .order-detail-panel--receipt .order-detail-status-chip {
@@ -2900,14 +2902,17 @@
     font-weight: 700;
 }
 
+/* Con una linea pendiente era una tarjeta gris con borde para alojar una
+   pastilla y un boton. Sin marco y en una sola fila cuando cabe. */
 .order-line-lifecycle {
-  display: grid;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid var(--admin-border, #e5e7eb);
-  border-radius: 10px;
-  background: var(--admin-icon-bg, #f8fafc);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0.4rem;
+  padding: 0;
+  border: none;
+  background: none;
 }
 
 .order-line-lifecycle__status {
@@ -2944,7 +2949,9 @@
 .order-line-lifecycle__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
+  margin-left: auto;
 }
 
 @media (max-width: 640px) {

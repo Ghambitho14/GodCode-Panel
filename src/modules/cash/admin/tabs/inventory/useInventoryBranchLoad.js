@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from "@/shared/utils/fetchAllPaginated";
 import { branchSettingsService } from "@/modules/cash/services/branchSettingsService";
@@ -66,6 +66,17 @@ export default function useInventoryBranchLoad({
 	const [loading, setLoading] = useState(true);
 	const [cartCatalogCategoryHints, setCartCatalogCategoryHints] = useState([]);
 	const [unlinkedCartItems, setUnlinkedCartItems] = useState([]);
+	/*
+	 * El stock precargado por el panel sirve para pintar rapido la primera vez.
+	 * A partir de ahi hay que ir a la fuente: viene de una cache de 60 s y, desde
+	 * que la cantidad se edita en la propia fila, reusarlo devolvia la cifra
+	 * anterior y parecia que el cambio no se habia guardado.
+	 */
+	const prefetchUsedRef = useRef(false);
+
+	useEffect(() => {
+		prefetchUsedRef.current = false;
+	}, [branchId]);
 
 	const allViewBranchIdsKey = useMemo(
 		() => branches.filter((b) => b.id !== "all").map((b) => String(b.id)).sort().join(","),
@@ -113,9 +124,11 @@ export default function useInventoryBranchLoad({
 			let branchStock;
 			if (
 				branchId !== "all" &&
+				!prefetchUsedRef.current &&
 				Array.isArray(prefetchedBranchStock) &&
 				prefetchedBranchStock.length > 0
 			) {
+				prefetchUsedRef.current = true;
 				branchStock = prefetchedBranchStock.map((row) => ({
 					id: row.id,
 					branch_id: row.branch_id,

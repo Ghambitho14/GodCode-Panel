@@ -411,17 +411,15 @@ const OrderCard = ({
                     </OrderCardAnchoredMenu>
                 ) : null}
             </div>
-            {gridTile ? (
-                <Button variant="default"
-                    type="button"
-                    onClick={openDetailModal}
-                    className="admin-icon-btn--sm order-card-tool-btn"
-                    title="Ver detalle del pedido"
-                    aria-label="Ver detalle del pedido"
-                >
-                    <Eye size={16} aria-hidden />
-                </Button>
-            ) : null}
+            <Button variant="default"
+                type="button"
+                onClick={openDetailModal}
+                className="admin-icon-btn--sm order-card-tool-btn"
+                title="Ver detalle del pedido"
+                aria-label="Ver detalle del pedido"
+            >
+                <Eye size={16} aria-hidden />
+            </Button>
         </>
     );
 
@@ -490,14 +488,6 @@ const OrderCard = ({
                             <div className="card-kanban-meta-row">
                                 {orderTimeEl}
                                 {paymentMeta}
-                                <button
-                                    type="button"
-                                    className="order-detail-link"
-                                    onClick={openDetailModal}
-                                    title="Ver todo el detalle del pedido"
-                                >
-                                    Ver detalle
-                                </button>
                                 <div className="order-card-header-tools">{headerTools}</div>
                             </div>
                         </div>
@@ -620,7 +610,9 @@ const OrderCard = ({
 
             <div className={`kanban-card-foot${gridTile ? ' kanban-card-receipt-foot' : ''}`}>
                 <div className={`card-total${gridTile ? ' kanban-card-receipt-total kanban-card-receipt-total--final' : ''}`}>
-                    <span className="total-label">{gridTile ? 'Total' : 'TOTAL'}</span>
+                    {/* En versalitas con tracking abierto se leia como plantilla barata;
+                        la vista de una columna ya usaba caja normal. */}
+                    <span className="total-label">Total</span>
                     <div className="card-total-amounts">
                         <span className="total-amount">{formatOrderTotal(liveOrder)}</span>
                         {discountMeta ? (

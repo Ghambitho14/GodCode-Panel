@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Download, Filter, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy, Trash2, Loader2 } from 'lucide-react';
+import { Search, Plus, Download, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy, Trash2, Loader2 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import ClientFormModal from './ClientFormModal';
 import AdminIconSlot from './AdminIconSlot';
 import { downloadExcel } from '@/shared/utils/exportUtils';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
-import { WhatsAppGlyph, buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
+import { buildWhatsAppUrl } from '@/shared/utils/phoneWhatsApp';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
@@ -402,34 +402,21 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
     return (
         <div className="clients-container animate-fade">
             
-            {/* HEADER */}
-            <div className="clients-header clients-header--toolbar-only">
-                <div className="clients-actions">
-                    <div className="search-box">
-                        <Search size={18} className="clients-search-icon" aria-hidden />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar cliente..." 
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageWithMenuClose(1); }}
-                        />
-                    </div>
-                    
-                    <Button variant="secondary" type="button" size="sm" onClick={handleExportCSV}>
-                        <Download size={16} /> Exportar CSV
-                    </Button>
-                    
-                    <Button variant="default" type="button" size="sm" onClick={() => setIsFormOpen(true)}>
-                        <Plus size={16} /> Nuevo cliente
-                    </Button>
+            {/* Una sola barra: buscar, segmentos y acciones. Antes eran dos filas, y
+                la primera llevaba un "Filtro" con icono que no era un botón ni abría
+                nada. El recuento baja a una línea bajo la barra. */}
+            <div className="clients-toolbar">
+                <div className="search-box">
+                    <Search size={18} className="clients-search-icon" aria-hidden />
+                    <input
+                        type="text"
+                        placeholder="Buscar cliente..."
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageWithMenuClose(1); }}
+                    />
                 </div>
-            </div>
 
-            {/* FILTROS */}
-            <div className="clients-filters">
-                <div className="filter-btn-trigger">
-                    <Filter size={18} /> Filtro
-                </div>
+                <div className="clients-toolbar__filters" role="group" aria-label="Segmentos">
                 <button
                     type="button"
                     className={`filter-chip ${activeFilter === 'all' ? 'active' : ''}`}
@@ -458,10 +445,22 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 >
                     Comprador Frecuente
                 </button>
-                <div className="clients-total-count">
-                    Total: {filteredClients.length}
+                </div>
+
+                <div className="clients-toolbar__actions">
+                    <Button variant="secondary" type="button" size="sm" onClick={handleExportCSV}>
+                        <Download size={16} /> Exportar CSV
+                    </Button>
+                    <Button variant="default" type="button" size="sm" onClick={() => setIsFormOpen(true)}>
+                        <Plus size={16} /> Nuevo cliente
+                    </Button>
                 </div>
             </div>
+
+            <p className="clients-summary">
+                <strong>{filteredClients.length}</strong>{' '}
+                {filteredClients.length === 1 ? 'cliente' : 'clientes'}
+            </p>
 
             {/* TABLA (scroll horizontal fuera; contenedor interno visible para menú kebab) */}
             <div className="clients-table-scroll">
@@ -522,19 +521,11 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                                 </button>
                                             </div>
                                         </div>
+                                        {/* El círculo verde de WhatsApp repetía una opción que ya
+                                            está en el menú de la fila, y era el único verde de la
+                                            tabla. El teléfono se queda como dato. */}
                                         {client.phone ? (
-                                            <div className="client-card-header__contact-row">
-                                                <span className="client-phone-text">{client.phone}</span>
-                                                <button
-                                                    type="button"
-                                                    className="clients-whatsapp-btn"
-                                                    onClick={(e) => openWhatsApp(e, client.phone)}
-                                                    title="Abrir chat en WhatsApp"
-                                                    aria-label="Abrir conversación en WhatsApp con este cliente"
-                                                >
-                                                    <WhatsAppGlyph className="clients-whatsapp-btn__glyph" />
-                                                </button>
-                                            </div>
+                                            <span className="client-phone-text">{client.phone}</span>
                                         ) : null}
                                         {client.email ? <span className="client-email">{client.email}</span> : null}
                                     </div>

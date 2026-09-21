@@ -15,8 +15,6 @@ export default function LocalExpenseCategoryCard({
 	title,
 	icon: Icon,
 	accent = '#2563eb',
-	total = 0,
-	count = 0,
 	points = [],
 	buckets = [],
 	periodTotal = 0,
@@ -27,7 +25,9 @@ export default function LocalExpenseCategoryCard({
 	highlightBucketKey = null,
 	chartTitle = null,
 }) {
-	const [bucketFilter, setBucketFilter] = useState('all');
+	// Por defecto solo los periodos con movimiento: en un mes normal la tabla
+	// salia con tres filas con importe y veintitantas a cero.
+	const [bucketFilter, setBucketFilter] = useState('nonzero');
 	const formatMoney = typeof fmt === 'function' ? fmt : (n) => String(n);
 
 	const visibleBuckets = useMemo(() => {
@@ -54,20 +54,17 @@ export default function LocalExpenseCategoryCard({
 					</span>
 					<h4 className="truncate text-sm font-bold text-[#1a1a1a] sm:text-base">{title}</h4>
 				</div>
-				<div className="flex flex-wrap items-center gap-2 sm:gap-3">
-					<span className="text-sm font-semibold tabular-nums" style={{ color: accent }}>
-						Total: {formatMoney(total)} ({count})
-					</span>
-					<Select value={bucketFilter} onValueChange={setBucketFilter}>
-						<SelectTrigger className="h-9 w-[148px]" aria-label={`Filtro de períodos — ${title}`}>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">Todos</SelectItem>
-							<SelectItem value="nonzero">Con movimiento</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
+				{/* El total y el numero de movimientos ya estan en los indicadores de
+				    arriba y en el pie de la tabla: aqui sobraban. */}
+				<Select value={bucketFilter} onValueChange={setBucketFilter}>
+					<SelectTrigger className="h-9 w-[168px]" aria-label={`Filtro de períodos — ${title}`}>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="nonzero">Con movimiento</SelectItem>
+						<SelectItem value="all">Todos los períodos</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 
 			{/* min-w-0 en la rejilla y en la celda del grafico: sin el, la celda toma
@@ -87,7 +84,6 @@ export default function LocalExpenseCategoryCard({
 							showHeader
 							color={accent}
 							title={resolvedChartTitle}
-							subtitle={bucketFilter === 'nonzero' ? 'Con movimiento' : 'Todos'}
 						/>
 					) : (
 						<div className="flex h-full min-h-[180px] items-center justify-center text-sm text-[var(--admin-text-muted,#64748b)]">

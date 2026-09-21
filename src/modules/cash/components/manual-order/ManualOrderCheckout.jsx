@@ -56,7 +56,7 @@ export function resolveWizardStepRoles({
 }
 
 export const stepNavBackClass =
-	`flex min-h-[44px] max-w-[40%] flex-1 items-center justify-center rounded-[4px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-[background-color,border-color,color,box-shadow]`;
+	`flex min-h-[44px] max-w-[40%] flex-1 items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3.5 py-3 ${textScale.body} font-bold text-gc-text transition-[background-color,border-color,color,box-shadow]`;
 export const stepNavNextClass = cn(
 	primaryActionButtonClass,
 	`flex-1 px-6 ${textScale.body} gap-0`,
@@ -77,7 +77,7 @@ export const openMesaHintClass =
 export const checkoutActionsClass =
 	`manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col ${spacing.compact} border-t border-gc-border bg-gc-card pt-3`;
 export const checkoutBackBtnClass =
-	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-extrabold uppercase tracking-wide text-gc-text transition-colors`;
+	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-bold text-gc-text transition-colors`;
 
 export function useManualOrderCheckoutFlow({
 	manualOrder,
@@ -121,11 +121,11 @@ export function useManualOrderCheckoutFlow({
 		isEditMode: edit,
 		openMesaFulfillment: fulfillment,
 	}) => {
-		if (loading) return edit ? 'GUARDANDO…' : 'ABRIENDO…';
-		if (edit) return 'GUARDAR CAMBIOS';
-		if (fulfillment === 'mesa') return 'ABRIR MESA';
-		if (openMesaChargeNow) return fulfillment === 'delivery' ? 'COBRAR Y ABRIR DELIVERY' : 'COBRAR Y ABRIR RETIRO';
-		return fulfillment === 'delivery' ? 'ABRIR DELIVERY PENDIENTE' : 'ABRIR RETIRO PENDIENTE';
+		if (loading) return edit ? 'Guardando…' : 'Abriendo…';
+		if (edit) return 'Guardar cambios';
+		if (fulfillment === 'mesa') return 'Abrir mesa';
+		if (openMesaChargeNow) return fulfillment === 'delivery' ? 'Cobrar y abrir delivery' : 'Cobrar y abrir retiro';
+		return fulfillment === 'delivery' ? 'Abrir delivery pendiente' : 'Abrir retiro pendiente';
 	};
 
 	const isOpenMesaMesero = () =>
@@ -452,10 +452,10 @@ export default function ManualOrderCheckout({
 		openMesaFulfillment,
 	});
 	const submitLabel = isEditMode
-		? 'GUARDAR CAMBIOS'
+		? 'Guardar cambios'
 		: effectiveOpenMesaMode
 			? openMesaSubmitLabel
-			: (getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'ABRIR MESA' : 'CREAR PEDIDO');
+			: (getLocalFulfillmentMode(manualOrder) === 'mesa' ? 'Abrir mesa' : 'Crear pedido');
 	const quickSaleHasPayment = !effectiveOpenMesaMode
 		&& getLocalFulfillmentMode(manualOrder) !== 'mesa'
 		&& hasManualOrderPaymentIntent(manualOrder);
@@ -574,7 +574,7 @@ export default function ManualOrderCheckout({
 					className={stepNavBackClass}
 					onClick={goPrevStep}
 				>
-					ATRÁS
+					Atrás
 				</Button>
 			) : null}
 			{showEditSaveOnFooter ? (
@@ -678,7 +678,7 @@ export default function ManualOrderCheckout({
 				<p>
 					{isClientOnlyStep
 						? (stepRoles.isOpenMesaCreate
-							? 'Revisá los productos y abrí la sesión. El cobro se registra al cerrar la mesa.'
+							? 'Revisa los productos y abre la sesión. El cobro se registra al cerrar la mesa.'
 							: (effectiveOpenMesaMode
 								? 'Completa solo los datos requeridos para esta atención.'
 								: 'Elige retiro o delivery y completa los datos necesarios antes del cobro.'))
@@ -895,7 +895,7 @@ export default function ManualOrderCheckout({
 									className={stepNavBackClass}
 									onClick={goPrevStep}
 								>
-									ATRÁS
+									Atrás
 								</Button>
 							) : null}
 							<Button variant="secondary"
@@ -923,7 +923,7 @@ export default function ManualOrderCheckout({
 									className={stepNavBackClass}
 									onClick={goPrevStep}
 								>
-									ATRÁS
+									Atrás
 								</Button>
 							) : null}
 							<Button variant="default"
@@ -945,7 +945,7 @@ export default function ManualOrderCheckout({
 						className={stepNavBackClass}
 						onClick={goPrevStep}
 					>
-						ATRÁS
+						Atrás
 					</Button>
 					{showClassicPaymentStep || openMesaChargeNow ? (
 						<Button variant="default"
@@ -975,7 +975,7 @@ export default function ManualOrderCheckout({
 						className={stepNavBackClass}
 						onClick={goPrevStep}
 					>
-						ATRÁS
+						Atrás
 					</Button>
 					{canCancelOrder ? (
 						<Button variant="default"
@@ -1047,7 +1047,7 @@ export default function ManualOrderCheckout({
 			</p>
 			<div className="manual-order-checkout-rail-actions__buttons">
 				<Button variant="outline" type="button" className={checkoutBackBtnClass} onClick={goPrevStep} disabled={loading}>
-					ATRÁS
+					Atrás
 				</Button>
 				<Button
 					variant="default"
@@ -1086,7 +1086,7 @@ export default function ManualOrderCheckout({
 			</p>
 			<div className="manual-order-checkout-rail-actions__buttons">
 				<Button variant="outline" type="button" className={checkoutBackBtnClass} onClick={goPrevStep} disabled={loading}>
-					ATRÁS
+					Atrás
 				</Button>
 				{showClassicPaymentStep || openMesaChargeNow ? (
 					<Button
@@ -1126,7 +1126,7 @@ export default function ManualOrderCheckout({
 
 	const checkoutSummaryColumn = (
 		<div className={cn(checkoutColBase, 'manual-order-checkout-col--summary overflow-hidden')}>
-			<OrderSummary {...orderSummaryProps} />
+			<OrderSummary {...orderSummaryProps} hideCartSubtotal={!isClientStep} />
 			{isClientStep ? clientStepRailActions : classicCheckoutRailActions}
 		</div>
 	);

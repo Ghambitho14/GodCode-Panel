@@ -82,8 +82,6 @@ export const DELIVERY_TOOLTIPS = {
 		"Longitud del local (este/oeste). En Venezuela y Chile SIEMPRE es negativa (oeste), ej. -63.8937. Si la pones positiva el mapa cae al otro lado del mundo.",
 	saveButton:
 		"Guarda tarifas, zonas, métodos de pago permitidos en delivery, WhatsApp del repartidor y opciones avanzadas en el servidor.",
-	preview:
-		"Ejemplo de envío con valores actuales (distancia o primera zona y subtotal de ejemplo).",
 	driverWhatsApp:
 		"Número al que el equipo puede enviar el mensaje de envío desde el tablero (WhatsApp abre en la app; tú eliges el contacto).",
 	minFee:
@@ -98,20 +96,10 @@ export const DELIVERY_TOOLTIPS = {
 		"Subtotal mínimo para permitir un pedido con delivery.",
 	customerNotes:
 		"Texto breve que ve el cliente en el checkout de envío (tiempos, condiciones, etc.).",
-	originLatNamed:
-		"Opcional: ayuda a ordenar sugerencias al escribir nombres de zona (modalidad por zonas con nombre).",
-	originLngNamed:
-		"Opcional: junto con la latitud, mejora sugerencias de lugares cercanos al local.",
-	paymentSection:
-		"Restringe qué medios de pago puede elegir el cliente solo cuando el pedido es delivery.",
+	deliveryPayments:
+		"Medios de pago que puede elegir el cliente cuando el pedido es a domicilio. Con todos activos no hay restricción.",
 	distanceRingsHelp:
 		"Opcional: si el pedido entra dentro del radio (km) desde el local, aplicas la tarifa fija de esa fila; si no encaja en ningún anillo, se usa precio por km + cargo base.",
-	zoneRingRadius:
-		"Distancia máxima en km desde el local: si el pedido cae dentro de este radio, se aplica la tarifa fija de la misma fila.",
-	zoneRingFee:
-		"Precio de envío completo cuando la distancia entra en este anillo (no se suma precio por km ni cargo base de otras filas).",
-	namedZoneName:
-		"Nombre que verá el cliente o que se intentará casar con la dirección, según el modo de checkout.",
 	namedZoneFee: "Costo de envío fijo para esta zona (modalidad por zonas con nombre).",
 	namedZoneAliases:
 		"Sinónimos separados por coma para reconocer la misma zona (ej. abreviaturas o barrios cercanos).",

@@ -983,3 +983,220 @@
 		display: none;
 	}
 }
+
+
+/* =========================================
+   Clientes — una sola barra
+   Antes había una fila con el buscador y las acciones y otra con los segmentos,
+   encabezada por un "Filtro" con icono que no era un botón ni abría nada. El
+   recuento pasa de una caja a la derecha a una línea bajo la barra.
+   ========================================= */
+
+.admin-layout .clients-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+	margin: 0 0 10px;
+	padding: 10px 12px;
+	border-radius: 14px;
+	border: 1px solid var(--admin-border, #e8ecf1);
+	background: var(--admin-card-bg, #fff);
+	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.admin-layout .clients-toolbar .search-box {
+	flex: 1 1 200px;
+	min-width: 160px;
+}
+
+.admin-layout .clients-toolbar__filters {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	flex-wrap: wrap;
+}
+
+.admin-layout .clients-toolbar__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
+	flex-shrink: 0;
+}
+
+.admin-layout .clients-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+	margin: 0 0 12px 4px;
+	font-size: 0.8rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .clients-summary strong {
+	font-weight: 700;
+	color: var(--admin-text, #1d1d1f);
+	font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+	.admin-layout .clients-toolbar {
+		padding: 10px;
+		gap: 10px;
+	}
+
+	.admin-layout .clients-toolbar .search-box {
+		flex: 1 1 100%;
+	}
+
+	/* Los segmentos se desplazan en horizontal en vez de apilarse en tres filas. */
+	.admin-layout .clients-toolbar__filters {
+		flex: 1 1 100%;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		scrollbar-width: none;
+		mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+	}
+
+	.admin-layout .clients-toolbar__filters::-webkit-scrollbar {
+		display: none;
+	}
+
+	.admin-layout .clients-toolbar__filters .filter-chip {
+		flex: 0 0 auto;
+	}
+
+	.admin-layout .clients-toolbar__actions {
+		flex: 1 1 100%;
+		margin-left: 0;
+	}
+
+	.admin-layout .clients-toolbar__actions > * {
+		flex: 1 1 0;
+		justify-content: center;
+	}
+}
+
+
+/* =========================================
+   Clientes en teléfono — ficha compacta, no una tabla apilada
+   Cada cliente ocupaba 343px: una banda gris con el nombre y cinco renglones
+   de etiqueta y valor separados por líneas de puntos, con los mismos cinco
+   rótulos en mayúsculas repetidos en cada tarjeta. Cabía cliente y medio por
+   pantalla. Ahora es una ficha de tres líneas.
+   ========================================= */
+@media (max-width: 1024px) {
+	.admin-layout .clients-table tbody tr {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px 10px;
+		padding: 12px 14px;
+		margin-bottom: 10px;
+		border-radius: 14px;
+		border: 1px solid var(--admin-border, #e8ecf1);
+		box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
+		overflow: visible;
+	}
+
+	.admin-layout .clients-table td {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 5px;
+		width: auto;
+		max-width: none;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		text-align: left;
+		font-size: 0.82rem;
+	}
+
+	/* Nombre, teléfono y el menú de la fila ocupan la primera línea. */
+	.admin-layout .clients-table td:first-child {
+		display: block;
+		flex: 1 1 100%;
+		padding: 0;
+		background: transparent;
+		border: 0;
+	}
+
+	/* Los puntos de fidelidad no caben en el resumen: están en la ficha. */
+	.admin-layout .clients-table td[data-label="Puntos"] {
+		display: none;
+	}
+
+	/* Rótulos en línea y en minúscula, no cinco titulares por tarjeta. */
+	.admin-layout .clients-table td::before {
+		font-size: 0.72rem;
+		font-weight: 500;
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--admin-text-muted, #64748b);
+		max-width: none;
+		white-space: nowrap;
+	}
+
+	/* El importe lleva su moneda y la pastilla se explica sola. */
+	.admin-layout .clients-table td[data-label="Gasto Total"]::before,
+	.admin-layout .clients-table td[data-label="Segmento"]::before {
+		display: none;
+	}
+
+	.admin-layout .clients-table td[data-label="Gasto Total"] {
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.admin-layout .clients-table td[data-label="Segmento"] {
+		flex: 1 1 100%;
+		padding-top: 2px;
+	}
+
+	/* Los valores dejan de empujarse a la derecha: la ficha se lee en columna. */
+	.admin-layout .clients-table td:not(:first-child):not(.hide-mobile) > * {
+		margin-left: 0;
+		text-align: left;
+	}
+
+	.admin-layout .clients-table td:last-child {
+		padding-bottom: 0;
+	}
+
+	/* La fecha y el estado venían apilados y hacían de dos renglones la línea
+	   de datos; en la ficha caben en la misma. */
+	.admin-layout .clients-table .client-last-visit-stack {
+		flex-direction: row;
+		align-items: baseline;
+		gap: 6px;
+	}
+}
+
+
+/* =========================================
+   El menú de la fila, centrado contra toda la celda
+   Vivía dentro de la fila del nombre, así que en los clientes con teléfono
+   quedaba pegado al nombre y con un hueco debajo. Se saca del flujo y se
+   ancla al centro de la celda; el relleno derecho le reserva el sitio para
+   que el nombre no pase por debajo.
+   ========================================= */
+.admin-layout .client-card-header {
+	position: relative;
+	padding-right: 44px;
+}
+
+/* El selector repite la cadena de la celda para ganarle a las reglas por
+   tamaño de pantalla, que le metían un margen negativo arriba y lo subían
+   seis píxeles. */
+.admin-layout .client-card-header__title-row .clients-row-kebab-wrap,
+.admin-layout .clients-table td:first-child .client-card-header__title-row .clients-row-kebab-wrap {
+	position: absolute;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	margin: 0;
+	padding: 6px;
+}

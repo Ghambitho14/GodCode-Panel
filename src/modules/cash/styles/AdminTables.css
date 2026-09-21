@@ -669,12 +669,13 @@
 	border-bottom: none;
 }
 
+/* Las versalitas con tracking abierto son la misma firma de plantilla que ya
+   se quito del tablero; el texto fuente ya venia en caja normal. */
 .admin-layout .table-session-receipt__section-title {
 	margin: 0 0 8px;
-	font-size: 0.72rem;
+	font-size: 0.8rem;
 	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	letter-spacing: 0;
 	color: var(--admin-text-muted, #64748b);
 }
 
@@ -870,18 +871,19 @@ button.table-session-receipt__item.is-busy {
 	padding: 8px 14px;
 	border: none;
 	border-radius: 10px;
-	background: #2563eb;
+	/* Igual que el tablero: el boton principal toma el color del negocio. */
+	background: var(--admin-accent, #2563eb);
 	color: #fff;
 	font: inherit;
 	font-size: 0.875rem;
 	font-weight: 700;
 	cursor: pointer;
 	box-shadow: none;
-	transition: background 0.15s ease, opacity 0.15s ease;
+	transition: background 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
 }
 
 .admin-layout .table-session-receipt__cta:hover:not(:disabled) {
-	background: #1d4ed8;
+	filter: brightness(0.94);
 }
 
 .admin-layout .table-session-receipt__cta:disabled {

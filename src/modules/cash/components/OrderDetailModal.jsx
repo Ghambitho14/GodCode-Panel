@@ -12,8 +12,6 @@ import {
     ImageIcon,
     ExternalLink,
     Loader2,
-    ShoppingBag,
-    Bike,
     UtensilsCrossed,
     MessageCircle,
     CheckCircle2,
@@ -374,7 +372,7 @@ const OrderDetailModal = ({
                                         </span>
                                     ) : null}
                                 </h2>
-                                <p className="table-session-receipt__order-id">Detalle del pedido</p>
+                                <p className="table-session-receipt__order-id">{clientDisplay.name}</p>
                                 <div className="table-session-receipt__meta">
                                     <span className="order-detail-status-chip">{statusLabel}</span>
                                     <span
@@ -384,8 +382,6 @@ const OrderDetailModal = ({
                                     >
                                         {paymentLabel}
                                     </span>
-                                    <span className="table-session-receipt__meta-sep" aria-hidden>·</span>
-                                    <span className="table-session-receipt__meta-item">{clientDisplay.name}</span>
                                     {itemCount > 0 ? (
                                         <>
                                             <span className="table-session-receipt__meta-sep" aria-hidden>·</span>
@@ -413,99 +409,6 @@ const OrderDetailModal = ({
                         </header>
 
                         <div className="table-session-receipt__scroll">
-                            <section className="table-session-receipt__section">
-                                <h3 className="table-session-receipt__section-title">
-                                    {fulfillmentKind === 'mesa' ? 'Mesa / Cliente' : 'Cliente'}
-                                </h3>
-                                {clientDisplay.subtitle ? (
-                                    <p className="order-detail-client-subtitle">{clientDisplay.subtitle}</p>
-                                ) : null}
-                                <dl className="order-detail-receipt-dl">
-                                    <div className="order-detail-receipt-dl__row">
-                                        <dt>Nombre</dt>
-                                        <dd>{clientDisplay.name}</dd>
-                                    </div>
-                                    <div className="order-detail-receipt-dl__row">
-                                        <dt>Teléfono</dt>
-                                        <dd className="order-detail-receipt-dl__contact">
-                                            {clientPhone ? (
-                                                <>
-                                                    <span>{clientPhone}</span>
-                                                    {whatsAppHref ? (
-                                                        <a
-                                                            href={whatsAppHref}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="order-detail-wa-btn"
-                                                            title="WhatsApp"
-                                                            aria-label="WhatsApp"
-                                                        >
-                                                            <MessageCircle size={16} className="order-detail-wa-glyph" aria-hidden />
-                                                        </a>
-                                                    ) : null}
-                                                </>
-                                            ) : (
-                                                <span className="order-detail-client-empty">No registrado</span>
-                                            )}
-                                        </dd>
-                                    </div>
-                                    <div className="order-detail-receipt-dl__row">
-                                        <dt>{idLabel}</dt>
-                                        <dd>
-                                            {clientRut ? (
-                                                clientRut
-                                            ) : (
-                                                <span className="order-detail-client-empty">No registrado</span>
-                                            )}
-                                        </dd>
-                                    </div>
-                                    {branch?.name ? (
-                                        <div className="order-detail-receipt-dl__row">
-                                            <dt>Sucursal</dt>
-                                            <dd>{branch.name}</dd>
-                                        </div>
-                                    ) : null}
-                                    <div className="order-detail-receipt-dl__row">
-                                        <dt>Fecha</dt>
-                                        <dd>{createdAt.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}</dd>
-                                    </div>
-                                </dl>
-                                {showCajaHint ? (
-                                    <p className="order-detail-caja-hint">Documento y teléfono genéricos de caja</p>
-                                ) : null}
-                            </section>
-
-                            <section className="table-session-receipt__section">
-                                <h3 className="table-session-receipt__section-title">Entrega</h3>
-                                <div className={`order-detail-fulfillment is-${fulfillmentKind}`}>
-                                    {fulfillmentKind === 'moto' ? (
-                                        <Bike size={18} aria-hidden />
-                                    ) : fulfillmentKind === 'retiro' ? (
-                                        <ShoppingBag size={18} aria-hidden />
-                                    ) : (
-                                        <UtensilsCrossed size={18} aria-hidden />
-                                    )}
-                                    {fulfillmentLabel}
-                                </div>
-                                {canMarkPaid ? (
-                                    <Button variant="secondary"
-                                        type="button"
-                                        size="sm"
-                                        className="table-session-receipt__cta order-detail-mark-paid-btn"
-                                        onClick={() => onMarkPaid(liveOrder)}
-                                    >
-                                        <Banknote size={16} aria-hidden />
-                                        Marcar pagado
-                                    </Button>
-                                ) : null}
-                                {isDelivery && deliveryFee > 0 ? (
-                                    <div className="table-session-receipt__total-row">
-                                        <span>Cargo envío</span>
-                                        <span>{fmt(deliveryFee)}</span>
-                                    </div>
-                                ) : null}
-                            </section>
-
                             {handoff ? (
                                 <section className="table-session-receipt__section">
                                     <h3 className="table-session-receipt__section-title">Código de verificación</h3>
@@ -566,6 +469,20 @@ const OrderDetailModal = ({
                                                 )
                                                 : 0;
                                             const lineBusy = transitioningLineId === lifecycleLine?.id;
+                                            const lifecycleSplit = lifecycleLine
+                                                ? [
+                                                    pendingQuantity > 0 ? `Pendiente ${pendingQuantity}` : null,
+                                                    Number(lifecycleLine.quantity_preparing) > 0
+                                                        ? `Preparando ${Number(lifecycleLine.quantity_preparing)}`
+                                                        : null,
+                                                    Number(lifecycleLine.quantity_prepared) > 0
+                                                        ? `Listo ${Number(lifecycleLine.quantity_prepared)}`
+                                                        : null,
+                                                    Number(lifecycleLine.quantity_served) > 0
+                                                        ? `Servido ${Number(lifecycleLine.quantity_served)}`
+                                                        : null,
+                                                ].filter(Boolean)
+                                                : [];
                                             return (
                                                 <li key={`${item.id ?? idx}-${idx}`} className="table-session-receipt__item">
                                                     <div className="table-session-receipt__item-main">
@@ -594,12 +511,14 @@ const OrderDetailModal = ({
                                                                                     ? 'Estado heredado'
                                                                                     : 'Pendiente'}
                                                             </span>
-                                                            <span className="order-line-lifecycle__counts">
-                                                                Pendiente {pendingQuantity}
-                                                                {' · '}Preparando {Number(lifecycleLine.quantity_preparing) || 0}
-                                                                {' · '}Listo {Number(lifecycleLine.quantity_prepared) || 0}
-                                                                {' · '}Servido {Number(lifecycleLine.quantity_served) || 0}
-                                                            </span>
+                                                            {/* El desglose solo aporta cuando la linea esta repartida entre
+                                                                varios estados; con una sola unidad pendiente repetia la
+                                                                pastilla de al lado. */}
+                                                            {lifecycleSplit.length > 1 ? (
+                                                                <span className="order-line-lifecycle__counts">
+                                                                    {lifecycleSplit.join(' · ')}
+                                                                </span>
+                                                            ) : null}
                                                             <div className="order-line-lifecycle__actions">
                                                                 {pendingQuantity > 0 ? (
                                                                     <Button
@@ -681,6 +600,68 @@ const OrderDetailModal = ({
                                 ) : null}
                             </section>
 
+                            <section className="table-session-receipt__section">
+                                <h3 className="table-session-receipt__section-title">
+                                    {fulfillmentKind === 'mesa' ? 'Mesa / Cliente' : 'Cliente'}
+                                </h3>
+                                {clientDisplay.subtitle ? (
+                                    <p className="order-detail-client-subtitle">{clientDisplay.subtitle}</p>
+                                ) : null}
+                                <dl className="order-detail-receipt-dl">
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Nombre</dt>
+                                        <dd>{clientDisplay.name}</dd>
+                                    </div>
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Teléfono</dt>
+                                        <dd className="order-detail-receipt-dl__contact">
+                                            {clientPhone ? (
+                                                <>
+                                                    <span>{clientPhone}</span>
+                                                    {whatsAppHref ? (
+                                                        <a
+                                                            href={whatsAppHref}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="order-detail-wa-btn"
+                                                            title="WhatsApp"
+                                                            aria-label="WhatsApp"
+                                                        >
+                                                            <MessageCircle size={16} className="order-detail-wa-glyph" aria-hidden />
+                                                        </a>
+                                                    ) : null}
+                                                </>
+                                            ) : (
+                                                <span className="order-detail-client-empty">No registrado</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>{idLabel}</dt>
+                                        <dd>
+                                            {clientRut ? (
+                                                clientRut
+                                            ) : (
+                                                <span className="order-detail-client-empty">No registrado</span>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    {branch?.name ? (
+                                        <div className="order-detail-receipt-dl__row">
+                                            <dt>Sucursal</dt>
+                                            <dd>{branch.name}</dd>
+                                        </div>
+                                    ) : null}
+                                    <div className="order-detail-receipt-dl__row">
+                                        <dt>Fecha</dt>
+                                        <dd>{createdAt.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}</dd>
+                                    </div>
+                                </dl>
+                                {showCajaHint ? (
+                                    <p className="order-detail-caja-hint">Documento y teléfono genéricos de caja</p>
+                                ) : null}
+                            </section>
+
                             {isLegacyGlobalKitchenNote(liveOrder) ? (
                                 <section className="table-session-receipt__section">
                                     <h3 className="table-session-receipt__section-title">Nota</h3>
@@ -730,6 +711,17 @@ const OrderDetailModal = ({
                         </div>
 
                         <footer className="table-session-receipt__foot order-detail-receipt__foot">
+                            {canMarkPaid ? (
+                                <Button
+                                    variant="default"
+                                    type="button"
+                                    className="table-session-receipt__cta order-detail-mark-paid-btn"
+                                    onClick={() => onMarkPaid(liveOrder)}
+                                >
+                                    <Banknote size={16} aria-hidden />
+                                    Marcar pagado
+                                </Button>
+                            ) : null}
                             <div className="order-detail-receipt-actions">
                                 <Button variant="secondary"
                                     type="button"

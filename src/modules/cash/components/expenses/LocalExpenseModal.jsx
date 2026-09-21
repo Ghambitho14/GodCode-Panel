@@ -343,10 +343,6 @@ const LocalExpenseModal = ({
                 <div className="local-expense-modal-body">
                     {activeTab === 'operating' ? (
                         <form onSubmit={handleSubmitOperating}>
-                            <p className="local-expense-modal-hint">
-                                Mercadería, arriendo, sueldo y otros gastos operativos del negocio.
-                            </p>
-
                             <div className="local-expense-modal-field">
                                 <span className="local-expense-modal-label">Categoría</span>
                                 <div className="local-expense-modal-categories">

@@ -79,6 +79,9 @@ function buildCategoryNavKey(variant, id) {
     return `${variant}:${normalizeCategoryId(id)}`;
 }
 
+/** A que altura del area visible se considera que una seccion «se esta leyendo». */
+const READING_LINE_OFFSET = 96;
+
 /** Desplaza solo dentro de `.manual-order-categories-scroll` (no propaga al overlay). */
 function scrollWithinCatalog(el, offsetTop = 12) {
     if (!el) return;
@@ -258,9 +261,11 @@ const ManualOrderCatalog = ({
         programmaticScrollLockRef.current = true;
         window.clearTimeout(programmaticScrollTimerRef.current);
         scrollWithinCatalog(el, 12);
+        // Se suelta cuando el scroll deja de moverse, no a los 450ms: el
+        // detector de reposo vive en el efecto del espia.
         programmaticScrollTimerRef.current = window.setTimeout(() => {
             programmaticScrollLockRef.current = false;
-        }, 450);
+        }, 1200);
     };
 
     // Highlight first category by default when catalog loads
@@ -278,19 +283,75 @@ const ManualOrderCatalog = ({
         scrollChipIntoNav(chip, nav);
     }, [activeCategory, searchPhase]);
 
+	/*
+	 * Espia de scroll.
+	 *
+	 * Antes lo hacia un IntersectionObserver que elegia, de entre las secciones
+	 * que acababan de cruzar un umbral, la de mayor `intersectionRatio`. Dos
+	 * problemas: el ratio es relativo al alto de CADA seccion, asi que una corta
+	 * que se ve entera (ratio 1) le ganaba a una larga que ocupa toda la
+	 * pantalla (ratio 0,4); y el callback solo recibe las que cambiaron, no
+	 * todas, asi que marcaba «la ultima que cruzo un umbral» en vez de «la que
+	 * se esta leyendo». Medido: con la primera seccion arriba, el chip marcado
+	 * era el de la segunda.
+	 *
+	 * Ahora se mira la posicion real de todas: la activa es la ultima cuyo
+	 * comienzo ya paso la linea de lectura.
+	 */
 	useEffect(() => {
 		const root = catalogScrollRef.current;
-		if (!root || typeof IntersectionObserver === 'undefined') return undefined;
-		const observer = new IntersectionObserver((entries) => {
+		if (!root) return undefined;
+
+		let rafId = null;
+		let idleTimer = 0;
+
+		const pickActive = () => {
+			rafId = null;
 			if (programmaticScrollLockRef.current) return;
-			const visible = entries
-				.filter((entry) => entry.isIntersecting)
-				.sort((a, b) => b.intersectionRatio - a.intersectionRatio || a.boundingClientRect.top - b.boundingClientRect.top);
-			const key = visible[0]?.target?.dataset?.categoryKey;
-			if (key) setActiveCategory(key);
-		}, { root, rootMargin: '-12px 0px -55% 0px', threshold: [0.08, 0.25, 0.55] });
-		for (const element of categoryRefsRef.current.values()) observer.observe(element);
-		return () => observer.disconnect();
+			const sections = root.querySelectorAll('[data-category-key]');
+			if (sections.length === 0) return;
+
+			const readingLine = root.getBoundingClientRect().top + READING_LINE_OFFSET;
+			let currentKey = sections[0].dataset.categoryKey;
+			for (const section of sections) {
+				if (section.getBoundingClientRect().top <= readingLine) {
+					currentKey = section.dataset.categoryKey;
+				} else {
+					break;
+				}
+			}
+
+			// Al final del scroll manda la ultima seccion: si es corta nunca
+			// llegaria a la linea de lectura y su chip no se marcaria jamas.
+			if (root.scrollTop + root.clientHeight >= root.scrollHeight - 4) {
+				currentKey = sections[sections.length - 1].dataset.categoryKey;
+			}
+
+			setActiveCategory((prev) => (prev === currentKey ? prev : currentKey));
+		};
+
+		const onScroll = () => {
+			// Reposo del scroll: libera el candado del desplazamiento programado
+			// en cuanto la animacion suave termina, dure lo que dure.
+			if (programmaticScrollLockRef.current) {
+				window.clearTimeout(idleTimer);
+				idleTimer = window.setTimeout(() => {
+					programmaticScrollLockRef.current = false;
+				}, 140);
+				return;
+			}
+			if (rafId == null) rafId = requestAnimationFrame(pickActive);
+		};
+
+		pickActive();
+		root.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', onScroll);
+		return () => {
+			if (rafId != null) cancelAnimationFrame(rafId);
+			window.clearTimeout(idleTimer);
+			root.removeEventListener('scroll', onScroll);
+			window.removeEventListener('resize', onScroll);
+		};
 	}, [sidebarCategories, query]);
 
 	useEffect(() => () => {
@@ -448,12 +509,12 @@ const ManualOrderCatalog = ({
                         </div>
                     ) : (
                         <>
-                            <span
-                                className={`manual-order-catalog-count shrink-0 ${textScale.micro} font-semibold tabular-nums text-gc-text-muted`}
-                                title={`${totalItems} ${totalItems === 1 ? 'producto' : 'productos'}${query ? ' encontrados' : ''}`}
-                            >
-                                {totalItems}
-                            </span>
+                            {/* Aqui habia una pastilla con el numero de productos a
+                                secas («16»), delante de los chips de categoria: sin
+                                rotulo no se distingue de un chip al que se le cayo el
+                                texto, y solo se veia con la busqueda cerrada, que es
+                                justo cuando la cifra menos importa. El recuento sigue
+                                anunciandose en la region `aria-live` de arriba. */}
                             {sidebarCategories.length > 0 ? (
                                 <nav
                                     ref={categoriesNavRef}

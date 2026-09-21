@@ -10,13 +10,15 @@ import { textScale } from './manualOrderStyles';
 const SectionHeader = ({ icon: Icon, children, tone = 'muted', className }) => (
 	<div
 		className={cn(
-			`mb-3 flex items-center gap-2 ${textScale.micro} font-extrabold uppercase tracking-[0.06em] leading-none text-gc-text`,
+			// Versalitas de 11px con tracking abierto: la firma de plantilla que se
+			// quito del tablero y del recibo. Caja normal y tamano legible.
+			`mb-3 flex items-center gap-2 ${textScale.body} font-bold leading-none text-gc-text`,
 			className,
 		)}
 	>
 		{Icon ? (
 			<Icon
-				size={14}
+				size={16}
 				className={tone === 'accent' ? 'text-gc-accent' : 'text-gc-text-muted'}
 				aria-hidden
 			/>

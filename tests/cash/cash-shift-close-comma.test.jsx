@@ -85,7 +85,9 @@ describe('cierre de caja con coma decimal', () => {
 
 	it('"Usar esperado" rellena con coma y deja cerrar', () => {
 		renderClose(onConfirm);
-		fireEvent.click(screen.getByTitle('Copiar el monto esperado de Efectivo físico'));
+		// El boton perdio su texto y ahora es un icono: se busca por su nombre
+		// accesible, que es lo que oye un lector de pantalla.
+		fireEvent.click(screen.getByRole('button', { name: /Usar el esperado de Efectivo físico/ }));
 		expect(document.getElementById('counted-cash').value).toBe('15,20');
 
 		typeInto('counted-card', '0');

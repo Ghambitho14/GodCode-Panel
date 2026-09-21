@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
-	List, Tag, Edit, ShoppingBag, Trash2, Plus,
+	List, Edit, ShoppingBag, Trash2, Plus,
 } from 'lucide-react';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import AdminErrorBoundary from '../../../components/AdminErrorBoundary';
@@ -118,49 +118,48 @@ export default function AdminCategoriesTab() {
 									onDragLeave={dragEnabled ? () => handleDragLeave(c.id) : undefined}
 									onDrop={dragEnabled ? (event) => handleDrop(event, c.id) : undefined}
 								>
-									<div className="cat-card-header">
-										<div className="cat-icon-wrapper" aria-hidden>
-											<Tag size={20} />
-										</div>
-										<Button
-											type="button"
-											variant="secondary"
-											size="sm"
-											className={`cat-status-badge cat-status-button${c.is_active ? ' is-active' : ' is-inactive'}`}
-											onClick={(event) => {
-												event.stopPropagation();
-												toggleCategoryActive(c.id, !c.is_active);
-											}}
-											title={c.is_active ? 'Desactivar categoría' : 'Activar categoría'}
-										>
-											<span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`} />
-											<span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
-										</Button>
-									</div>
-
 									<div className="cat-card-body">
+										{/* Nombre y estado en la misma fila: la pastilla ocupaba ella
+										    sola un renglón entero arriba de la tarjeta. */}
 										<div className="cat-name-row">
 											<h3 className="cat-name">{c.name}</h3>
+											<Button
+												type="button"
+												variant="secondary"
+												size="sm"
+												className={`cat-status-badge cat-status-button${c.is_active ? ' is-active' : ' is-inactive'}`}
+												onClick={(event) => {
+													event.stopPropagation();
+													toggleCategoryActive(c.id, !c.is_active);
+												}}
+												title={c.is_active ? 'Desactivar categoría' : 'Activar categoría'}
+											>
+												<span className={`cat-status-dot ${c.is_active ? 'active' : 'inactive'}`} />
+												<span className="cat-status-text">{c.is_active ? 'Activa' : 'Inactiva'}</span>
+											</Button>
+										</div>
+
+										{/* Una línea en vez de dos bloques con rótulo: el número de
+										    pausados solo aparece cuando hay alguno, que es la única
+										    vez que "activos" dice algo distinto del total. */}
+										<p className="cat-meta">
 											<span className="cat-order-badge" title="Orden en el menú">
 												#{Number(c.order) || 0}
 											</span>
-										</div>
+											<span>
+												<strong>{categoryProducts.length}</strong>{' '}
+												{categoryProducts.length === 1 ? 'producto' : 'productos'}
+											</span>
+											{categoryProducts.length !== activeProducts.length ? (
+												<span className="cat-meta__paused">
+													{categoryProducts.length - activeProducts.length} en pausa
+												</span>
+											) : null}
+										</p>
 
-										<div className="cat-stats">
-											<div className="cat-stat">
-												<span className="cat-stat-label">Productos</span>
-												<span className="cat-stat-value">{categoryProducts.length}</span>
-											</div>
-											<div className="cat-stat">
-												<span className="cat-stat-label">Activos</span>
-												<span className="cat-stat-value">{activeProducts.length}</span>
-											</div>
-										</div>
-
-										<div className="cat-revenue">
-											<span className="cat-revenue-label">Ingresos</span>
+										<p className="cat-revenue">
 											<strong className="cat-revenue-value">{formatBranchMoney(totalRevenue)}</strong>
-										</div>
+										</p>
 
 										<div className="cat-progress-wrapper">
 											<div className="cat-progress-bar" aria-hidden>
@@ -197,6 +196,8 @@ export default function AdminCategoriesTab() {
 											<ShoppingBag size={14} aria-hidden />
 											Productos
 										</Button>
+										{/* Solo el icono y apartado a la derecha: borrar no debe pesar
+										    lo mismo que editar o ver productos. */}
 										<Button
 											type="button"
 											variant="outline"
@@ -204,9 +205,9 @@ export default function AdminCategoriesTab() {
 											className="cat-btn cat-btn-delete"
 											onClick={() => deleteCategory(c)}
 											title="Eliminar categoría"
+											aria-label={`Eliminar la categoría ${c.name}`}
 										>
-											<Trash2 size={14} aria-hidden />
-											Borrar
+											<Trash2 size={15} aria-hidden />
 										</Button>
 									</div>
 								</div>

@@ -772,7 +772,7 @@ const ClientForm = ({
 
             {lockIdentityFields ? (
                 <p className={hintClass}>
-					Elegí un mesero reciente o escribí el nombre. Se recuerda en esta sucursal para la próxima vez.
+					Elige un mesero reciente o escribe el nombre. Se recuerda en esta sucursal para la próxima vez.
                 </p>
             ) : null}
         </div>
@@ -1367,7 +1367,7 @@ const ClientForm = ({
 
 					{showQuickSalePaymentChoice ? (
 						<div className="mt-3">
-							<p className={`mb-2 ${textScale.micro} font-semibold uppercase tracking-wide text-gc-text-muted`}>
+							<p className={`mb-2 ${textScale.body} font-semibold text-gc-text-muted`}>
 								Pago
 							</p>
 							<div className={`grid grid-cols-1 ${spacing.normal} @min-[220px]:grid-cols-2`}>

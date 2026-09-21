@@ -28,6 +28,16 @@
 	   para tu local."), no etiquetas de una palabra: el capitalize de la
 	   librería las convertía en Título De Cada Palabra. */
 	text-transform: none;
+	/*
+	 * NO poner aquí `white-space: normal` ni `overflow-wrap`. La píldora del
+	 * toast mide 40px de alto fijos y su ancho lo calcula la librería leyendo
+	 * el `scrollWidth` del título en una sola línea; la cabecera que lo
+	 * contiene es `position:absolute` con `max-width` igual a ese ancho y
+	 * `overflow:hidden`. Si el título puede partirse, se realimenta: envuelve
+	 * más estrecho -> scrollWidth menor -> píldora menor -> envuelve aún más,
+	 * y el aviso acaba en un recuadro diminuto con el texto roto por sílabas.
+	 */
+	white-space: nowrap;
 }
 
 :is([data-sileo-badge], [data-sileo-title])[data-state] {

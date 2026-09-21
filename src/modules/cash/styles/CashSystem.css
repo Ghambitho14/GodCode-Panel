@@ -3910,3 +3910,83 @@
     background: transparent;
     box-shadow: none;
 }
+
+
+/* =========================================
+   CIERRE DE CAJA — el cuadre en una fila por método
+   Cada método ocupaba tres renglones (nombre y esperado, rótulo CONTADO con el
+   botón "Usar esperado", y el campo a todo el ancho). Tres métodos eran nueve
+   renglones repitiendo lo mismo. Ahora cada uno es una fila: a la izquierda qué
+   es y cuánto se espera, a la derecha lo contado.
+   ========================================= */
+
+.admin-layout .cash-container .cash-shift-close-method {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 12px 14px;
+}
+
+.admin-layout .cash-container .cash-shift-close-method__head {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+}
+
+.admin-layout .cash-container .cash-shift-close-method__expected {
+    padding-left: 22px;
+}
+
+.admin-layout .cash-container .cash-shift-close-method__count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    grid-template-columns: none;
+    grid-template-areas: none;
+}
+
+.admin-layout .cash-container .cash-shift-close-method__count .cash-dialog__amount-wrap {
+    width: 150px;
+    min-height: 44px;
+}
+
+/* De texto repetido tres veces a un botón junto al campo. */
+.admin-layout .cash-container .cash-shift-close-method__use-expected {
+    justify-self: auto;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+}
+
+/* La diferencia se sale de la rejilla para ocupar el ancho completo. */
+.admin-layout .cash-container .cash-shift-close-method .cash-shift-close-diff {
+    grid-column: 1 / -1;
+    justify-self: start;
+}
+
+/* Cerrar el turno es la acción normal de fin de jornada, no una destrucción:
+   iba en rojo pálido y parecía deshabilitada incluso estando activa. */
+.admin-layout .cash-container .cash-dialog__btn--close {
+    background: color-mix(in srgb, var(--admin-accent) 92%, #000) !important;
+    color: #fff !important;
+    border: 1px solid transparent !important;
+}
+
+@media (max-width: 560px) {
+    .admin-layout .cash-container .cash-shift-close-method {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-layout .cash-container .cash-shift-close-method__count {
+        justify-content: flex-start;
+    }
+
+    .admin-layout .cash-container .cash-shift-close-method__count .cash-dialog__amount-wrap {
+        flex: 1 1 auto;
+        width: auto;
+    }
+}

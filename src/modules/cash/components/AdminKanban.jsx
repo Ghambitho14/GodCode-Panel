@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { Columns3, Maximize2 } from 'lucide-react';
+import { CheckCircle2, ChefHat, Columns3, Inbox, Maximize2 } from 'lucide-react';
 import AdminIconSlot from './AdminIconSlot';
 import OrderCard from './OrderCard';
 import { Button } from "@/components/ui/button";
@@ -37,26 +37,32 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
     // 1. CONFIGURACIÓN CENTRALIZADA
     // Aquí defines tus columnas. Si quieres agregar una, solo la pones aquí y listo.
     const columnConfig = useMemo(() => [
-        { 
-            id: 'pending', 
-            title: 'ENTRANTES', 
+        {
+            id: 'pending',
+            title: 'Entrantes',
             shortTitle: 'Entrantes', // Para el botón móvil
-            dotClass: 'dot-orange', 
-            emptyMsg: 'Sin pedidos' 
+            dotClass: 'dot-orange',
+            tone: 'orange',
+            EmptyIcon: Inbox,
+            emptyMsg: 'Sin pedidos'
         },
-        { 
-            id: 'active', 
-            title: 'COCINANDO', 
-            shortTitle: 'Cocina', 
-            dotClass: 'dot-red', 
-            emptyMsg: 'Cocina libre' 
+        {
+            id: 'active',
+            title: 'Cocinando',
+            shortTitle: 'Cocina',
+            dotClass: 'dot-red',
+            tone: 'red',
+            EmptyIcon: ChefHat,
+            emptyMsg: 'Cocina libre'
         },
-        { 
-            id: 'completed', 
-            title: 'LISTOS', 
-            shortTitle: 'Listos', 
-            dotClass: 'dot-green', 
-            emptyMsg: 'Nada listo' 
+        {
+            id: 'completed',
+            title: 'Listos',
+            shortTitle: 'Listos',
+            dotClass: 'dot-green',
+            tone: 'green',
+            EmptyIcon: CheckCircle2,
+            emptyMsg: 'Nada listo'
         }
     ], []);
 
@@ -73,7 +79,6 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
         <>
             {!isMobile && (
                 <div className="kanban-view-toolbar" role="group" aria-label="Vista del tablero de pedidos">
-                    <span className="kanban-view-toolbar-label">Vista</span>
                     <div className="kanban-view-toggle">
                         <Button variant="default"
                             type="button"
@@ -139,7 +144,13 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                             <div className="column-header">
                                 <span className={`dot ${col.dotClass}`}></span>
                                 <h2>{col.title}</h2>
-                                <span className="count">{ordersInColumn.length}</span>
+                                {/* En cero, un numero apagado; con trabajo dentro, la pastilla
+                                    toma el color de la etapa y se ve desde lejos. */}
+                                <span
+                                    className={`count ${ordersInColumn.length > 0 ? `count--${col.tone}` : 'count--zero'}`}
+                                >
+                                    {ordersInColumn.length}
+                                </span>
                             </div>
 
                             {/* Body */}
@@ -150,7 +161,10 @@ const AdminKanban = ({ columns, isMobile, mobileTab, setMobileTab, moveOrder, se
                                 ].filter(Boolean).join(' ')}
                             >
                                 {ordersInColumn.length === 0 ? (
-                                    <div className="empty-zone">{col.emptyMsg}</div>
+                                    <div className="empty-zone">
+                                        <col.EmptyIcon size={26} strokeWidth={1.5} aria-hidden />
+                                        <span>{col.emptyMsg}</span>
+                                    </div>
                                 ) : (
                                     ordersInColumn.map((order, idx) => (
                                         <OrderCard

@@ -49,8 +49,8 @@
 }
 
 input[type="checkbox"]:checked+.switch-slider {
-    background-color: #38bdf8;
-    border-color: #38bdf8;
+    background-color: var(--admin-accent, #2563eb);
+    border-color: var(--admin-accent, #2563eb);
 }
 
 input[type="checkbox"]:checked+.switch-slider:before {
@@ -64,4 +64,57 @@ input[type="checkbox"]:checked+.switch-slider:before {
     margin-top: 5px;
     display: block;
     font-size: 0.75rem;
+}
+
+
+/* =========================================
+   Nueva categoría — nombre y orden en una fila
+   El orden es un número de una cifra y ocupaba el ancho entero del modal
+   debajo del nombre. El interruptor iba suelto, sin la caja con descripción
+   que usan los demás formularios del panel.
+   ========================================= */
+
+.admin-layout .category-modal__row {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+	gap: 16px;
+	align-items: start;
+}
+
+.admin-layout .category-active-section {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 4px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid var(--admin-border, #e8ecf1);
+	background: var(--admin-icon-bg, #f8fafc);
+}
+
+.admin-layout .category-active-section__text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.admin-layout .category-active-section__label {
+	font-size: 0.875rem;
+	font-weight: 650;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .category-active-section__hint {
+	font-size: 0.75rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #64748b);
+}
+
+@media (max-width: 600px) {
+	.admin-layout .category-modal__row {
+		grid-template-columns: 1fr;
+		gap: 0;
+	}
 }

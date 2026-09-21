@@ -107,8 +107,10 @@ function ReportSalesChart({
 
 	if (!ventasPorDia.length) return null;
 
+	// "Todos" no aporta nada y en Gastos del local ni siquiera hay canales que
+	// filtrar: la etiqueta solo sale cuando de verdad acota algo.
 	const filterLabel = subtitle
-		?? (filter === 'online' ? 'Online' : filter === 'store' ? 'Tienda' : 'Todos');
+		?? (filter === 'online' ? 'Online' : filter === 'store' ? 'Tienda' : null);
 	const headerTitle = title
 		?? (chartKind === 'area' ? 'Ventas' : 'Ventas por período');
 	const chartHeight = showHeader ? Math.max(120, height - 22) : height;
@@ -118,7 +120,7 @@ function ReportSalesChart({
 			{showHeader ? (
 				<div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] font-semibold text-[var(--admin-text-muted,#64748b)]">
 					<span className="truncate">{headerTitle}</span>
-					<span className="shrink-0">{filterLabel}</span>
+					{filterLabel ? <span className="shrink-0">{filterLabel}</span> : null}
 				</div>
 			) : null}
 			<div ref={containerRef} style={{ width: '100%', height: chartHeight }}>

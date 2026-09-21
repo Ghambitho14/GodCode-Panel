@@ -598,3 +598,146 @@
         transform: translateY(0);
     }
 }
+
+
+/* =========================================
+   Tarjeta de categoría — menos adorno, más dato
+   Llevaba cuatro decoraciones compitiendo (franja de color, caja con icono de
+   etiqueta, chip de orden y pastilla de estado) y tres rótulos en mayúsculas
+   para tres números. Ahora la franja identifica, el nombre manda, los datos
+   van en una línea y los ingresos se leen de lejos.
+   ========================================= */
+
+.admin-layout .cat-card-header {
+	justify-content: flex-end;
+	min-height: 0;
+	padding-bottom: 0;
+}
+
+.admin-layout .cat-name-row {
+	margin-bottom: 6px;
+}
+
+.admin-layout .cat-name {
+	font-size: 1.0625rem;
+	font-weight: 700;
+	letter-spacing: -0.015em;
+}
+
+.admin-layout .cat-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 8px;
+	margin: 0 0 10px;
+	font-size: 0.8125rem;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .cat-meta strong {
+	font-weight: 700;
+	color: var(--admin-text, #1d1d1f);
+	font-variant-numeric: tabular-nums;
+}
+
+.admin-layout .cat-meta__paused {
+	color: var(--admin-danger-hover, #b91c1c);
+	font-weight: 600;
+}
+
+.admin-layout .cat-meta .cat-order-badge {
+	margin: 0;
+}
+
+/* Los ingresos eran una caja gris con el rótulo "INGRESOS" encima; ahora es la
+   cifra sola, que es lo que se busca al mirar la tarjeta. */
+.admin-layout .cat-revenue {
+	display: block;
+	margin: 0 0 10px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+
+.admin-layout .cat-revenue-value {
+	font-size: 1.25rem;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+	color: var(--admin-text, #1d1d1f);
+}
+
+/* Nombre y estado comparten fila; el nombre parte en dos líneas si hace falta
+   y la pastilla nunca se encoge. */
+.admin-layout .cat-card-body .cat-name-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+
+.admin-layout .cat-card-body .cat-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	margin: 0;
+	line-height: 1.3;
+}
+
+.admin-layout .cat-card-body .cat-status-badge {
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+/* La barra y su porcentaje iban en dos renglones, con el texto flotando a la
+   derecha y sin relación visual con la barra. Ahora van en la misma línea. */
+.admin-layout .cat-card .cat-progress-wrapper {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.admin-layout .cat-card .cat-progress-bar {
+	flex: 1 1 auto;
+	width: auto;
+	min-width: 0;
+	margin: 0;
+}
+
+.admin-layout .cat-progress-text {
+	flex-shrink: 0;
+	margin: 0;
+	font-size: 0.72rem;
+	white-space: nowrap;
+	color: var(--admin-text-muted, #64748b);
+}
+
+/* Editar y Productos reparten el ancho; borrar se aparta a la derecha. */
+.admin-layout .cat-card-footer {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Los botones vienen con width:100% del componente, así que en una fila flexible
+   hay que anular ese ancho: si no, el de borrar se queda con todo el espacio y
+   los otros dos se encogen hasta el icono. */
+.admin-layout .cat-card-footer .cat-btn-edit,
+.admin-layout .cat-card-footer .cat-btn-view {
+	flex: 1 1 0;
+	/* El !important responde al `width: 100% !important` de .cat-btn, que venía
+	   de cuando el pie era una rejilla de tres columnas iguales. */
+	width: auto !important;
+	min-width: 0;
+	justify-content: center;
+}
+
+.admin-layout .cat-card-footer .cat-btn-delete {
+	flex: 0 0 36px;
+	width: 36px !important;
+	min-width: 36px;
+	padding: 0 !important;
+	justify-content: center;
+}

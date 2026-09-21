@@ -6,7 +6,7 @@ function movementLabel(count) {
 	return n === 1 ? '1 movimiento' : `${n} movimientos`;
 }
 
-function SummaryStat({ label, value, icon: Icon, subtext }) {
+function SummaryStat({ label, value, icon: Icon, subtext, hint }) {
 	return (
 		/* @container + clamp: mismo patron que las tarjetas KPI de Reportes. A
 		   360px de ancho la celda mide ~112px y un importe a 24px fijos pedia
@@ -16,7 +16,12 @@ function SummaryStat({ label, value, icon: Icon, subtext }) {
 				{Icon ? (
 					<Icon size={14} strokeWidth={2} className="text-emerald-600" aria-hidden />
 				) : null}
-				<span className="truncate text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">{label}</span>
+				<span
+					className="truncate text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm"
+					title={hint || undefined}
+				>
+					{label}
+				</span>
 			</div>
 			<p className="text-[clamp(15px,13cqi,24px)] font-bold leading-tight tabular-nums tracking-tight text-[#1a1a1a] [overflow-wrap:anywhere]">{value}</p>
 			{subtext != null ? (
@@ -56,6 +61,7 @@ export default function LocalExpensesSummaryBar({
 					value={fmt(withdrawals)}
 					icon={Banknote}
 					subtext={movementLabel(withdrawalCount)}
+					hint="Retiros de efectivo registrados en Caja; aparecen aqui para el control del negocio."
 				/>
 				<SummaryStat
 					label="Devoluciones"

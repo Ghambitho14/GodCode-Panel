@@ -300,84 +300,6 @@
 	}
 }
 
-/* —— Bebidas / extras: vista tipo productos (grilla + modal) —— */
-.admin-cart-upsell-page-head {
-	display: flex;
-	align-items: flex-start;
-	gap: 14px;
-	min-width: 0;
-}
-
-.admin-cart-upsell-page-icon {
-	flex-shrink: 0;
-}
-
-.admin-cart-upsell-page-head__copy {
-	min-width: 0;
-	flex: 1 1 auto;
-}
-
-.admin-cart-upsell-page-title-row {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 6px;
-}
-
-.admin-cart-upsell-page-title {
-	margin: 0;
-	font-size: clamp(1.12rem, 2.4vw, 1.38rem);
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	line-height: 1.2;
-}
-
-.admin-cart-upsell-page-lead {
-	margin: 0;
-	font-size: 0.9rem;
-	line-height: 1.45;
-	opacity: 0.78;
-	max-width: 52ch;
-}
-
-.admin-layout .admin-cart-upsell-page-title {
-	color: var(--admin-text, #0f172a);
-}
-
-.admin-layout .admin-cart-upsell-page-lead {
-	color: var(--admin-text-muted, #64748b);
-	opacity: 1;
-}
-
-/* Cabecera catálogo: sin icono duplicado */
-.admin-cart-upsell-catalog-head__main {
-	flex: 1 1 200px;
-	min-width: 0;
-}
-
-.admin-cart-upsell-catalog-title {
-	margin: 0 0 4px;
-	font-size: 0.72rem;
-	font-weight: 800;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	opacity: 0.55;
-	line-height: 1.2;
-}
-
-.admin-cart-upsell-catalog-summary {
-	margin: 0;
-	font-size: 0.98rem;
-	font-weight: 650;
-	line-height: 1.35;
-	opacity: 0.9;
-}
-
-.admin-layout .admin-cart-upsell-catalog-summary {
-	color: var(--admin-text, #0f172a);
-}
-
 /* Interruptor sección visible en carrito: contraste explícito */
 .admin-cart-upsell-catalog-toggle {
 	display: flex;
@@ -391,15 +313,6 @@
 	box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.admin-cart-upsell-catalog-toggle__text {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	flex-wrap: wrap;
-	justify-content: flex-end;
-	max-width: min(100%, 14rem);
-}
-
 .admin-cart-upsell-catalog-toggle__label {
 	font-weight: 800;
 	font-size: 0.88rem;
@@ -407,18 +320,9 @@
 	white-space: nowrap;
 }
 
-.admin-cart-upsell-catalog-switch.menu-carousel-switch {
-	border-width: 2px;
-	box-shadow:
-		0 0 0 1px rgba(0, 0, 0, 0.2),
-		0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-.admin-cart-upsell-catalog-switch.menu-carousel-switch.is-on {
-	box-shadow:
-		0 0 0 1px rgba(21, 128, 61, 0.35),
-		0 2px 10px rgba(34, 197, 94, 0.25);
-}
+/* Llevaba borde de 2px y dos sombras encima: se veía tosco y, al ensanchar el
+   borde, la bolita dejaba de estar centrada. Usa el mismo interruptor que el
+   resto del panel. */
 
 .admin-layout .admin-cart-upsell-catalog-toggle {
 	border-color: var(--admin-border, #cbd5e1);
@@ -441,8 +345,8 @@
 }
 
 .admin-layout .admin-cart-upsell-catalog-switch.menu-carousel-switch.is-on {
-	background: #22c55e;
-	border-color: #15803d;
+	background: var(--admin-accent, #2563eb);
+	border-color: var(--admin-accent, #2563eb);
 }
 
 @media (max-width: 640px) {
@@ -451,40 +355,13 @@
 		align-items: stretch;
 	}
 
-	/* En columna, el `flex: 1 1 200px` del bloque de texto pasa a ser ALTO y
-	   dejaba 180px de hueco vacío entre "1 en catálogo" y el interruptor. */
-	.admin-cart-upsell-catalog-head__main {
-		flex: 0 0 auto;
-	}
-
 	.admin-cart-upsell-catalog-toggle {
 		justify-content: space-between;
 		width: 100%;
 		max-width: none;
 	}
 
-	.admin-cart-upsell-catalog-toggle__text {
-		justify-content: flex-start;
-		max-width: none;
 	}
-}
-
-.admin-cart-upsell-toolbar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: 16px;
-	padding: clamp(14px, 3vw, 20px) clamp(14px, 3vw, 22px);
-	border-radius: clamp(12px, 2vw, 16px);
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	margin-bottom: clamp(12px, 2vw, 18px);
-}
-
-.admin-cart-upsell-toolbar__text {
-	flex: 1 1 220px;
-	min-width: 0;
-}
 
 .admin-cart-upsell-toolbar__cta {
 	flex-shrink: 0;
@@ -570,12 +447,6 @@
 .admin-cart-upsell-pick-inv__meta {
 	font-size: 0.78rem;
 	opacity: 0.85;
-}
-
-.admin-layout .admin-cart-upsell-toolbar {
-	border-color: var(--admin-border, #e2e8f0);
-	background: var(--admin-card-bg, #fff);
-	box-shadow: var(--admin-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.06));
 }
 
 /* Columnas con ancho acotado: evita una sola tarjeta estirada a todo el viewport (imagen gigante). */
@@ -766,63 +637,6 @@
 	color: var(--admin-text, #0f172a);
 }
 
-.admin-cart-upsell-card__stats {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 8px;
-}
-
-.admin-cart-upsell-card__stat {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-	padding: 8px 10px;
-	border-radius: 10px;
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	background: rgba(0, 0, 0, 0.14);
-}
-
-.admin-layout .admin-cart-upsell-card__stat {
-	border-color: var(--admin-border, #e2e8f0);
-	background: color-mix(in srgb, var(--admin-icon-bg, #f8fafc) 85%, var(--admin-card-bg, #fff));
-}
-
-.admin-cart-upsell-card__stat-label {
-	font-size: 10px;
-	font-weight: 800;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	opacity: 0.5;
-	line-height: 1.2;
-}
-
-.admin-cart-upsell-card__stat-value {
-	font-size: 0.98rem;
-	font-weight: 800;
-	line-height: 1.2;
-	font-variant-numeric: tabular-nums;
-	overflow-wrap: anywhere;
-}
-
-.admin-cart-upsell-card__stat-sub {
-	font-size: 11px;
-	line-height: 1.3;
-	opacity: 0.68;
-}
-
-.admin-cart-upsell-card__stat--out .admin-cart-upsell-card__stat-value {
-	color: #fca5a5;
-}
-
-.admin-cart-upsell-card__stat--warn .admin-cart-upsell-card__stat-value {
-	color: #fcd34d;
-}
-
-.admin-cart-upsell-card__stat--muted .admin-cart-upsell-card__stat-value {
-	opacity: 0.75;
-}
-
 .admin-cart-upsell-card__actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -924,12 +738,6 @@
 	color: #ef4444;
 }
 
-@media (max-width: 380px) {
-	.admin-cart-upsell-card__stats {
-		grid-template-columns: 1fr;
-	}
-}
-
 @media (max-width: 640px) {
 	.admin-cart-upsell-toolbar__actions {
 		width: 100%;
@@ -954,6 +762,327 @@
 
 	.admin-cart-upsell-card__img-wrap {
 		max-height: 220px;
+	}}
+
+
+/* =========================================
+   Bebidas y Extras — una sola barra
+   Antes había dos tarjetas: una con el título de la pestaña repetido, su icono
+   y un párrafo de dos líneas, y otra con el rótulo "Catálogo". Ahora el
+   interruptor y los botones comparten barra, el recuento va en una línea y las
+   tarjetas solo muestran lo que se sale de lo normal.
+   ========================================= */
+
+/* Hereda de .admin-toolbar (tarjeta blanca con borde), igual que las barras de
+   "Menú y carta" y "Clientes". Solo ajusta el reparto y el margen, porque el
+   recuento va justo debajo. */
+.admin-layout .admin-toolbar.admin-cart-upsell-catalog-head {
+	justify-content: flex-start;
+	margin-bottom: 10px;
+}
+
+.admin-layout .admin-toolbar.admin-cart-upsell-catalog-head .search-box {
+	flex: 1 1 200px;
+	min-width: 160px;
+}
+
+/* El interruptor manda, así que va primero y su etiqueta a la derecha. */
+.admin-layout .admin-cart-upsell-catalog-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--admin-text, #1d1d1f);
+}
+
+.admin-layout .admin-cart-upsell-catalog-toggle__label {
+	white-space: nowrap;
+}
+
+.admin-layout .admin-cart-upsell-toolbar__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin-left: auto;
+}
+
+.admin-layout .admin-cart-upsell-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+	margin: 0 0 12px 4px;
+	padding: 0;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+}
+
+/* Pastillas de la tarjeta: una línea cada una, y solo si hay algo que decir. */
+.admin-layout .admin-cart-upsell-card__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 6px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.admin-layout .admin-cart-upsell-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 650;
+	line-height: 1.5;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	background: var(--admin-icon-bg, #f5f5f7);
+	color: var(--admin-text-muted, #64748b);
+	border: 1px solid var(--admin-border, #e8ecf1);
+}
+
+.admin-layout .admin-cart-upsell-chip svg {
+	flex-shrink: 0;
+	opacity: 0.75;
+}
+
+.admin-layout .admin-cart-upsell-chip--ok {
+	background: color-mix(in srgb, var(--color-gc-success, #00705b) 10%, var(--admin-card-bg, #fff));
+	border-color: color-mix(in srgb, var(--color-gc-success, #00705b) 22%, var(--admin-border, #e8ecf1));
+	color: var(--color-gc-success, #00705b);
+}
+
+.admin-layout .admin-cart-upsell-chip--out,
+.admin-layout .admin-cart-upsell-chip--warn {
+	background: color-mix(in srgb, var(--admin-danger, #ef4444) 10%, var(--admin-card-bg, #fff));
+	border-color: color-mix(in srgb, var(--admin-danger, #ef4444) 24%, var(--admin-border, #e8ecf1));
+	color: var(--admin-danger-hover, #b91c1c);
+}
+
+.admin-layout .admin-cart-upsell-chip--limit {
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 9%, var(--admin-card-bg, #fff));
+	border-color: color-mix(in srgb, var(--admin-accent, #2563eb) 22%, var(--admin-border, #e8ecf1));
+	color: var(--admin-accent, #2563eb);
+}
+
+@media (max-width: 768px) {
+	.admin-layout .admin-cart-upsell-catalog-head {
+		padding: 10px 14px;
+	}
+
+	.admin-layout .admin-cart-upsell-toolbar__actions {
+		flex: 1 1 100%;
+		margin-left: 0;
+	}
+
+	.admin-layout .admin-cart-upsell-toolbar__actions > * {
+		flex: 1 1 0;
+		justify-content: center;
+	}
+
+	.admin-layout .admin-cart-upsell-summary {
+		padding: 10px 14px 0;
 	}
 }
 
+/* El interruptor vivía dentro de una cápsula con borde y sombra que parecía un
+   botón entero, aunque solo el switch respondía. Ahora es un control suelto
+   dentro de la barra. */
+.admin-layout .admin-cart-upsell-catalog-head .admin-cart-upsell-catalog-toggle {
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+}
+
+@media (max-width: 768px) {
+	/* Con el orden nuevo (interruptor, etiqueta, ayuda) el space-between dejaba
+	   la etiqueta flotando en mitad de la fila. */
+	.admin-layout .admin-cart-upsell-catalog-head .admin-cart-upsell-catalog-toggle {
+		width: auto;
+		justify-content: flex-start;
+	}
+}
+
+@media (max-width: 768px) {
+	/* En móvil hay una regla general que convierte al primer hijo de
+	   .admin-toolbar en una fila flexible que se parte. Aquí el primer hijo es
+	   el propio buscador, así que la lupa y el campo caían en líneas distintas
+	   y el texto se salía de la caja. */
+	.admin-layout .admin-toolbar.admin-cart-upsell-catalog-head > .search-box {
+		flex: 1 1 100%;
+		flex-wrap: nowrap;
+		gap: 8px;
+		align-items: center;
+	}
+
+	/* Los dos botones comparten fila en vez de apilarse a todo el ancho. */
+	.admin-layout .admin-toolbar.admin-cart-upsell-catalog-head .admin-cart-upsell-toolbar__actions {
+		display: flex;
+		flex-direction: row;
+		flex: 1 1 100%;
+		flex-wrap: nowrap;
+		gap: 8px;
+		margin-left: 0;
+	}
+
+	.admin-layout .admin-toolbar.admin-cart-upsell-catalog-head .admin-cart-upsell-toolbar__actions > * {
+		flex: 1 1 0;
+		min-width: 0;
+		justify-content: center;
+	}
+
+	.admin-layout .admin-cart-upsell-summary {
+		margin: 0 0 10px 2px;
+		padding: 0;
+	}
+}
+
+
+/* =========================================
+   Elegir artículo del inventario
+   Cada artículo ocupaba dos renglones (nombre arriba, "Cocina · 4 l" debajo) y
+   nada indicaba que la fila fuese pulsable. Ahora es una línea: nombre, tipo,
+   stock a la derecha y un "+" que aparece al apuntar, así se ve de un vistazo
+   qué hay y qué pasa al tocar.
+   ========================================= */
+
+.admin-layout .admin-cart-upsell-pick-inv__search {
+	margin-bottom: 12px;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto auto;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 48px;
+	padding: 10px 12px;
+	text-align: left;
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--admin-border, #e8ecf1);
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__row:last-child {
+	border-bottom: 0;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__row:hover,
+.admin-layout .admin-cart-upsell-pick-inv__row:focus-visible {
+	background: color-mix(in srgb, var(--admin-accent, #2563eb) 7%, var(--admin-card-bg, #fff));
+	outline: none;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__name {
+	min-width: 0;
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--admin-text, #0f172a);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__meta {
+	font-size: 0.75rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
+	white-space: nowrap;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__stock {
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	color: var(--admin-text, #334155);
+	background: var(--admin-icon-bg, #f5f5f7);
+	border: 1px solid var(--admin-border, #e8ecf1);
+}
+
+/* El "+" está siempre presente para reservar su sitio, pero solo se ve cuando
+   el puntero o el teclado están encima: la lista no se llena de iconos. */
+.admin-layout .admin-cart-upsell-pick-inv__add {
+	flex-shrink: 0;
+	color: var(--admin-accent, #2563eb);
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__row:hover .admin-cart-upsell-pick-inv__add,
+.admin-layout .admin-cart-upsell-pick-inv__row:focus-visible .admin-cart-upsell-pick-inv__add {
+	opacity: 1;
+}
+
+.admin-layout .admin-cart-upsell-pick-inv__empty {
+	padding: 24px 12px;
+	text-align: center;
+	font-size: 0.85rem;
+	color: var(--admin-text-muted, #64748b);
+}
+
+@media (max-width: 768px) {
+	/* En el teléfono no hay puntero: el "+" se queda visible. */
+	.admin-layout .admin-cart-upsell-pick-inv__add {
+		opacity: 1;
+	}
+
+	.admin-layout .admin-cart-upsell-pick-inv__meta {
+		display: none;
+	}
+}
+
+/* El rótulo de sección iba en mayúsculas a 0.72rem y con la opacidad bajada:
+   quedaba por debajo de las etiquetas de los campos que agrupa. Mismo trato
+   que en el resto de formularios del panel. */
+.admin-layout .admin-cart-upsell-modal-section__title {
+	margin: 0 0 12px;
+	font-size: 0.9375rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-transform: none;
+	opacity: 1;
+	color: var(--admin-text, #0f172a);
+}
+
+/* El prefijo de moneda y el campo comparten caja, como en el modal de
+   producto, y la fila de dos columnas no se estira de más. */
+.admin-layout .admin-cart-upsell-item-modal .product-form__money .form-input {
+	min-width: 0;
+}
+
+/* Entre la última pista de una sección y el título de la siguiente se sumaban
+   cuatro espacios: 20px del margen del campo, 22 del margen de la sección, el
+   filete y otros 20 de relleno. Sesenta y tres píxeles de nada. La separación
+   la lleva ahora la propia rejilla y la sección. */
+.admin-layout .admin-cart-upsell-item-modal .form-row.two-col {
+	gap: 16px 20px;
+}
+
+.admin-layout .admin-cart-upsell-item-modal .form-row.two-col > .form-group {
+	margin-bottom: 0;
+}
+
+.admin-layout .admin-cart-upsell-item-modal .admin-cart-upsell-modal-section + .admin-cart-upsell-modal-section {
+	margin-top: 16px;
+	padding-top: 16px;
+}
+
+/* El último campo de una sección no necesita margen: ya lo separa la sección. */
+.admin-layout .admin-cart-upsell-item-modal .admin-cart-upsell-modal-section > .form-group:last-child {
+	margin-bottom: 0;
+}

@@ -123,8 +123,16 @@ const ProductCard = ({
 
     return (
         <article
+            /* Al pasar el raton solo se movia la foto (escala 1,05 en 300ms): la
+               tarjeta se limitaba a cambiar de shadow-xs a shadow-sm, un salto tan
+               pequeño que no se ve. Parecia que el producto flotaba por su cuenta
+               dentro de una tarjeta quieta. Ahora se levanta la tarjeta entera y la
+               foto acompaña con la misma duracion, asi que suben como una pieza.
+               Ojo: Tailwind v4 aplica `-translate-y-*` con la propiedad `translate`,
+               no con `transform`, asi que la lista de transicion tiene que nombrarla
+               o el levantamiento va a saltos. */
             className={cn(
-                'manual-order-product-card group relative flex h-full cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-3 shadow-xs transition-shadow duration-150 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2 sm:p-4',
+                'manual-order-product-card group relative flex h-full cursor-pointer flex-col items-center overflow-hidden border border-gc-border/40 bg-white p-3 shadow-xs transition-[translate,transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-gc-accent/35 hover:shadow-[0_10px_26px_-12px_rgba(15,23,42,0.32)] active:translate-y-0 active:duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-4',
                 cardRadiusClass,
             )}
             onClick={() => addItem(product)}
@@ -150,7 +158,7 @@ const ProductCard = ({
                         alt={product.name}
                         enabled={shouldLoadImage}
                         preset="productThumb"
-                        imageClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        imageClassName="h-full w-full object-cover ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                         skeletonClassName="rounded-full"
                         emptyContent={<span className="text-2xl font-bold text-gc-text-muted">{initial || '?'}</span>}
                     />
@@ -181,14 +189,19 @@ const ProductCard = ({
                     quedaban tapados por el boton "+" (17px de solape medidos). El tamaño
                     ahora sigue al ancho de la fila y se topa en text-xl (20px), que es lo
                     que valia antes en las tarjetas anchas. */}
+                {/* Alineado por abajo, no por el centro: la tarjeta con descuento
+                    añade el precio tachado encima, y con `items-center` el bloque
+                    entero se recentraba y bajaba el precio vigente. Medido en una
+                    fila de cuatro: los precios normales caian en y=197 y el de la
+                    oferta en y=203, 6px fuera de linea respecto a sus vecinos. */}
                 <div
-                    className="@container mt-auto flex w-full items-center justify-between gap-2 pt-1"
+                    className="@container mt-auto flex w-full items-end justify-between gap-2 pt-1"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="min-w-0 flex-1 flex flex-col items-start justify-center gap-0.5">
+                    <div className="min-w-0 flex-1 flex flex-col items-start justify-end gap-1">
                         {hasDiscount ? (
                             <>
-                                <span className={`${textScale.micro} font-medium text-gc-text-muted line-through tabular-nums`}>
+                                <span className={`${textScale.micro} font-medium leading-none text-gc-text-muted line-through tabular-nums`}>
                                     {formatMoney(Number(product.price))}
                                 </span>
                                 <span className="max-w-full text-[clamp(0.8125rem,12.5cqi,1.25rem)] font-bold leading-none text-gc-discount tabular-nums">

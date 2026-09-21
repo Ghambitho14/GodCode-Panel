@@ -118,7 +118,13 @@ const ProgressiveProductImage = ({
                     className={cn(
                         imageClassName,
                         stage === 'placeholder' && placeholderClassName,
-                        'transition-opacity duration-200',
+                        /* `cn` es tailwind-merge: cualquier `transition-*` de aqui
+                           sustituye al que traiga `imageClassName`. La tarjeta de
+                           producto pedia `transition-transform` para el zoom al pasar
+                           el raton y se quedaba sin transicion, asi que la foto pegaba
+                           el salto de golpe mientras la tarjeta subia suave. La lista
+                           cubre lo que animan los llamadores, no solo el fundido. */
+                        'transition-[opacity,scale,transform] duration-200',
                         isLoaded ? 'opacity-100' : 'opacity-0',
                     )}
                     loading={loading}

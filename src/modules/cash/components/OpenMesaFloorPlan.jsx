@@ -125,7 +125,7 @@ export default function OpenMesaFloorPlan({
 					<Armchair size={28} aria-hidden className="open-mesa-floor__empty-icon" />
 					<p className="open-mesa-floor__empty-title">No hay mesas configuradas</p>
 					<p className="open-mesa-floor__empty-hint">
-						Andá a Opciones de sucursal → Mesas y creá el plano del salón.
+						Crea el plano en Opciones de sucursal → Mesas.
 					</p>
 				</div>
 			</div>
@@ -140,21 +140,24 @@ export default function OpenMesaFloorPlan({
 						<SectionHeader icon={Armchair} tone="accent">
 							Salón
 						</SectionHeader>
-						<div className="open-mesa-floor__legend" aria-label="Leyenda">
-							<span className="open-mesa-floor__legend-item">
-								<i className="is-available" /> Disponible ({counts.available})
+						{/* Eran tres puntos de leyenda con el numero entre parentesis. Como
+						    pastillas se leen de un vistazo, y las que estan a cero se apagan
+						    para que el ojo vaya a lo que si hay. */}
+						<div className="open-mesa-floor__counts" aria-label="Estado del salon">
+							<span className={`open-mesa-floor__count is-available${counts.available ? '' : ' is-zero'}`}>
+								<strong>{counts.available}</strong> libres
 							</span>
-							<span className="open-mesa-floor__legend-item">
-								<i className="is-reserved" /> Reservada ({counts.reserved})
+							<span className={`open-mesa-floor__count is-reserved${counts.reserved ? '' : ' is-zero'}`}>
+								<strong>{counts.reserved}</strong> reservadas
 							</span>
-							<span className="open-mesa-floor__legend-item">
-								<i className="is-occupied" /> Ocupada ({counts.occupied})
+							<span className={`open-mesa-floor__count is-occupied${counts.occupied ? '' : ' is-zero'}`}>
+								<strong>{counts.occupied}</strong> ocupadas
 							</span>
 						</div>
 					</div>
 
 					<div className="open-mesa-floor__grid" role="listbox" aria-label="Mesas del salón">
-						{tables.map((table) => {
+						{tables.map((table, idx) => {
 							const occupied = occupancy.has(String(table.id));
 							const reserved = !occupied && holds.has(String(table.id));
 							const isSelected = String(table.id) === String(selectedTableId);
@@ -170,6 +173,7 @@ export default function OpenMesaFloorPlan({
 									key={table.id}
 									type="button"
 									role="option"
+									style={{ '--seat-i': idx }}
 									aria-selected={isSelected}
 									className={[
 										'open-mesa-floor__seat',
@@ -187,9 +191,14 @@ export default function OpenMesaFloorPlan({
 								>
 									<span className="open-mesa-floor__seat-code">{table.code}</span>
 									<span className="open-mesa-floor__seat-meta">
-										{reserved || occupied ? null : <Users size={12} aria-hidden />}
+										{reserved || occupied ? null : <Users size={13} aria-hidden />}
 										{statusLabel}
 									</span>
+									{occupied || reserved ? (
+										<span className="open-mesa-floor__seat-state">
+											{occupied ? 'Ocupada' : 'Reservada'}
+										</span>
+									) : null}
 									{isSelected ? (
 										<span className="open-mesa-floor__seat-badge">Seleccionada</span>
 									) : null}
@@ -233,7 +242,7 @@ export default function OpenMesaFloorPlan({
 								</>
 							) : (
 								<span className="open-mesa-floor__bar-hint">
-									Elegí una mesa disponible o sentá una reserva para continuar
+									Toca una mesa libre para continuar
 								</span>
 							)}
 						</div>

@@ -53,6 +53,11 @@ function formatCouponRowDates(row, locale) {
 			return String(v);
 		}
 	};
+	// Un cupón sin fechas mostraba dos guiones en dos renglones ("—" y "→ —").
+	// Vale más decir que no caduca.
+	if (!row.valid_from && !row.valid_until) return { always: true };
+	if (row.valid_from && !row.valid_until) return { single: `Desde ${fmt(row.valid_from)}` };
+	if (!row.valid_from && row.valid_until) return { single: `Hasta ${fmt(row.valid_until)}` };
 	return { from: fmt(row.valid_from), until: fmt(row.valid_until) };
 }
 
@@ -299,11 +304,6 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 					<div className="coupon-form-modal__header">
 						<div className="coupon-form-modal__header-text">
 							<h3 id="coupon-form-modal-title">{editing ? "Editar cupón" : "Nuevo cupón"}</h3>
-							<p className="coupon-form-modal__header-hint">
-								{editing
-									? "Ajusta el descuento, alcance o vigencia y guarda."
-									: "Define código, descuento y reglas de uso."}
-							</p>
 						</div>
 						<button
 							type="button"
@@ -380,9 +380,11 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 							</div>
 						</section>
 
+						{/* El rótulo de sección lleva el nombre del campo: antes decía
+						    "Alcance" y justo debajo "Quién puede usarlo", dos veces lo mismo. */}
 						<section className="coupon-form-modal__section" aria-labelledby="coupon-sec-scope">
 							<h4 id="coupon-sec-scope" className="coupon-form-modal__section-title">
-								Alcance
+								Quién puede usarlo
 							</h4>
 							<div
 								className={`coupon-form-modal__grid${
@@ -390,9 +392,9 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 								}`}
 							>
 								<div className="coupon-form-modal__field">
-									<label htmlFor="coupon-scope">Quién puede usarlo</label>
 									<CouponFormSelect
 										id="coupon-scope"
+										aria-label="Quién puede usar el cupón"
 										disabled={saving}
 										value={draft.scope}
 										placeholder="Alcance"
@@ -562,17 +564,44 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 
 	return (
 		<div className="admin-coupons">
+			{/* Una sola barra: buscar, estado y acciones. El título y el icono
+			    repetían la cabecera del panel, y el recuento baja a su línea. */}
 			<div className="admin-toolbar glass admin-coupons__toolbar">
-				<div className="admin-coupons__toolbar-head">
-					<div className="admin-coupons__toolbar-title">
-						<Tag size={20} strokeWidth={1.75} aria-hidden />
-						<h2>Cupones</h2>
-						<span className="admin-coupons__count">
-							{filteredRows.length === rows.length
-								? `${rows.length} cupón${rows.length === 1 ? "" : "es"}`
-								: `${filteredRows.length} de ${rows.length}`}
-						</span>
-					</div>
+				<div className="search-box">
+					<Search size={16} aria-hidden />
+					<input
+						type="search"
+						placeholder="Buscar código o descuento…"
+						value={searchTerm}
+						onChange={(e) => setSearchTerm(e.target.value)}
+						aria-label="Buscar cupones"
+					/>
+				</div>
+
+				<div className="admin-coupons__chips" role="group" aria-label="Filtrar por estado">
+					<button
+						type="button"
+						className={`filter-chip${statusFilter === "all" ? " active" : ""}`}
+						onClick={() => setStatusFilter("all")}
+					>
+						Todo
+					</button>
+					<button
+						type="button"
+						className={`filter-chip${statusFilter === "active" ? " active" : ""}`}
+						onClick={() => setStatusFilter("active")}
+					>
+						Activos
+					</button>
+					<button
+						type="button"
+						className={`filter-chip${statusFilter === "inactive" ? " active" : ""}`}
+						onClick={() => setStatusFilter("inactive")}
+					>
+						Inactivos
+					</button>
+				</div>
+
 					<div className="admin-coupons__toolbar-actions">
 						<Button
 							variant="secondary"
@@ -596,48 +625,13 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 							Nuevo cupón
 						</Button>
 					</div>
-				</div>
-
-				<p className="admin-toolbar-hint admin-coupons__toolbar-hint">
-					Los códigos se validan en el pedido. Si es «solo cliente», el cliente debe existir antes.
-				</p>
-
-				<div className="admin-coupons__toolbar-filters">
-					<div className="search-box">
-						<Search size={16} aria-hidden />
-						<input
-							type="search"
-							placeholder="Buscar código o descuento…"
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							aria-label="Buscar cupones"
-						/>
-					</div>
-					<div className="admin-coupons__chips" role="group" aria-label="Filtrar por estado">
-						<button
-							type="button"
-							className={`filter-chip${statusFilter === "all" ? " active" : ""}`}
-							onClick={() => setStatusFilter("all")}
-						>
-							Todo
-						</button>
-						<button
-							type="button"
-							className={`filter-chip${statusFilter === "active" ? " active" : ""}`}
-							onClick={() => setStatusFilter("active")}
-						>
-							Activos
-						</button>
-						<button
-							type="button"
-							className={`filter-chip${statusFilter === "inactive" ? " active" : ""}`}
-							onClick={() => setStatusFilter("inactive")}
-						>
-							Inactivos
-						</button>
-					</div>
-				</div>
 			</div>
+
+			<p className="admin-coupons__summary">
+				{filteredRows.length === rows.length
+					? <><strong>{rows.length}</strong>{` cupón${rows.length === 1 ? "" : "es"}`}</>
+					: <><strong>{filteredRows.length}</strong>{` de ${rows.length}`}</>}
+			</p>
 
 			{couponModal}
 
@@ -704,9 +698,17 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 												{rc} / {mr}
 											</td>
 											<td className="admin-coupons__dates-cell">
-												{vd.from}
-												<br />
-												→ {vd.until}
+												{vd.always ? (
+													<span className="admin-coupons__dates-always">Sin caducidad</span>
+												) : vd.single ? (
+													vd.single
+												) : (
+													<>
+														{vd.from}
+														<br />
+														→ {vd.until}
+													</>
+												)}
 											</td>
 											<td className="admin-coupons__actions-cell">
 												<button

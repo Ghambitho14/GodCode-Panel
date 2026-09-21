@@ -3,7 +3,7 @@ import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, MoreVertical,
-	GripVertical, ExternalLink, WandSparkles,
+	ExternalLink, WandSparkles,
 	Images, X,
 } from 'lucide-react';
 import {
@@ -144,6 +144,9 @@ export default function AdminMenuCarousel({
 	const [banners, setBanners] = useState([]);
 	const [intervalSec, setIntervalSec] = useState(5);
 	const [maxSlides, setMaxSlides] = useState(10);
+	// Último valor confirmado en el servidor: los ajustes se guardan al salir del
+	// campo (ya no hay botón "Guardar") y así no se escribe si nada cambió.
+	const savedSettingsRef = useRef({ intervalSec: '5', maxSlides: '10' });
 	const [menuOpenId, setMenuOpenId] = useState(null);
 	const [kebabMenuPos, setKebabMenuPos] = useState(null);
 	const [pendingUpload, setPendingUpload] = useState(null);
@@ -198,8 +201,11 @@ export default function AdminMenuCarousel({
 			const { banners: list, settings } = await listMenuCarousel({ branchId, companyId });
 			setBanners(Array.isArray(list) ? list : []);
 			const s = settings || {};
-			setIntervalSec(Math.max(2, Math.round((s.intervalMs ?? 5000) / 1000)));
-			setMaxSlides(s.maxSlides ?? 10);
+			const nextInterval = Math.max(2, Math.round((s.intervalMs ?? 5000) / 1000));
+			const nextMax = s.maxSlides ?? 10;
+			setIntervalSec(nextInterval);
+			setMaxSlides(nextMax);
+			savedSettingsRef.current = { intervalSec: String(nextInterval), maxSlides: String(nextMax) };
 		} catch (e) {
 			setBanners([]);
 			showNotify(e instanceof Error ? e.message : 'Error al cargar', 'error');
@@ -330,14 +336,25 @@ export default function AdminMenuCarousel({
 				intervalMs,
 				maxSlides: clampedMaxSlides,
 			});
-			setIntervalSec(Math.round((out.intervalMs ?? intervalMs) / 1000));
-			setMaxSlides(out.maxSlides ?? clampedMaxSlides);
+			const savedInterval = Math.round((out.intervalMs ?? intervalMs) / 1000);
+			const savedMax = out.maxSlides ?? clampedMaxSlides;
+			setIntervalSec(savedInterval);
+			setMaxSlides(savedMax);
+			savedSettingsRef.current = { intervalSec: String(savedInterval), maxSlides: String(savedMax) };
 			showNotify('Ajustes del carrusel guardados.');
 		} catch (e) {
 			showNotify(e instanceof Error ? e.message : 'Error al guardar', 'error');
 		} finally {
 			setSavingSettings(false);
 		}
+	};
+
+	/** Guarda al salir del campo, solo si el valor cambió. */
+	const commitSettings = async () => {
+		const next = { intervalSec: String(intervalSec), maxSlides: String(maxSlides) };
+		const prev = savedSettingsRef.current;
+		if (prev.intervalSec === next.intervalSec && prev.maxSlides === next.maxSlides) return;
+		await saveSettings();
 	};
 
 	const patchBanner = async (bannerId, payload) => {
@@ -623,7 +640,6 @@ export default function AdminMenuCarousel({
 		: null;
 
 	const kebabOpenBanner = menuOpenId ? banners.find((b) => b.id === menuOpenId) ?? null : null;
-	const kebabOpenIdx = kebabOpenBanner ? banners.findIndex((b) => b.id === kebabOpenBanner.id) : -1;
 	const kebabPortalTarget = typeof document !== 'undefined' ? document.body : null;
 	const editorPortalTarget = kebabPortalTarget;
 
@@ -653,8 +669,6 @@ export default function AdminMenuCarousel({
 			</div>
 		);
 	}
-
-	const branchLabel = selectedBranch?.name ? ` · ${selectedBranch.name}` : '';
 
 	const editorModal = pendingUpload && editorPortalTarget
 		? createPortal(
@@ -850,35 +864,14 @@ export default function AdminMenuCarousel({
 					<AdminIconSlot Icon={WandSparkles} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 					Ajustar diseño
 				</button>
-				{kebabOpenIdx > 0 ? (
-					<button
-						type="button"
-						role="menuitem"
-						className="menu-carousel-kebab-item"
-						onClick={() => { void move(kebabOpenIdx, -1); closeKebabMenu(); }}
-					>
-						<AdminIconSlot Icon={ChevronUp} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
-						Subir
-					</button>
-				) : null}
-				{kebabOpenIdx >= 0 && kebabOpenIdx < banners.length - 1 ? (
-					<button
-						type="button"
-						role="menuitem"
-						className="menu-carousel-kebab-item"
-						onClick={() => { void move(kebabOpenIdx, 1); closeKebabMenu(); }}
-					>
-						<AdminIconSlot Icon={ChevronDown} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
-						Bajar
-					</button>
-				) : null}
 				<button
 					type="button"
 					role="menuitem"
-					className="menu-carousel-kebab-item"
-					onClick={() => { void toggleActive(kebabOpenBanner); closeKebabMenu(); }}
+					className="menu-carousel-kebab-item menu-carousel-kebab-item--danger"
+					onClick={() => { void removeBanner(kebabOpenBanner); closeKebabMenu(); }}
 				>
-					{kebabOpenBanner.is_active ? 'Ocultar en menú' : 'Mostrar en menú'}
+					<AdminIconSlot Icon={Trash2} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
+					Eliminar
 				</button>
 			</div>,
 			kebabPortalTarget,
@@ -898,112 +891,76 @@ export default function AdminMenuCarousel({
 				aria-hidden
 			/>
 
-			<header className="admin-branch-options__toolbar menu-carousel-header">
-				<div className="admin-branch-options__toolbar-title">
-					<Images size={20} strokeWidth={1.75} aria-hidden />
-					<h2>Carrusel{branchLabel}</h2>
-				</div>
-				<p className="admin-branch-options__toolbar-hint">
-					Fotos del menú digital por sucursal.
-				</p>
-			</header>
-
-			<section className="menu-carousel-specs" aria-label="Recomendaciones para imágenes del carrusel">
-				<p className="menu-carousel-specs__lead">
-					<strong>Tamaño recomendado:</strong>{' '}
-					{OUTPUT_WIDTH} × {OUTPUT_HEIGHT} px · panorámica {TARGET_RATIO}:1
-				</p>
-				<ul className="menu-carousel-specs__list">
-					<li>
-						Misma proporción en otras resoluciones (ej. 2350 × 1000 px) también se ve bien.
-					</li>
-					<li>
-						Dejá margen en los bordes: al encajar 2.35:1 puede recortarse un poco arriba o abajo.
-					</li>
-					<li>
-						JPG, PNG o WebP · máx. {MENU_IMAGE_MAX_SIZE_MB} MB. Tras subir, usá <strong>Ajustar diseño</strong> si hace falta.
-					</li>
-				</ul>
-			</section>
-
-			<section className="admin-branch-options__card menu-carousel-settings-block" aria-labelledby="carousel-settings-heading">
-				<h3 id="carousel-settings-heading" className="admin-branch-options__block-title">Rotación</h3>
-				<div className="menu-carousel-settings">
-					<div className="form-group menu-carousel-settings__field">
-						<label htmlFor="carousel-interval">Intervalo (s)</label>
+			{/* Una sola barra: cada cuánto rota, cuántas caben y subir. El título de
+			    la pestaña ya lo pone la cabecera del panel, y la sucursal está en su
+			    selector, así que aquí no se repiten. */}
+			<div className="menu-carousel-toolbar">
+				<div className="menu-carousel-rotation">
+					<label className="menu-carousel-field" htmlFor="carousel-interval">
+						<span>Rota cada</span>
 						<input
 							id="carousel-interval"
 							type="number"
 							min={2}
 							max={60}
 							value={intervalSec}
+							disabled={savingSettings}
 							onChange={(ev) => setIntervalSec(ev.target.value)}
-							className="form-input"
+							onBlur={() => void commitSettings()}
+							className="form-input menu-carousel-field__input"
 						/>
-					</div>
-					<div className="form-group menu-carousel-settings__field">
-						<label htmlFor="carousel-max">Máx. fotos</label>
+						<span>s</span>
+					</label>
+					<label className="menu-carousel-field" htmlFor="carousel-max">
+						<span>Máximo</span>
 						<input
 							id="carousel-max"
 							type="number"
 							min={1}
 							max={20}
 							value={maxSlides}
-							onChange={(ev) => setMaxSlides(ev.target.value)}
-							className="form-input"
-						/>
-					</div>
-					<div className="form-group menu-carousel-save-wrap">
-						<Button
-							variant="default"
-							type="button"
-							size="sm"
-							className="menu-carousel-settings-save-btn"
-							onClick={() => void saveSettings()}
 							disabled={savingSettings}
-						>
-							{savingSettings ? 'Guardando…' : 'Guardar'}
-						</Button>
-					</div>
+							onChange={(ev) => setMaxSlides(ev.target.value)}
+							onBlur={() => void commitSettings()}
+							className="form-input menu-carousel-field__input"
+						/>
+						<span>fotos</span>
+					</label>
 				</div>
-			</section>
 
-			<div className="menu-carousel-toolbar">
-				<div className="menu-carousel-toolbar-head">
-					<h3>
-						Diapositivas
-						<span className="menu-carousel-count">
-							{banners.length === 0 ? '0' : banners.length}
-						</span>
-					</h3>
-					<Button
-						variant="default"
-						type="button"
-						size="sm"
-						className="menu-carousel-upload-btn"
-						disabled={uploading}
-						onClick={openFilePicker}
-					>
-						{uploading ? (
-							<Loader2 size={14} className="animate-spin" aria-hidden />
-						) : (
-							<ImagePlus size={14} aria-hidden />
-						)}
-						{uploading ? 'Subiendo…' : 'Subir imagen'}
-					</Button>
-				</div>
-				<p className="menu-carousel-upload-hint">
-					Ideal {OUTPUT_WIDTH}×{OUTPUT_HEIGHT} px · JPG, PNG o WebP · máx. {MENU_IMAGE_MAX_SIZE_MB} MB
-				</p>
+				<Button
+					variant="default"
+					type="button"
+					size="sm"
+					className="menu-carousel-upload-btn"
+					disabled={uploading}
+					onClick={openFilePicker}
+				>
+					{uploading ? (
+						<Loader2 size={14} className="animate-spin" aria-hidden />
+					) : (
+						<ImagePlus size={14} aria-hidden />
+					)}
+					{uploading ? 'Subiendo…' : 'Subir imagen'}
+				</Button>
 			</div>
+
+			{/* Recuento y requisitos de imagen: una línea, no un bloque de texto. */}
+			<p className="menu-carousel-summary">
+				<span>
+					<strong>{banners.length}</strong>{' '}
+					{banners.length === 1 ? 'diapositiva' : 'diapositivas'}
+				</span>
+				<span className="menu-carousel-summary__sep" aria-hidden>·</span>
+				<span className="menu-carousel-summary__spec">
+					JPG, PNG o WebP · {OUTPUT_WIDTH}×{OUTPUT_HEIGHT} px · máx. {MENU_IMAGE_MAX_SIZE_MB} MB
+				</span>
+			</p>
 
 			{banners.length === 0 ? (
 				<div className="menu-carousel-empty">
 					<Images size={36} strokeWidth={1.4} aria-hidden className="menu-carousel-empty-icon" />
 					<p>Aún no hay imágenes en esta sucursal.</p>
-					<p className="menu-carousel-empty-spec">
-						Subí fotos {OUTPUT_WIDTH}×{OUTPUT_HEIGHT} px (2.35:1) para mejor resultado en el menú.
-					</p>
 					<Button
 						variant="default"
 						type="button"
@@ -1036,31 +993,52 @@ export default function AdminMenuCarousel({
 									<div className="menu-carousel-slide-card-main">
 										<div className="menu-carousel-slide-card-head">
 											<div className="menu-carousel-slide-titles">
-												<h4 className="menu-carousel-slide-title">
-													<span className="menu-carousel-slide-drag" aria-hidden>
-														<GripVertical size={14} strokeWidth={1.75} />
-													</span>
-													Diapositiva {idx + 1}
-												</h4>
+												<h4 className="menu-carousel-slide-title">Diapositiva {idx + 1}</h4>
 												{dateStr ? (
 													<p className="menu-carousel-slide-sub">{dateStr}</p>
 												) : null}
 											</div>
 											<div className="menu-carousel-slide-card-meta">
-												<span className={`status-badge ${b.is_active ? 'success' : 'neutral'}`}>
+												{/* La pastilla es el interruptor: antes solo informaba y para
+												    cambiarlo habia que abrir el menu de tres puntos. */}
+												<button
+													type="button"
+													className={`menu-carousel-visibility status-badge ${b.is_active ? 'success' : 'neutral'}`}
+													aria-pressed={b.is_active}
+													title={b.is_active ? 'Ocultar en el menú público' : 'Mostrar en el menú público'}
+													onClick={(e) => {
+														e.stopPropagation();
+														void toggleActive(b);
+													}}
+												>
 													{b.is_active ? 'Visible' : 'Oculta'}
-												</span>
+												</button>
 												<div className="menu-carousel-slide-card-actions">
+													{/* Reordenar a la vista: el asa de arrastre no arrastraba y
+													    subir/bajar estaban escondidos en el menu. */}
 													<button
 														type="button"
-														className="admin-icon-btn admin-icon-btn--sm menu-carousel-btn-delete"
-														aria-label="Eliminar imagen del carrusel"
+														className="admin-icon-btn admin-icon-btn--sm"
+														aria-label={`Subir la diapositiva ${idx + 1}`}
+														disabled={idx === 0}
 														onClick={(e) => {
 															e.stopPropagation();
-															void removeBanner(b);
+															void move(idx, -1);
 														}}
 													>
-														<Trash2 size={15} aria-hidden />
+														<ChevronUp size={15} aria-hidden />
+													</button>
+													<button
+														type="button"
+														className="admin-icon-btn admin-icon-btn--sm"
+														aria-label={`Bajar la diapositiva ${idx + 1}`}
+														disabled={idx === banners.length - 1}
+														onClick={(e) => {
+															e.stopPropagation();
+															void move(idx, 1);
+														}}
+													>
+														<ChevronDown size={15} aria-hidden />
 													</button>
 													<div className="menu-carousel-kebab-wrap">
 														<button
@@ -1088,7 +1066,6 @@ export default function AdminMenuCarousel({
 											</div>
 										</div>
 										<div className="menu-carousel-slide-promo-block">
-											<span className="menu-carousel-slide-promo-label">Caducidad</span>
 											<div className="menu-carousel-row-promo menu-carousel-row-promo--card">
 												<button
 													type="button"
@@ -1101,8 +1078,8 @@ export default function AdminMenuCarousel({
 													<span className="menu-carousel-switch-knob" />
 												</button>
 												{bannerPromoOn(b) ? (
-													<div className="menu-carousel-promo-days-wrap">
-														<label className="menu-carousel-promo-days-label" htmlFor={`promo-days-${b.id}`}>Días</label>
+													<span className="menu-carousel-promo-days-wrap">
+														<span>Se retira a los</span>
 														<input
 															id={`promo-days-${b.id}`}
 															type="number"
@@ -1114,9 +1091,10 @@ export default function AdminMenuCarousel({
 															aria-label="Días visibles en el menú"
 															onBlur={(ev) => void saveBannerPromoDays(b, ev.target.value)}
 														/>
-													</div>
+														<span>días</span>
+													</span>
 												) : (
-													<span className="menu-carousel-promo-off-hint">Sin límite</span>
+													<span className="menu-carousel-promo-off-hint">Sin caducidad</span>
 												)}
 											</div>
 										</div>

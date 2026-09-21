@@ -87,7 +87,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
     <div className="modal-overlay" onClick={handleSafeClose} role="dialog" aria-modal="true">
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <header className="modal-header">
-          <h3>{category ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
+          <h3>{category ? 'Editar categoría' : 'Nueva categoría'}</h3>
           <Button
             type="button"
             variant="secondary"
@@ -102,38 +102,45 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
 
         <form onSubmit={handleSubmit}>
           <div className="modal-form">
-            <div className="form-group">
-              <label>Nombre de la Categoría</label>
-              <input
-                ref={nameInputRef}
-                className="form-input"
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Ej: Rolls Tradicionales"
-              />
-            </div>
+            <div className="form-row category-modal__row">
+              <div className="form-group">
+                <label htmlFor="cat-name">Nombre</label>
+                <input
+                  ref={nameInputRef}
+                  id="cat-name"
+                  className="form-input"
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="Ej: Rolls Tradicionales"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Orden de visualización</label>
-              <input
-                className="form-input"
-                type="number"
-                name="order"
-                value={formData.order}
-                onChange={handleChange}
-                min={1}
-                required
-              />
-              <small className="category-hint">
-                Menor número aparece primero (Ej: 1, 2, 3)
-              </small>
+              <div className="form-group">
+                <label htmlFor="cat-order">Orden en el menú</label>
+                <input
+                  id="cat-order"
+                  className="form-input"
+                  type="number"
+                  name="order"
+                  value={formData.order}
+                  onChange={handleChange}
+                  min={1}
+                  required
+                />
+                <small className="category-hint">El menor va primero.</small>
+              </div>
             </div>
 
             <div className="category-active-section">
-              <label className="text-sm fw-700" htmlFor="cat-active-switch">Categoría Activa</label>
+              <span className="category-active-section__text">
+                <span className="category-active-section__label">Categoría activa</span>
+                <span className="category-active-section__hint">
+                  Si está apagada, no aparece en el menú público.
+                </span>
+              </span>
               <label className="switch-slider-container">
                 <input
                   id="cat-active-switch"

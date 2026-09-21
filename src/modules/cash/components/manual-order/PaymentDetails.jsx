@@ -27,7 +27,7 @@ const confirmBtnClass = cn(
     'manual-order-checkout-actions__confirm w-full flex-1',
 );
 const backBtnClass =
-    'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-extrabold uppercase tracking-wide text-gc-text transition-colors';
+    'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-bold text-gc-text transition-colors';
 
 function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg, paymentOptional = false }) {
     const methods = manualOrder.paymentMethods ?? [];
@@ -298,7 +298,7 @@ const PaymentDetails = ({
     loading,
     isFormValid,
     goPrevStep,
-    confirmLabel = 'CONFIRMAR PEDIDO',
+    confirmLabel = 'Confirmar pedido',
     onCancelOrder = null,
     isEditMode = false,
     hideCheckoutActions = false,
@@ -677,6 +677,14 @@ const PaymentDetails = ({
                 ref={hideCouponSection ? postPaymentRef : null}
                 className={cn(sectionCardClass, hideCouponSection && 'scroll-mt-3')}
             >
+                {/* Sin cupon ni envio no hay nada que desglosar: la tarjeta
+                    mostraba «Total» de encabezado, debajo «Artículos 51,00» y
+                    debajo «Total a pagar 51,00» — la misma cifra dos veces y la
+                    palabra «total» otras dos, para un pedido sin descuentos.
+                    Encabezado y desglose solo aparecen cuando hay lineas que
+                    sumar; si no, queda una sola fila: «Total a pagar 51,00». */}
+                {(couponDiscountApplied > 0 || deliveryFeeAmt > 0) ? (
+                <>
                 <SectionHeader>Total</SectionHeader>
                 <div className="space-y-1.5">
                     <div className={`flex justify-between ${textScale.micro} text-gc-text-muted`}>
@@ -696,8 +704,13 @@ const PaymentDetails = ({
                         </div>
                     )}
                 </div>
-                <div className="mt-3 flex items-center justify-between border-t border-gc-border pt-3">
-                    <span className={`${textScale.micro} font-extrabold uppercase tracking-wide text-gc-text-muted`}>Total a pagar</span>
+                </>
+                ) : null}
+                <div className={cn(
+                    'flex items-center justify-between',
+                    (couponDiscountApplied > 0 || deliveryFeeAmt > 0) && 'mt-3 border-t border-gc-border pt-3',
+                )}>
+                    <span className={`${textScale.body} font-semibold text-gc-text`}>Total a pagar</span>
 					<DualCurrencyAmount
 						amount={totalToPay}
 						currency={accountingCurrency}
@@ -722,7 +735,7 @@ const PaymentDetails = ({
                             ? 'Indica el monto recibido en efectivo (debe cubrir el total).'
                             : paymentValidation.reason === 'split_mismatch'
                               ? 'El desglose mixto debe sumar exactamente el total a pagar.'
-                              : 'Seleccioná un método de pago para continuar.'
+                              : 'Selecciona un método de pago para continuar.'
                         : isEditMode
                           ? 'Revisa los datos del pedido antes de guardar los cambios.'
                           : paymentValidation.reason === 'insufficient_tender'
@@ -741,7 +754,7 @@ const PaymentDetails = ({
                         className={backBtnClass}
                         onClick={goPrevStep}
                     >
-                        ATRÁS
+                        Atrás
                     </Button>
                 ) : null}
                 {onCancelOrder ? (

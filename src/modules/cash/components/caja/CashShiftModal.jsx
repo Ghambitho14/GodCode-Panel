@@ -9,7 +9,7 @@ import {
 	Smartphone,
 	ChevronDown,
 	ChevronUp,
-	Loader2,
+	Loader2, CornerDownLeft,
 } from 'lucide-react';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
@@ -58,10 +58,10 @@ function MethodCountRow({ id, label, Icon, expected, value, counted, onChange, o
 					Esperado <strong>{fmt(expected)}</strong>
 				</span>
 			</div>
+			{/* El rótulo "CONTADO" sobraba: el campo lleva la moneda delante y es lo
+			    único que se escribe aquí. Y "Usar esperado" pasa a ser un botón
+			    pegado al campo, que repetido tres veces en texto pesaba mucho. */}
 			<div className="cash-shift-close-method__count">
-				<label htmlFor={id} className="cash-shift-close-method__count-label">
-					Contado
-				</label>
 				<div className="cash-dialog__amount-wrap">
 					<span className="cash-dialog__currency" aria-hidden>
 						{currency}
@@ -75,16 +75,17 @@ function MethodCountRow({ id, label, Icon, expected, value, counted, onChange, o
 						placeholder="0"
 						value={value}
 						onChange={(e) => onChange(e.target.value)}
+						aria-label={`Contado en ${label}`}
 					/>
 				</div>
 				<button
 					type="button"
 					className="cash-shift-close-method__use-expected"
 					onClick={onUseExpected}
-					title={`Copiar el monto esperado de ${label}`}
+					title={`Usar el esperado de ${label}: ${fmt(expected)}`}
 					aria-label={`Usar el esperado de ${label}: ${fmt(expected)}`}
 				>
-					Usar esperado
+					<CornerDownLeft size={15} strokeWidth={1.9} aria-hidden />
 				</button>
 			</div>
 			{hasValue ? <DiffBadge expected={expected} counted={counted} fmt={fmt} /> : null}
@@ -388,10 +389,6 @@ const CashShiftModal = ({
 										Rellenar con esperado
 									</button>
 								</div>
-								<p className="cash-shift-close-section-hint">
-									Ingresa lo contado en efectivo, punto y transferencias.
-								</p>
-
 								<div className="cash-shift-close-methods">
 									<MethodCountRow
 										id="counted-cash"

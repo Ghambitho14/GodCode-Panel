@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-	Wallet, Calendar, BarChart3, Tag, Plus, Download, Loader2,
+	Calendar, BarChart3, Tag, Plus, Download, Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,19 +52,9 @@ export default function LocalExpensesToolbar({
 		: 'Todos';
 
 	return (
+		/* El titulo de la pestana ya lo pone la cabecera del panel: repetirlo aqui
+		   con su icono solo robaba una fila entera a los filtros. */
 		<div className="flex flex-col gap-3 2xl:flex-row 2xl:flex-wrap 2xl:items-end 2xl:gap-4">
-			<div className="mb-1 flex w-full min-w-0 items-center gap-2.5 2xl:w-auto">
-				<span
-					className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
-					aria-hidden
-				>
-					<Wallet size={18} strokeWidth={2} />
-				</span>
-				<h2 className="truncate text-base font-bold text-[#1a1a1a] sm:text-lg">Gastos del local</h2>
-			</div>
-
-			<ToolbarDivider />
-
 			<div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end 2xl:min-w-0 2xl:flex-1">
 				<FilterField label="Período">
 					<div className="flex flex-wrap items-center gap-2">

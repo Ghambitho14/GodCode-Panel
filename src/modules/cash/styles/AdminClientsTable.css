@@ -1010,3 +1010,11 @@
         gap: 8px;
     }
 }
+
+/* Los rótulos de la ficha en mayúsculas sostenidas cuesta más leerlos y no
+   casan con los indicadores de Gastos del local, que van en caja normal. */
+.admin-layout .side-kpi .kpi-label {
+	text-transform: none;
+	letter-spacing: 0;
+	font-size: 0.72rem;
+}

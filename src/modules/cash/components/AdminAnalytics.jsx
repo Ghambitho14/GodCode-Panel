@@ -1508,19 +1508,12 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     refundCount={refundBreakdown.count}
                     formatMoney={fmt}
                 />
-                <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
-                    Mercadería, arriendo, sueldo y gastos operativos. Los retiros de efectivo hechos en Caja también
-                    aparecen aquí para control del CEO.
-                </p>
-
                 <div className="space-y-4">
                     {showOperatingExpenseBlock ? (
                         <LocalExpenseCategoryCard
                             title="Gastos operativos"
                             icon={Receipt}
                             accent="#2563eb"
-                            total={manualExpenseBreakdown.operating}
-                            count={manualExpenseBreakdown.operatingCount}
                             points={operatingChartPoints}
                             buckets={operatingChartData.expenseBucketsOrdered}
                             periodTotal={operatingChartData.periodTotal}
@@ -1537,8 +1530,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             title="Retiros de caja"
                             icon={Banknote}
                             accent="#0d9488"
-                            total={manualExpenseBreakdown.withdrawals}
-                            count={manualExpenseBreakdown.withdrawalCount}
                             points={withdrawalChartPoints}
                             buckets={withdrawalChartData.expenseBucketsOrdered}
                             periodTotal={withdrawalChartData.periodTotal}
@@ -1555,8 +1546,6 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                             title="Devoluciones"
                             icon={RotateCcw}
                             accent="#7c3aed"
-                            total={refundBreakdown.total}
-                            count={refundBreakdown.count}
                             points={refundChartPoints}
                             buckets={refundChartData.expenseBucketsOrdered}
                             periodTotal={refundChartData.periodTotal}

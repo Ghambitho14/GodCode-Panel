@@ -1,17 +1,28 @@
 import React, { useState, useEffect, useId } from "react";
 import { X, Save, MapPin, Loader2 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
-import { getInventoryUnitSelectGroups, normalizeUnit } from "@/lib/inventory-units";
+import { getInventoryUnitSelectGroups, getUnitLabel, normalizeUnit } from "@/lib/inventory-units";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
+import { invalidateBranchInventory } from "@/modules/cash/services/panelDataCache";
+import AdminHelpTip from "./AdminHelpTip";
 import { Button } from "@/components/ui/button";
 
 const ITEM_TYPES = [
-	{ id: "kitchen", label: "General / materia prima" },
-	{ id: "beverage", label: "Bebida (stock)" },
-	{ id: "sellable_extra", label: "Extra vendible" },
+	{ id: "kitchen", label: "General" },
+	{ id: "beverage", label: "Bebida" },
+	{ id: "sellable_extra", label: "Extra del carrito" },
 	{ id: "other", label: "Otro" },
 ];
 
+const TYPE_HELP =
+	"Solo sirve para ordenar y filtrar la lista. General es materia prima; Bebida y Extra del carrito son los que además vendes sueltos en el carrito.";
+
 const BEVERAGE_KIND_PRESETS = ["Agua", "Refresco", "Jugo natural", "Té y café", "Cerveza", "Otro"];
+
+/** «Litro(s)» → «litro», para poder escribirlo dentro de una frase. */
+function unitNoun(unit) {
+	return getUnitLabel(unit).split("(")[0].trim().toLowerCase();
+}
 
 /** Evita NaN en inputs type="number" (React exige valor finito o cadena vacía). */
 function finiteNum(n, fallback = 0) {
@@ -30,6 +41,7 @@ const InventoryItemModal = ({
 	companyId,
 	newItemPreset = null,
 }) => {
+	const { currency } = useBranchMoney();
 	const beverageKindListId = `inv-bev-kind-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 	const [formData, setFormData] = useState({
 		name: "",
@@ -159,17 +171,37 @@ const InventoryItemModal = ({
 			}
 
 			if (itemId && relevantBranches.length > 0) {
+				/*
+				 * Sin upsert: `on_conflict` pedia una restriccion unica sobre
+				 * (inventory_item_id, branch_id) que inventory_branch no tiene y
+				 * Postgres devolvia 42P10, asi que guardar un articulo fallaba
+				 * despues de haber creado la ficha. Se busca la fila y se decide.
+				 */
 				for (const branch of relevantBranches) {
-					const { error: stockError } = await supabase.from(TABLES.inventory_branch).upsert(
-						{
-							inventory_item_id: itemId,
-							branch_id: branch.id,
-							current_stock: finiteNum(formData.stock, 0),
-							min_stock: finiteNum(formData.min_stock, 0),
-						},
-						{ onConflict: "inventory_item_id, branch_id" },
-					);
-					if (stockError) throw stockError;
+					const stockRow = {
+						current_stock: finiteNum(formData.stock, 0),
+						min_stock: finiteNum(formData.min_stock, 0),
+					};
+					const { data: existing, error: findError } = await supabase
+						.from(TABLES.inventory_branch)
+						.select("id")
+						.eq("inventory_item_id", itemId)
+						.eq("branch_id", branch.id)
+						.maybeSingle();
+					if (findError) throw findError;
+					if (existing?.id) {
+						const { error: stockError } = await supabase
+							.from(TABLES.inventory_branch)
+							.update(stockRow)
+							.eq("id", existing.id);
+						if (stockError) throw stockError;
+					} else {
+						const { error: stockError } = await supabase
+							.from(TABLES.inventory_branch)
+							.insert({ ...stockRow, inventory_item_id: itemId, branch_id: branch.id });
+						if (stockError) throw stockError;
+					}
+					invalidateBranchInventory(branch.id);
 				}
 			}
 
@@ -210,13 +242,16 @@ const InventoryItemModal = ({
 				onItemSaved({ id: itemId, isNew: !itemToEdit });
 			}
 			onClose();
-		} catch {
-			showNotify("Error al guardar artículo", "error");
+		} catch (error) {
+			console.error("inventory item save:", error);
+			showNotify(error?.message || "Error al guardar artículo", "error");
 		} finally {
 			setLoading(false);
 		}
 	};
 
+	const unitShort = getUnitLabel(formData.unit || "un", { short: true });
+	const unitWord = unitNoun(formData.unit || "un");
 	const branchList = branches.filter((b) => b.id !== "all");
 	const singleBranchName =
 		branchId !== "all" ? branchList.find((b) => b.id === branchId)?.name : null;
@@ -231,25 +266,16 @@ const InventoryItemModal = ({
 				aria-labelledby="inventory-item-modal-title"
 			>
 				<header className="modal-header">
-					<div>
-						<h3 id="inventory-item-modal-title">{itemToEdit ? "Editar artículo" : "Nuevo artículo"}</h3>
-						<p className="modal-subtitle inventory-modal-subtitle">
-							{itemToEdit
-								? "Actualiza stock, mínimos y datos del artículo."
-								: branchId === "all"
-									? "Define el artículo y el stock inicial; elige en qué sucursales aplica."
-									: "Define el artículo y el stock inicial para la sucursal seleccionada."}
-						</p>
-					</div>
+					<h3 id="inventory-item-modal-title">{itemToEdit ? "Editar artículo" : "Nuevo artículo"}</h3>
 					<Button variant="default" type="button" onClick={onClose} className="btn-close" aria-label="Cerrar">
 						<X size={22} />
 					</Button>
 				</header>
 
 				<form onSubmit={handleSubmit}>
-					<div className="modal-form-scroll">
+					<div className="modal-form-scroll inventory-item-form">
 						<div className="form-group">
-							<label htmlFor="inv-item-name">Nombre del artículo</label>
+							<label htmlFor="inv-item-name">Nombre</label>
 							<input
 								id="inv-item-name"
 								required
@@ -257,33 +283,56 @@ const InventoryItemModal = ({
 								value={formData.name}
 								onChange={(e) => setFormData({ ...formData, name: e.target.value })}
 								placeholder="Ej. Arroz grano corto"
+								autoFocus
 							/>
 						</div>
 
-						<div className="form-group">
-							<label htmlFor="inv-item-type">Tipo de ítem</label>
-							<select
-								id="inv-item-type"
-								className="form-select inventory-form-select"
-								value={formData.item_type}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										item_type: e.target.value,
-										beverage_kind: e.target.value === "beverage" ? formData.beverage_kind : "",
-									})
-								}
-							>
-								{ITEM_TYPES.map((t) => (
-									<option key={t.id} value={t.id}>
-										{t.label}
-									</option>
-								))}
-							</select>
-							<p className="form-hint inventory-form-hint">
-								Bebida = stock de bebidas vendibles; Extra vendible = artículo que también ofreces como extra en
-								carrito.
-							</p>
+						{/* La unidad va antes que la cantidad: se escribía «5» sin saber todavía
+						    si eran unidades, kilos o cajas. */}
+						<div className="inventory-form-row-2">
+							<div className="form-group">
+								<label htmlFor="inv-item-unit">Se mide en</label>
+								<select
+									id="inv-item-unit"
+									className="form-select inventory-form-select"
+									value={normalizeUnit(formData.unit)}
+									onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+								>
+									{getInventoryUnitSelectGroups().map((group) => (
+										<optgroup key={group.groupLabel} label={group.groupLabel}>
+											{group.options.map((opt) => (
+												<option key={opt.value} value={opt.value}>
+													{opt.label}
+												</option>
+											))}
+										</optgroup>
+									))}
+								</select>
+							</div>
+							<div className="form-group">
+								<label htmlFor="inv-item-type">
+									Tipo
+									<AdminHelpTip text={TYPE_HELP} />
+								</label>
+								<select
+									id="inv-item-type"
+									className="form-select inventory-form-select"
+									value={formData.item_type}
+									onChange={(e) =>
+										setFormData({
+											...formData,
+											item_type: e.target.value,
+											beverage_kind: e.target.value === "beverage" ? formData.beverage_kind : "",
+										})
+									}
+								>
+									{ITEM_TYPES.map((t) => (
+										<option key={t.id} value={t.id}>
+											{t.label}
+										</option>
+									))}
+								</select>
+							</div>
 						</div>
 
 						{formData.item_type === "beverage" ? (
@@ -306,25 +355,49 @@ const InventoryItemModal = ({
 							</div>
 						) : null}
 
-
 						<div className="inventory-form-row-2">
 							<div className="form-group">
-								<label htmlFor="inv-item-stock">Stock actual</label>
-								<input
-									id="inv-item-stock"
-									type="number"
-									step="any"
-									className="form-input"
-									value={formData.stock}
-									onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-								/>
+								<label htmlFor="inv-item-stock">{itemToEdit ? "Cantidad actual" : "Cantidad inicial"}</label>
+								<div className="inventory-field">
+									<input
+										id="inv-item-stock"
+										type="number"
+										step="any"
+										className="inventory-field__input"
+										value={formData.stock}
+										onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+									/>
+									<span className="inventory-field__affix" aria-hidden>
+										{unitShort}
+									</span>
+								</div>
 							</div>
 							<div className="form-group">
-								<label htmlFor="inv-item-cost">Costo por unidad ($)</label>
+								<label htmlFor="inv-item-min">Avisar por debajo de</label>
+								<div className="inventory-field">
+									<input
+										id="inv-item-min"
+										type="number"
+										step="any"
+										className="inventory-field__input"
+										value={formData.min_stock}
+										onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
+									/>
+									<span className="inventory-field__affix" aria-hidden>
+										{unitShort}
+									</span>
+								</div>
+							</div>
+						</div>
+
+						<div className="form-group inventory-form-cost">
+							<label htmlFor="inv-item-cost">Costo por {unitWord} (opcional)</label>
+							<div className="inventory-field">
+								<span className="inventory-field__affix" aria-hidden>{currency}</span>
 								<input
 									id="inv-item-cost"
 									type="number"
-									className="form-input"
+									className="inventory-field__input"
 									min={0}
 									step="any"
 									value={formData.cost_per_unit}
@@ -332,55 +405,18 @@ const InventoryItemModal = ({
 								/>
 							</div>
 						</div>
-						<div className="form-group">
-							<label htmlFor="inv-item-unit">Unidad de stock</label>
-							<select
-								id="inv-item-unit"
-								className="form-select inventory-form-select"
-								value={normalizeUnit(formData.unit)}
-								onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-							>
-								{getInventoryUnitSelectGroups().map((group) => (
-									<optgroup key={group.groupLabel} label={group.groupLabel}>
-										{group.options.map((opt) => (
-											<option key={opt.value} value={opt.value}>
-												{opt.label}
-											</option>
-										))}
-									</optgroup>
-								))}
-							</select>
-							<p className="form-hint inventory-form-hint">
-								Retail y mayorista: suele ser <strong>Unidad</strong> o <strong>Caja</strong>. Peso/volumen solo si
-								compras a granel.
-							</p>
-						</div>
 
-						<div className="form-group">
-							<label htmlFor="inv-item-min">Stock mínimo (alerta)</label>
-							<input
-								id="inv-item-min"
-								type="number"
-								step="any"
-								className="form-input"
-								value={formData.min_stock}
-								onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
-							/>
-						</div>
-
-						{branchId !== "all" ? (
+						{/* Solo al editar: al crear, el movimiento se llama siempre «Stock inicial». */}
+						{itemToEdit && branchId !== "all" ? (
 							<div className="form-group">
-								<label htmlFor="inv-item-note">Nota del ajuste (opcional)</label>
+								<label htmlFor="inv-item-note">Motivo del cambio (opcional)</label>
 								<input
 									id="inv-item-note"
 									className="form-input"
 									value={formData.adjustment_note}
 									onChange={(e) => setFormData({ ...formData, adjustment_note: e.target.value })}
-									placeholder="Ej. Conteo físico, merma, donación…"
+									placeholder="Ej. conteo físico, merma, donación…"
 								/>
-								<p className="form-hint inventory-form-hint">
-									Si cambias el stock, se registrará un movimiento de ajuste en esta sucursal.
-								</p>
 							</div>
 						) : null}
 
@@ -388,7 +424,7 @@ const InventoryItemModal = ({
 							<div className="form-group inventory-branch-field">
 								<span className="inventory-branch-label" id="inv-branch-label">
 									<MapPin size={16} className="text-accent" aria-hidden />
-									Registrar en sucursales
+									Sucursales
 								</span>
 								<div className="inventory-branch-grid" role="group" aria-labelledby="inv-branch-label">
 									{branchList.map((branch) => {
@@ -419,9 +455,8 @@ const InventoryItemModal = ({
 								) : null}
 							</div>
 						) : singleBranchName ? (
-							<p className="form-hint inventory-form-hint inventory-branch-readonly">
-								<MapPin size={14} className="text-accent" aria-hidden /> Sucursal:{" "}
-								<strong>{singleBranchName}</strong>
+							<p className="inventory-branch-readonly">
+								<MapPin size={14} aria-hidden /> Sucursal <strong>{singleBranchName}</strong>
 							</p>
 						) : null}
 					</div>
@@ -437,7 +472,7 @@ const InventoryItemModal = ({
 								</>
 							) : (
 								<>
-									<Save size={18} aria-hidden /> Guardar artículo
+									<Save size={18} aria-hidden /> Guardar
 								</>
 							)}
 						</Button>

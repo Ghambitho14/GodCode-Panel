@@ -230,3 +230,34 @@
 .admin-menu-channel-banner__text p + p {
 	margin-top: 6px;
 }
+
+
+/* =========================================
+   Globos de ayuda en teléfono
+   El globo mide 12rem de ancho mínimo y se centra sobre su icono. En una
+   columna de 317px, un icono cerca del borde derecho dejaba media burbuja
+   fuera de la pantalla. En móvil se ancla abajo, a lo ancho, que siempre cabe
+   y se lee mejor que un globo de tres palabras por línea.
+   ========================================= */
+@media (max-width: 768px) {
+	.admin-help-tip__bubble,
+	.admin-cart-upsell-catalog-toggle .admin-help-tip__bubble {
+		position: fixed;
+		left: 12px;
+		right: 12px;
+		top: auto;
+		/* Por encima de la barra inferior de navegación, que mide unos 72px. */
+		bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+		min-width: 0;
+		max-width: none;
+		transform: translateY(6px);
+		font-size: 13px;
+	}
+
+	.admin-help-tip:hover .admin-help-tip__bubble,
+	.admin-help-tip:focus-visible .admin-help-tip__bubble,
+	.admin-help-tip[aria-expanded="true"] .admin-help-tip__bubble,
+	.admin-cart-upsell-catalog-toggle .admin-help-tip:focus-visible .admin-help-tip__bubble {
+		transform: translateY(0);
+	}
+}

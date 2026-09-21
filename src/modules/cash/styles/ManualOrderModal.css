@@ -1903,6 +1903,34 @@
 /* Abrir mesa paso plano: no reutilizar layout de cat?logo (step-1). */
 .manual-order-step-floor .manual-order-body--floor {
     width: 100%;
+    /*
+     * El cuerpo venia en fila, asi que el pie era un hermano a la derecha del
+     * salon: «Continuar» acababa como una caja de 128px flotando en la esquina
+     * inferior derecha, fuera de las tarjetas. En columna, el pie es una barra
+     * de ancho completo debajo del contenido, como en cualquier asistente.
+     */
+    flex-direction: column;
+}
+
+.manual-order-step-floor .manual-order-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    padding: 12px 20px;
+}
+
+/* `.manual-order-wizard .manual-order-footer-nav` fija width:100% mas abajo en
+   esta misma hoja: hay que igualar su peso para que el boton no ocupe la barra
+   entera de lado a lado. */
+.manual-order-wizard.manual-order-step-floor .manual-order-footer-nav {
+    width: auto;
+    justify-content: flex-end;
+}
+
+.manual-order-wizard.manual-order-step-floor .manual-order-footer-nav .manual-order-steps-nav__btn--next-step1 {
+    width: auto;
+    min-width: 176px;
 }
 
 .manual-order-step-floor .manual-order-stage--floor {
@@ -2119,11 +2147,9 @@
 }
 
 .manual-order-checkout-rail-actions__total-label {
-    color: var(--admin-text-muted, #64748b);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    color: var(--admin-text, #0f172a);
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .manual-order-checkout-rail-actions__total-amount {
@@ -2480,12 +2506,6 @@
         padding: 0;
     }
 
-    .manual-order-step-1 .manual-order-catalog-count {
-        height: 44px;
-        min-width: 44px;
-        border-radius: 999px;
-    }
-
     .manual-order-step-1 .manual-order-catalog-category-chip {
         height: 44px;
         min-height: 44px;
@@ -2536,12 +2556,12 @@
     flex: 1;
     min-height: 44px;
     padding: 10px 18px;
-    border-radius: 4px;
+    /* Era 4px: un rectangulo casi recto debajo de un carrito de esquinas
+       redondeadas y al lado de botones del mismo asistente a 12px. */
+    border-radius: 12px;
     border: 1px solid var(--admin-border, #e5e5ea);
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 14px;
+    font-weight: 700;
     pointer-events: auto;
     position: relative;
     z-index: 1;
@@ -2580,11 +2600,9 @@
 .manual-order-steps-nav__hint {
     flex: 1;
     text-align: right;
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 600;
     color: var(--admin-text-muted, #64748b);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
 }
 
 .manual-order-step-2 .manual-order-footer {
@@ -2716,20 +2734,6 @@
 /* ============================================
    M?VIL ? flujo 3 pantallas (.manual-order--mobile)
    ============================================ */
-
-.manual-order-catalog-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.75rem;
-    height: 1.75rem;
-    padding: 0 0.45rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--admin-border, #e2e8f0) 55%, #fff);
-    /* Sobre este gris el muted normal se queda en 4.22:1. */
-    color: #475569;
-    letter-spacing: -0.01em;
-}
 
 /* B?squeda unificada: lupa en toolbar (desktop y m?vil) */
 .manual-order-catalog-search-toggle {
@@ -3341,20 +3345,29 @@
 	line-height: 1.4;
 }
 
+/*
+ * Las dos tarjetas se estiraban a toda la altura del modal (`height: 100%`) y
+ * a todo el ancho disponible. Con cuatro mesas quedaban 638px de rejilla en
+ * blanco dentro de un recuadro con borde: el vacio era lo mas visible de la
+ * pantalla. Ahora crecen con su contenido y el conjunto se centra.
+ */
 .open-mesa-floor__layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+	grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.85fr);
 	gap: 1rem;
-	align-items: stretch;
+	align-items: start;
+	align-content: start;
 	min-height: 0;
-	flex: 1 1 auto;
-	height: 100%;
+	width: 100%;
+	max-width: 1180px;
+	margin-inline: auto;
 }
 
 .open-mesa-floor__salon,
 .open-mesa-floor__reservations {
 	min-height: 0;
-	height: 100%;
+	height: auto;
+	max-height: 100%;
 }
 
 .open-mesa-floor__salon {
@@ -3369,52 +3382,67 @@
 	margin-bottom: 0.85rem;
 }
 
-.open-mesa-floor__legend {
+.open-mesa-floor__counts {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.45rem 0.85rem;
+	gap: 0.4rem;
+}
+
+.open-mesa-floor__count {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.3rem;
+	padding: 0.3rem 0.6rem;
+	border-radius: 999px;
+	border: 1px solid transparent;
 	font-size: 0.75rem;
 	font-weight: 600;
-	color: var(--gc-text-muted, #64748b);
+	white-space: nowrap;
 }
 
-.open-mesa-floor__legend-item {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35rem;
+.open-mesa-floor__count strong {
+	font-size: 0.9rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
 }
 
-.open-mesa-floor__legend-item i {
-	display: inline-block;
-	width: 10px;
-	height: 10px;
-	border-radius: 999px;
-	border: 2px solid transparent;
+.open-mesa-floor__count.is-available {
+	color: #15803d;
+	background: color-mix(in srgb, #16a34a 10%, #fff);
+	border-color: color-mix(in srgb, #16a34a 28%, transparent);
 }
 
-.open-mesa-floor__legend-item i.is-available {
-	background: color-mix(in srgb, #16a34a 22%, #fff);
-	border-color: #16a34a;
+.open-mesa-floor__count.is-reserved {
+	color: #9a3412;
+	background: color-mix(in srgb, #c2410c 9%, #fff);
+	border-color: color-mix(in srgb, #c2410c 26%, transparent);
 }
 
-.open-mesa-floor__legend-item i.is-occupied {
-	background: #e2e8f0;
-	border-color: #94a3b8;
+.open-mesa-floor__count.is-occupied {
+	color: #475569;
+	background: #f1f5f9;
+	border-color: #e2e8f0;
 }
 
-.open-mesa-floor__legend-item i.is-reserved {
-	background: color-mix(in srgb, #c2410c 18%, #fff);
-	border-color: #c2410c;
+/* A cero no hay nada que mirar: la pastilla se apaga. */
+.open-mesa-floor__count.is-zero {
+	color: var(--gc-text-muted, #94a3b8);
+	background: transparent;
+	border-color: var(--gc-border, #e8ecf1);
 }
 
 .open-mesa-floor__grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-	gap: 0.65rem;
-	flex: 1 1 auto;
+	grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+	gap: 0.7rem;
+	flex: 0 1 auto;
 	min-height: 0;
-	overflow: auto;
-	padding: 0.15rem;
+	overflow-x: hidden;
+	overflow-y: auto;
+	/* Holgura para el movimiento: las fichas entran desde 8px mas abajo y se
+	   levantan 2px al pasar el raton. Sin ella asomaba una barra de scroll
+	   durante la animacion y la sombra del hover salia cortada. */
+	padding: 10px 4px;
 	align-content: start;
 }
 
@@ -3424,11 +3452,12 @@
 	flex-direction: column;
 	align-items: flex-start;
 	justify-content: center;
-	gap: 0.3rem;
-	min-height: 84px;
-	padding: 0.75rem 0.8rem;
+	position: relative;
+	gap: 0.35rem;
+	min-height: 104px;
+	padding: 0.85rem 0.9rem;
 	border: 1.5px solid var(--gc-border, #e8ecf1);
-	border-radius: 14px;
+	border-radius: 16px;
 	background: var(--gc-card, #fff);
 	color: var(--gc-text, #0f172a);
 	text-align: left;
@@ -3439,8 +3468,117 @@
 }
 
 .open-mesa-floor__seat:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgb(15 23 42 / 8%);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 18px rgb(15 23 42 / 10%);
+}
+
+.open-mesa-floor__seat:active {
+	transform: translateY(0) scale(0.985);
+	transition-duration: 0.08s;
+}
+
+/* --------------------------------------------------------------------------
+   MOVIMIENTO
+   El paso aparecia de golpe, ya montado. Las tarjetas entran, las mesas lo
+   hacen escalonadas (se lee el salon de izquierda a derecha) y la mesa
+   elegida da un pequeno rebote para confirmar el toque.
+   -------------------------------------------------------------------------- */
+@keyframes openMesaCardIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes openMesaSeatIn {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.97);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes openMesaSeatPick {
+	0% {
+		transform: scale(1);
+	}
+	45% {
+		transform: scale(1.035);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+@keyframes openMesaPromptIn {
+	from {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+.open-mesa-floor__salon {
+	animation: openMesaCardIn 0.32s cubic-bezier(0.22, 0.75, 0.3, 1) both;
+}
+
+.open-mesa-floor__reservations {
+	animation: openMesaCardIn 0.32s cubic-bezier(0.22, 0.75, 0.3, 1) both;
+	animation-delay: 70ms;
+}
+
+.open-mesa-floor__seat {
+	animation: openMesaSeatIn 0.3s cubic-bezier(0.22, 0.75, 0.3, 1) both;
+	/* Tope a 12 fichas: con un salon grande, esperar 40 retardos seria peor
+	   que no animar. */
+	animation-delay: calc(min(var(--seat-i, 0), 12) * 35ms + 90ms);
+}
+
+.open-mesa-floor__seat.is-selected {
+	animation: openMesaSeatPick 0.26s ease;
+}
+
+.open-mesa-floor__seat-badge {
+	animation: openMesaSeatIn 0.2s ease both;
+}
+
+.open-mesa-floor__seat-prompt {
+	animation: openMesaPromptIn 0.24s ease both;
+}
+
+.open-mesa-floor__bar-copy > * {
+	animation: openMesaPromptIn 0.22s ease both;
+}
+
+.open-mesa-floor__count {
+	transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.open-mesa-floor__salon,
+	.open-mesa-floor__reservations,
+	.open-mesa-floor__seat,
+	.open-mesa-floor__seat.is-selected,
+	.open-mesa-floor__seat-badge,
+	.open-mesa-floor__seat-prompt,
+	.open-mesa-floor__bar-copy > * {
+		animation: none;
+	}
+
+	.open-mesa-floor__seat:hover,
+	.open-mesa-floor__seat:active {
+		transform: none;
+	}
 }
 
 .open-mesa-floor__seat.is-available {
@@ -3467,17 +3605,30 @@
 }
 
 .open-mesa-floor__seat-code {
-	font-size: 1.05rem;
+	font-size: 1.35rem;
 	font-weight: 800;
 	line-height: 1.1;
 	letter-spacing: -0.02em;
 }
 
+/* La mesa ocupada o reservada lo dice con una pastilla, no solo con el color
+   del borde: el color solo no distingue «reservada» de «seleccionada». */
+.open-mesa-floor__seat-state {
+	align-self: flex-start;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 0.65rem;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	background: color-mix(in srgb, currentColor 12%, #fff);
+	border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+}
+
 .open-mesa-floor__seat-meta {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.25rem;
-	font-size: 0.7rem;
+	gap: 0.3rem;
+	font-size: 0.78rem;
 	font-weight: 600;
 	opacity: 0.85;
 	max-width: 100%;
@@ -3549,10 +3700,8 @@
 }
 
 .open-mesa-floor__bar-label {
-	font-size: 0.7rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
+	font-size: 0.8rem;
+	font-weight: 600;
 	color: var(--gc-text-muted, #64748b);
 }
 
@@ -3699,15 +3848,39 @@
     animation: manual-order-fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Cambio de paso del asistente: sin esto el contenido se sustituye de golpe. */
+/* Cambio de paso del asistente: sin esto el contenido se sustituye de golpe.
+   La animacion va en las columnas, no en la rejilla: el resumen del pedido
+   cuelga de esta misma rejilla y no cambia entre Entrega y Pago, asi que
+   animando el contenedor entero el carrito que ya estaba en pantalla se
+   desvanecia y subia 6px cada vez que se pasaba de paso. */
 .manual-order-step-enter {
+    animation: none;
+}
+
+.manual-order-step-enter > * {
     animation: manual-order-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* El resumen si se monta al entrar desde el paso 1 (alli vive en la barra
+   lateral), pero no debe moverse: entra solo con opacidad. */
+.manual-order-step-enter > .manual-order-checkout-col--summary,
+.manual-order-step-enter > .manual-order-payment-col--summary {
+    animation-name: manual-order-appear;
+}
+
+@keyframes manual-order-appear {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .animate-fade-in,
     .manual-order-fade-in,
-    .manual-order-step-enter {
+    .manual-order-step-enter > * {
         animation: none;
     }
 }

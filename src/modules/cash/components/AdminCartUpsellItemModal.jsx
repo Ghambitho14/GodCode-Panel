@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Save, Trash2, X, Image as ImageIcon } from "lucide-react";
 import { parseTagList } from "@/lib/inventory-taxonomy";
+import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import "../styles/AdminMenuCarousel.css";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +41,7 @@ export default function AdminCartUpsellItemModal({
 	onSubmit,
 	onDelete,
 }) {
+	const { currency } = useBranchMoney();
 	const isBev = variant === "beverages";
 	const categoryPresets = isBev ? BEVERAGE_CATEGORY_PRESETS : EXTRA_CATEGORY_PRESETS;
 	const categoryListId = `cart-upsell-cat-${isBev ? "bev" : "ext"}`;
@@ -291,9 +293,7 @@ export default function AdminCartUpsellItemModal({
 				<header className="modal-header">
 					<div>
 						<h3 className="fw-700">{item ? titleEdit : titleNew}</h3>
-						<p className="modal-subtitle">
-							{item ? "Revisa datos, cantidades y visibilidad." : "Nombre y precio obligatorios; el resto es opcional."}
-						</p>
+
 					</div>
 					<Button variant="default" type="button" onClick={handleSafeClose} className="btn-close" aria-label="Cerrar">
 						<X size={24} />
@@ -303,7 +303,6 @@ export default function AdminCartUpsellItemModal({
 				<form onSubmit={handleSubmit} autoComplete="off">
 					<div className="modal-form-scroll">
 						<div className="admin-cart-upsell-modal-section">
-							<h4 className="admin-cart-upsell-modal-section__title">Datos del ítem</h4>
 						<div
 							className={`product-image-section ${isDragging ? "dragging" : ""} ${errors.image ? "error-border" : ""}`}
 							onDragOver={(e) => handleDragEvents(e, true)}
@@ -370,19 +369,27 @@ export default function AdminCartUpsellItemModal({
 							{errors.name && <span className="error-text">{errors.name}</span>}
 						</div>
 
+						{/* Precio y categoría en la misma fila: a 760px de ancho cada campo
+						    ocupaba el modal entero para escribir un número. El precio lleva
+						    delante la moneda, como en el modal de producto. */}
+						<div className="form-row two-col">
 						<div className="form-group">
-							<label>
+							<label htmlFor="cart-upsell-price">
 								Precio <span className="req">*</span>
 							</label>
-							<input
-								type="text"
-								inputMode="decimal"
-								className={`form-input ${errors.price ? "error" : ""}`}
-								name="price"
-								value={formData.price}
-								onChange={handleChange}
-								placeholder="0"
-							/>
+							<div className={`product-form__money ${errors.price ? "error" : ""}`}>
+								<span className="product-form__money-prefix" aria-hidden>{currency}</span>
+								<input
+									id="cart-upsell-price"
+									type="text"
+									inputMode="decimal"
+									className="form-input"
+									name="price"
+									value={formData.price}
+									onChange={handleChange}
+									placeholder="0"
+								/>
+							</div>
 							{errors.price && <span className="error-text">{errors.price}</span>}
 						</div>
 
@@ -409,6 +416,7 @@ export default function AdminCartUpsellItemModal({
 									? "Solo agrupa bebidas (aguas, refrescos…). No es la categoría de artículos del inventario."
 									: "Solo agrupa extras (salsas, aderezos…). Puedes escribir una categoría nueva."}
 							</small>
+						</div>
 						</div>
 
 						{isBev ? (

@@ -3,33 +3,25 @@
    ========================================= */
 
 /* Conmutador vista escritorio: 3 columnas vs 1 columna ancha */
+/*
+ * Era una tarjeta blanca de punta a punta con la palabra «VISTA» sola en el
+ * extremo izquierdo y los dos botones en el derecho: 1085px de ancho para dos
+ * controles. Ahora es solo el conmutador, alineado a la derecha del tablero.
+ */
 .admin-layout .kanban-view-toolbar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 12px 16px;
-    margin-bottom: 16px;
-    padding: 6px 8px;
-    border-radius: 14px;
-    background: #ffffff;
-    border: 1px solid #e5e5ea;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-}
-
-.admin-layout .kanban-view-toolbar-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--admin-text-muted, #64748b);
+    justify-content: flex-end;
+    margin-bottom: 12px;
 }
 
 .admin-layout .kanban-view-toggle {
-    display: flex;
+    display: inline-flex;
     gap: 4px;
-    flex: 1;
-    justify-content: flex-end;
-    min-width: min(100%, 320px);
+    padding: 4px;
+    border-radius: 12px;
+    background: var(--admin-icon-bg, #f5f5f7);
+    border: 1px solid var(--admin-border, #e5e5ea);
 }
 
 .admin-layout .kanban-view-toggle button {
@@ -53,11 +45,12 @@
     color: #14161a;
 }
 
-.admin-layout .kanban-view-toggle button.active {
+.admin-layout .kanban-view-toggle button.active,
+.admin-layout .kanban-view-toggle button.active:hover {
     background: #ffffff;
-    border-color: #e5e5ea;
-    color: #2563eb;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+    border-color: transparent;
+    color: var(--admin-text, #14161a);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 }
 
 @media (max-width: 1024px) {
@@ -129,55 +122,78 @@
 
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    font-size: 0.82rem;
-    color: #14161a;
-    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: 0.9rem;
+    color: var(--admin-text, #14161a);
 }
 
-/* Puntos de Estado (Glowing Dots) */
-.admin-layout .dot {
-    width: 10px;
-    height: 10px;
+/*
+ * El punto llevaba `box-shadow` difuminado mas un ::after con blur(5px): el
+ * halo borroso de las plantillas de hace diez anios. Un anillo nitido del mismo
+ * color se lee igual de bien y parece puesto a proposito.
+ * Van bajo .column-header porque `.dot` tambien existe en la tabla de clientes.
+ */
+.admin-layout .column-header .dot {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    position: relative;
     flex-shrink: 0;
+    margin-left: 2px;
 }
 
-/* Halo sutil de estado */
-.admin-layout .dot::after {
-    content: '';
-    position: absolute;
-    inset: -5px;
-    border-radius: 50%;
-    opacity: 0.25;
-    filter: blur(5px);
+.admin-layout .column-header .dot-orange {
+    background: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16);
 }
 
-.admin-layout .dot-orange { background: #f97316; box-shadow: 0 0 6px rgba(249, 115, 22, 0.4); }
-.admin-layout .dot-orange::after { background: #f97316; }
+.admin-layout .column-header .dot-red {
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
 
-.admin-layout .dot-red { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
-.admin-layout .dot-red::after { background: #ef4444; }
-
-.admin-layout .dot-green { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
-.admin-layout .dot-green::after { background: #22c55e; }
+.admin-layout .column-header .dot-green {
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
 
 /* Contador (Badge) */
 .admin-layout .count {
     margin-left: auto;
-    background: #f5f5f7;
-    color: var(--admin-text-muted, #64748b);
     padding: 3px 9px;
     border-radius: 999px;
     font-size: 0.72rem;
     font-weight: 700;
-    border: 1px solid #e5e5ea;
+    border: 1px solid transparent;
     min-width: 24px;
     text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Un cero en pastilla con borde pesaba igual que una columna con cinco pedidos. */
+.admin-layout .count--zero {
+    background: transparent;
+    color: #b6bcc6;
+}
+
+.admin-layout .count--orange {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.28);
+    color: #c2410c;
+}
+
+.admin-layout .count--red {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.28);
+    color: #b91c1c;
+}
+
+.admin-layout .count--green {
+    background: rgba(34, 197, 94, 0.14);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #15803d;
 }
 
 /*
@@ -278,6 +294,14 @@
 }
 
 /*
+ * En vista una etapa, la tira de pestanas de arriba ya dice «Entrantes (0)»:
+ * la cabecera de la columna repetia lo mismo un renglon mas abajo.
+ */
+.admin-layout .kanban-board.kanban-board--focus-desktop .column-header {
+    display: none;
+}
+
+/*
  * Estado vacío en vista una columna: una sola zona a lo ancho del tablero,
  * no una celda de la cuadrícula.
  */
@@ -299,29 +323,30 @@
     min-height: 180px;
 }
 
+/*
+ * Era un recuadro de trazos con fondo gris de 594px de alto: la columna ya es
+ * una tarjeta, asi que dentro habia tres marcos anidados y el vacio era lo mas
+ * llamativo de la pantalla. Ahora solo queda el icono y su linea, centrados.
+ */
 .admin-layout .empty-zone {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 160px;
+    min-height: 140px;
     height: auto;
-    color: var(--admin-text-muted, #64748b);
-    opacity: 1;
+    color: #b6bcc6;
     font-size: 0.85rem;
     font-weight: 500;
-    gap: 10px;
-    padding: 40px 16px;
-    background: #f8fafc;
-    border-radius: 12px;
-    border: 1px dashed #e5e5ea;
+    gap: 8px;
+    padding: 32px 16px;
+    background: none;
+    border: none;
     box-sizing: border-box;
 }
 
-/* Icono fantasma opcional si quieres agregar uno en el HTML */
 .admin-layout .empty-zone svg {
-    opacity: 0.55;
-    color: var(--admin-text-muted, #64748b);
+    color: #cbd2dc;
 }
 
 /* Pestañas de etapa: ocultas en escritorio salvo vista "una columna" */
@@ -414,12 +439,10 @@
         overflow: hidden;
     }
 
+    /* La tira de pestanas de arriba ya dice «Entrantes (0)»: la cabecera de la
+       columna lo repetia justo debajo. */
     .admin-layout .column-header {
-        flex-shrink: 0;
-        background: #ffffff;
-        border-bottom: 1px solid #e5e5ea;
-        padding: 10px 14px;
-        margin-bottom: 0;
+        display: none;
     }
 
     .admin-layout .column-body {
