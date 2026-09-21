@@ -34,6 +34,7 @@ const AdminCoupons = React.lazy(() => import('../../components/AdminCoupons'));
 const AdminMenuOptions = React.lazy(() => import('../../components/AdminMenuOptions'));
 const AdminMenuBeverages = React.lazy(() => import('../../components/AdminMenuBeverages'));
 const AdminMenuExtras = React.lazy(() => import('../../components/AdminMenuExtras'));
+const AdminMenuCarousel = React.lazy(() => import('../../components/AdminMenuCarousel'));
 const AdminOrdersTab = React.lazy(() => import('../tabs/orders'));
 const AdminProductsTab = React.lazy(() => import('../tabs/products'));
 const AdminCategoriesTab = React.lazy(() => import('../tabs/categories'));
@@ -615,6 +616,18 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
                 selectedBranch={selectedBranch}
                 companyId={companyIdForClients}
                 onSaved={() => void refreshBranches()}
+              />
+            </React.Suspense>
+          </AdminErrorBoundary>
+        )}
+
+        {activeTab === 'menu_carousel' && (
+          <AdminErrorBoundary tabLabel={tabLabels.menu_carousel || 'Carrusel'} onRetry={() => void refreshBranches()}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminMenuCarousel
+                showNotify={showNotify}
+                selectedBranch={selectedBranch}
+                companyId={companyIdForClients}
               />
             </React.Suspense>
           </AdminErrorBoundary>

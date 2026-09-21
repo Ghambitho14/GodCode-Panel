@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Images, Truck, LayoutGrid, Save, Armchair } from "lucide-react";
+import { Truck, LayoutGrid, Save, Armchair } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
-import AdminMenuCarousel from "./AdminMenuCarousel";
 import AdminBranchTablesSection from "./AdminBranchTablesSection";
 import OrdersViewSwitch from "./OrdersViewSwitch";
 import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
@@ -9,11 +8,10 @@ import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
 import "../styles/AdminMenuOptions.css";
 import { Button } from "@/components/ui/button";
 
-const SUB_TAB_IDS = /** @type {const} */ (["delivery", "carousel", "orders_view", "tables"]);
+const SUB_TAB_IDS = /** @type {const} */ (["delivery", "orders_view", "tables"]);
 
 const SUB_TABS = [
 	{ id: "delivery", label: "Envío", Icon: Truck, panel: "menu-options-panel-delivery" },
-	{ id: "carousel", label: "Carrusel", Icon: Images, panel: "menu-options-panel-carousel" },
 	{ id: "orders_view", label: "Vista de pedidos", Icon: LayoutGrid, panel: "menu-options-panel-orders-view" },
 	{ id: "tables", label: "Mesas", Icon: Armchair, panel: "menu-options-panel-tables" },
 ];
@@ -47,8 +45,8 @@ function channelsEqual(a, b) {
 }
 
 /**
- * Pestaña "Opciones de sucursal": Envío, Carrusel, Vista de pedidos y Mesas.
- * Bebidas/Extras viven en sidebar (menu_beverages / menu_extras).
+ * Pestaña "Opciones de sucursal": Envío, Vista de pedidos y Mesas.
+ * Bebidas/Extras/Carrusel viven en sidebar (menu_beverages / menu_extras / menu_carousel).
  */
 export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
 	const {
@@ -166,22 +164,6 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 						showNotify={showNotify}
 						selectedBranch={selectedBranch}
 						onSaved={onDeliverySaved}
-					/>
-				) : null}
-			</div>
-
-			<div
-				role="tabpanel"
-				id="menu-options-panel-carousel"
-				aria-labelledby="menu-options-subtab-carousel"
-				hidden={activeSubTab !== "carousel"}
-				className="admin-menu-options-subpanel"
-			>
-				{activeSubTab === "carousel" ? (
-					<AdminMenuCarousel
-						showNotify={showNotify}
-						selectedBranch={selectedBranch}
-						companyId={companyId}
 					/>
 				) : null}
 			</div>

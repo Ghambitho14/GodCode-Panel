@@ -204,6 +204,10 @@ const normalizePanelAccess = (raw) => {
 	)];
 
 	if (cleanTabs.length === 0) return null;
+	// Carrusel vivía dentro de Opciones de sucursal: listas guardadas antes de separarlo lo heredan.
+	if (cleanTabs.includes('menu_options') && !cleanTabs.includes('menu_carousel')) {
+		cleanTabs.push('menu_carousel');
+	}
 	return cleanTabs;
 };
 

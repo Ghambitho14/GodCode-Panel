@@ -16,6 +16,7 @@ export const ADMIN_PANEL_TAB_OPTIONS = [
   { id: "inventory", label: "Inventario" },
   { id: "menu_beverages", label: "Bebidas" },
   { id: "menu_extras", label: "Extras" },
+  { id: "menu_carousel", label: "Carrusel" },
   { id: "menu_options", label: "Opciones de sucursal" },
   { id: "clients", label: "Clientes" },
   { id: "coupons", label: "Cupones" },
@@ -53,6 +54,7 @@ const STORED_TAB_ID_ALIASES: Record<string, string> = {
   global_extras: "menu_extras",
   extras: "menu_extras",
   cart_extras: "menu_extras",
+  carousel: "menu_carousel",
 };
 
 /** Normaliza un id leído de configuración legacy antes de validar contra ADMIN_PANEL_TAB_IDS. */
