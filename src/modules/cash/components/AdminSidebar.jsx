@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag, Wallet } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Tag, Wallet, MapPin } from 'lucide-react';
 import { getSafeLogoImageSrc } from '@/shared/utils/documentFavicon';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { resolveSidebarRestrictedHint } from '../admin/utils/tabAccessMessages';
@@ -13,7 +13,7 @@ const SidebarIcon = ({ Icon, size }) => (
 
 const SIDEBAR_LOGO_PLACEHOLDER = '/favicon.png';
 
-const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, onStorefrontMissing, userEmail, branchName, logoUrl, canAccessTab, getTabDeniedMessage, onDeniedAccess, tabAccessContext, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
+const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, onStorefrontMissing, userEmail, branchName, logoUrl, companyName = null, canAccessTab, getTabDeniedMessage, onDeniedAccess, tabAccessContext, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
     // Estado para evitar SSR mismatch en logo y brand-info
         // SSR mismatch guard removed: logo and brand-info always rendered
     const { pathname } = useLocation();
@@ -202,9 +202,13 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                     />
                 </div>
                 <div className="brand-info">
-                    <h3 className="brand-title">Admin del local</h3>
-                    {userEmail && <span className="user-email">{userEmail}</span>}
-                    {branchName && <span className="branch-name-badge">{branchName}</span>}
+                    <h3 className="brand-title" title={companyName || 'Panel del local'}>{companyName || 'Panel del local'}</h3>
+                    {branchName ? (
+                        <span className="brand-branch" title={branchName}>
+                            <MapPin size={12} strokeWidth={2} aria-hidden />
+                            <span>{branchName}</span>
+                        </span>
+                    ) : null}
                 </div>
             </div>
             
@@ -362,6 +366,16 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 
             {!renderMobile ? (
                 <div className="sidebar-footer">
+                    {/* Cuenta con la que se inició sesión: va con "Cerrar sesión", no
+                        con la marca. */}
+                    {userEmail ? (
+                        <div className="sidebar-account" title={userEmail}>
+                            <span className="sidebar-account__avatar" aria-hidden>
+                                {userEmail.trim().charAt(0).toUpperCase()}
+                            </span>
+                            <span className="sidebar-account__email">{userEmail}</span>
+                        </div>
+                    ) : null}
                     <button
                         type="button"
                         onClick={handleOpenStorefront}

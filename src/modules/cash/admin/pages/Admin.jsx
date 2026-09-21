@@ -380,6 +380,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
         onDeniedAccess={(tabId) => showNotify(getTabAccessDeniedMessage(tabId) || 'Necesitás un rol diferente para acceder a esta sección.', 'error')}
         userEmail={userEmail || initialEmail}
         branchName={selectedBranch?.name}
+        companyName={companyProfile?.name || companyName}
         logoUrl={logoUrl}
         dynamicModules={dynamicModules}
         storefrontMenuUrl={storefrontMenuUrl}

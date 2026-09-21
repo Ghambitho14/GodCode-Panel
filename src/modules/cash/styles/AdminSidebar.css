@@ -24,30 +24,33 @@
 	overflow-y: auto;
 }
 
-/* Cabecera: fila logo + marca (como cabeceras tipo Jobie) */
+/* Cabecera: solo la marca — logo, nombre del negocio en su color y la
+   sucursal como línea secundaria. La cuenta (correo) va al pie. */
 .admin-layout .sidebar-top {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 12px;
-	margin-bottom: 22px;
-	padding-bottom: 18px;
+	margin: 2px 0 18px;
+	padding: 0 4px 18px;
 	border-bottom: 1px solid var(--admin-border, #e8ecf1);
 	min-width: 0;
 }
 
+/* Logo sobre superficie neutra: el tile teñido parecía un botón. */
 .admin-layout .logo-circle {
-	width: 48px;
-	height: 48px;
-	background: var(--admin-icon-bg, #f0f2f6);
-	border-radius: 14px;
-	padding: 8px;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+	width: 44px;
+	height: 44px;
+	background: var(--admin-card-bg, #fff);
+	border-radius: 12px;
+	padding: 4px;
+	box-shadow: none;
 	border: 1px solid var(--admin-border, #e8ecf1);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	overflow: hidden;
 }
 
 .admin-layout .logo-circle img {
@@ -60,7 +63,7 @@
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 3px;
+	gap: 2px;
 	min-width: 0;
 	flex: 1;
 	opacity: 1;
@@ -69,41 +72,76 @@
 }
 
 .admin-layout .brand-title {
-	font-size: 0.9375rem;
-	font-weight: 800;
-	letter-spacing: -0.02em;
-	color: var(--admin-text, #1a1d21);
+	font-size: 1rem;
+	font-weight: 700;
+	letter-spacing: -0.015em;
+	/* El nombre del negocio, en su color de marca */
+	color: var(--accent-primary, var(--admin-text, #1a1d21));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
 	text-align: left;
 	line-height: 1.25;
 	margin: 0;
 }
 
-.admin-layout .user-email {
-	font-size: 0.72rem;
+/* Sucursal: texto secundario con un pin, no un chip que parece pulsable. */
+.admin-layout .brand-branch {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	font-size: 0.75rem;
 	font-weight: 500;
-	color: var(--admin-text-muted, var(--admin-text-muted, #64748b));
-	text-align: left;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	width: 100%;
-	margin-top: 0;
-	display: block;
+	line-height: 1.2;
+	color: var(--admin-text-muted, #64748b);
 }
 
-.admin-layout .branch-name-badge {
-	font-size: 0.65rem;
-	font-weight: 700;
-	background: color-mix(in srgb, var(--accent-primary) 12%, var(--admin-icon-bg));
-	color: var(--accent-primary);
-	padding: 3px 8px;
-	border-radius: 3px;
-	margin-top: 2px;
-	display: inline-block;
-	max-width: 100%;
+.admin-layout .brand-branch svg {
+	flex-shrink: 0;
+	color: var(--accent-primary, #2563eb);
+	opacity: 0.85;
+}
+
+.admin-layout .brand-branch > span {
+	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* Cuenta activa, en el pie junto a "Cerrar sesión" */
+.admin-layout .sidebar-account {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	padding: 4px 10px 10px;
+}
+
+.admin-layout .sidebar-account__avatar {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.7rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--accent-primary, #2563eb);
+	background: color-mix(in srgb, var(--accent-primary, #2563eb) 12%, var(--admin-card-bg, #fff));
+}
+
+.admin-layout .sidebar-account__email {
+	min-width: 0;
+	font-size: 0.74rem;
+	font-weight: 500;
+	color: var(--admin-text-muted, #64748b);
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Iconos de navegación: trazo limpio sin caja; el color lleva el estado */
