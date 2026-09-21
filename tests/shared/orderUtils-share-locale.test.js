@@ -20,6 +20,6 @@ describe('buildOrderWhatsAppShareText shareLocale', () => {
 		});
 		expect(text).toContain('Cédula / RIF: V-12345678');
 		expect(text).toContain('Bs.');
-		expect(text).toContain('USD 10.00');
+		expect(text).toContain('USD 10,00');
 	});
 });

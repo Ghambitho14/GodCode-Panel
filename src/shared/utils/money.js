@@ -16,7 +16,10 @@ export {
 const CURRENCY_LOCALE = {
 	CLP: 'es-CL',
 	ARS: 'es-AR',
-	USD: 'en-US',
+	// El dólar solo aparece en el modelo híbrido de Venezuela (precios y caja en
+	// USD, conversión a Bs. en sitios concretos). Con en-US salía "USD 24.00" al
+	// lado de "USD 20,00" del resto del panel; misma coma decimal en todo.
+	USD: 'es-VE',
 	VES: 'es-VE',
 	MXN: 'es-MX',
 };

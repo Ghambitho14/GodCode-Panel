@@ -26,7 +26,7 @@ describe('venezuela-payment-copy', () => {
 			exchangeRate: 640,
 			country: 'VE',
 		});
-		expect(display).toContain('USD 10.00');
+		expect(display).toContain('USD 10,00');
 		expect(display).toContain('Bs.');
 	});
 
@@ -38,7 +38,7 @@ describe('venezuela-payment-copy', () => {
 			country: 'VE',
 		});
 		expect(msg).toMatch(/^Bs\./);
-		expect(msg).toContain('USD 10.00');
+		expect(msg).toContain('USD 10,00');
 	});
 
 	it('zelle solo muestra USD', () => {
@@ -48,6 +48,6 @@ describe('venezuela-payment-copy', () => {
 			exchangeRate: 640,
 			country: 'VE',
 		});
-		expect(display).toBe('USD 25.00');
+		expect(display).toBe('USD 25,00');
 	});
 });
