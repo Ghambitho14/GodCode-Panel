@@ -9,6 +9,7 @@
  *   action="list-accounts"                     -> cuentas de la empresa, descifradas
  *   action="reveal-orders"  { orderIds: [] }   -> teléfono, documento y dirección
  *                                                 de esos pedidos (máx. 50)
+ *   action="client-addresses" { clientId }     -> direcciones guardadas de esa ficha
  *
  * Auth model:
  *  - `verify_jwt=true`: Supabase rechaza requests sin JWT válido.
@@ -28,6 +29,7 @@ import { createPiiOpener, isSealedPii, type PiiOpener } from "../_shared/pii.ts"
 
 const STAFF_ROLES = new Set(["owner", "admin", "ceo", "cashier", "staff"]);
 const MAX_ORDERS_PER_REQUEST = 50;
+const MAX_ADDRESSES_PER_CLIENT = 10;
 
 type StaffContext = { admin: SupabaseClient; companyId: string };
 type ContextError = { error: string; status: number };
@@ -153,6 +155,37 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
 	return jsonResponse({ accounts });
 }
 
+/**
+ * Direcciones guardadas de una ficha con cuenta, la más usada primero. El Portal
+ * las cifra al guardarlas; la zona y los km quedan en claro porque son operativos.
+ */
+async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffContext): Promise<Response> {
+	const clientId = String(body.clientId ?? "").trim();
+	if (!/^[0-9a-f-]{36}$/i.test(clientId)) return jsonResponse({ error: "Falta clientId" }, 400);
+
+	const { data, error } = await ctx.admin
+		.from("client_addresses")
+		.select("id, address_line, reference, named_area_id, delivery_km, last_used_at")
+		.eq("company_id", ctx.companyId)
+		.eq("client_id", clientId)
+		.order("last_used_at", { ascending: false, nullsFirst: false })
+		.limit(MAX_ADDRESSES_PER_CLIENT);
+	if (error) return jsonResponse({ error: error.message }, 500);
+
+	const open = await getOpener();
+	const addresses = await Promise.all(
+		(data ?? []).map(async (row) => ({
+			id: row.id,
+			address: await openSafe(open, row.address_line),
+			reference: await openSafe(open, row.reference),
+			namedAreaId: row.named_area_id ?? null,
+			deliveryKm: row.delivery_km ?? null,
+			lastUsedAt: row.last_used_at ?? null,
+		})),
+	);
+	return jsonResponse({ addresses: addresses.filter((a) => String(a.address ?? "").trim()) });
+}
+
 async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffContext): Promise<Response> {
 	const ids = Array.isArray(body.orderIds)
 		? [...new Set(body.orderIds.map((id) => String(id ?? "").trim()).filter((id) => /^\d+$/.test(id)))]
@@ -199,6 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 		const action = String(body.action ?? "").trim().toLowerCase();
 		if (action === "list-accounts") return await handleListAccounts(ctx);
 		if (action === "reveal-orders") return await handleRevealOrders(body, ctx);
+		if (action === "client-addresses") return await handleClientAddresses(body, ctx);
 		return jsonResponse({ error: "Accion desconocida" }, 400);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error interno";

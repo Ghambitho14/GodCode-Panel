@@ -11,6 +11,7 @@ import {
 } from '@/lib/delivery-settings';
 import { filterClientsByNameOrPhone } from '../../services/clientService';
 import { accountClientIdSet, fetchMenuClientAccountsCached } from '../../services/menuAccountsService';
+import { fetchClientAddresses } from '../../services/clientPiiService';
 import { maskSealedPii } from '@/shared/utils/sealedPii';
 import {
     getLocalFulfillmentMode,
@@ -131,6 +132,7 @@ const ClientForm = ({
     updateClientName,
     updateClientKind,
     applyClientRecord,
+    applySavedDeliveryAddress = null,
     handleRutChange,
     handlePhoneChange,
     rutValid,
@@ -664,6 +666,41 @@ const ClientForm = ({
     const selectedAffiliatedClient = isAffiliatedKind && selectedClientId
         ? affiliatedClients.find((client) => String(client.id) === selectedClientId) ?? null
         : null;
+
+    /**
+     * La cuenta guarda sus direcciones cifradas en `client_addresses`, no en la ficha:
+     * se piden descifradas al elegir el afiliado y la más usada rellena el delivery.
+     * Se guardan por ficha para no volver a pedirlas al cambiar de retiro a delivery.
+     */
+    const savedAddressesRef = useRef(new Map());
+    /** Ficha cuya dirección ya se puso: si el cajero la borra, no vuelve a aparecer. */
+    const savedAddressAppliedRef = useRef('');
+    const affiliatedAddressClientId = selectedAffiliatedClient ? selectedClientId : '';
+    const deliveryAddressEmpty = !String(manualOrder.delivery_address ?? '').trim();
+    useEffect(() => {
+        // Pasar a retiro borra la dirección; al volver a delivery se rellena otra vez.
+        if (!isDelivery) savedAddressAppliedRef.current = '';
+        if (!affiliatedAddressClientId || !isDelivery || !deliveryAddressEmpty) return;
+        if (savedAddressAppliedRef.current === affiliatedAddressClientId) return;
+        if (typeof applySavedDeliveryAddress !== 'function') return;
+        let alive = true;
+        const cache = savedAddressesRef.current;
+        const pending = cache.get(affiliatedAddressClientId)
+            ?? fetchClientAddresses(affiliatedAddressClientId).catch((err) => {
+                cache.delete(affiliatedAddressClientId);
+                console.warn('[caja] direcciones del afiliado:', err?.message || err);
+                return [];
+            });
+        cache.set(affiliatedAddressClientId, pending);
+        void pending.then((addresses) => {
+            if (!alive || !addresses[0]) return;
+            savedAddressAppliedRef.current = affiliatedAddressClientId;
+            applySavedDeliveryAddress(affiliatedAddressClientId, addresses[0]);
+        });
+        return () => {
+            alive = false;
+        };
+    }, [affiliatedAddressClientId, isDelivery, deliveryAddressEmpty, applySavedDeliveryAddress]);
 
     const clientKindSwitch = (
         <div className="mb-3 flex items-start justify-between gap-3 rounded-[12px] border border-gc-border bg-gc-page px-3 py-2.5">

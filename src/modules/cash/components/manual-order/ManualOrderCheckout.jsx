@@ -504,6 +504,7 @@ export default function ManualOrderCheckout({
 		updateDeliveryFee,
 		updateDeliveryNamedAreaId,
 		applyClientRecord,
+		applySavedDeliveryAddress,
 		getInputStyle,
 		rutValid,
 		phoneValid,
@@ -537,6 +538,7 @@ export default function ManualOrderCheckout({
 			updateClientName={updateClientName}
 			updateClientKind={updateClientKind}
 			applyClientRecord={applyClientRecord}
+			applySavedDeliveryAddress={applySavedDeliveryAddress}
 			handleRutChange={handleRutChange}
 			handlePhoneChange={handlePhoneChange}
 			rutValid={rutValid}

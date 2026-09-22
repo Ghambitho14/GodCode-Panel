@@ -294,6 +294,28 @@ export const useManualOrderForm = (_enabledLocalChannels = null, formCountry = '
         );
     }, [strategy]);
 
+    /**
+     * Pone la dirección guardada de una cuenta del menú. Llega después de elegir al
+     * cliente (hay que descifrarla), así que solo se aplica si sigue elegido el mismo
+     * y el cajero no escribió ya otra dirección.
+     */
+    const applySavedDeliveryAddress = useCallback((clientId, saved) => {
+        const address = String(saved?.address ?? '').trim();
+        if (!address) return;
+        setForm((prev) => {
+            if (String(prev.selected_client_id ?? '') !== String(clientId ?? '')) return prev;
+            if (String(prev.delivery_address ?? '').trim()) return prev;
+            const km = saved?.deliveryKm;
+            return {
+                ...prev,
+                delivery_address: address,
+                delivery_reference: String(saved?.reference ?? '').trim(),
+                delivery_named_area_id: String(saved?.namedAreaId ?? '').trim(),
+                delivery_km: km == null || km === '' ? '' : String(km),
+            };
+        });
+    }, []);
+
 	const resetForm = useCallback(() => {
         setForm({ ...initialFormState });
         setRutValid(true);
@@ -397,6 +419,7 @@ export const useManualOrderForm = (_enabledLocalChannels = null, formCountry = '
         handleRutChange,
         handlePhoneChange,
         applyClientRecord,
+        applySavedDeliveryAddress,
         resetForm,
 		resetOpenMesaForm,
 		selectTable,

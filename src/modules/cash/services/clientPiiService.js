@@ -44,6 +44,22 @@ export async function fetchDecryptedAccounts() {
 }
 
 /**
+ * Direcciones guardadas de una ficha con cuenta del menú, la más usada primero.
+ * @param {unknown} clientId
+ * @returns {Promise<Array<{ id: string, address: string, reference: string|null, namedAreaId: string|null, deliveryKm: number|null, lastUsedAt: string|null }>>}
+ */
+export async function fetchClientAddresses(clientId) {
+	const id = String(clientId ?? '').trim();
+	if (!id) return [];
+	const response = await supabase.functions.invoke(FN_NAME, {
+		method: 'POST',
+		body: { action: 'client-addresses', clientId: id },
+	});
+	if (response.error) throw buildFnError(response, 'No se pudieron leer las direcciones');
+	return response.data && Array.isArray(response.data.addresses) ? response.data.addresses : [];
+}
+
+/**
  * Devuelve cada pedido con su teléfono, documento y dirección descifrados. Los que
  * no traen nada cifrado (compradores rápidos) se devuelven tal cual, sin llamar a
  * la función.
