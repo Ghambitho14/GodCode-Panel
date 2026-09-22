@@ -63,6 +63,29 @@ export const useManualOrderForm = (_enabledLocalChannels = null, formCountry = '
         });
     }, []);
 
+    /**
+     * Cambia entre comprador rápido y cliente afiliado. Limpia la identidad al
+     * cruzar: un nombre tecleado a mano no es una cuenta del menú, y al revés
+     * tampoco, así que arrastrar los campos solo confundiría.
+     */
+    const updateClientKind = useCallback((kind) => {
+        const next = kind === 'affiliated' ? 'affiliated' : 'quick';
+        setForm((prev) => {
+            return {
+                ...prev,
+                client_kind: next,
+                client_name: '',
+                client_rut: '',
+                client_phone: '',
+                selected_client_id: '',
+            };
+        });
+        setIncludeDocumentState(false);
+        setIncludePhoneState(false);
+        setRutValid(true);
+        setPhoneValid(true);
+    }, []);
+
     const updateCouponCode = useCallback((val) => {
         setForm(prev => ({ ...prev, coupon_code: typeof val === 'string' ? val : '' }));
     }, []);
@@ -353,6 +376,7 @@ export const useManualOrderForm = (_enabledLocalChannels = null, formCountry = '
         setIncludeDocument,
         setIncludePhone,
         updateClientName,
+        updateClientKind,
         updateCouponCode,
         updateNote,
         updateOrderType,

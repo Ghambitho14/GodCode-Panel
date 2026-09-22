@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { isStorageObjectReference } from "@/shared/utils/supabaseStorage";
 import CloseTableModal from "./CloseTableModal";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
+import { maskSealedPii } from "@/shared/utils/sealedPii";
 
 function formatDayHeading(ymd, locale) {
 	const d = new Date(`${ymd}T12:00:00`);
@@ -222,7 +223,7 @@ const AdminHistoryTable = ({
 															</span>
 															{o.client_phone ? (
 																<span className="admin-history-muted-sm">
-																	{o.client_phone}
+																	{maskSealedPii(o.client_phone)}
 																</span>
 															) : null}
 														</div>

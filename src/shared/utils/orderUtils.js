@@ -2,6 +2,7 @@
 import { formatMoney, normalizeCurrencyCode, minorToMajor, majorToMinor, fractionDigitsForCurrency } from '@/shared/utils/money';
 import { formatOrderAmountForShare, shareIdLabelFromLocale } from '@/lib/money/order-amount';
 import { toSafeHttpUrl } from '@/shared/utils/safeUrl';
+import { PII_MASK, isSealedDeliveryAddress, isSealedPiiValue, maskSealedPii } from '@/shared/utils/sealedPii';
 
 export const PAYMENT_METHOD_LABELS = {
 	efectivo: 'Efectivo',
@@ -1019,6 +1020,8 @@ export function resolveOrderClientRutForDisplay(order) {
 	const raw = order?.client_rut ?? order?.client_document ?? '';
 	const trimmed = String(raw).trim();
 	if (!trimmed) return null;
+	// Documento de un cliente con cuenta, aún sin revelar (ver clientPiiService).
+	if (isSealedPiiValue(trimmed)) return PII_MASK;
 	const lower = trimmed.toLowerCase();
 	if (lower === 'sin rut') return null;
 	if (/^sin-rut-/i.test(trimmed)) return null;
@@ -1028,7 +1031,7 @@ export function resolveOrderClientRutForDisplay(order) {
 /** Teléfono visible en detalle de pedido. */
 export function resolveOrderClientPhoneForDisplay(order) {
 	const trimmed = String(order?.client_phone ?? '').trim();
-	return trimmed || null;
+	return maskSealedPii(trimmed) || null;
 }
 
 function normalizeClientNameToken(name) {
@@ -1287,6 +1290,13 @@ export function filterOpenOrderSessions(orders) {
 export function deliveryAddressLines(addr) {
 	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) return [];
 	const o = /** @type {Record<string, unknown>} */ (addr);
+	// Dirección de un cliente con cuenta, aún sin revelar: solo la zona queda en claro.
+	if (isSealedDeliveryAddress(o)) {
+		const zone = ['named_area_label', 'zone_label']
+			.map((k) => (o[k] != null ? String(o[k]).trim() : ''))
+			.filter(Boolean);
+		return [...new Set(zone), `Dirección ${PII_MASK}`];
+	}
 	const prefer = [
 		'named_area_label',
 		'zone_label',

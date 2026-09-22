@@ -124,7 +124,7 @@ export const useManualOrder = (
 
 	const {
 		form, rutValid, phoneValid, includeDocument, includePhone, setIncludeDocument, setIncludePhone,
-		updateClientName, updateCouponCode, updateNote, updateOrderType,
+		updateClientName, updateClientKind, updateCouponCode, updateNote, updateOrderType,
 		updateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress, updateDeliveryReference,
 		updateDeliveryKm, updateDeliveryFee, updateDeliveryNamedAreaId, updatePaymentType, updatePaymentMode,
 		updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow, updatePaymentLines,
@@ -132,7 +132,7 @@ export const useManualOrder = (
 		selectTable, getInputStyle, restoreForm,
 	} = useManualOrderForm(localOrderChannels, formCountry, { currency, locale, fractionDigits }, openMesaMode);
 
-	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone);
+	const { couponPreview, resetCoupon } = useCouponValidation(branch?.company_id, form.coupon_code, total, form.client_phone, form.selected_client_id);
 	const { receiptFile, receiptPreview, handleFileChange, removeReceipt, resetReceipt, restoreReceipt } = useReceiptUpload(showNotify);
 	const [loading, setLoading] = useState(false);
 	const [quote, setQuote] = useState(null);
@@ -536,7 +536,7 @@ export const useManualOrder = (
 	return {
 		manualOrder, loading, rutValid, phoneValid, includeDocument, includePhone, setIncludeDocument, setIncludePhone,
 		receiptFile, receiptPreview,
-		updateClientName, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
+		updateClientName, updateClientKind, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow: handleChargeNowChange, updatePaymentLines,
 		handleRutChange, handlePhoneChange, applyClientRecord, handleFileChange, removeReceipt,
 		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,

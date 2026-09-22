@@ -106,7 +106,7 @@ const ManualOrderModal = ({
 		manualOrder, loading, rutValid, phoneValid,
 		includeDocument, includePhone, setIncludeDocument, setIncludePhone,
 		receiptFile, receiptPreview,
-		updateClientName, updateCouponCode, couponPreview, updatePaymentType,
+		updateClientName, updateClientKind, updateCouponCode, couponPreview, updatePaymentType,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow,
 		updatePaymentLines,
 		handleRutChange,
@@ -631,6 +631,7 @@ const ManualOrderModal = ({
 						checkoutFlow={checkoutFlow}
 						hookActions={{
 							updateClientName,
+							updateClientKind,
 							updateCouponCode,
 							couponPreview,
 							updatePaymentType,

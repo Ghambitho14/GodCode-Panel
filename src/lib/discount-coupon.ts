@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
 import { computeCouponDiscountAmount as computeCouponDiscount } from "@/lib/coupon-discount";
+import { fetchMenuClientAccountsCached } from "@/modules/cash/services/menuAccountsService";
 
 export type DiscountCouponRow = {
 	id: string;
@@ -9,6 +10,7 @@ export type DiscountCouponRow = {
 	discount_type: string;
 	discount_value: number;
 	scope: string;
+	restricted_account_id: string | null;
 	restricted_client_id: string | null;
 	min_order_subtotal: number | null;
 	max_redemptions: number | null;
@@ -95,9 +97,12 @@ export async function buildCouponPreview(params: {
 	rawCode: string;
 	itemsSubtotal: number;
 	clientPhone: string;
+	/** Ficha elegida en el formulario (modo afiliado). Es lo único que abre un cupón de cuenta. */
+	clientId?: string | null;
 	tablesCoupons?: string;
 	tablesClients?: string;
 	tablesRedemptions?: string;
+	tablesOrders?: string;
 	/** Al editar un pedido, excluye el canje ya registrado para ese order_id. */
 	excludeOrderId?: string | number | null;
 }): Promise<CouponPreviewOk | CouponPreviewErr> {
@@ -119,8 +124,46 @@ export async function buildCouponPreview(params: {
 		return { ok: false, key: "coupon_min_subtotal" };
 	}
 
-	let existingClientId: string | null = null;
 	const phone = String(params.clientPhone ?? "").trim();
+
+	/**
+	 * Cupón de una cuenta del menú: igual que `compute_order_coupon_discount`, el dueño
+	 * se reconoce por la ficha que respalda la cuenta, nunca por el teléfono escrito.
+	 */
+	if (row.scope === "client_only" && row.restricted_account_id) {
+		const clientId = String(params.clientId ?? "").trim();
+		if (!clientId) return { ok: false, key: "coupon_wrong_account" };
+		const { accounts } = await fetchMenuClientAccountsCached(params.companyId);
+		const owner = accounts.find(
+			(a: { id: string; clientId: string | null; isActive: boolean } | null) =>
+				a?.id === row.restricted_account_id,
+		);
+		if (!owner || !owner.isActive || owner.clientId !== clientId) {
+			return { ok: false, key: "coupon_wrong_account" };
+		}
+		if (row.max_redemptions != null && Number(row.redemptions_count ?? 0) >= Number(row.max_redemptions)) {
+			return { ok: false, key: "coupon_usage_exhausted" };
+		}
+		const maxPerAccount = Math.max(1, Number(row.max_redemptions_per_client ?? 1) || 1);
+		let usedQuery = params.supabase
+			.from(params.tablesOrders ?? "orders")
+			.select("id", { count: "exact", head: true })
+			.eq("discount_coupon_id", row.id)
+			.eq("client_id", clientId)
+			.neq("status", "cancelled");
+		if (params.excludeOrderId != null && String(params.excludeOrderId).trim() !== "") {
+			usedQuery = usedQuery.neq("id", params.excludeOrderId);
+		}
+		const { count, error } = await usedQuery;
+		if (!error && typeof count === "number" && count >= maxPerAccount) {
+			return { ok: false, key: "coupon_usage_exhausted_account" };
+		}
+		const accountDiscount = computeCouponDiscountAmount(subtotal, row);
+		if (accountDiscount <= 0) return { ok: false, key: "invalid_coupon" };
+		return { ok: true, discount: accountDiscount, row };
+	}
+
+	let existingClientId: string | null = null;
 	if (phone) {
 		const { data: cl } = await params.supabase
 			.from(tClients)

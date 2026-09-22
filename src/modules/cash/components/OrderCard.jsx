@@ -35,6 +35,7 @@ import OrderCardAnchoredMenu from './OrderCardAnchoredMenu';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { Button } from "@/components/ui/button";
 import { isStorageObjectReference } from '@/shared/utils/supabaseStorage';
+import { revealOrderContact } from '@/modules/cash/services/clientPiiService';
 
 const OrderCard = ({
     order, queueIndex, moveOrder, setReceiptModalOrder, branch, clients,
@@ -128,8 +129,8 @@ const OrderCard = ({
 
     const handleCopyShare = async (e) => {
         e.stopPropagation();
-        const text = buildOrderWhatsAppShareText(order, branch?.name, shareLocale);
         try {
+            const text = buildOrderWhatsAppShareText(await revealOrderContact(order), branch?.name, shareLocale);
             await navigator.clipboard.writeText(text);
             showNotify?.(
                 isDelivery
@@ -143,7 +144,13 @@ const OrderCard = ({
 
     const handleDeliveryWhatsApp = async (e) => {
         e.stopPropagation();
-        const text = buildOrderDeliveryDriverPack(order, branch?.name ?? null, branch?.address ?? null, shareLocale);
+        let withContact = order;
+        try {
+            withContact = await revealOrderContact(order);
+        } catch {
+            showNotify?.('No se pudieron ver los datos del cliente; se envía sin ellos.', 'error');
+        }
+        const text = buildOrderDeliveryDriverPack(withContact, branch?.name ?? null, branch?.address ?? null, shareLocale);
         await shareDeliveryPackViaWhatsApp(text, {
             onError: (msg) => showNotify?.(msg, 'error'),
         });

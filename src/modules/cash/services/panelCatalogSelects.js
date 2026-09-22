@@ -17,6 +17,6 @@ export const CLIENTS_PANEL_SELECT =
 export const COMPANY_ADMIN_SELECT = 'id, name, legal_rut, address, phone, email';
 
 export const DISCOUNT_COUPONS_PANEL_SELECT =
-	'id, company_id, code, discount_type, discount_value, scope, restricted_client_id, ' +
+	'id, company_id, code, discount_type, discount_value, scope, restricted_account_id, restricted_client_id, ' +
 	'min_order_subtotal, max_redemptions, redemptions_count, max_redemptions_per_client, ' +
 	'valid_from, valid_until, is_active, created_at';

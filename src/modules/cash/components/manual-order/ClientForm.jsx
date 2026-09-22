@@ -10,6 +10,8 @@ import {
     effectiveDeliveryPricingMode,
 } from '@/lib/delivery-settings';
 import { filterClientsByNameOrPhone } from '../../services/clientService';
+import { accountClientIdSet, fetchMenuClientAccountsCached } from '../../services/menuAccountsService';
+import { maskSealedPii } from '@/shared/utils/sealedPii';
 import {
     getLocalFulfillmentMode,
     isManualNamedDeliveryMode,
@@ -127,6 +129,7 @@ const ClientForm = ({
     updateDeliveryFee,
     updateDeliveryNamedAreaId,
     updateClientName,
+    updateClientKind,
     applyClientRecord,
     handleRutChange,
     handlePhoneChange,
@@ -140,6 +143,7 @@ const ClientForm = ({
     branch,
     showNotify,
     canOverrideDeliveryFee = false,
+    isEditMode = false,
     openMesaMode = false,
     branchDeliveryCfgLoading = false,
     enabledLocalChannels = null,
@@ -158,6 +162,11 @@ const ClientForm = ({
     const [detectingZone, setDetectingZone] = useState(false);
     const [calculatingDistance, setCalculatingDistance] = useState(false);
     const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
+    /** Ids de `clients` con cuenta del menú: los únicos elegibles como afiliados. */
+    const [affiliatedIds, setAffiliatedIds] = useState(() => new Set());
+    /** Cuenta descifrada por id de ficha: nombre, teléfono y documento reales. */
+    const [accountByClientId, setAccountByClientId] = useState(() => new Map());
+    const [affiliatedLoaded, setAffiliatedLoaded] = useState(false);
 	const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 	const [recentWaiters, setRecentWaiters] = useState([]);
     const clientSearchRef = useRef(null);
@@ -192,9 +201,61 @@ const ClientForm = ({
 		updateClientName,
 	]);
 
+	useEffect(() => {
+		let alive = true;
+		void (async () => {
+			const result = await fetchMenuClientAccountsCached(companyKey);
+			if (!alive) return;
+			setAffiliatedIds(accountClientIdSet(result.accounts));
+			setAccountByClientId(new Map(
+				result.accounts.filter((a) => a.clientId).map((a) => [a.clientId, a]),
+			));
+			setAffiliatedLoaded(true);
+		})();
+		return () => {
+			alive = false;
+		};
+	}, [companyKey]);
+
+	const affiliatedLoading = !affiliatedLoaded;
+
+	const isAffiliatedKind = String(manualOrder.client_kind ?? 'quick') === 'affiliated';
+
+	/**
+	 * Fichas elegibles en modo afiliado: las que respaldan una cuenta del menú. Esa
+	 * ficha solo guarda un nombre corto y datos cifrados, así que se muestran los de
+	 * la cuenta ya descifrada; si no llegaron, lo cifrado se enmascara.
+	 */
+	const affiliatedClients = useMemo(
+		() => (Array.isArray(clients) ? clients : [])
+			.filter((client) => affiliatedIds.has(String(client?.id ?? '')))
+			.map((client) => {
+				const account = accountByClientId.get(String(client.id));
+				return {
+					...client,
+					name: account?.fullName || client.name,
+					phone: account?.phone || maskSealedPii(client.phone),
+					rut: account?.document || maskSealedPii(client.rut),
+				};
+			}),
+		[clients, affiliatedIds, accountByClientId],
+	);
+
+	/** Compradores rápidos: las fichas que no respaldan una cuenta. */
+	const quickClients = useMemo(
+		() => (Array.isArray(clients) ? clients : []).filter((client) => !affiliatedIds.has(String(client?.id ?? ''))),
+		[clients, affiliatedIds],
+	);
+
     const clientSuggestions = useMemo(
-        () => filterClientsByNameOrPhone(clients, manualOrder.client_name),
-        [clients, manualOrder.client_name],
+        () => {
+			if (!isAffiliatedKind) return filterClientsByNameOrPhone(quickClients, manualOrder.client_name);
+			// Con pocos afiliados escribir para verlos es absurdo: al enfocar salen todos.
+			const query = normalizeSearch(manualOrder.client_name);
+			if (!query) return affiliatedClients.slice(0, 8);
+			return filterClientsByNameOrPhone(affiliatedClients, manualOrder.client_name);
+		},
+        [isAffiliatedKind, quickClients, affiliatedClients, manualOrder.client_name],
     );
 
     const clientSelectOpts = useMemo(
@@ -208,7 +269,7 @@ const ClientForm = ({
     const showClientSuggestions =
         clientSuggestionsOpen &&
         clientSuggestions.length > 0 &&
-        normalizeSearch(manualOrder.client_name).length >= 1;
+        (isAffiliatedKind || normalizeSearch(manualOrder.client_name).length >= 1);
 
     useEffect(() => {
         const onDocClick = (e) => {
@@ -589,6 +650,86 @@ const ClientForm = ({
 		const fallback = ['retiro', 'delivery', 'mesa'].find((mode) => resolvedLocalChannels[mode]);
 		if (fallback) updateLocalFulfillmentMode?.(fallback);
 	}, [openMesaMode, manualOrder.local_fulfillment_mode, isDelivery, resolvedLocalChannels, updateLocalFulfillmentMode]);
+
+    /** Mesa rápida y edición no tienen selector de afiliados. */
+    const affiliatedPickerAvailable = !isQuickSaleMesa && !isEditMode && typeof updateClientKind === 'function';
+
+    useEffect(() => {
+        if (affiliatedPickerAvailable || !isAffiliatedKind) return;
+        // Sin selector, exigir un afiliado dejaría el paso bloqueado para siempre.
+        updateClientKind?.('quick');
+    }, [affiliatedPickerAvailable, isAffiliatedKind, updateClientKind]);
+
+    const selectedClientId = String(manualOrder.selected_client_id ?? '').trim();
+    const selectedAffiliatedClient = isAffiliatedKind && selectedClientId
+        ? affiliatedClients.find((client) => String(client.id) === selectedClientId) ?? null
+        : null;
+
+    const clientKindSwitch = (
+        <div className="mb-3 flex items-start justify-between gap-3 rounded-[12px] border border-gc-border bg-gc-page px-3 py-2.5">
+            <label htmlFor="manual-order-client-kind" className="flex flex-col gap-0.5">
+                <span className={`${textScale.micro} font-semibold text-gc-text`}>Cliente afiliado</span>
+                <span className={`${textScale.micro} font-normal text-gc-text-muted`}>
+                    Solo clientes con cuenta en el menú digital.
+                </span>
+            </label>
+            <button
+                id="manual-order-client-kind"
+                type="button"
+                role="switch"
+                aria-checked={isAffiliatedKind}
+                aria-label="Cliente afiliado"
+                className={fieldSwitchTrackClass(isAffiliatedKind, false)}
+                onClick={() => updateClientKind?.(isAffiliatedKind ? 'quick' : 'affiliated')}
+            >
+                <span
+                    className={cn(
+                        'pointer-events-none block h-5 w-5 rounded-full bg-white shadow transition-transform',
+                        isAffiliatedKind ? 'translate-x-[22px]' : 'translate-x-0.5',
+                    )}
+                />
+            </button>
+        </div>
+    );
+
+    /** El contacto del afiliado no se teclea: si su ficha no lo trae, hay que avisarlo. */
+    const affiliatedPhoneMissing = Boolean(selectedAffiliatedClient)
+        && (phoneLockedOn || customerRequirements.phone)
+        && !phoneHasMeaningfulDigits(manualOrder.client_phone, formStrategy.phonePrefix);
+
+    const affiliatedStatusBlock = selectedAffiliatedClient ? (
+        <div className="flex flex-col gap-2 rounded-[12px] border border-gc-accent/25 bg-gc-accent/10 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+                <span className={`${textScale.micro} text-gc-text-muted-strong`}>
+                    {[selectedAffiliatedClient.rut, selectedAffiliatedClient.phone].filter(Boolean).join(' · ')
+                        || 'Cuenta del menú digital'}
+                </span>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 shrink-0 rounded-[10px] px-3 text-xs font-semibold"
+                    onClick={() => updateClientKind?.('affiliated')}
+                >
+                    Cambiar
+                </Button>
+            </div>
+            {affiliatedPhoneMissing ? (
+                <p className={`${textScale.micro} font-semibold text-gc-danger`}>
+                    Esta cuenta no tiene teléfono registrado y esta entrega lo exige.
+                    Usa comprador rápido para escribirlo.
+                </p>
+            ) : null}
+        </div>
+    ) : (
+        <p className={hintClass}>
+            {affiliatedLoading
+                ? 'Buscando clientes con cuenta…'
+                : affiliatedClients.length === 0
+                    ? 'Todavía ningún cliente de este negocio tiene cuenta en el menú digital.'
+                    : 'Elige un cliente de la lista para continuar.'}
+        </p>
+    );
 
     const validationIcon = (
         <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
@@ -1172,21 +1313,31 @@ const ClientForm = ({
                 <p className={`mb-3 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
 					{isQuickSaleMesa
 						? 'Indica el número o nombre de mesa para que cocina identifique el pedido.'
-						: 'Busca un cliente registrado o completa sus datos de contacto.'}
+						: isAffiliatedKind
+							? 'Elige un cliente con cuenta en el menú digital. No se crea ninguna ficha nueva.'
+							: 'Comprador rápido: escribe el nombre y, si hace falta, sus datos de contacto.'}
                 </p>
+
+                {affiliatedPickerAvailable ? clientKindSwitch : null}
 
                 <div className="grid gap-3">
                     <div className={cn(fieldLabelClass, 'manual-order-client-search')}>
                         <label htmlFor="manual-order-client-name">
 							{isQuickSaleMesa
 								? <>Nº mesa o referencia{requiredMark(true)}</>
-								: <>Nombre completo{requiredMark(customerRequirements.name)}</>}
+								: isAffiliatedKind
+									? <>Cliente afiliado{requiredMark(true)}</>
+									: <>Nombre completo{requiredMark(customerRequirements.name)}</>}
 						</label>
                         <div className="relative z-10 w-full" ref={clientSearchRef}>
                             <input
                                 id="manual-order-client-name"
                                 type="text"
-                                placeholder={isQuickSaleMesa ? 'Ej. 3 o Mesa 2' : 'Buscar o escribir nombre'}
+                                placeholder={isQuickSaleMesa
+									? 'Ej. 3 o Mesa 2'
+									: isAffiliatedKind
+										? 'Buscar cliente con cuenta'
+										: 'Buscar o escribir nombre'}
                                 className={inputClass}
                                 value={manualOrder.client_name}
                                 onChange={(e) => handleClientNameChange(e.target.value)}
@@ -1197,7 +1348,11 @@ const ClientForm = ({
                                 autoComplete="off"
 								role={isQuickSaleMesa ? undefined : 'combobox'}
 								aria-autocomplete={isQuickSaleMesa ? undefined : 'list'}
-                                aria-label={isQuickSaleMesa ? 'Número o referencia de mesa' : 'Nombre completo del cliente'}
+                                aria-label={isQuickSaleMesa
+									? 'Número o referencia de mesa'
+									: isAffiliatedKind
+										? 'Buscar cliente afiliado'
+										: 'Nombre completo del cliente'}
                                 aria-expanded={isQuickSaleMesa ? undefined : showClientSuggestions}
                                 aria-controls={isQuickSaleMesa ? undefined : 'manual-order-client-suggestions'}
 								aria-activedescendant={
@@ -1214,7 +1369,9 @@ const ClientForm = ({
                         </div>
                     </div>
 
-					{!isQuickSaleMesa ? (
+					{isAffiliatedKind ? affiliatedStatusBlock : null}
+
+					{!isQuickSaleMesa && !isAffiliatedKind ? (
 						<>
 					<div className="grid gap-2">
 						<FieldIncludeSwitch

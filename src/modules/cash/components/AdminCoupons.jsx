@@ -5,6 +5,8 @@ import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
 import { DISCOUNT_COUPONS_PANEL_SELECT } from "@/modules/cash/services/panelCatalogSelects";
+import { fetchMenuClientAccountsCached } from "@/modules/cash/services/menuAccountsService";
+import { isSealedPiiValue } from "@/shared/utils/sealedPii";
 import { Button } from "@/components/ui/button";
 import CouponDateTimeField from "@/modules/cash/components/CouponDateTimeField";
 import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
@@ -15,7 +17,7 @@ const emptyDraft = () => ({
 	discount_type: "percent",
 	discount_value: "10",
 	scope: "all",
-	restricted_client_id: "",
+	restricted_account_id: "",
 	min_order_subtotal: "0",
 	max_redemptions: "",
 	max_redemptions_per_client: "1",
@@ -71,6 +73,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 	const [creating, setCreating] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState("all"); // all | active | inactive
+	const [accounts, setAccounts] = useState([]);
 
 	const cid = typeof companyId === "string" && companyId.trim() ? companyId.trim() : "";
 	const formOpen = creating || editing;
@@ -101,6 +104,21 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		void load();
 	}, [load]);
 
+	// Un cupón de cliente pertenece a una cuenta del menú, no a una ficha de
+	// `clients` (esa tabla queda para compradores rápidos). El listado también las
+	// necesita para nombrar al dueño de cada cupón.
+	useEffect(() => {
+		if (!cid) return undefined;
+		let alive = true;
+		void (async () => {
+			const result = await fetchMenuClientAccountsCached(cid, { force: formOpen });
+			if (alive) setAccounts(result.accounts);
+		})();
+		return () => {
+			alive = false;
+		};
+	}, [formOpen, cid]);
+
 	const resetForm = () => {
 		setDraft(emptyDraft());
 		setEditing(false);
@@ -129,7 +147,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 			discount_type: row.discount_type === "fixed_amount" ? "fixed_amount" : "percent",
 			discount_value: String(Number(row.discount_value ?? 0)),
 			scope: row.scope === "client_only" ? "client_only" : "all",
-			restricted_client_id: row.restricted_client_id ? String(row.restricted_client_id) : "",
+			restricted_account_id: row.restricted_account_id ? String(row.restricted_account_id) : "",
 			min_order_subtotal: String(Number(row.min_order_subtotal ?? 0)),
 			max_redemptions:
 				row.max_redemptions == null || row.max_redemptions === "" ? "" : String(Number(row.max_redemptions)),
@@ -146,11 +164,11 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		const code = normalizeCouponCode(draft.code);
 		const dv = Number(draft.discount_value);
 		const scope = draft.scope === "client_only" ? "client_only" : "all";
-		const restricted = scope === "client_only" ? String(draft.restricted_client_id || "").trim() : null;
+		const restricted = scope === "client_only" ? String(draft.restricted_account_id || "").trim() : null;
 		if (!code) throw new Error("El código es obligatorio.");
 		if (!Number.isFinite(dv) || dv < 0) throw new Error("El valor del descuento no es válido.");
 		if (draft.discount_type === "percent" && dv > 100) throw new Error("El porcentaje no puede superar 100.");
-		if (scope === "client_only" && !restricted) throw new Error("Selecciona un cliente para este cupón restringido.");
+		if (scope === "client_only" && !restricted) throw new Error("Selecciona una cuenta para este cupón restringido.");
 		const ms = Number(draft.min_order_subtotal);
 		if (!Number.isFinite(ms) || ms < 0) throw new Error("El mínimo del pedido no es válido.");
 		const mr =
@@ -172,7 +190,9 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 			discount_type: draft.discount_type === "fixed_amount" ? "fixed_amount" : "percent",
 			discount_value: dv,
 			scope,
-			restricted_client_id: scope === "client_only" ? restricted : null,
+			restricted_account_id: scope === "client_only" ? restricted : null,
+			// Los cupones de ficha son del esquema anterior: al guardar se pasan a cuenta.
+			restricted_client_id: null,
 			min_order_subtotal: ms,
 			max_redemptions: mr,
 			max_redemptions_per_client: mrc,
@@ -251,11 +271,53 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 		(id) => {
 			const c = clients.find((x) => x.id === id);
 			if (!c) return String(id ?? "").slice(0, 8) + "…";
-			const ph = String(c.phone ?? "").trim();
+			// La ficha de una cuenta guarda el teléfono cifrado: no se muestra.
+			const ph = isSealedPiiValue(c.phone) ? "" : String(c.phone ?? "").trim();
 			return `${String(c.name ?? "").trim() || "(Sin nombre)"}${ph ? ` · ${ph}` : ""}`;
 		},
 		[clients],
 	);
+
+	/**
+	 * Nombre y teléfono salen de la cuenta ya descifrada (Edge Function `client-pii`).
+	 * Si la función no respondió, se usa la ficha que la cuenta respalda; sin ficha,
+	 * la cuenta todavía no ha pedido nada.
+	 */
+	const accountLabel = useCallback(
+		(id) => {
+			const account = accounts.find((a) => a.id === id);
+			if (!account) return `Cuenta ${String(id ?? "").slice(0, 8)}…`;
+			let label;
+			if (account.fullName) {
+				label = `${account.fullName}${account.phone ? ` · ${account.phone}` : ""}`;
+			} else if (account.clientId) {
+				label = clientLabel(account.clientId);
+			} else {
+				const since = account.createdAt ? new Date(account.createdAt).toLocaleDateString(locale) : "";
+				label = `Cuenta sin pedidos${since ? ` · desde ${since}` : ""}`;
+			}
+			return account.isActive ? label : `${label} (desactivada)`;
+		},
+		[accounts, clientLabel, locale],
+	);
+
+	/** A quién pertenece un cupón restringido; los de ficha son del esquema anterior. */
+	const couponOwnerLabel = useCallback(
+		(row) => {
+			if (row.restricted_account_id) return accountLabel(row.restricted_account_id);
+			if (row.restricted_client_id) return clientLabel(row.restricted_client_id);
+			return "";
+		},
+		[accountLabel, clientLabel],
+	);
+
+	/** Cuentas activas; la ya asignada se conserva para no vaciar el select al editar. */
+	const couponAccountOptions = useMemo(() => {
+		const current = String(draft.restricted_account_id || "");
+		return accounts
+			.filter((a) => a.isActive || a.id === current)
+			.map((a) => ({ value: a.id, label: accountLabel(a.id) }));
+	}, [accounts, draft.restricted_account_id, accountLabel]);
 
 	const filteredRows = useMemo(() => {
 		const q = searchTerm.trim().toLowerCase();
@@ -268,13 +330,10 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 			const dsc = pct
 				? `${Number(row.discount_value)}%`
 				: String(Number(row.discount_value ?? 0));
-			const scope =
-				row.scope === "client_only" && row.restricted_client_id
-					? clientLabel(row.restricted_client_id).toLowerCase()
-					: "all";
+			const scope = row.scope === "client_only" ? couponOwnerLabel(row).toLowerCase() : "all";
 			return code.includes(q) || dsc.includes(q) || scope.includes(q);
 		});
-	}, [rows, searchTerm, statusFilter, clientLabel]);
+	}, [rows, searchTerm, statusFilter, couponOwnerLabel]);
 
 	if (!cid) {
 		return (
@@ -402,40 +461,38 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 											setDraft((d) => ({
 												...d,
 												scope: v,
-												restricted_client_id:
-													v === "client_only" ? d.restricted_client_id : "",
+												restricted_account_id:
+													v === "client_only" ? d.restricted_account_id : "",
 											}))
 										}
 										options={[
 											{ value: "all", label: "Todos los clientes" },
-											{ value: "client_only", label: "Solo un cliente" },
+											{ value: "client_only", label: "Solo un cliente con cuenta" },
 										]}
 									/>
 								</div>
 								{draft.scope === "client_only" ? (
 									<div className="coupon-form-modal__field">
-										<label htmlFor="coupon-client">Cliente</label>
+										<label htmlFor="coupon-client">Cuenta del cliente</label>
 										<CouponFormSelect
 											id="coupon-client"
 											disabled={saving}
-											value={draft.restricted_client_id || "__none__"}
-											placeholder="Elegir cliente"
+											value={draft.restricted_account_id || "__none__"}
+											placeholder="Elegir cuenta"
 											onValueChange={(v) =>
 												setDraft((d) => ({
 													...d,
-													restricted_client_id: v === "__none__" ? "" : v,
+													restricted_account_id: v === "__none__" ? "" : v,
 												}))
 											}
 											options={[
-												{ value: "__none__", label: "— Elegir cliente —" },
-												...clients.map((c) => ({
-													value: String(c.id),
-													label: `${String(c.name || "").trim() || "(Sin nombre)"}${
-														String(c.phone || "").trim()
-															? ` · ${String(c.phone).trim()}`
-															: ""
-													}`,
-												})),
+												{
+													value: "__none__",
+													label: couponAccountOptions.length
+														? "— Elegir cuenta —"
+														: "— Aún no hay cuentas en el menú —",
+												},
+												...couponAccountOptions,
 											]}
 										/>
 									</div>
@@ -677,8 +734,8 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 									const mr = row.max_redemptions != null ? String(row.max_redemptions) : "∞";
 									const rc = String(row.redemptions_count ?? 0);
 									const scopeLbl =
-										row.scope === "client_only" && row.restricted_client_id
-											? `Cliente: ${clientLabel(row.restricted_client_id)}`
+										row.scope === "client_only" && (row.restricted_account_id || row.restricted_client_id)
+											? `Cliente: ${couponOwnerLabel(row)}`
 											: "Global";
 									return (
 										<tr key={row.id}>
