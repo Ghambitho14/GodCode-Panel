@@ -14,8 +14,8 @@ const ORDERS_RECONNECT_FETCH_MIN_MS = 5_000;
 /** Tabs que no necesitan actualizaciones en tiempo real de pedidos. */
 const TABS_WITHOUT_ORDERS_REALTIME = new Set(['analytics', 'local_expenses']);
 
-/** Estados visibles en el Kanban (movimiento entre columnas). */
-const KANBAN_BOARD_STATUSES = new Set(['pending', 'active', 'completed']);
+/** Columna "Entrada" del Kanban: el único estado que dispara sonido. */
+const ORDER_ENTRY_STATUS = 'pending';
 
 /** Estados terminales: cancelar / entregar — no deben sonar. */
 const ORDER_SILENT_STATUSES = new Set(['cancelled', 'picked_up']);
@@ -34,8 +34,9 @@ function normalizeOrderStatus(status) {
 }
 
 /**
- * ¿Debe sonar este UPDATE? Solo pedido nuevo (coalescido), movimiento Kanban o edición.
- * No suena al cancelar, entregar ni en otros cierres.
+ * ¿Debe sonar este UPDATE? Solo cuando el pedido llega a Entrada: pedido nuevo
+ * (INSERT coalescido) o movido de vuelta a Entrada. No suena al pasar a Cocina
+ * o Listo, al editar, cobrar, cancelar ni entregar.
  * @param {{ wasKnown: boolean, prevStatus: unknown, nextStatus: unknown }} args
  */
 function shouldNotifyOrderUpdateSound({ wasKnown, prevStatus, nextStatus }) {
@@ -47,9 +48,7 @@ function shouldNotifyOrderUpdateSound({ wasKnown, prevStatus, nextStatus }) {
 	// UPDATE de pedido desconocido = INSERT coalescido → tratar como llegada.
 	if (!wasKnown) return true;
 
-	if (prev === next) return true; // edición (mismo estado)
-
-	return KANBAN_BOARD_STATUSES.has(prev) && KANBAN_BOARD_STATUSES.has(next);
+	return next === ORDER_ENTRY_STATUS && prev !== ORDER_ENTRY_STATUS;
 }
 
 /**
