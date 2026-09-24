@@ -3,6 +3,7 @@ import "./styles/tailwind.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./modules/cash/app-shell";
 import { LoginShell } from "./modules/auth/login-shell";
+import { AppUpdateBanner } from "./shared/pwa/AppUpdateBanner";
 import { Loader2 } from "lucide-react";
 
 import "./modules/cash/styles/fulfillment-colors.css";
@@ -82,6 +83,7 @@ export function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <AppUpdateBanner />
       </AppShell>
     </BrowserRouter>
   );

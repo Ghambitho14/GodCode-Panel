@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -356,11 +356,33 @@ function proxyToSupabaseUpgrade(req, socket, head) {
   proxyReq.end();
 }
 
+/*
+ * Caché HTTP. Qué versión ve el cajero lo decide el service worker, así que
+ * index.html, sw.js y el manifest se revalidan siempre: si el navegador los
+ * guardara, un deploy no se detectaría. Lo de /assets/ lleva hash en el nombre
+ * y nunca cambia, así que se guarda un año.
+ */
+function cacheControlFor(filePath) {
+  const relative = filePath.slice(DIST_DIR.length).replace(/\\/g, "/");
+  if (relative.startsWith("/assets/")) return "public, max-age=31536000, immutable";
+  if (/\.(html|webmanifest)$/.test(relative) || relative === "/sw.js") return "no-cache";
+  return null;
+}
+
+function isFile(filePath) {
+  try {
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function serveFile(res, filePath) {
   const ext = extname(filePath);
-  res.writeHead(200, {
-    "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
-  });
+  const headers = { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" };
+  const cacheControl = cacheControlFor(filePath);
+  if (cacheControl) headers["Cache-Control"] = cacheControl;
+  res.writeHead(200, headers);
   createReadStream(filePath).pipe(res);
 }
 
@@ -370,8 +392,20 @@ async function serveStatic(req, res) {
   const normalizedPath = normalize(decodedPath).replace(/^(\.\.[/\\])+/, "");
   const candidate = join(DIST_DIR, normalizedPath);
 
-  if (candidate.startsWith(DIST_DIR) && existsSync(candidate) && !candidate.endsWith("/")) {
+  // Solo archivos: con una carpeta (/assets) el stream fallaba con EISDIR y la
+  // petición quedaba colgada sin respuesta.
+  if (candidate.startsWith(DIST_DIR) && isFile(candidate)) {
     return serveFile(res, candidate);
+  }
+
+  // Un archivo que no existe es un 404, no la app. Suele ser un chunk de un
+  // deploy anterior: devolver index.html como si fuera JS rompía la carga con
+  // un error confuso en vez de dejar que el panel recargue la versión nueva.
+  const requestedExt = extname(normalizedPath);
+  if (requestedExt && requestedExt !== ".html") {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    res.end("Not found");
+    return;
   }
 
   const indexPath = join(DIST_DIR, "index.html");
@@ -379,7 +413,7 @@ async function serveStatic(req, res) {
     return json(res, 500, { error: "Build no encontrado. Ejecuta npm run build primero." });
   }
 
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
   res.end(await readFile(indexPath, "utf8"));
 }
 
