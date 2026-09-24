@@ -18,6 +18,9 @@ const ManualOrderE2EHarness = import.meta.env.VITE_E2E === "1"
 const ManualOrderCheckoutVisualHarness = import.meta.env.VITE_E2E === "1"
 	? lazy(() => import("./modules/cash/e2e/ManualOrderCheckoutVisualHarness"))
 	: null;
+const CobroVisualHarness = import.meta.env.VITE_E2E === "1"
+	? lazy(() => import("./modules/cash/e2e/CobroVisualHarness"))
+	: null;
 
 function AdminRouteFallback() {
 	return (
@@ -64,6 +67,7 @@ export function App() {
         <Routes>
 		  {ManualOrderE2EHarness ? <Route path="/__e2e/manual-order" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderE2EHarness /></Suspense>} /> : null}
 		  {ManualOrderCheckoutVisualHarness ? <Route path="/__e2e/manual-order-ui" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderCheckoutVisualHarness /></Suspense>} /> : null}
+		  {CobroVisualHarness ? <Route path="/__e2e/cobro" element={<Suspense fallback={<AdminRouteFallback />}><CobroVisualHarness /></Suspense>} /> : null}
           <Route path="/" element={<LoginShell displayName="GodCode Caja" />} />
           <Route
             path="/admin"

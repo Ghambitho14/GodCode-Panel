@@ -924,123 +924,7 @@ button.table-session-receipt__item.is-busy {
 	background: var(--admin-icon-bg);
 }
 
-/* CloseTableModal — cuerpo de cobro */
-.admin-layout .close-table-modal__body {
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-y: auto;
-	padding: 0 18px;
-}
-
-.admin-layout .close-table-modal__confirm-only {
-	display: flex;
-	gap: 12px;
-	align-items: flex-start;
-	padding: 12px 14px;
-	margin: 8px 0 4px;
-	border-radius: 12px;
-	background: rgba(37, 211, 102, 0.1);
-	border: 1px solid rgba(37, 211, 102, 0.25);
-}
-
-.admin-layout .close-table-modal__confirm-only strong {
-	display: block;
-	font-size: 0.92rem;
-}
-
-.admin-layout .close-table-modal__confirm-only svg {
-	flex-shrink: 0;
-	color: #15803d;
-	margin-top: 2px;
-}
-
-.admin-layout .close-table-modal__confirm-only p {
-	margin: 4px 0 0;
-	font-size: 0.85rem;
-	color: var(--admin-text-muted);
-}
-
-.admin-layout .close-table-modal__actions {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 8px;
-	width: 100%;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt {
-	gap: 14px;
-	padding: 8px 0 0;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-checkout-section {
-	gap: 10px;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-checkout-section-title {
-	font-size: 0.92rem;
-	font-weight: 700;
-	text-transform: none;
-	letter-spacing: normal;
-	color: var(--admin-text);
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-methods {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 8px;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-btn {
-	flex-direction: row;
-	justify-content: center;
-	padding: 10px 8px;
-	border-radius: var(--receipt-btn-radius-md, 5px);
-	border: 1px solid var(--admin-border);
-	background: var(--admin-card-bg, #fff);
-	color: var(--admin-text);
-	font-size: 0.78rem;
-	font-weight: 600;
-	gap: 6px;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-btn.active {
-	background: var(--admin-accent, #2563eb);
-	border-color: var(--admin-accent, #2563eb);
-	color: #fff;
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-btn:hover:not(:disabled):not(.active) {
-	background: var(--admin-icon-bg);
-	border-color: color-mix(in srgb, var(--admin-border) 60%, var(--admin-text));
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-mixed-toggle {
-	margin-top: 4px;
-	font-size: 0.78rem;
-	border-style: solid;
-	border-color: var(--admin-border);
-	border-radius: var(--receipt-btn-radius-sm, 4px);
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-mixed-toggle.active,
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-mixed-toggle:hover {
-	border-color: var(--admin-accent, #2563eb);
-	color: var(--admin-accent, #2563eb);
-	background: color-mix(in srgb, var(--admin-accent, #2563eb) 8%, transparent);
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-input {
-	border-color: var(--admin-border);
-	background: var(--admin-card-bg, #fff);
-	color: var(--admin-text);
-}
-
-.table-session-modal-portal .manual-order-checkout--receipt .manual-order-cash-tender__shortcut {
-	border-color: var(--admin-border);
-	background: var(--admin-icon-bg);
-	color: var(--admin-text);
-	border-radius: var(--receipt-btn-radius-sm, 4px);
-}
+/* El Cobro (CloseTableModal) tiene su propia hoja: CobroModal.css. */
 
 @media (max-width: 480px) {
 	.admin-layout .tables-grid {
@@ -1071,10 +955,6 @@ button.table-session-receipt__item.is-busy {
 		font-size: 0.88rem;
 	}
 
-	.admin-layout .close-table-modal__actions {
-		grid-template-columns: 1fr;
-	}
-
 	.table-session-modal-portal .table-session-modal-overlay {
 		align-items: flex-end;
 		padding-bottom: 0;
@@ -1085,15 +965,5 @@ button.table-session-receipt__item.is-busy {
 		max-height: 94vh;
 		border-bottom-left-radius: 0;
 		border-bottom-right-radius: 0;
-	}
-
-	.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-methods {
-		grid-template-columns: repeat(2, 1fr);
-	}
-}
-
-@media (max-width: 360px) {
-	.table-session-modal-portal .manual-order-checkout--receipt .manual-order-payment-methods {
-		grid-template-columns: 1fr;
 	}
 }
