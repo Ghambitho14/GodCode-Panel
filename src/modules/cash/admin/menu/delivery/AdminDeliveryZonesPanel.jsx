@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
-import { MapPin, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, MapPin, Plus, Trash2 } from "lucide-react";
 import AdminHelpTip from "../../../components/AdminHelpTip";
 import DeliveryPlaceSuggestInput from "../../../components/DeliveryPlaceSuggestInput";
 import { DELIVERY_TOOLTIPS } from "./deliveryZoneHelpers";
 import { Button } from "@/components/ui/button";
-import { normalizeBranchOrigin } from "@/lib/geo";
+import { buildGoogleMapsPointUrl, isExampleOrigin, normalizeBranchOrigin, parseLatLngPair } from "@/lib/geo";
 import { isVenezuelaCountry } from "@/lib/geo/tenant-locale";
 
 const STRATEGIES = [
@@ -45,13 +45,27 @@ export default function AdminDeliveryZonesPanel({
 
 	const originSet =
 		String(draft.originLat ?? "").trim() !== "" && String(draft.originLng ?? "").trim() !== "";
+	const originPoint = originCheck && originCheck.lat != null && originCheck.lng != null ? originCheck : null;
+	const originMapsUrl = originPoint ? buildGoogleMapsPointUrl(originPoint.lat, originPoint.lng) : "";
+	// Las coordenadas de ejemplo se quedaron guardadas en dos locales: el envío se medía desde ahí.
+	const originIsExample = originSet && isExampleOrigin(draft.originLat, draft.originLng);
 
-	const latPlaceholder = isVenezuelaCountry(selectedBranch?.country)
-		? "Ej: 11.0208"
-		: "Ej: -33.4489";
-	const lngPlaceholder = isVenezuelaCountry(selectedBranch?.country)
-		? "Ej: -63.8937 (negativa)"
-		: "Ej: -70.6693";
+	/*
+	 * Sin números de ejemplo: los que había se copiaban tal cual y el local quedaba
+	 * en el centro de Santiago o de Porlamar.
+	 */
+	const latPlaceholder = "Pega aquí «lat, lng» de Google Maps";
+	const lngPlaceholder = isVenezuelaCountry(selectedBranch?.country) ? "Negativa en Venezuela" : "Negativa en Chile";
+
+	/** Google Maps copia "lat, lng" juntos: si se pegan en un campo, se reparten solos. */
+	const onOriginInput = (field, value) => {
+		const pair = parseLatLngPair(value);
+		if (pair) {
+			setDraft((d) => ({ ...d, originLat: String(pair.lat), originLng: String(pair.lng) }));
+			return;
+		}
+		setDraft((d) => ({ ...d, [field]: value }));
+	};
 
 	const strategies = STRATEGIES.filter(
 		(s) => s.id !== "external" || allowTenantExternalDelivery,
@@ -69,6 +83,17 @@ export default function AdminDeliveryZonesPanel({
 					<span>
 						El local está en <strong>{draft.originLat}, {draft.originLng}</strong>
 					</span>
+					{originMapsUrl ? (
+						<a
+							href={originMapsUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="admin-delivery-origin__map"
+						>
+							Ver en Google Maps
+							<ExternalLink size={13} aria-hidden />
+						</a>
+					) : null}
 					<button
 						type="button"
 						className="admin-delivery-origin__edit"
@@ -95,7 +120,7 @@ export default function AdminDeliveryZonesPanel({
 								placeholder={latPlaceholder}
 								disabled={lockOptions}
 								value={draft.originLat}
-								onChange={(ev) => setDraft((d) => ({ ...d, originLat: ev.target.value }))}
+								onChange={(ev) => onOriginInput("originLat", ev.target.value)}
 							/>
 						</div>
 						<div className="form-group">
@@ -108,12 +133,29 @@ export default function AdminDeliveryZonesPanel({
 								placeholder={lngPlaceholder}
 								disabled={lockOptions}
 								value={draft.originLng}
-								onChange={(ev) => setDraft((d) => ({ ...d, originLng: ev.target.value }))}
+								onChange={(ev) => onOriginInput("originLng", ev.target.value)}
 							/>
 						</div>
 					</div>
+					<p className="admin-delivery-origin__help">
+						En Google Maps, mantén presionado (o clic derecho) sobre tu local y copia los números que aparecen.
+						{originMapsUrl ? (
+							<>
+								{" "}
+								<a href={originMapsUrl} target="_blank" rel="noopener noreferrer">
+									Comprobar el punto
+								</a>
+							</>
+						) : null}
+					</p>
 				</>
 			)}
+			{originIsExample ? (
+				<p className="admin-delivery-origin-warn admin-delivery-origin-warn--error" role="status">
+					Estas son las coordenadas de ejemplo, no las de tu local: el envío por distancia se está midiendo desde
+					otro lugar. Toca «Cambiar» y pega las de tu local.
+				</p>
+			) : null}
 			{originCheck?.warning ? (
 				<p
 					className={`admin-delivery-origin-warn${originCheck.fixed ? " admin-delivery-origin-warn--fixed" : " admin-delivery-origin-warn--error"}`}

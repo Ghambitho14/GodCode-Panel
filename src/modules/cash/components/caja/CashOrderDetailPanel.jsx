@@ -20,6 +20,7 @@ import {
 	ORDERS_PANEL_SELECT,
 	parseOrderItems,
 	structuredAddressRows,
+	deliveryLocationNote,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { buildWhatsAppUrl, normalizePhoneDigits, WhatsAppGlyph } from '@/shared/utils/phoneWhatsApp';
@@ -126,6 +127,8 @@ export default function CashOrderDetailPanel({
 			: null;
 	// `maps_url` lo escribe el storefront: se sanea antes de pintarlo en un href.
 	const mapsUrl = toSafeHttpUrl(addrObj?.maps_url) ?? '';
+	// De dónde salió el punto (GPS, marcado en el mapa, dirección escrita): avisa si es aproximado.
+	const locationNote = deliveryLocationNote(addrObj);
 	const handoff =
 		displayOrder.handoff_code != null && String(displayOrder.handoff_code).trim() !== ''
 			? String(displayOrder.handoff_code).trim()
@@ -248,9 +251,14 @@ export default function CashOrderDetailPanel({
 									className="order-detail-ticket-btn order-detail-maps-link"
 								>
 									<MapPin size={18} aria-hidden />
-									Abrir en mapas
+									Abrir en Google Maps
 									<ExternalLink size={14} aria-hidden className="order-detail-link-icon" />
 								</a>
+							) : null}
+							{locationNote ? (
+								<p className={`order-location-note order-location-note--${locationNote.tone}`}>
+									{locationNote.text}
+								</p>
 							) : null}
 						</div>
 					) : null}
@@ -345,7 +353,7 @@ export default function CashOrderDetailPanel({
 									className="order-detail-ticket-btn"
 								>
 									<MapPin size={18} aria-hidden />
-									Abrir en mapas
+									Abrir en Google Maps
 								</a>
 							) : null}
 							{isDelivery ? (

@@ -2976,3 +2976,18 @@
 .admin-layout .order-detail-receipt-close:hover {
     background: var(--admin-icon-bg);
 }
+
+/* Precisión de la ubicación del pedido (ver deliveryLocationNote en orderUtils). */
+.order-location-note {
+	margin: 6px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.order-location-note--warn {
+	padding: 6px 10px;
+	border-radius: 8px;
+	background: rgba(245, 158, 11, 0.12);
+	color: #b45309;
+}

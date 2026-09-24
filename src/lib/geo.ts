@@ -163,6 +163,44 @@ export function normalizeBranchOrigin(
 	};
 }
 
+/**
+ * Coordenadas de ejemplo que mostraba la pantalla de delivery. Dos locales las
+ * dejaron guardadas como si fueran las suyas (centro de Santiago y Porlamar), y
+ * el envío por distancia se calculaba desde ahí: se detectan para avisar.
+ */
+export const ORIGIN_EXAMPLE_COORDS = [
+	{ lat: -33.4489, lng: -70.6693 },
+	{ lat: 11.0208, lng: -63.8937 },
+] as const;
+
+export function isExampleOrigin(lat: unknown, lng: unknown): boolean {
+	const la = Number(lat);
+	const ln = Number(lng);
+	if (!Number.isFinite(la) || !Number.isFinite(ln)) return false;
+	return ORIGIN_EXAMPLE_COORDS.some((c) => Math.abs(c.lat - la) < 1e-4 && Math.abs(c.lng - ln) < 1e-4);
+}
+
+/** Enlace para ver un punto en Google Maps (no para navegar). */
+export function buildGoogleMapsPointUrl(lat: number, lng: number): string {
+	return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+/**
+ * Lee "lat, lng" tal como lo copia Google Maps (clic derecho sobre el local, o la
+ * URL con `@lat,lng,17z`). Devuelve null si no hay dos números válidos.
+ */
+export function parseLatLngPair(text: unknown): GeoPoint | null {
+	const raw = String(text ?? "").trim();
+	if (!raw) return null;
+	const fromUrl = /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/.exec(raw);
+	const pair = fromUrl ?? /^\(?\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*\)?$/.exec(raw);
+	if (!pair) return null;
+	const lat = Number(pair[1]);
+	const lng = Number(pair[2]);
+	if (!isValidLatLng(lat, lng)) return null;
+	return { lat, lng };
+}
+
 /** Enlace para abrir navegacion hacia el punto de entrega. */
 export function buildGoogleMapsDirectionsUrl(lat: number, lng: number): string {
 	return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`;
