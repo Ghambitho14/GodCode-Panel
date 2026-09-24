@@ -1,97 +1,80 @@
 /**
- * Sonido al recibir un pedido nuevo (realtime). Archivo en public/sounds;
- * si falla (autoplay, 404), usa un timbre corto con Web Audio API.
+ * Sonido al recibir un pedido nuevo (realtime): una campanita de un solo toque,
+ * corta y fuerte, sintetizada con Web Audio API (sin archivo que descargar).
  */
 
-const SOUND_URL = '/sounds/sonidonotificacion.mp3';
+/** Frecuencia fundamental del "ding" (Mi6: brillante pero no chillón). */
+const BELL_FREQ = 1318.5;
+/** Parciales de campana: [multiplicador de frecuencia, ganancia relativa, duración s]. */
+const BELL_PARTIALS = [
+	[1, 1, 0.7],
+	[2.76, 0.18, 0.35],
+	[5.4, 0.06, 0.18],
+];
+/* Tiene que oírse sobre el ruido de un local. Los tres parciales suman 1,24 en
+   el golpe inicial: 0,8 lo deja en ~0,99, justo bajo el recorte digital. */
+const BELL_VOLUME = 0.8;
 
-let cachedAudio;
+/** @type {AudioContext | null} */
+let sharedCtx = null;
 
-function getAudio() {
+function getAudioContext() {
 	if (typeof window === 'undefined') return null;
-	if (!cachedAudio) {
-		try {
-			cachedAudio = new Audio(SOUND_URL);
-			cachedAudio.preload = 'auto';
-		} catch {
-			cachedAudio = null;
-		}
+	if (sharedCtx) return sharedCtx;
+	const AC = window.AudioContext || window.webkitAudioContext;
+	if (!AC) return null;
+	try {
+		sharedCtx = new AC();
+	} catch {
+		sharedCtx = null;
 	}
-	return cachedAudio;
+	return sharedCtx;
 }
 
-function playFallbackChime() {
-	try {
-		const AC = window.AudioContext || window.webkitAudioContext;
-		if (!AC) return;
-		const ctx = new AC();
-		const now = ctx.currentTime;
-		const master = ctx.createGain();
-		master.connect(ctx.destination);
-		master.gain.setValueAtTime(0.0001, now);
-		master.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
-		master.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+/** @param {AudioContext} ctx */
+function playBell(ctx) {
+	const now = ctx.currentTime;
+	const master = ctx.createGain();
+	master.gain.value = BELL_VOLUME;
+	master.connect(ctx.destination);
 
-		const freqs = [784, 1175];
-		freqs.forEach((freq, i) => {
-			const osc = ctx.createOscillator();
-			osc.type = 'sine';
-			osc.frequency.value = freq;
-			osc.connect(master);
-			const t0 = now + i * 0.1;
-			osc.start(t0);
-			osc.stop(t0 + 0.22);
-		});
+	BELL_PARTIALS.forEach(([ratio, gain, duration]) => {
+		const osc = ctx.createOscillator();
+		osc.type = 'sine';
+		osc.frequency.value = BELL_FREQ * ratio;
 
-		setTimeout(() => {
-			ctx.close().catch(() => {});
-		}, 600);
-	} catch {
-		/* ignore */
-	}
+		const env = ctx.createGain();
+		env.gain.setValueAtTime(0.0001, now);
+		env.gain.exponentialRampToValueAtTime(gain, now + 0.005);
+		env.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+		osc.connect(env);
+		env.connect(master);
+		osc.start(now);
+		osc.stop(now + duration + 0.05);
+	});
 }
 
 /**
  * Reproduce el aviso sonoro (no bloquea). Seguro de llamar solo en el cliente.
  */
 export function playOrderNotificationSound() {
-	if (typeof window === 'undefined') return;
-
-	const el = getAudio();
-	if (!el) {
-		playFallbackChime();
-		return;
-	}
-
+	const ctx = getAudioContext();
+	if (!ctx) return;
 	try {
-		el.currentTime = 0;
-		const p = el.play();
-		if (p !== undefined && typeof p.catch === 'function') {
-			p.catch(() => playFallbackChime());
+		if (ctx.state === 'suspended') {
+			ctx.resume().then(() => playBell(ctx)).catch(() => {});
+			return;
 		}
+		playBell(ctx);
 	} catch {
-		playFallbackChime();
+		/* ignore */
 	}
 }
 
-let primed = false;
-
 /** Primera interacción en el panel: desbloquea audio para que suene con pedidos en tiempo real. */
 export function primeOrderNotificationAudio() {
-	if (typeof window === 'undefined' || primed) return;
-	const el = getAudio();
-	if (!el) return;
-	primed = true;
-	const prev = el.volume;
-	el.volume = 0;
-	el.play()
-		.then(() => {
-			el.pause();
-			el.currentTime = 0;
-			el.volume = prev;
-		})
-		.catch(() => {
-			el.volume = prev;
-			primed = false;
-		});
+	const ctx = getAudioContext();
+	if (!ctx || ctx.state !== 'suspended') return;
+	ctx.resume().catch(() => {});
 }
