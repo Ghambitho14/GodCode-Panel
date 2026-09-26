@@ -164,7 +164,7 @@ export default function OrderIntakePauseControl({
 			<Button variant="default"
 				ref={triggerRef}
 				type="button"
-				className={`order-intake-pause__combined inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-colors ${status.paused ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+				className={`order-intake-pause__combined inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-colors ${status.paused ? 'border-red-700 bg-red-600 text-white hover:bg-red-700' : 'border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700'}`}
 				onClick={handleToggleClick}
 				disabled={isDisabled}
 				aria-busy={saving}
