@@ -1,6 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
+import { startAppUpdates } from "./shared/pwa/app-update";
+
+startAppUpdates();
 
 function mountApp() {
   let container = document.getElementById("app");

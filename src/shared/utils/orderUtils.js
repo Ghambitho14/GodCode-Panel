@@ -1654,6 +1654,33 @@ export const ADDRESS_FIELD_LABELS = [
 ];
 
 /** Filas etiqueta/valor de una direccion estructurada, sin repetir valores. */
+/**
+ * Cómo obtuvo el storefront la ubicación del pedido (`delivery_address.location_source`).
+ * Devuelve el aviso para el cajero o null si no hay dato (pedidos antiguos o manuales).
+ * Con un punto aproximado por la dirección escrita, `maps_url` ya busca la dirección
+ * en Google Maps; con el GPS impreciso conviene confirmar con el cliente.
+ *
+ * @param {unknown} addr
+ * @returns {{ tone: 'ok' | 'warn', text: string } | null}
+ */
+export function deliveryLocationNote(addr) {
+	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) return null;
+	switch (addr.location_source) {
+		case 'pin':
+			return { tone: 'ok', text: 'El cliente marcó el punto en el mapa.' };
+		case 'gps':
+			return { tone: 'ok', text: 'Ubicación GPS del cliente.' };
+		case 'address':
+			return { tone: 'ok', text: 'Ubicación según la dirección escrita.' };
+		case 'address_approx':
+			return { tone: 'warn', text: 'Punto aproximado: el mapa busca la dirección escrita. Confírmala con el cliente si hay dudas.' };
+		case 'gps_approx':
+			return { tone: 'warn', text: 'GPS impreciso: confirma la dirección con el cliente.' };
+		default:
+			return null;
+	}
+}
+
 export function structuredAddressRows(addr, fallbackLines = []) {
 	if (!addr || typeof addr !== 'object' || Array.isArray(addr)) {
 		return fallbackLines.map((value, i) => ({

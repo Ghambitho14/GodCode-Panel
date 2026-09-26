@@ -1057,6 +1057,31 @@
 	color: var(--admin-text-muted, #64748b);
 }
 
+.admin-delivery-origin__map,
+.admin-delivery-origin__help a {
+	color: var(--admin-accent, #2563eb);
+	font-weight: 600;
+}
+
+.admin-delivery-origin__map {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.admin-delivery-origin__map:hover {
+	text-decoration: underline;
+}
+
+.admin-delivery-origin__help {
+	margin: 6px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.45;
+	opacity: 0.8;
+}
+
 .admin-delivery-origin__summary svg {
 	flex-shrink: 0;
 }

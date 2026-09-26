@@ -13,8 +13,13 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     bffDevPlugin(mode),
     react(),
-    mode !== "e2e" ? VitePWA({
+    VitePWA({
+      // En e2e no hay service worker, pero el módulo virtual de registro
+      // sigue resolviendo (a un no-op) para que main.tsx compile igual.
+      disable: mode === "e2e",
       registerType: "autoUpdate",
+      // Lo registra src/shared/pwa/app-update.ts, que además avisa de versiones nuevas.
+      injectRegister: false,
       devOptions: {
         enabled: true,
       },
@@ -60,7 +65,7 @@ export default defineConfig(({ mode }) => ({
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB to support Fondopublic.png (2.15 MB)
       },
-    }) : null,
+    }),
   ],
   resolve: {
     alias: {

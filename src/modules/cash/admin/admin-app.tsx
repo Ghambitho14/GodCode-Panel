@@ -24,6 +24,7 @@ import "../styles/AdminCoupons.css";
 import "../styles/AdminInventory.css";
 import "../styles/AdminKanban.css";
 import "../styles/AdminTables.css";
+import "../styles/CobroModal.css";
 import "../styles/AdminSettings.css";
 import "../styles/ManualOrderModal.css";
 import "../styles/Modals.css";

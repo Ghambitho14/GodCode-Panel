@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { Tag, Store, CreditCard, Receipt as ReceiptIcon, Upload, CheckCircle2, FileText, Coins, Split } from 'lucide-react';
 import {
     computeChangeDue,
@@ -11,8 +11,8 @@ import { ADMIN_MOBILE_MQ } from '../../constants/responsive';
 import { Button } from "@/components/ui/button";
 import { primaryActionButtonClass, selectedToggleActiveClass, spacing, textScale, toggleBaseClass } from './manualOrderStyles';
 import SectionHeader from './SectionHeader';
-import { parseMoneyInput, majorToMinor, minorToMajor, formatMinor } from '@/lib/money/minor-units';
-import { settlementToAccountingMinor, validatePaymentLines } from '../../domain/payment-methods';
+import { majorToMinor, minorToMajor, formatMinor } from '@/lib/money/minor-units';
+import { usePaymentLines } from '../../hooks/manual-order/usePaymentLines';
 import DualCurrencyAmount from './DualCurrencyAmount';
 
 const sectionCardClass = 'manual-order-step-card rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
@@ -30,131 +30,25 @@ const backBtnClass =
     'manual-order-checkout-actions__back flex min-h-[44px] min-w-[96px] max-w-[130px] flex-none items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 text-[13px] font-bold text-gc-text transition-colors';
 
 function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg, paymentOptional = false }) {
-    const methods = manualOrder.paymentMethods ?? [];
-    const lines = manualOrder.payment_lines ?? [];
-    const quote = manualOrder.quote;
-    const currency = manualOrder.currency;
-    const fractionDigits = manualOrder.fractionDigits;
-    const exchangeRate = String(branchDeliveryCfg?.exchangeRate ?? '');
-    const validation = quote ? validatePaymentLines(lines, quote, methods) : { valid: false, paidMinor: 0, errors: [] };
-    const remainingMinor = quote ? Number(quote.totalMinor) - Number(validation.paidMinor || 0) : 0;
-	const [amountDrafts, setAmountDrafts] = useState({});
-	const [tenderedDrafts, setTenderedDrafts] = useState({});
-
-    const toggleMethod = (method) => {
-        const existing = lines.find((line) => line.methodId === method.id);
-        if (existing) {
-			setAmountDrafts((prev) => {
-				const next = { ...prev };
-				delete next[existing.id];
-				return next;
-			});
-			setTenderedDrafts((prev) => {
-				const next = { ...prev };
-				delete next[existing.id];
-				return next;
-			});
-            updatePaymentLines(lines.filter((line) => line.id !== existing.id));
-            return;
-        }
-        const sameCurrency = method.currency === currency;
-		const allocatedMinor = sameCurrency ? Math.max(0, remainingMinor) : 0;
-		updatePaymentLines([...lines, {
-			id: crypto.randomUUID(), methodId: method.id, rail: method.rail,
-			amountMinor: allocatedMinor,
-			currency,
-			evidencePolicy: method.evidencePolicy,
-			settlementTrigger: method.settlementTrigger,
-			...(method.rail === 'cash' && sameCurrency ? { tenderedCurrency: currency } : {}),
-            ...(sameCurrency ? {} : { settlementAmountMinor: 0, settlementCurrency: method.currency, exchangeRate }),
-        }]);
-    };
-
-    const updateLine = (id, patch) => updatePaymentLines(lines.map((line) => line.id === id ? { ...line, ...patch } : line));
-
-	const clearAmountDraft = (lineId) => {
-		setAmountDrafts((prev) => {
-			if (!(lineId in prev)) return prev;
-			const next = { ...prev };
-			delete next[lineId];
-			return next;
-		});
-	};
-	const clearTenderedDraft = (lineId) => {
-		setTenderedDrafts((prev) => {
-			if (!(lineId in prev)) return prev;
-			const next = { ...prev };
-			delete next[lineId];
-			return next;
-		});
-	};
-
-    const updateAccountingAmount = (line, raw) => {
-		setAmountDrafts((prev) => ({ ...prev, [line.id]: raw }));
-		if (String(raw ?? '').trim() === '') {
-			updateLine(line.id, {
-				amountMinor: 0,
-				...(line.rail === 'cash' ? { tenderedAmountMinor: 0 } : {}),
-			});
-			return;
-		}
-		const parsed = parseMoneyInput(raw, { currency, fractionDigits, locale: manualOrder.locale });
-		if (parsed.valid) updateLine(line.id, {
-			amountMinor: parsed.minor,
-			...(line.rail === 'cash' && Number(line.tenderedAmountMinor || 0) < parsed.minor ? { tenderedAmountMinor: parsed.minor } : {}),
-		});
-    };
-    const updateSettlementAmount = (line, method, raw) => {
-		setAmountDrafts((prev) => ({ ...prev, [line.id]: raw }));
-		if (String(raw ?? '').trim() === '') {
-			updateLine(line.id, {
-				settlementAmountMinor: 0,
-				amountMinor: 0,
-				...(line.rail === 'cash' ? { tenderedAmountMinor: 0 } : {}),
-			});
-			return;
-		}
-		const parsed = parseMoneyInput(raw, { currency: method.currency, locale: manualOrder.locale });
-        if (!parsed.valid) return;
-        try {
-			updateLine(line.id, {
-				settlementAmountMinor: parsed.minor,
-                settlementCurrency: method.currency,
-                exchangeRate,
-				amountMinor: settlementToAccountingMinor(parsed.minor, method.currency, currency, exchangeRate),
-				...(line.rail === 'cash' && Number(line.tenderedAmountMinor || 0) < parsed.minor ? { tenderedAmountMinor: parsed.minor, tenderedCurrency: method.currency } : {}),
-            });
-        } catch {
-            updateLine(line.id, { settlementAmountMinor: parsed.minor, amountMinor: 0, exchangeRate: '' });
-		}
-	};
-	const updateTenderedAmount = (line, method, raw) => {
-		const tenderCurrency = method.currency;
-		setTenderedDrafts((prev) => ({ ...prev, [line.id]: raw }));
-		if (String(raw ?? '').trim() === '') {
-			updateLine(line.id, { tenderedAmountMinor: 0, tenderedCurrency: tenderCurrency });
-			return;
-		}
-		const parsed = parseMoneyInput(raw, { currency: tenderCurrency, locale: manualOrder.locale });
-		if (parsed.valid) updateLine(line.id, { tenderedAmountMinor: parsed.minor, tenderedCurrency: tenderCurrency });
-	};
-
-	const amountDisplayValue = (line, method, foreign) => {
-		if (line.id in amountDrafts) return amountDrafts[line.id];
-		if (foreign) {
-			const major = minorToMajor(line.settlementAmountMinor || 0, method.currency);
-			return major === 0 ? '' : String(major);
-		}
-		const major = minorToMajor(line.amountMinor || 0, currency, fractionDigits);
-		return major === 0 ? '' : String(major);
-	};
-
-	const tenderedDisplayValue = (line, method) => {
-		if (line.id in tenderedDrafts) return tenderedDrafts[line.id];
-		if (line.tenderedAmountMinor == null) return '';
-		const major = minorToMajor(line.tenderedAmountMinor, method.currency);
-		return major === 0 ? '' : String(major);
-	};
+    const {
+        methods,
+        lines,
+        quote,
+        currency,
+        fractionDigits,
+        exchangeRate,
+        validation,
+        remainingMinor,
+        toggleMethod,
+        updateAccountingAmount,
+        updateSettlementAmount,
+        updateTenderedAmount,
+        applyTenderedAmount,
+        clearAmountDraft,
+        clearTenderedDraft,
+        amountDisplayValue,
+        tenderedDisplayValue,
+    } = usePaymentLines({ manualOrder, updatePaymentLines, branchDeliveryCfg });
 
     return (
         <div className="space-y-3">
@@ -221,20 +115,7 @@ function PaymentLinesEditor({ manualOrder, updatePaymentLines, branchDeliveryCfg
 							<div className={`mt-2 flex flex-wrap ${spacing.compact}`}>
 								{manualOrder.cashDenominations[foreign ? method.currency : currency].map((amount) => (
 									<Button key={amount} variant="outline" type="button" className={billChipClass}
-										onClick={() => {
-											const tenderCurrency = method.currency;
-											const parsed = parseMoneyInput(String(amount), {
-												currency: tenderCurrency,
-												locale: manualOrder.locale,
-												fractionDigits: foreign ? undefined : fractionDigits,
-											});
-											if (!parsed.valid) return;
-											updateLine(line.id, {
-												tenderedAmountMinor: parsed.minor,
-												tenderedCurrency: tenderCurrency,
-											});
-											clearTenderedDraft(line.id);
-										}}>
+										onClick={() => applyTenderedAmount(line, method, amount)}>
 										{formatMinor(majorToMinor(amount, foreign ? method.currency : currency, foreign ? undefined : fractionDigits), { currency: foreign ? method.currency : currency, locale: manualOrder.locale, fractionDigits: foreign ? undefined : fractionDigits })}
 									</Button>
 				))}
@@ -307,9 +188,7 @@ const PaymentDetails = ({
 	hideEvidenceUpload = false,
 	paymentOptional = false,
     embedded = false,
-    variant = 'default',
 }) => {
-    const isReceipt = variant === 'receipt';
 	const accountingCurrency = manualOrder.currency || 'CLP';
 	const accountingDigits = manualOrder.fractionDigits;
 	const formatAccountingMoney = useCallback((amount) => formatMinor(
@@ -420,7 +299,6 @@ const PaymentDetails = ({
         <div className={cn(
             `flex min-h-0 flex-col ${spacing.normal}`,
             !embedded && 'h-full',
-            isReceipt && 'manual-order-checkout--receipt',
         )}>
 			{manualOrder.v2Enabled && manualOrder.quoteRevisionPending ? (
 				<div className="rounded-[12px] border border-gc-warning/40 bg-gc-warning/10 p-3 text-sm text-gc-text" role="alert">
@@ -430,9 +308,7 @@ const PaymentDetails = ({
 				</div>
 			) : null}
             <div ref={paymentMethodRef} className={cn(sectionCardClass, 'scroll-mt-3')}>
-                <SectionHeader icon={CreditCard} tone="accent">
-                    {isReceipt ? 'Seleccionar método de pago' : 'Método de pago'}
-                </SectionHeader>
+                <SectionHeader icon={CreditCard} tone="accent">Método de pago</SectionHeader>
                 {manualOrder.v2Enabled ? (
 	                    <PaymentLinesEditor
 							manualOrder={manualOrder}
@@ -470,7 +346,7 @@ const PaymentDetails = ({
                         aria-pressed={!isMixed && manualOrder.payment_type === 'online'}
                     >
                         <ReceiptIcon size={18} aria-hidden />
-						{isReceipt ? 'Transf.' : 'Transferencia'} {accountingCurrency}
+						Transferencia {accountingCurrency}
                     </Button>
                 </div>
                 <Button variant="outline"
@@ -485,7 +361,7 @@ const PaymentDetails = ({
                     aria-pressed={isMixed}
                 >
                     <Split size={16} aria-hidden />
-                    {isReceipt ? 'Pago mixto' : 'Pago mixto (efectivo + tarjeta)'}
+                    Pago mixto (efectivo + tarjeta)
                 </Button>
 				{manualOrder.v2Enabled && String(manualOrder.locale ?? '').toLowerCase().startsWith('es-ve') ? (
 					<p className={`mt-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
@@ -509,13 +385,11 @@ const PaymentDetails = ({
 					</SectionHeader>
 	                    <p className={`mb-2 ${textScale.micro} leading-relaxed text-gc-text-muted`}>
 							{manualOrder.payment_lines?.some((line) => line.evidencePolicy === 'required')
-								? (isReceipt
-									? 'Adjuntá el comprobante para poder registrar este pago.'
-									: 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.')
+								? 'Puedes crear el pedido ahora; quedará marcado como comprobante pendiente hasta que la imagen se persista.'
 								: 'Puedes subir el comprobante ahora o después desde la tarjeta del pedido.'}
 	                    </p>
 	                    <label
-	                        htmlFor={isReceipt ? 'receipt-upload-close' : 'receipt-upload'}
+	                        htmlFor="receipt-upload"
 	                        className={`flex cursor-pointer flex-col items-center justify-center ${spacing.compact} rounded-[12px] border border-dashed border-gc-border bg-gc-page p-4 transition-colors hover:border-gc-accent/30 hover:bg-gc-muted`}
 	                    >
 	                        <AdminIconSlot Icon={FileText} slotSize="md" tone="accent" />
@@ -524,7 +398,7 @@ const PaymentDetails = ({
 	                        </span>
 	                    </label>
 	                    <input
-	                        id={isReceipt ? 'receipt-upload-close' : 'receipt-upload'}
+	                        id="receipt-upload"
 	                        type="file"
 	                        accept="image/*"
 	                        onChange={handleFileChange}
@@ -730,13 +604,7 @@ const PaymentDetails = ({
 
             {!isFormValid() && !loading ? (
                 <p className="text-center text-[11px] leading-snug text-gc-text-muted" role="status">
-                    {isReceipt
-                        ? paymentValidation.reason === 'insufficient_tender'
-                            ? 'Indica el monto recibido en efectivo (debe cubrir el total).'
-                            : paymentValidation.reason === 'split_mismatch'
-                              ? 'El desglose mixto debe sumar exactamente el total a pagar.'
-                              : 'Selecciona un método de pago para continuar.'
-                        : isEditMode
+                    {isEditMode
                           ? 'Revisa los datos del pedido antes de guardar los cambios.'
                           : paymentValidation.reason === 'insufficient_tender'
                             ? 'Indica el monto recibido en efectivo (debe cubrir lo que paga el cliente).'

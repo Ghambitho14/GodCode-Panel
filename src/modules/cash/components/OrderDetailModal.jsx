@@ -48,6 +48,7 @@ import {
     sanitizeOrder,
     parseOrderItems,
     structuredAddressRows,
+    deliveryLocationNote,
 } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { Button } from "@/components/ui/button";
@@ -207,6 +208,8 @@ const OrderDetailModal = ({
             : null;
     // `maps_url` lo escribe el storefront: se sanea antes de pintarlo en un href.
     const mapsUrl = toSafeHttpUrl(addrObj?.maps_url) ?? '';
+    // De dónde salió el punto (GPS, marcado en el mapa, dirección escrita): avisa si es aproximado.
+    const locationNote = deliveryLocationNote(addrObj);
     const handoff =
         liveOrder.handoff_code != null && String(liveOrder.handoff_code).trim() !== ''
             ? String(liveOrder.handoff_code).trim()
@@ -442,9 +445,14 @@ const OrderDetailModal = ({
                                             className="table-session-receipt__link order-detail-receipt-maps"
                                         >
                                             <MapPin size={16} aria-hidden />
-                                            Abrir en mapas
+                                            Abrir en Google Maps
                                             <ExternalLink size={14} aria-hidden />
                                         </a>
+                                    ) : null}
+                                    {locationNote ? (
+                                        <p className={`order-location-note order-location-note--${locationNote.tone}`}>
+                                            {locationNote.text}
+                                        </p>
                                     ) : null}
                                 </section>
                             ) : null}

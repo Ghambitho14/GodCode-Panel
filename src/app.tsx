@@ -3,6 +3,7 @@ import "./styles/tailwind.css";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./modules/cash/app-shell";
 import { LoginShell } from "./modules/auth/login-shell";
+import { AppUpdateBanner } from "./shared/pwa/AppUpdateBanner";
 import { Loader2 } from "lucide-react";
 
 import "./modules/cash/styles/fulfillment-colors.css";
@@ -17,6 +18,9 @@ const ManualOrderE2EHarness = import.meta.env.VITE_E2E === "1"
 	: null;
 const ManualOrderCheckoutVisualHarness = import.meta.env.VITE_E2E === "1"
 	? lazy(() => import("./modules/cash/e2e/ManualOrderCheckoutVisualHarness"))
+	: null;
+const CobroVisualHarness = import.meta.env.VITE_E2E === "1"
+	? lazy(() => import("./modules/cash/e2e/CobroVisualHarness"))
 	: null;
 
 function AdminRouteFallback() {
@@ -64,6 +68,7 @@ export function App() {
         <Routes>
 		  {ManualOrderE2EHarness ? <Route path="/__e2e/manual-order" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderE2EHarness /></Suspense>} /> : null}
 		  {ManualOrderCheckoutVisualHarness ? <Route path="/__e2e/manual-order-ui" element={<Suspense fallback={<AdminRouteFallback />}><ManualOrderCheckoutVisualHarness /></Suspense>} /> : null}
+		  {CobroVisualHarness ? <Route path="/__e2e/cobro" element={<Suspense fallback={<AdminRouteFallback />}><CobroVisualHarness /></Suspense>} /> : null}
           <Route path="/" element={<LoginShell displayName="GodCode Caja" />} />
           <Route
             path="/admin"
@@ -78,6 +83,7 @@ export function App() {
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <AppUpdateBanner />
       </AppShell>
     </BrowserRouter>
   );
