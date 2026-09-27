@@ -13,4 +13,4 @@ export const INVENTORY_MOVEMENTS_PANEL_SELECT =
 	'id, branch_id, company_id, inventory_item_id, movement_type, quantity_delta, created_at, note, order_id';
 
 export const PRODUCT_INVENTORY_RECIPE_SELECT =
-	'id, company_id, product_id, inventory_item_id, qty_per_sale';
+	'id, company_id, product_id, inventory_item_id, qty_per_sale, part';

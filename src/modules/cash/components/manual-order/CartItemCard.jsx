@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Plus, StickyNote, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Minus, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
@@ -13,6 +13,8 @@ const CartItemCard = ({
     updateItemNote,
     isItemNoteOpen,
     toggleItemNote,
+	/** `(itemId) => void`; sin él no se muestra el botón de cambios. */
+	onOpenChanges = null,
 	formatMoney: formatMoneyOverride,
 	compact = false,
 	readOnly = false,
@@ -23,6 +25,14 @@ const CartItemCard = ({
     const subtotal = getOrderItemLineTotal(item);
     const noteOpen = !readOnly && isItemNoteOpen?.(item);
 	const noteText = String(item.note ?? '').trim();
+	const extras = Array.isArray(item.extras) ? item.extras : [];
+	const changesText = extras
+		.map((e) => {
+			const qty = Number(e.quantity) || 1;
+			const price = Number(e.price) > 0 ? ` (+${formatMoney(Number(e.price) * qty)})` : '';
+			return `${e.name}${qty > 1 ? ` ×${qty}` : ''}${price}`;
+		})
+		.join(' · ');
 	// 40px visibles + `manual-order-tap-44` = 44 efectivos. En compacto eran 36.
 	const controlSize = compact
 		? 'manual-order-tap-44 h-10 w-10 min-h-10 min-w-10'
@@ -67,6 +77,9 @@ const CartItemCard = ({
 					{hasDiscount ? (
 						<p className={cn(textScale.micro, 'mt-0.5 text-gc-accent')}>Oferta</p>
 					) : null}
+					{changesText ? (
+						<p className={cn(textScale.micro, 'mt-0.5 font-medium leading-snug text-gc-accent')}>{changesText}</p>
+					) : null}
 					{readOnly && noteText ? (
 						<p className={cn(textScale.micro, 'mt-0.5 line-clamp-2 text-gc-text-muted')}>{noteText}</p>
 					) : null}
@@ -109,6 +122,24 @@ const CartItemCard = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+					{onOpenChanges ? (
+						<Button
+							variant="outline"
+							type="button"
+							onClick={(e) => { e.stopPropagation(); onOpenChanges(item.id); }}
+							className={cn(
+								'flex items-center justify-center rounded-full border-0 bg-transparent p-0 shadow-none transition-colors',
+								controlSize,
+								extras.length > 0
+									? 'text-gc-accent hover:bg-gc-accent/10'
+									: 'text-gc-text-muted hover:bg-gc-muted hover:text-gc-accent',
+							)}
+							title="Cambios (quitar, agregar, cambiar)"
+							aria-label={`Cambios de ${item.name}`}
+						>
+							<ArrowLeftRight size={compact ? 14 : 15} />
+						</Button>
+					) : null}
                     <Button
 						variant="outline"
                         type="button"

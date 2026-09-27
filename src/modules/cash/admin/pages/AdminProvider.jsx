@@ -208,6 +208,10 @@ const normalizePanelAccess = (raw) => {
 	if (cleanTabs.includes('menu_options') && !cleanTabs.includes('menu_carousel')) {
 		cleanTabs.push('menu_carousel');
 	}
+	// "Agregar cambios" nace de Extras: quien ya tenía Extras lo hereda.
+	if (cleanTabs.includes('menu_extras') && !cleanTabs.includes('menu_modifiers')) {
+		cleanTabs.push('menu_modifiers');
+	}
 	return cleanTabs;
 };
 

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { openHeaderPopover, listenHeaderPopoverOpen } from "../utils/headerPopoverEvents";
 import { useHeaderPopoverPosition } from "../hooks/useHeaderPopoverPosition";
 
+const STOCK_ALERT_GROUP_MIN = 3;
+
 function getPopoverPortalParent() {
 	if (typeof document === "undefined") return null;
 	return document.querySelector(".admin-layout") || document.body;
@@ -56,6 +58,34 @@ export default function AdminNotificationCenter({
 		}
 		return out;
 	}, [inventoryBranchRows]);
+
+	/* Con muchos avisos del mismo tipo (p. ej. insumos recién creados en 0) se muestra una sola fila resumen. */
+	const stockAlertRows = useMemo(() => {
+		const rows = [];
+		for (const kind of ["agotado", "bajo"]) {
+			const list = stockAlerts.filter((a) => a.kind === kind);
+			if (list.length > STOCK_ALERT_GROUP_MIN) {
+				const preview = list.slice(0, 3).map((a) => a.name).join(", ");
+				const rest = list.length - 3;
+				rows.push({
+					key: `group-${kind}`,
+					kind,
+					title: kind === "agotado" ? `${list.length} insumos agotados` : `${list.length} insumos con stock bajo`,
+					detail: `${preview} y ${rest} más`,
+				});
+			} else {
+				for (const a of list) {
+					rows.push({
+						key: a.key,
+						kind,
+						title: kind === "agotado" ? "Agotado" : "Stock bajo",
+						detail: `${a.name}${a.st != null ? ` · ${a.st} (mín. ${a.min})` : ""}`,
+					});
+				}
+			}
+		}
+		return rows;
+	}, [stockAlerts]);
 
 	const pendingBroadcasts = useMemo(
 		() => (broadcasts || []).filter((b) => !b.readAt),
@@ -193,7 +223,7 @@ export default function AdminNotificationCenter({
 								<ul className="admin-notification-center__list">
 									{pausedByStock.map((p) => (
 										<li key={p.id}>
-											<Button variant="default"
+											<button
 												type="button"
 												className="admin-notification-center__row"
 												onClick={() => goProduct(p)}
@@ -207,16 +237,16 @@ export default function AdminNotificationCenter({
 													<span>{p.name}</span>
 												</span>
 												<ChevronRight size={16} className="admin-notification-center__chev" />
-											</Button>
+											</button>
 										</li>
 									))}
 								</ul>
 							) : null}
-							{branchLabel && stockAlerts.length > 0 ? (
+							{branchLabel && stockAlertRows.length > 0 ? (
 								<ul className="admin-notification-center__list">
-									{stockAlerts.map((a) => (
+									{stockAlertRows.map((a) => (
 										<li key={a.key}>
-											<Button variant="default"
+											<button
 												type="button"
 												className="admin-notification-center__row"
 												onClick={goInventory}
@@ -228,14 +258,11 @@ export default function AdminNotificationCenter({
 													<AlertTriangle size={16} />
 												</span>
 												<span className="admin-notification-center__row-body">
-													<strong>{a.kind === "agotado" ? "Agotado" : "Stock bajo"}</strong>
-													<span>
-														{a.name}
-														{a.st != null ? ` · ${a.st} (mín. ${a.min})` : ""}
-													</span>
+													<strong>{a.title}</strong>
+													<span>{a.detail}</span>
 												</span>
 												<ChevronRight size={16} className="admin-notification-center__chev" />
-											</Button>
+											</button>
 										</li>
 									))}
 								</ul>

@@ -49,6 +49,37 @@ const SUPPLIES_HELP =
 const RECIPES_HELP =
 	"Indica qué artículos consume cada producto del catálogo. Al confirmar un pedido se descuenta ese consumo del stock.";
 
+/** Partes típicas de un producto; se cruzan por nombre con los grupos de "Agregar cambios". */
+const RECIPE_PARTS = ["Base", "Proteína", "Relleno", "Plaqueta", "Topping", "Salsa", "Acompañamiento"];
+
+/**
+ * Parte(s) de una línea de receta. En una promo el mismo insumo puede ser relleno en un roll y
+ * plaqueta en otro, así que se marcan varias; se guardan como «Relleno, Plaqueta».
+ */
+function RecipePartPicker({ value, itemName, onChange }) {
+	const current = String(value || "").split(",").map((p) => p.trim()).filter(Boolean);
+	const all = [...RECIPE_PARTS, ...current.filter((p) => !RECIPE_PARTS.includes(p))];
+	const toggle = (part) => {
+		const next = current.includes(part) ? current.filter((p) => p !== part) : [...current, part];
+		onChange(all.filter((p) => next.includes(p)).join(", "));
+	};
+	return (
+		<details className="inventory-recipe-line__part">
+			<summary aria-label={`Parte del producto de ${itemName}`}>
+				{current.length > 0 ? current.join(", ") : "Sin parte"}
+			</summary>
+			<div className="inventory-recipe-line__part-menu" role="group" aria-label={`Partes de ${itemName}`}>
+				{all.map((part) => (
+					<label key={part}>
+						<input type="checkbox" checked={current.includes(part)} onChange={() => toggle(part)} />
+						<span>{part}</span>
+					</label>
+				))}
+			</div>
+		</details>
+	);
+}
+
 const UNLINKED_HELP =
 	"Bebidas y extras que vendes en el carrito pero que todavía no descuentan stock. Regístralos para llevarles inventario.";
 
@@ -792,6 +823,7 @@ const AdminInventory = ({
 					inventory_item_id: l.inventory_item_id,
 					qty_per_sale: Number(l.qty_per_sale) || 1,
 					input_unit: native,
+					part: l.part ?? "",
 				};
 			}),
 		);
@@ -818,6 +850,7 @@ const AdminInventory = ({
 				inventory_item_id: itemId,
 				qty_per_sale: 1,
 				input_unit: normalizeUnit(item?.unit || "un"),
+				part: "",
 			},
 		]);
 		setInsumoLineFilter("");
@@ -863,6 +896,7 @@ const AdminInventory = ({
 						product_id: productId,
 						inventory_item_id: String(l.inventory_item_id).trim(),
 						qty_per_sale: Math.max(0.0001, qtyNative || 0),
+						part: String(l.part ?? "").trim() || null,
 					};
 				});
 			if (rows.length > 0) {
@@ -1571,6 +1605,12 @@ const AdminInventory = ({
 														{stockLabel ? (
 															<span className="inventory-recipe-line__stock">{stockLabel}</span>
 														) : null}
+														{/* La parte cruza la receta con los grupos de "Agregar cambios" (Relleno, Plaqueta…). */}
+														<RecipePartPicker
+															value={line.part || ""}
+															itemName={sel?.name || "el artículo"}
+															onChange={(value) => updateRecipeLine(idx, "part", value)}
+														/>
 													</span>
 													<input
 														type="number"

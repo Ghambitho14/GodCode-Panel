@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { getEffectiveItemPrice } from './manualOrderShared';
+import { getEffectiveItemPrice, getItemChangesTotal } from './manualOrderShared';
 import { majorToMinor, minorToMajor, sumMinor } from '@/lib/money/minor-units';
 
 /**
@@ -15,7 +15,7 @@ export const useManualOrderCart = (initialItems = [], options = {}) => {
 
     // Calcular total bruto del carrito
 	const totalMinor = useMemo(() => sumMinor(items.map((item) => (
-		majorToMinor(getPrice(item), options.currency ?? 'CLP', options.fractionDigits) * item.quantity
+		majorToMinor(getPrice(item) + getItemChangesTotal(item), options.currency ?? 'CLP', options.fractionDigits) * item.quantity
 	))), [items, getPrice, options.currency, options.fractionDigits]);
 	const total = useMemo(
 		() => minorToMajor(totalMinor, options.currency ?? 'CLP', options.fractionDigits),
@@ -46,6 +46,8 @@ export const useManualOrderCart = (initialItems = [], options = {}) => {
                     discount_price: product.discount_price,
                     image_url: product.image_url,
                     description: product.description,
+                    category_id: product.category_id ?? null,
+                    company_id: product.company_id ?? null,
                     quantity: 1,
                     note: '',
                     manual_order_source: product.manual_order_source || null,
@@ -91,6 +93,17 @@ export const useManualOrderCart = (initialItems = [], options = {}) => {
         )));
     }, []);
 
+    // Cambios del armador "Agregar cambios" (quitar/agregar/cambiar); aplican a todas las unidades de la línea.
+    const updateItemChanges = useCallback((itemId, changes) => {
+        const key = normalizeItemId(itemId);
+        const extras = Array.isArray(changes) ? changes : [];
+        setItems(currentItems => currentItems.map(i => (
+            normalizeItemId(i.id) === key
+                ? { ...i, extras, extras_total: getItemChangesTotal({ extras }) }
+                : i
+        )));
+    }, []);
+
     // Reiniciar por completo el carrito
 	const resetCart = useCallback(() => {
 		setItems([]);
@@ -108,6 +121,7 @@ export const useManualOrderCart = (initialItems = [], options = {}) => {
         updateQuantity,
         removeItem,
         updateItemNote,
+        updateItemChanges,
 		resetCart,
 		restoreCart,
         getPrice

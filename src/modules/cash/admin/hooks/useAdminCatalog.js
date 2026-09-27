@@ -250,6 +250,7 @@ export function useAdminCatalog({
 						product_id: productId,
 						inventory_item_id: r.inventory_item_id,
 						qty_per_sale: Number(r.qty_per_sale) || 0,
+						part: r.part ?? null,
 						company_id: companyId
 					}));
 

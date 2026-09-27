@@ -1098,10 +1098,16 @@
     overflow: hidden;
 }
 
+/* El overflow viene de ProductModal.css solo si ese modal ya se cargó; aquí se declara
+   para que la receta larga siempre tenga scroll. */
 .admin-layout .modal-content.inventory-item-modal .modal-form-scroll,
 .admin-layout .modal-content.inventory-recipe-modal .modal-form-scroll {
     flex: 1 1 auto;
     min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Ritmo unico: los .form-group traian su propio margen y el formulario
@@ -1289,6 +1295,11 @@
     padding: 0 20px 16px;
 }
 
+/* Sin esto la lista (overflow: hidden) se encoge hasta caber y se corta en vez de dar scroll. */
+.admin-layout .inventory-recipe-editor__body > * {
+    flex-shrink: 0;
+}
+
 /*
  * Cada ingrediente era un desplegable de ancho completo, otro de unidad y un
  * boton: seis ingredientes eran dieciocho controles apilados. El articulo ya no
@@ -1382,6 +1393,70 @@
     outline: 2px solid var(--admin-accent, #2563eb);
     outline-offset: 2px;
     border-radius: 6px;
+}
+
+/* Misma lógica que la unidad: una elección discreta bajo el nombre, no un campo más. */
+.admin-layout .inventory-recipe-line__part {
+    align-self: stretch;
+    max-width: 100%;
+    margin-top: 2px;
+}
+
+.admin-layout .inventory-recipe-line__part > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 24px;
+    padding: 0 4px;
+    margin-left: -4px;
+    border-radius: 6px;
+    color: var(--admin-accent, #2563eb);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.admin-layout .inventory-recipe-line__part > summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-layout .inventory-recipe-line__part > summary::after {
+    content: "▾";
+    font-size: 0.7rem;
+}
+
+.admin-layout .inventory-recipe-line__part > summary:focus-visible {
+    outline: 2px solid var(--admin-accent, #2563eb);
+    outline-offset: 1px;
+}
+
+/* Se abre dentro de la línea: la lista de la receta recorta lo que sobresale (overflow: hidden). */
+.admin-layout .inventory-recipe-line__part-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 8px;
+    margin-top: 4px;
+    padding: 6px;
+    border: 1px solid var(--admin-border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--admin-icon-bg, #f8fafc);
+}
+
+.admin-layout .inventory-recipe-line__part-menu label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 6px;
+    border-radius: 6px;
+    color: var(--admin-text, #0f172a);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.admin-layout .inventory-recipe-line__part-menu label:hover {
+    background: var(--admin-hover-bg, #f1f5f9);
 }
 
 .admin-layout .inventory-recipe-line__unit-static {

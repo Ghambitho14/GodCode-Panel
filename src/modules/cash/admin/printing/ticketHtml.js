@@ -80,6 +80,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				extrasHtml = item.extras.map((extra) => {
 					const extraQty = Number(extra.quantity) || 1;
 					const extraName = escapeHtml(String(extra.name || 'Extra').toUpperCase());
+					if (extra.kind === 'change') return `<div class="k-extra">* ${extraName}${extraQty > 1 ? ` (X${extraQty})` : ''}</div>`;
 					return `<div class="k-extra">+ ${extraQty}x ${extraName}</div>`;
 				}).join('');
 			}
@@ -249,7 +250,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				return `
 			<div class="c-item c-item-extra">
 				<div class="c-row">
-					<span class="c-line-text">+ ${extraQty}x ${extraName}</span>
+					<span class="c-line-text">${extra.kind === 'change' ? `* ${extraName}${extraQty > 1 ? ` (X${extraQty})` : ''}` : `+ ${extraQty}x ${extraName}`}</span>
 					<span class="c-price">${fmt(order, extraLineTotal)}</span>
 				</div>
 			</div>

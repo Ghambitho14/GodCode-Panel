@@ -16,6 +16,8 @@ export const ADMIN_PANEL_TAB_OPTIONS = [
   { id: "inventory", label: "Inventario" },
   { id: "menu_beverages", label: "Bebidas" },
   { id: "menu_extras", label: "Extras" },
+  /** Borrador del armador de modificaciones por producto (quitar / agregar / cambiar). */
+  { id: "menu_modifiers", label: "Agregar cambios" },
   { id: "menu_carousel", label: "Carrusel" },
   { id: "menu_options", label: "Opciones de sucursal" },
   { id: "clients", label: "Clientes" },
