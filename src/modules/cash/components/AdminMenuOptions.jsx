@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Truck, LayoutGrid, Save, Armchair } from "lucide-react";
+import { Truck, LayoutGrid, Save, Armchair, Receipt } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
 import AdminBranchTablesSection from "./AdminBranchTablesSection";
+import AdminMenuTicketSection from "./AdminMenuTicketSection";
 import OrdersViewSwitch from "./OrdersViewSwitch";
 import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
@@ -9,12 +10,13 @@ import "../styles/AdminBranchOptions.css";
 import "../styles/AdminMenuOptions.css";
 import { Button } from "@/components/ui/button";
 
-const SUB_TAB_IDS = /** @type {const} */ (["delivery", "orders_view", "tables"]);
+const SUB_TAB_IDS = /** @type {const} */ (["delivery", "orders_view", "tables", "ticket"]);
 
 const SUB_TABS = [
 	{ id: "delivery", label: "Envío", Icon: Truck, panel: "menu-options-panel-delivery" },
 	{ id: "orders_view", label: "Vista de pedidos", Icon: LayoutGrid, panel: "menu-options-panel-orders-view" },
 	{ id: "tables", label: "Mesas", Icon: Armchair, panel: "menu-options-panel-tables" },
+	{ id: "ticket", label: "Ticket", Icon: Receipt, panel: "menu-options-panel-ticket" },
 ];
 
 function normalizeStoredSubTab(raw) {
@@ -46,10 +48,10 @@ function channelsEqual(a, b) {
 }
 
 /**
- * Pestaña "Opciones de sucursal": Envío, Vista de pedidos y Mesas.
+ * Pestaña "Opciones de sucursal": Envío, Vista de pedidos, Mesas y Ticket.
  * Bebidas/Extras/Carrusel viven en sidebar (menu_beverages / menu_extras / menu_carousel).
  */
-export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved }) {
+export default function AdminMenuOptions({ showNotify, selectedBranch, companyId, onDeliverySaved, companyName, logoUrl }) {
 	const {
 		ordersViewMode,
 		localOrderChannels,
@@ -59,6 +61,7 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 		setManualOrderMode,
 		setIsOpenMesaModal,
 		refreshCatalog,
+		companyProfile,
 	} = useAdmin();
 
 	const handleSeatReservation = useCallback(async (payload) => {
@@ -263,6 +266,26 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 							onSeatReservation={handleSeatReservation}
 						/>
 					</div>
+				) : null}
+			</div>
+
+			<div
+				role="tabpanel"
+				id="menu-options-panel-ticket"
+				aria-labelledby="menu-options-subtab-ticket"
+				hidden={activeSubTab !== "ticket"}
+				className="admin-menu-options-subpanel"
+			>
+				{activeSubTab === "ticket" ? (
+					<AdminMenuTicketSection
+						key={branchKey}
+						selectedBranch={selectedBranch}
+						companyName={companyName}
+						logoUrl={logoUrl}
+						company={companyProfile}
+						showNotify={showNotify}
+						onSaved={onDeliverySaved}
+					/>
 				) : null}
 			</div>
 		</div>

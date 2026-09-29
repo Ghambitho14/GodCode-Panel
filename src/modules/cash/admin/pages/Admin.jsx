@@ -117,6 +117,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
     loading,
     inventoryBranchRows,
     cashSystem,
+    companyId,
   } = useAdmin();
   const { locale } = useBranchMoney();
 
@@ -591,6 +592,8 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
                 selectedBranch={selectedBranch}
                 companyId={companyIdForClients}
                 onDeliverySaved={() => void refreshBranches()}
+                companyName={companyProfile?.name || companyName}
+                logoUrl={logoUrl}
               />
             </React.Suspense>
           </AdminErrorBoundary>
@@ -825,6 +828,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
             onSave={handleSaveProduct}
             product={editingProduct}
             categories={categories}
+            companyId={companyId}
           />
         </React.Suspense>
       )}

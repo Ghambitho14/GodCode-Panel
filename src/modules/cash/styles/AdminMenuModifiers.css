@@ -40,7 +40,7 @@
 
 .admin-modifiers__columns {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(170px, 1fr)) minmax(280px, 1.4fr);
+	grid-template-columns: repeat(3, minmax(150px, 1fr)) minmax(270px, 1.4fr);
 	gap: 10px;
 	overflow-x: auto;
 	padding-bottom: 4px;
@@ -169,7 +169,7 @@
 	color: var(--admin-text-muted, #64748b);
 }
 
-.admin-modifiers__field input:not([type="checkbox"]),
+.admin-modifiers__field input:not([type="checkbox"], [type="radio"]),
 .admin-modifiers__search {
 	width: 100%;
 	height: 36px;
@@ -286,6 +286,30 @@
 	text-transform: uppercase;
 }
 
+.admin-modifiers__action-line--group-off .admin-modifiers__check span {
+	color: var(--admin-text-muted, #86868b);
+}
+
+.admin-modifiers__group-off {
+	flex-shrink: 0;
+	padding: 4px 10px;
+	border: 1px solid var(--admin-border, #e5e5ea);
+	border-radius: 999px;
+	background: var(--admin-page-bg, #f5f5f7);
+	font-size: 0.75rem;
+	color: var(--admin-text-muted, #86868b);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.admin-modifiers__group-off strong {
+	color: var(--admin-accent, #2563eb);
+}
+
+.admin-modifiers__group-off:hover {
+	border-color: var(--admin-accent, #2563eb);
+}
+
 .admin-modifiers__field input.admin-modifiers__price {
 	flex-shrink: 0;
 	width: 92px;
@@ -294,4 +318,70 @@
 	border-radius: 8px;
 	font-variant-numeric: tabular-nums;
 	text-align: right;
+}
+
+/* «Cómo se cobra el cambio» (acción Cambiar del grupo) y su jerarquía. */
+.admin-modifiers__pricing {
+	margin-top: 10px;
+}
+
+.admin-modifiers__pricing-mode {
+	align-items: flex-start;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	cursor: pointer;
+}
+
+.admin-modifiers__pricing-mode input {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin: 2px 0 0;
+	accent-color: var(--admin-accent, #2563eb);
+}
+
+.admin-modifiers__pricing-mode span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.admin-modifiers__pricing-mode strong {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--admin-text, #1d1d1f);
+}
+
+.admin-modifiers__pricing-mode small {
+	font-size: 0.75rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-modifiers__pricing-title {
+	margin-top: 8px;
+}
+
+.admin-modifiers__rank {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	border-radius: 999px;
+	background: var(--admin-page-bg, #f5f5f7);
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 22px;
+	text-align: center;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-modifiers__rank-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	font-size: 0.875rem;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--admin-text, #1d1d1f);
 }

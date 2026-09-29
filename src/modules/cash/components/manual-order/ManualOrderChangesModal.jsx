@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { cn } from '@/lib/utils';
 import { lineInPart, optionInLines } from '../../utils/modifierMatching';
+import { changeSurcharge } from '../../utils/modifierPricing';
 import { primaryActionButtonClass, textScale } from './manualOrderStyles';
 
 /*
@@ -12,7 +13,9 @@ import { primaryActionButtonClass, textScale } from './manualOrderStyles';
  * Sale de los grupos del armador "Agregar cambios" (`menu_modifier_groups`): se ven todas sus acciones
  * activas. Con receta, quitar y «cambiar» parten de lo que el producto lleva en la parte del grupo
  * (cada opción se cruza por sus insumos vinculados, o por nombre), y «por cuál» ofrece todas las
- * demás opciones del grupo. Cada cambio lleva cantidad (en una promo: a cuántos rolls aplica).
+ * demás opciones del grupo. El precio de cada cambio depende del modo de cobro del grupo (precio del
+ * destino, o jerarquía: ver `utils/modifierPricing.js`). Cada cambio lleva cantidad (en una promo: a
+ * cuántos rolls aplica).
  * Lo elegido se guarda en `item.extras` con `kind: 'change'`.
  */
 
@@ -76,7 +79,8 @@ function buildTree(groups, item, recipe) {
 							option: from,
 							target: to,
 							inRecipe: lleva(to),
-							price: priceOf(to),
+							// Según el grupo: precio del destino, o la diferencia si cobra por jerarquía.
+							price: changeSurcharge(action, from.optionId, to.id),
 							name: changeName(label, group.name, from.name, to.name),
 						})),
 				}));
@@ -85,7 +89,8 @@ function buildTree(groups, item, recipe) {
 					key: `${group.id}:quitar:${from.id}`,
 					option: from,
 					inRecipe: hasRecipe,
-					price: 0,
+					// Quitar también puede cobrar (p. ej. «sin nori $500»); sin precio es gratis.
+					price: priceOf(from),
 					name: changeName(label, group.name, from.name),
 				}));
 			} else {

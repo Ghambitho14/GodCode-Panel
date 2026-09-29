@@ -79,6 +79,11 @@ function buildCategoryNavKey(variant, id) {
     return `${variant}:${normalizeCategoryId(id)}`;
 }
 
+/** Id del chip unico de las secciones de bebidas y extras. */
+const UPSELL_SECTION_ID = '__section__';
+
+const UPSELL_SECTION_LABELS = { beverages: 'Bebidas', extras: 'Extras' };
+
 /** A que altura del area visible se considera que una seccion «se esta leyendo». */
 const READING_LINE_OFFSET = 96;
 
@@ -235,14 +240,31 @@ const ManualOrderCatalog = ({
                 });
             }
         };
+        // Bebidas y extras llevan un solo chip: sus grupos («Té y café»,
+        // «Salsas»…) son texto libre del catalogo de la sucursal, no
+        // categorias del menu, y se muestran como subtitulos de la seccion.
         if (hasProductsSection) pushFromCatalog(groupedBaseCatalog, 'products');
-        if (hasBeveragesSection) pushFromCatalog(groupedBeverageCatalog, 'beverages');
-        if (hasExtrasSection) pushFromCatalog(groupedExtrasCatalog, 'extras');
+        if (hasBeveragesSection) {
+            items.push({
+                key: buildCategoryNavKey('beverages', UPSELL_SECTION_ID),
+                name: UPSELL_SECTION_LABELS.beverages,
+                count: beverageProducts.length,
+                variant: 'beverages',
+            });
+        }
+        if (hasExtrasSection) {
+            items.push({
+                key: buildCategoryNavKey('extras', UPSELL_SECTION_ID),
+                name: UPSELL_SECTION_LABELS.extras,
+                count: extraProducts.length,
+                variant: 'extras',
+            });
+        }
         return items;
     }, [
         groupedBaseCatalog,
-        groupedBeverageCatalog,
-        groupedExtrasCatalog,
+        beverageProducts.length,
+        extraProducts.length,
         hasProductsSection,
         hasBeveragesSection,
         hasExtrasSection,
@@ -432,6 +454,82 @@ const ManualOrderCatalog = ({
         );
     };
 
+    /** Bebidas o extras: una sola seccion (un chip) con sus grupos como subtitulos. */
+    const renderUpsellSection = (catalog, variant) => {
+        if (!catalog || (catalog.groupedCategories.length === 0 && catalog.uncategorized.length === 0)) return null;
+
+        const label = UPSELL_SECTION_LABELS[variant];
+        const navKey = buildCategoryNavKey(variant, UPSELL_SECTION_ID);
+        const sourceLabel = variant === 'beverages' ? 'Bebida' : 'Extra';
+
+        // Un grupo llamado igual que la seccion («Bebidas» dentro de Bebidas)
+        // se junta con los que no tienen grupo.
+        const sameAsSection = (name) => String(name || '').trim().toLowerCase() === label.toLowerCase();
+        const namedGroups = catalog.groupedCategories.filter((cat) => !sameAsSection(cat.name));
+        const ungrouped = [
+            ...catalog.groupedCategories.filter((cat) => sameAsSection(cat.name)).flatMap((cat) => cat.products),
+            ...catalog.uncategorized,
+        ];
+        const total = ungrouped.length + namedGroups.reduce((sum, cat) => sum + cat.products.length, 0);
+
+        const renderGrid = (items) => (
+            <div className={`grid grid-cols-1 ${catalogGridGapClass} min-[340px]:grid-cols-2 min-[880px]:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]`}>
+                {items.map((p) => (
+                    <ProductCard
+                        key={p.id}
+                        product={p}
+                        quantity={getQty(p.id)}
+                        addItem={addItem}
+                        updateQuantity={updateQuantity}
+                        removeItem={removeItem}
+                        showProductImages
+                        sourceLabel={sourceLabel}
+                        variant={variant}
+                    />
+                ))}
+            </div>
+        );
+
+        const renderSubheading = (name, count) => (
+            <h4 className={`mb-2 flex items-center gap-2 ${textScale.body} font-semibold uppercase tracking-wide text-gc-text-muted-strong`}>
+                {name}
+                <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold normal-case tracking-normal text-gc-text-muted-strong`}>
+                    {count}
+                </span>
+            </h4>
+        );
+
+        return (
+            <section
+                className="mb-6 sm:mb-8 lg:mb-10 last:mb-0"
+                data-category-key={navKey}
+                ref={setCategoryRef(navKey)}
+            >
+                <h3 className={`mb-2.5 flex items-center gap-2 ${textScale.emphasis} font-bold text-gc-text sm:mb-3`}>
+                    <span className="h-4 w-0.5 rounded-full bg-gc-accent" aria-hidden />
+                    {label}
+                    <span className={`rounded-full bg-gc-muted px-1.5 py-0.5 ${textScale.micro} font-semibold text-gc-text-muted-strong`}>
+                        {total}
+                    </span>
+                </h3>
+
+                {namedGroups.map((cat) => (
+                    <div key={`${variant}-${normalizeCategoryId(cat.id)}`} className="mb-4 sm:mb-6">
+                        {renderSubheading(cat.name, cat.products.length)}
+                        {renderGrid(cat.products)}
+                    </div>
+                ))}
+
+                {ungrouped.length > 0 && (
+                    <div className="mb-4 sm:mb-6">
+                        {namedGroups.length > 0 ? renderSubheading('Otras', ungrouped.length) : null}
+                        {renderGrid(ungrouped)}
+                    </div>
+                )}
+            </section>
+        );
+    };
+
     useEffect(() => {
         if (searchPhase !== 'open') return undefined;
         const id = window.setTimeout(() => searchInputRef.current?.focus(), 0);
@@ -590,12 +688,12 @@ const ManualOrderCatalog = ({
                                 </div>
                                 {hasBeveragesSection ? (
                                     <div ref={beveragesSectionRef}>
-                                        {renderCatalogSection(groupedBeverageCatalog, 'beverages')}
+                                        {renderUpsellSection(groupedBeverageCatalog, 'beverages')}
                                     </div>
                                 ) : null}
                                 {hasExtrasSection ? (
                                     <div ref={extrasSectionRef}>
-                                        {renderCatalogSection(groupedExtrasCatalog, 'extras')}
+                                        {renderUpsellSection(groupedExtrasCatalog, 'extras')}
                                     </div>
                                 ) : null}
                             </>

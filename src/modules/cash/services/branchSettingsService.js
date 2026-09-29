@@ -478,4 +478,34 @@ export const branchSettingsService = {
 			allowTenantExternalDelivery: allowExt,
 		};
 	},
+
+	/**
+	 * Opciones de ticket de la sucursal (`ticketDesign`, `ticketShowDeliveryCode`). Van en
+	 * `manual_order_settings` (no en `delivery_settings`) porque esa columna ya viaja en el
+	 * `branch` que usan las impresiones. Se mezcla con lo que hay para no pisar las demás claves.
+	 * @param {string} branchId
+	 * @param {{ ticketDesign?: string; ticketShowDeliveryCode?: boolean }} ticketSettings
+	 */
+	async saveTicketSettings(branchId, ticketSettings) {
+		if (!branchId || branchId === 'all') throw new Error('Elige una sucursal');
+		const { data: row, error: loadError } = await supabase
+			.from(TABLES.branches)
+			.select('manual_order_settings')
+			.eq('id', branchId)
+			.maybeSingle();
+		if (loadError) throw loadError;
+		if (!row) throw new Error('Sucursal no encontrada');
+
+		const base = row.manual_order_settings && typeof row.manual_order_settings === 'object'
+			? row.manual_order_settings
+			: {};
+		const next = { ...base, ...ticketSettings };
+		const { error: upError } = await supabase
+			.from(TABLES.branches)
+			.update({ manual_order_settings: next })
+			.eq('id', branchId);
+		if (upError) throw upError;
+		invalidateBranchSettings(branchId);
+		return next;
+	},
 };

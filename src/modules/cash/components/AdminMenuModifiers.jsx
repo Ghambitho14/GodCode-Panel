@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "../hooks/useBranchMoney";
 import { sameIngredient } from "../utils/modifierMatching";
+import { CHANGE_PRICING, changePricingMode, changeSurcharge, changeValue } from "../utils/modifierPricing";
 import "../styles/AdminMenuModifiers.css";
 
 /*
@@ -69,7 +70,8 @@ function buildExampleGroups() {
 
 /**
  * Antes «cambiar» guardaba destinos por opción ({enabled, targets}); ahora cada opción activa
- * participa del cambio y su precio es lo que cuesta cambiar A ella.
+ * participa del cambio y su precio se cobra según `cambiar.pricing` (precio del destino, o
+ * jerarquía: ver `utils/modifierPricing.js`).
  */
 function normalizeActions(actions) {
 	const merged = { ...createGroup("").actions, ...(actions ?? {}) };
@@ -205,26 +207,35 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 		return () => { cancelled = true; };
 	}, [companyId]);
 
-	const flush = useCallback(async () => {
-		const ids = [...dirtyRef.current];
-		dirtyRef.current.clear();
-		const all = groupsRef.current;
-		const rows = all
-			.map((g, i) => (ids.includes(g.id) ? toRow(companyId, g, i) : null))
-			.filter(Boolean);
-		if (rows.length === 0) return;
-		const { error } = await supabase.from(TABLES.menu_modifier_groups).upsert(rows);
-		if (error) {
-			console.error("[AdminMenuModifiers] error al guardar", error);
-			ids.forEach((id) => dirtyRef.current.add(id));
-			writeDraft(companyId, groupsRef.current);
-			setStatus("error");
-			return;
-		}
-		if (dirtyRef.current.size === 0) {
-			writeDraft(companyId, null);
-			setStatus("saved");
-		}
+	/* Guardados en fila: eliminar espera al que esté en vuelo, si no su upsert
+	   llegaba después del delete y volvía a crear el grupo. */
+	const inFlightRef = useRef(Promise.resolve());
+
+	const flush = useCallback(() => {
+		const run = async () => {
+			const ids = [...dirtyRef.current];
+			dirtyRef.current.clear();
+			const all = groupsRef.current;
+			const rows = all
+				.map((g, i) => (ids.includes(g.id) ? toRow(companyId, g, i) : null))
+				.filter(Boolean);
+			if (rows.length === 0) return;
+			const { error } = await supabase.from(TABLES.menu_modifier_groups).upsert(rows);
+			if (error) {
+				console.error("[AdminMenuModifiers] error al guardar", error);
+				ids.forEach((id) => dirtyRef.current.add(id));
+				writeDraft(companyId, groupsRef.current);
+				setStatus("error");
+				return;
+			}
+			if (dirtyRef.current.size === 0) {
+				writeDraft(companyId, null);
+				setStatus("saved");
+			}
+		};
+		const next = inFlightRef.current.then(run, run);
+		inFlightRef.current = next;
+		return next;
 	}, [companyId]);
 
 	useEffect(() => {
@@ -249,6 +260,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 	const [selection, setSelection] = useState({ groupId: null, actionKey: null, optionId: null, level: null });
 	const [productQuery, setProductQuery] = useState("");
 	const [insumoQuery, setInsumoQuery] = useState("");
+	const [frozenRank, setFrozenRank] = useState(null);
 	const [inventoryItems, setInventoryItems] = useState([]);
 
 	useEffect(() => {
@@ -319,15 +331,34 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 	const deleteGroup = async () => {
 		const removedId = group.id;
 		if (!window.confirm(`¿Eliminar el grupo «${group.name || "Sin nombre"}»?`)) return;
+		// Fuera del autoguardado antes de cualquier await, y esperar al guardado que ya salió.
+		const wasDirty = dirtyRef.current.delete(removedId);
 		if (useDb) {
-			const { error } = await supabase.from(TABLES.menu_modifier_groups).delete().eq("id", removedId);
-			if (error) {
-				console.error("[AdminMenuModifiers] error al eliminar", error);
-				window.alert("No se pudo eliminar el grupo. Solo un administrador puede eliminar.");
+			await inFlightRef.current;
+			const { data, error } = await supabase
+				.from(TABLES.menu_modifier_groups)
+				.delete()
+				.eq("id", removedId)
+				.eq("company_id", companyId)
+				.select("id");
+			/* Un delete que la RLS no deja pasar no da error: borra 0 filas. Antes el grupo
+			   se quitaba de la pantalla igual y reaparecía al recargar. */
+			let failure = error ? error.message : null;
+			if (!failure && (data ?? []).length === 0) {
+				const { data: still } = await supabase
+					.from(TABLES.menu_modifier_groups)
+					.select("id")
+					.eq("id", removedId)
+					.maybeSingle();
+				if (still) failure = "tu usuario no tiene permiso para eliminar grupos en esta empresa";
+			}
+			if (failure) {
+				console.error("[AdminMenuModifiers] error al eliminar", error ?? failure);
+				if (wasDirty) dirtyRef.current.add(removedId);
+				window.alert(`No se pudo eliminar el grupo: ${failure}.`);
 				return;
 			}
 		}
-		dirtyRef.current.delete(removedId);
 		setGroups((prev) => prev.filter((g) => g.id !== removedId));
 		setSelection({ groupId: null, actionKey: null, optionId: null, level: null });
 	};
@@ -358,6 +389,92 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 	});
 
 	const parsePrice = (raw) => Math.max(0, Number(raw) || 0);
+
+	/*
+	 * Cómo cobra el grupo sus cambios. Cada negocio elige: unos cobran siempre el precio de la
+	 * opción nueva; otros (jerarquía) solo cobran si la nueva vale más, y la diferencia.
+	 * Con jerarquía se muestran las opciones de más cara a más barata para editar su valor.
+	 */
+	const renderChangePricing = () => {
+		const cambiar = group.actions.cambiar;
+		const mode = changePricingMode(cambiar);
+		const setMode = (next) => updateGroup(group.id, (g) => { g.actions.cambiar.pricing = next; });
+		const enabledOptions = group.options.filter((o) => cambiar.items[o.id]?.enabled);
+		const sorted = [...enabledOptions].sort((a, b) => changeValue(cambiar, b.id) - changeValue(cambiar, a.id));
+		// Mientras se escribe un valor la lista no se reordena (la fila saltaría bajo el cursor).
+		const ranked = frozenRank
+			? frozenRank.map((id) => enabledOptions.find((o) => o.id === id)).filter(Boolean)
+			: sorted;
+		const modes = [
+			{
+				value: CHANGE_PRICING.target,
+				label: "Precio de la opción nueva",
+				hint: "Siempre se cobra el precio de la opción a la que se cambia.",
+			},
+			{
+				value: CHANGE_PRICING.difference,
+				label: "Por jerarquía",
+				hint: "Solo se cobra si la opción nueva vale más, y se cobra la diferencia. Bajar o quedar igual es gratis.",
+			},
+		];
+		return (
+			<div className="admin-modifiers__field admin-modifiers__pricing">
+				<span>Cómo se cobra el cambio</span>
+				<div className="admin-modifiers__actions-list" role="radiogroup" aria-label="Cómo se cobra el cambio">
+					{modes.map((m) => (
+						<label key={m.value} className="admin-modifiers__action-line admin-modifiers__pricing-mode">
+							<input
+								type="radio"
+								name={`change-pricing-${group.id}`}
+								checked={mode === m.value}
+								onChange={() => setMode(m.value)}
+							/>
+							<span>
+								<strong>{m.label}</strong>
+								<small>{m.hint}</small>
+							</span>
+						</label>
+					))}
+				</div>
+				{mode === CHANGE_PRICING.difference ? (
+					<>
+						<span className="admin-modifiers__pricing-title">Jerarquía (de más cara a más barata)</span>
+						{ranked.length === 0 ? (
+							<Hint>Activa opciones en «{cambiar.label || DEFAULT_ACTION_LABELS.cambiar}» para armar la jerarquía.</Hint>
+						) : (
+							<div className="admin-modifiers__actions-list">
+								{ranked.map((o, i) => (
+									<div key={o.id} className="admin-modifiers__action-line">
+										<span className="admin-modifiers__rank">{i + 1}</span>
+										<span className="admin-modifiers__rank-name">{o.name || "Sin nombre"}</span>
+										<input
+											type="number"
+											min="0"
+											step={priceStep}
+											className="admin-modifiers__price"
+											aria-label={`Valor de ${o.name}`}
+											value={cambiar.items[o.id].price ?? 0}
+											onFocus={() => setFrozenRank(ranked.map((r) => r.id))}
+											onBlur={() => setFrozenRank(null)}
+											onChange={(e) => updateGroup(group.id, (g) => {
+												g.actions.cambiar.items[o.id].price = parsePrice(e.target.value);
+											})}
+										/>
+									</div>
+								))}
+							</div>
+						)}
+						<Hint>
+							Ejemplo: {sorted.length >= 2
+								? `${sorted[sorted.length - 1].name} → ${sorted[0].name} cobra ${formatMoney(changeSurcharge(cambiar, sorted[sorted.length - 1].id, sorted[0].id))}; ${sorted[0].name} → ${sorted[sorted.length - 1].name} es gratis.`
+								: "cambiar a una opción más cara cobra la diferencia; a una más barata es gratis."}
+							{" "}Las que tienen el mismo valor se cambian entre sí gratis.
+						</Hint>
+					</>
+				) : null}
+			</div>
+		);
+	};
 
 	const filteredProducts = useMemo(() => {
 		const q = productQuery.trim().toLowerCase();
@@ -465,6 +582,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 						<span>Acción activa en este grupo</span>
 					</label>
 					<Hint>Se puede renombrar; por ejemplo, «Sin» en vez de «Quitar».</Hint>
+					{selection.actionKey === "cambiar" ? renderChangePricing() : null}
 				</>
 			);
 		}
@@ -498,20 +616,33 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 							const item = group.actions[key].items[option.id];
 							const on = Boolean(item?.enabled);
 							const label = group.actions[key].label || DEFAULT_ACTION_LABELS[key];
+							/* La acción puede estar apagada para todo el grupo aunque la opción esté
+							   marcada: antes se leía «Agregar · apagada» junto a una casilla marcada y
+							   parecía un error. Ahora se dice dónde está apagada y se prende aquí. */
+							const actionOn = group.actions[key].enabled;
 							return (
-								<div key={key} className="admin-modifiers__action-line">
+								<div
+									key={key}
+									className={`admin-modifiers__action-line${actionOn ? "" : " admin-modifiers__action-line--group-off"}`}
+								>
 									<label className="admin-modifiers__check">
 										<input
 											type="checkbox"
 											checked={on}
 											onChange={(e) => setOptionEnabled(e.target.checked, key)}
 										/>
-										<span title={group.actions[key].enabled ? undefined : "Esta acción está apagada en el grupo"}>
-											{key === "cambiar" ? `${label} a esta` : label}
-											{group.actions[key].enabled ? "" : " · apagada"}
-										</span>
+										<span>{key === "cambiar" ? `${label} a esta` : label}</span>
 									</label>
-									{on && key !== "quitar" ? (
+									{!actionOn ? (
+										<button
+											type="button"
+											className="admin-modifiers__group-off"
+											title={`«${label}» está apagada para todo el grupo ${group.name || ""}: la caja no la ofrece en ninguna opción.`}
+											onClick={() => updateGroup(group.id, (g) => { g.actions[key].enabled = true; })}
+										>
+											Apagada en el grupo · <strong>Prender</strong>
+										</button>
+									) : on ? (
 										<input
 											type="number"
 											min="0"
@@ -529,7 +660,9 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 						})}
 						</div>
 						<Hint>
-							El precio de «cambiar a esta» es lo que cuesta cambiar a {option.name.toLowerCase() || "esta opción"}.
+							{changePricingMode(group.actions.cambiar) === CHANGE_PRICING.difference
+								? `El precio de «cambiar a esta» es el valor de ${option.name.toLowerCase() || "esta opción"} en la jerarquía del grupo: se cobra la diferencia solo si vale más que la de origen.`
+								: `El precio de «cambiar a esta» es lo que cuesta cambiar a ${option.name.toLowerCase() || "esta opción"}. Para cobrar por jerarquía, configúralo en ${group.actions.cambiar.label || DEFAULT_ACTION_LABELS.cambiar} del grupo.`}
 						</Hint>
 					</div>
 
@@ -672,7 +805,13 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 								const item = action.items[o.id];
 								const enabled = Boolean(item?.enabled);
 								let meta = "—";
-								if (enabled) meta = selection.actionKey === "quitar" ? "Sí" : priceLabel(item.price);
+								if (enabled) {
+									// Con jerarquía el precio es el valor de la opción, no un recargo fijo.
+									if (selection.actionKey === "cambiar" && changePricingMode(action) === CHANGE_PRICING.difference) {
+										meta = `Valor ${formatMoney(Number(item.price) || 0)}`;
+									}
+									else meta = priceLabel(item.price);
+								}
 								return (
 									<Row
 										key={o.id}

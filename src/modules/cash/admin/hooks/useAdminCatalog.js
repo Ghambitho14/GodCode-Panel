@@ -235,6 +235,9 @@ export function useAdminCatalog({
 				.eq('company_id', companyId);
 			if (dishErr) console.warn('dish_kind:', dishErr);
 
+			/* El producto ya quedó guardado: si la receta falla no se lanza (reintentar
+			   crearía un duplicado), se avisa para cargarla en Inventario → Recetas. */
+			let recipeError = null;
 			if (Array.isArray(formData.recipe)) {
 				const { error: delErr } = await supabase
 					.from(TABLES.product_inventory_recipe)
@@ -242,27 +245,35 @@ export function useAdminCatalog({
 					.eq('product_id', productId)
 					.eq('company_id', companyId);
 
-				if (delErr) console.warn('recipe delete:', delErr);
+				if (delErr) {
+					recipeError = delErr;
+				} else {
+					const rowsToInsert = formData.recipe
+						.filter(r => r.inventory_item_id && (Number(r.qty_per_sale) || 0) > 0)
+						.map(r => ({
+							product_id: productId,
+							inventory_item_id: r.inventory_item_id,
+							qty_per_sale: Number(r.qty_per_sale) || 0,
+							part: r.part ?? null,
+							company_id: companyId
+						}));
 
-				const rowsToInsert = formData.recipe
-					.filter(r => r.inventory_item_id && (Number(r.qty_per_sale) || 0) > 0)
-					.map(r => ({
-						product_id: productId,
-						inventory_item_id: r.inventory_item_id,
-						qty_per_sale: Number(r.qty_per_sale) || 0,
-						part: r.part ?? null,
-						company_id: companyId
-					}));
-
-				if (rowsToInsert.length > 0) {
-					const { error: insErr } = await supabase
-						.from(TABLES.product_inventory_recipe)
-						.insert(rowsToInsert);
-					if (insErr) console.warn('recipe insert:', insErr);
+					if (rowsToInsert.length > 0) {
+						const { error: insErr } = await supabase
+							.from(TABLES.product_inventory_recipe)
+							.insert(rowsToInsert);
+						if (insErr) recipeError = insErr;
+					}
 				}
 			}
 
-			showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
+			const savedLabel = editingProduct ? "Producto actualizado" : "Producto creado";
+			if (recipeError) {
+				console.warn('recipe save:', recipeError);
+				showNotify(`${savedLabel}, pero la receta no se guardó: ${recipeError.message}`, 'warning');
+			} else {
+				showNotify(savedLabel);
+			}
 			setIsModalOpen(false);
 			if (selectedBranch?.id && selectedBranch.id !== 'all') {
 				invalidateBranchInventory(selectedBranch.id);

@@ -65,6 +65,36 @@ export function formatTicketDateTime(order, locale) {
 	});
 }
 
+/** @param {Record<string, unknown>} order */
+function ticketDate(order) {
+	const d = order?.created_at ? new Date(order.created_at) : new Date();
+	return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+/** Fecha sola del ticket de caja: «29/09/2026». */
+export function formatTicketDate(order, locale) {
+	return ticketDate(order).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/** Hora con segundos del ticket de caja: «16:55:44». */
+export function formatTicketTime(order, locale) {
+	return ticketDate(order).toLocaleTimeString(locale, {
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false,
+	});
+}
+
+/**
+ * Correlativo del pedido dentro de la empresa (`order_number`, lo asigna la base).
+ * Vacío si no viene: nunca se cae al `id`, que es global de la plataforma.
+ */
+export function companyOrderNumberForTicket(order) {
+	const raw = order?.order_number ?? order?.display_id;
+	return raw == null || raw === '' ? '' : String(raw);
+}
+
 /**
  * Fecha y hora con guión (estilo ticket cocina / Oishi): «29/03/2026 - 17:47».
  * @param {Record<string, unknown>} order
@@ -118,7 +148,13 @@ export function whereLabelForKitchenTicket(order) {
 }
 
 /** Bloque compacto dirección/envío para tickets térmicos. */
-export function deliveryShipmentSectionHtml(order, fmt) {
+/**
+ * Caja de envío: primero la dirección (grande, es lo que busca el repartidor), después
+ * el cargo. El código de verificación solo va si la sucursal lo activó: es el que el
+ * cliente le da al repartidor al recibir, y si viaja impreso en la bolsa pierde sentido.
+ * @param {{ showDeliveryCode?: boolean }} [opts]
+ */
+export function deliveryShipmentSectionHtml(order, fmt, { showDeliveryCode = false } = {}) {
 	if (!isOrderDelivery(order)) return '';
 	const feeNum = Number(order?.delivery_fee);
 	const feeLbl =
@@ -127,7 +163,7 @@ export function deliveryShipmentSectionHtml(order, fmt) {
 			: 'GRATIS';
 	const hc = order?.handoff_code;
 	const codeLine =
-		hc != null && String(hc).trim() !== ''
+		showDeliveryCode && hc != null && String(hc).trim() !== ''
 			? `<p class="c-delivery-meta">COD. VERIF: ${escapeHtml(String(hc).trim())}</p>`
 			: '';
 	const lines = deliveryAddressLines(order?.delivery_address);
@@ -138,10 +174,10 @@ export function deliveryShipmentSectionHtml(order, fmt) {
 		: '<p class="c-delivery-line">(Sin texto de ubicación guardado)</p>';
 	return `
 			<div class="c-delivery-box">
-				<p class="c-delivery-heading">DATOS ENVÍO</p>
+				<p class="c-delivery-heading">DIRECCIÓN DE ENTREGA</p>
+				${addrInner}
 				<p class="c-delivery-meta">Cargo envío: ${escapeHtml(feeLbl)}</p>
 				${codeLine}
-				${addrInner}
 			</div>`;
 }
 
@@ -187,9 +223,11 @@ export function orderChannelForTicket(order, override) {
  * @param {Record<string, unknown>} order
  * @returns {string} HTML escapado
  */
-export function clientReferenceLineHtml(order) {
+export function clientReferenceLineHtml(order, { showDeliveryCode = false } = {}) {
 	const h = order?.handoff_code;
-	if (h != null && String(h).trim() !== '') {
+	// En delivery el código solo se imprime si la sucursal lo activó (ver deliveryShipmentSectionHtml).
+	const handoffAllowed = showDeliveryCode || !isOrderDelivery(order);
+	if (handoffAllowed && h != null && String(h).trim() !== '') {
 		return escapeHtml(`CL-${String(h).trim()}`);
 	}
 	const raw = order?.display_id ?? order?.order_number ?? order?.id;
