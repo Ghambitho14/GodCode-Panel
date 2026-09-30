@@ -691,6 +691,13 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				.c-sheet {
 					border: 1px solid #000;
 				}
+				/* Al imprimir el body va sin padding lateral y el recuadro caía justo en
+				   el borde del área imprimible: la térmica recortaba la línea derecha. */
+				@media print {
+					.c-sheet {
+						margin: 0 1mm;
+					}
+				}
 				.c-sec + .c-sec {
 					border-top: 1px solid #000;
 				}
