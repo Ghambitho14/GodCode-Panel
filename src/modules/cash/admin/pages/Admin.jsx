@@ -829,6 +829,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
             product={editingProduct}
             categories={categories}
             companyId={companyId}
+            branchId={selectedBranch?.id ?? null}
           />
         </React.Suspense>
       )}

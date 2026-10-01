@@ -267,10 +267,25 @@ export function useAdminCatalog({
 				}
 			}
 
+			/* Tamaños: igual que la receta, si fallan no se lanza (el producto ya existe). */
+			let sizesError = null;
+			if (Array.isArray(formData.sizes)) {
+				const { error: sizesErr } = await supabase.rpc('admin_set_product_sizes', {
+					p_product_id: productId,
+					p_branch_id: selectedBranch.id,
+					p_sizes: formData.sizes,
+					p_apply_to_all_branches: applyToAllBranches,
+				});
+				if (sizesErr) sizesError = sizesErr;
+			}
+
 			const savedLabel = editingProduct ? "Producto actualizado" : "Producto creado";
 			if (recipeError) {
 				console.warn('recipe save:', recipeError);
 				showNotify(`${savedLabel}, pero la receta no se guardó: ${recipeError.message}`, 'warning');
+			} else if (sizesError) {
+				console.warn('sizes save:', sizesError);
+				showNotify(`${savedLabel}, pero los tamaños no se guardaron: ${sizesError.message}`, 'warning');
 			} else {
 				showNotify(savedLabel);
 			}
