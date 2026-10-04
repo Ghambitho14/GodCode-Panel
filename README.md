@@ -2,8 +2,6 @@
 
 Panel de gestión para los negocios (tenants) de la plataforma SaaS GodCode: pedidos, caja, menú, clientes, reportes y soporte desde una sola aplicación web instalable (PWA), pensada para el mostrador, la cocina y la administración del local.
 
-Demo: [https://god-code-panel.vercel.app](https://god-code-panel.vercel.app)
-
 ---
 
 ## Contenido
@@ -233,7 +231,7 @@ El proyecto contempla tres formas de despliegue:
 
 **Vercel**
 
-La demo pública está desplegada en Vercel. Vite genera el frontend estático y las rutas de `api/auth/*` funcionan como funciones serverless (`@vercel/node`). Configura en el proyecto de Vercel las variables de Supabase y, de forma opcional, `KV_REST_API_URL` y `KV_REST_API_TOKEN` para el límite de intentos de login.
+Vite genera el frontend estático y las rutas de `api/auth/*` funcionan como funciones serverless (`@vercel/node`). Configura en el proyecto de Vercel las variables de Supabase y, de forma opcional, `KV_REST_API_URL` y `KV_REST_API_TOKEN` para el límite de intentos de login.
 
 **Docker**
 
