@@ -23,6 +23,7 @@ import {
 	computeDeliveryFeeForForm,
 	resolveOpenMesaClientName,
 	getLocalFulfillmentMode,
+	getItemChangesTotal,
 	hasManualOrderPaymentIntent,
 	isBlankClientDocument,
 	isOpenMesaMeseroMode,
@@ -54,6 +55,9 @@ function buildItems(items) {
 		note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
 		manual_order_source: item.manual_order_source || null,
 		is_extra: Boolean(item.is_extra),
+		...(Array.isArray(item.extras) && item.extras.length > 0
+			? { extras: item.extras, extras_total: getItemChangesTotal(item) }
+			: {}),
 	}));
 }
 
@@ -115,7 +119,7 @@ export const useManualOrder = (
 	const submitInFlightRef = useRef(false);
 
 	const {
-		items, total, totalMinor, addItem, updateQuantity, removeItem, updateItemNote, resetCart, restoreCart,
+		items, total, totalMinor, addItem, updateQuantity, removeItem, updateItemNote, updateItemChanges, resetCart, restoreCart,
 	} = useManualOrderCart([], {
 		currency,
 		fractionDigits,
@@ -416,7 +420,7 @@ export const useManualOrder = (
 							: (tableRef || resolveOpenMesaClientName(form.order_type, form.client_name, getLocalFulfillmentMode(form))),
 					)
 					: sanitizeManualOrderInput(form.client_name);
-				const totalForOrderMinor = sumMinor(itemsForOrder.map((item) => majorToMinor(item.has_discount && Number(item.discount_price) > 0 ? item.discount_price : item.price, currency, fractionDigits) * item.quantity));
+				const totalForOrderMinor = sumMinor(itemsForOrder.map((item) => majorToMinor((item.has_discount && Number(item.discount_price) > 0 ? item.discount_price : item.price) + getItemChangesTotal(item), currency, fractionDigits) * item.quantity));
 				const couponMinor = couponPreview?.variant === 'success' ? Math.min(totalForOrderMinor, majorToMinor(couponPreview.discount, currency, fractionDigits)) : 0;
 				const deliveryFee = form.order_type === 'delivery'
 					? (syncDeliveryFeeFromForm(form, minorToMajor(totalForOrderMinor, currency, fractionDigits)) ?? (Number(form.delivery_fee) || 0))
@@ -539,7 +543,10 @@ export const useManualOrder = (
 		updateClientName, updateClientKind, updateCouponCode, couponPreview, updateNote, updatePaymentType: handlePaymentTypeChange,
 		updatePaymentMode, updateCashAmount, updateCardAmount, updateCashTendered, updateChargeNow: handleChargeNowChange, updatePaymentLines,
 		handleRutChange, handlePhoneChange, applyClientRecord, applySavedDeliveryAddress, handleFileChange, removeReceipt,
-		addItem, updateQuantity, removeItem, updateItemNote, updateOrderType: handleUpdateOrderType,
+		addItem, updateQuantity, removeItem, updateItemNote,
+		// La cotización V2 todavía no suma `extras_total`: los cambios solo se ofrecen en el flujo legacy.
+		updateItemChanges: v2Enabled ? null : updateItemChanges,
+		updateOrderType: handleUpdateOrderType,
 		updateLocalFulfillmentMode: handleUpdateLocalFulfillmentMode, updateMesaPartyMode, updateDeliveryAddress,
 		updateDeliveryReference, updateDeliveryKm: handleUpdateDeliveryKm, updateDeliveryFee,
 		updateDeliveryNamedAreaId: handleUpdateDeliveryNamedAreaId, submitOrder, resetOrder, selectTable,

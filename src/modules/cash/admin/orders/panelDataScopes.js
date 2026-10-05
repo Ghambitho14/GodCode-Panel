@@ -9,6 +9,7 @@ const CATALOG_TABS = new Set([
 	'inventory',
 	'menu_beverages',
 	'menu_extras',
+	'menu_modifiers',
 	'menu_options',
 	'caja',
 	'analytics',

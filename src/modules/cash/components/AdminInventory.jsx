@@ -22,6 +22,7 @@ import { supabase, TABLES } from "@/integrations/supabase";
 import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from "@/shared/utils/fetchAllPaginated";
 import InventoryItemModal from "./InventoryItemModal";
 import AdminHelpTip from "./AdminHelpTip";
+import RecipePartPicker from "./RecipePartPicker";
 import { downloadExcel } from "@/shared/utils/exportUtils";
 import { isTypingContext } from "@/modules/cash/admin/utils/keyboardAdmin";
 import { getInputUnitOptions, getUnitLabel, normalizeUnit, toNativeQty } from "@/lib/recipe-units";
@@ -792,6 +793,7 @@ const AdminInventory = ({
 					inventory_item_id: l.inventory_item_id,
 					qty_per_sale: Number(l.qty_per_sale) || 1,
 					input_unit: native,
+					part: l.part ?? "",
 				};
 			}),
 		);
@@ -818,6 +820,7 @@ const AdminInventory = ({
 				inventory_item_id: itemId,
 				qty_per_sale: 1,
 				input_unit: normalizeUnit(item?.unit || "un"),
+				part: "",
 			},
 		]);
 		setInsumoLineFilter("");
@@ -863,6 +866,7 @@ const AdminInventory = ({
 						product_id: productId,
 						inventory_item_id: String(l.inventory_item_id).trim(),
 						qty_per_sale: Math.max(0.0001, qtyNative || 0),
+						part: String(l.part ?? "").trim() || null,
 					};
 				});
 			if (rows.length > 0) {
@@ -1571,6 +1575,12 @@ const AdminInventory = ({
 														{stockLabel ? (
 															<span className="inventory-recipe-line__stock">{stockLabel}</span>
 														) : null}
+														{/* La parte cruza la receta con los grupos de "Agregar cambios" (Relleno, Plaqueta…). */}
+														<RecipePartPicker
+															value={line.part || ""}
+															itemName={sel?.name || "el artículo"}
+															onChange={(value) => updateRecipeLine(idx, "part", value)}
+														/>
 													</span>
 													<input
 														type="number"

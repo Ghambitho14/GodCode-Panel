@@ -5,6 +5,7 @@ import { useAnchoredMenuPosition } from '../../hooks/useAnchoredMenuPosition';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
 import CartItemCard from './CartItemCard';
+import ManualOrderChangesModal from './ManualOrderChangesModal';
 import DualCurrencyAmount from './DualCurrencyAmount';
 import { spacing, textScale } from './manualOrderStyles';
 import { formatMinor, majorToMinor } from '@/lib/money/minor-units';
@@ -18,6 +19,8 @@ const OrderSummary = ({
     updateQuantity,
     removeItem,
     updateItemNote,
+	/** Solo llega en pedidos nuevos del flujo legacy; sin él no se muestra el botón de cambios. */
+	updateItemChanges = null,
     printManualKitchen,
     printManualCaja,
     showCheckoutTotals = false,
@@ -37,6 +40,15 @@ const OrderSummary = ({
     const [printMenuOpen, setPrintMenuOpen] = useState(false);
     const [openNoteIds, setOpenNoteIds] = useState(() => new Set());
 	const [compactExpanded, setCompactExpanded] = useState(false);
+	const [changesItemId, setChangesItemId] = useState(null);
+	const changesItem = changesItemId != null
+		? manualOrder.items.find((i) => String(i.id) === String(changesItemId)) ?? null
+		: null;
+	const closeChanges = React.useCallback(() => setChangesItemId(null), []);
+	/* Los extras/bebidas del catálogo de upsell no son productos con receta ni grupos. */
+	const canChangeItem = (item) => typeof updateItemChanges === 'function'
+		&& !item.is_extra
+		&& !item.manual_order_source;
     const printMenuRef = useRef(null);
     const printPanelRef = useRef(null);
     // El menu se saca por portal: dentro del arbol lo recortaba el
@@ -309,6 +321,7 @@ const OrderSummary = ({
                                 updateItemNote={updateItemNote}
                                 isItemNoteOpen={isItemNoteOpen}
                                 toggleItemNote={toggleItemNote}
+								onOpenChanges={canChangeItem(item) ? setChangesItemId : null}
 								formatMoney={formatAccountingMoney}
 								compact={isSheet}
                             />
@@ -316,6 +329,15 @@ const OrderSummary = ({
                     </div>
                 )}
             </div>
+
+			{changesItem ? (
+				<ManualOrderChangesModal
+					item={changesItem}
+					formatMoney={formatAccountingMoney}
+					onSave={(changes) => updateItemChanges(changesItem.id, changes)}
+					onClose={closeChanges}
+				/>
+			) : null}
 
             {showTotals && (
                 <div className={cn('border-t border-gc-border', isSheet ? 'px-3.5 py-3' : 'border-t-2 p-4')}>

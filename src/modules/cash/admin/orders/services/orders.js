@@ -275,6 +275,9 @@ export const ordersService = {
                         quantity: Math.max(1, Number(item.quantity) || 1),
                         description: item.description ?? null,
                         note: normalizePersistedItemNote(item.note),
+                        // Cambios del armador "Agregar cambios": el RPC suma `extras_total` al precio unitario.
+                        extras: Array.isArray(item.extras) && item.extras.length > 0 ? item.extras : null,
+                        extras_total: Math.max(0, Number(item.extras_total) || 0),
                     }])
             );
 
@@ -358,6 +361,9 @@ export const ordersService = {
                     note: requested.note,
                     manual_order_source: null,
                     is_extra: false,
+                    ...(requested.extras
+                        ? { extras: requested.extras, extras_total: requested.extras_total }
+                        : {}),
                 });
             }
 
@@ -410,10 +416,11 @@ export const ordersService = {
                 const price = (item.has_discount && item.discount_price && Number(item.discount_price) > 0) 
                     ? Number(item.discount_price) 
                     : Number(item.price || 0);
-                
+                const extrasTotal = Number(item.extras_total) || 0;
+
                 const qty = Math.max(1, Number(item.quantity) || 1);
-                
-                return sum + (price * qty);
+
+                return sum + ((price + extrasTotal) * qty);
             }, 0);
 
             const deliveryMode = isDeliveryOrderType(orderData.order_type);

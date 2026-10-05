@@ -293,6 +293,15 @@ export function normalizeManualOrderType(raw) {
 }
 
 /** Precio unitario efectivo de un ítem (descuento incluido). */
+/** Recargo por unidad de los cambios/extras de una línea (lo mismo que el servidor suma como `extras_total`). */
+export function getItemChangesTotal(item) {
+	if (!Array.isArray(item?.extras)) return 0;
+	return item.extras.reduce(
+		(sum, extra) => sum + Math.max(0, Number(extra?.price) || 0) * (Number(extra?.quantity) || 1),
+		0,
+	);
+}
+
 export function getEffectiveItemPrice(item) {
 	if (item?.has_discount && item?.discount_price != null && Number(item.discount_price) > 0) {
 		return Number(item.discount_price);

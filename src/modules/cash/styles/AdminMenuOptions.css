@@ -2573,3 +2573,153 @@
 	border-radius: 0;
 	background: transparent;
 }
+
+/* Opciones de sucursal › Ticket: diseños lado a lado con su vista previa. */
+.admin-ticket-options__designs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+	align-items: flex-start;
+}
+
+.admin-ticket-options__design {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	width: fit-content;
+	max-width: 100%;
+	padding: 12px;
+	border: 1px solid var(--admin-border, #e8ecf1);
+	border-radius: 12px;
+	background: var(--admin-card-bg, #fff);
+	cursor: pointer;
+	box-sizing: border-box;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-ticket-options__design:hover {
+	border-color: color-mix(in srgb, var(--branch-options-focus, #2563eb) 45%, var(--admin-border, #e8ecf1));
+}
+
+.admin-ticket-options__design.is-selected {
+	border-color: var(--branch-options-focus, #2563eb);
+	box-shadow: 0 0 0 1px var(--branch-options-focus, #2563eb);
+}
+
+.admin-ticket-options__design--static {
+	cursor: default;
+}
+
+.admin-ticket-options__design-head {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.admin-ticket-options__design-head input {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin: 2px 0 0;
+	accent-color: var(--branch-options-focus, #2563eb);
+}
+
+.admin-ticket-options__design-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.admin-ticket-options__design-text strong {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.9375rem;
+	font-weight: 700;
+	color: var(--admin-text, #12151a);
+}
+
+.admin-ticket-options__design-text small {
+	font-size: 0.8125rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-ticket-options__badge {
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--branch-options-focus, #2563eb) 14%, transparent);
+	font-size: 0.6875rem;
+	font-weight: 700;
+	color: var(--branch-options-focus, #2563eb);
+}
+
+/* El ticket siempre en papel blanco, también en modo oscuro. */
+.admin-ticket-options__preview {
+	display: block;
+	width: 100%;
+	border: 1px solid var(--admin-border, #e8ecf1);
+	border-radius: 6px;
+	background: #fff;
+	pointer-events: none;
+}
+
+/* Cada diseño en Retiro y en Delivery, uno al lado del otro. */
+.admin-ticket-options__pair {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	max-width: 100%;
+}
+
+.admin-ticket-options__pair-item {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 300px;
+	max-width: 100%;
+}
+
+.admin-ticket-options__pair-label {
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-ticket-options__check {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	max-width: 40rem;
+	cursor: pointer;
+}
+
+.admin-ticket-options__check input {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin: 2px 0 0;
+	accent-color: var(--branch-options-focus, #2563eb);
+}
+
+.admin-ticket-options__check span {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.admin-ticket-options__check strong {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--admin-text, #12151a);
+}
+
+.admin-ticket-options__check small {
+	font-size: 0.8125rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #64748b);
+}

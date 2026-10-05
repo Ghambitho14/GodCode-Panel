@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Save, Image as ImageIcon, Loader2, Trash2, Star, Tag } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,11 @@ import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import AdminMenuSelect from '@/modules/cash/components/AdminMenuSelect';
 import ProductVariantsEditor from './ProductVariantsEditor';
 import { listProductVariants, validateVariantGroups } from '../services/productVariants';
+import { supabase, TABLES } from '@/integrations/supabase';
+import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from '@/shared/utils/fetchAllPaginated';
+import { INVENTORY_ITEMS_PANEL_SELECT, PRODUCT_INVENTORY_RECIPE_SELECT } from '@/modules/cash/services/inventorySelects';
+import { normalizeUnit, toNativeQty } from '@/lib/recipe-units';
+import ProductRecipePanel from './ProductRecipePanel';
 
 const INITIAL_STATE = {
   name: '',
@@ -20,7 +25,7 @@ const INITIAL_STATE = {
   image_url: '',
 };
 
-const ProductModal = React.memo(({ onClose, onSave, product, categories, branchId = null, saving = false }) => {
+const ProductModal = React.memo(({ onClose, onSave, product, categories, companyId, branchId = null, saving = false }) => {
   const fileInputRef = useRef();
   const nameInputRef = useRef();
   /* El padre pasaba `saving={refreshing}`, la bandera global del panel, que
@@ -114,6 +119,81 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, branchI
     setTimeout(() => nameInputRef.current?.focus(), 100);
   }, []);
 
+  /* Receta: los artículos son de la empresa (como en Inventario → Recetas).
+     Solo se manda al guardar si se tocó, así un fallo de carga nunca borra
+     la receta que ya tenía el producto. */
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [recipeLines, setRecipeLines] = useState([]);
+  const [recipeLoading, setRecipeLoading] = useState(true);
+  const [recipeLoadError, setRecipeLoadError] = useState(null);
+  const [recipeDirty, setRecipeDirty] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) {
+      setRecipeLoading(false);
+      setRecipeLoadError('Sin empresa seleccionada: no se puede cargar la receta.');
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [items, rows] = await Promise.all([
+          fetchAllPaginated(
+            supabase
+              .from(TABLES.inventory_items)
+              .select(INVENTORY_ITEMS_PANEL_SELECT)
+              .eq('company_id', companyId)
+              .order('name'),
+            { pageSize: PANEL_PAGINATION_PAGE_SIZE },
+          ),
+          productId
+            ? supabase
+                .from(TABLES.product_inventory_recipe)
+                .select(PRODUCT_INVENTORY_RECIPE_SELECT)
+                .eq('company_id', companyId)
+                .eq('product_id', productId)
+                .then(({ data, error }) => {
+                  if (error) throw error;
+                  return data || [];
+                })
+            : Promise.resolve([]),
+        ]);
+        if (cancelled) return;
+        const unitById = new Map(items.map((it) => [String(it.id), normalizeUnit(it.unit || 'un')]));
+        setInventoryItems(items);
+        setRecipeLines(
+          rows.map((r) => ({
+            inventory_item_id: r.inventory_item_id,
+            qty_per_sale: Number(r.qty_per_sale) || 1,
+            input_unit: unitById.get(String(r.inventory_item_id)) || 'un',
+            part: r.part ?? '',
+          })),
+        );
+      } catch (e) {
+        console.warn('product recipe', e);
+        if (!cancelled) {
+          setRecipeLoadError('No se pudo cargar la receta. El producto se guardará sin tocarla.');
+        }
+      } finally {
+        if (!cancelled) setRecipeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, productId]);
+
+  const handleRecipeChange = useCallback((next) => {
+    setRecipeLines(next);
+    setRecipeDirty(true);
+    setIsDirty(true);
+  }, []);
+
+  const inventoryUnitById = useMemo(
+    () => new Map(inventoryItems.map((it) => [String(it.id), normalizeUnit(it.unit || 'un')])),
+    [inventoryItems],
+  );
+
   const handleSafeClose = useCallback(() => {
     if (busy) return;
     if (isDirty) {
@@ -186,6 +266,10 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, branchI
       }
     }
 
+    if (recipeDirty && recipeLines.some((l) => !(Number(l.qty_per_sale) > 0))) {
+      newErrors.recipe = 'Cada artículo de la receta necesita una cantidad mayor que 0';
+    }
+
     const nextVariantErrors = variantsEnabled ? validateVariantGroups(variantGroups) : {};
     setVariantErrors(nextVariantErrors);
     if (Object.keys(nextVariantErrors).length > 0) newErrors.variants = 'Revisa las variantes';
@@ -199,10 +283,23 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, branchI
     if (busy) return;
     if (!validate()) return;
     setSubmitting(true);
+    const payload = { ...formData };
+    if (recipeDirty && !recipeLoadError) {
+      // La receta se guarda en la unidad nativa del artículo, igual que en Inventario.
+      payload.recipe = recipeLines.map((l) => {
+        const native = inventoryUnitById.get(String(l.inventory_item_id)) || 'un';
+        const qty = toNativeQty(Number(l.qty_per_sale), l.input_unit || native, native);
+        return {
+          inventory_item_id: l.inventory_item_id,
+          qty_per_sale: Math.max(0.0001, qty || 0),
+          part: String(l.part ?? '').trim() || null,
+        };
+      });
+    }
     try {
       await onSave(
         {
-          ...formData,
+          ...payload,
           variantsEnabled,
           variants: variantsEnabled ? variantGroups : null,
           variantsBaseline,
@@ -228,8 +325,8 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, branchI
             <h3 className="fw-700">{product ? 'Editar producto' : 'Nuevo producto'}</h3>
             <p className="modal-subtitle">
               {product
-                ? 'Datos comerciales del catálogo. El consumo de stock se configura en Inventario → Recetas / Consumo.'
-                : 'Agrega un producto al catálogo. El stock se gestiona en Inventario.'}
+                ? 'Datos del catálogo y receta del producto.'
+                : 'Agrega un producto al catálogo con su receta.'}
             </p>
           </div>
           <Button
@@ -446,6 +543,15 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, branchI
                   status={variantStatus}
                 />
               </div>
+
+              <ProductRecipePanel
+                lines={recipeLines}
+                onChange={handleRecipeChange}
+                items={inventoryItems}
+                loading={recipeLoading}
+                loadError={recipeLoadError}
+                error={errors.recipe}
+              />
             </div>
           </div>
 

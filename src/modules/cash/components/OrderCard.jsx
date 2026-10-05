@@ -558,7 +558,9 @@ const OrderCard = ({
                                         const itemNote = resolveItemKitchenNote(item, liveOrder.note) ?? '';
                                         const isPrepared = preparedItemIds.has(idx);
                                         const extrasText = Array.isArray(item.extras) && item.extras.length > 0
-                                            ? item.extras.map((extra) => `${extra.quantity || 1}x ${extra.name}`).join(', ')
+                                            ? item.extras.map((extra) => (extra.kind === 'change'
+                                                ? `${extra.name}${Number(extra.quantity) > 1 ? ` ×${extra.quantity}` : ''}`
+                                                : `${extra.quantity || 1}x ${extra.name}`)).join(', ')
                                             : '';
                                         return (
                                             <div key={idx} className={`order-item-row${isPrepared ? ' order-item-row--prepared' : ''}`}>

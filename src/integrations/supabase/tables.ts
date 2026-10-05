@@ -23,6 +23,7 @@ export const TABLES = Object.freeze({
   inventory_branch: "inventory_branch",
   inventory_movements: "inventory_movements",
   product_inventory_recipe: "product_inventory_recipe",
+  menu_modifier_groups: "menu_modifier_groups",
   hero_banners: "hero_banners",
   discount_coupons: "discount_coupons",
   discount_coupon_redemptions: "discount_coupon_redemptions",
