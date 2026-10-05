@@ -816,6 +816,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
             onSave={handleSaveProduct}
             product={editingProduct}
             categories={categories}
+            branchId={selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : null}
           />
         </React.Suspense>
       )}
