@@ -11,6 +11,7 @@ import { invalidateBranchInventory } from '../../services/panelDataCache';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../../services/orderLifecycleV3Service';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
+import { persistProductVariants } from '../products/services/productVariants';
 
 /**
  * CRUD de productos/categorías y comprobantes de pago en el panel admin.
@@ -261,7 +262,31 @@ export function useAdminCatalog({
 				}
 			}
 
-			showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
+			// Variantes: la lista completa va a `admin_set_product_variants` (como los
+			// tamaños). Con producto nuevo se copian a todas sus sucursales, igual que el
+			// producto. Si fallan, el producto ya quedó guardado: se avisa y se puede
+			// reintentar editando.
+			let variantsWarning = null;
+			if (formData.variantsEnabled && Array.isArray(formData.variants)) {
+				try {
+					await persistProductVariants({
+						productId,
+						branchId: selectedBranch.id,
+						companyId,
+						groups: formData.variants,
+						baseline: formData.variantsBaseline ?? [],
+						applyToAllBranches,
+					});
+				} catch (variantsError) {
+					variantsWarning = variantsError?.message || 'error desconocido';
+				}
+			}
+
+			if (variantsWarning) {
+				showNotify(`Producto guardado, pero las variantes no se guardaron: ${variantsWarning}`, 'warning');
+			} else {
+				showNotify(editingProduct ? "Producto actualizado" : "Producto creado");
+			}
 			setIsModalOpen(false);
 			if (selectedBranch?.id && selectedBranch.id !== 'all') {
 				invalidateBranchInventory(selectedBranch.id);

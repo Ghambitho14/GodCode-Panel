@@ -10,6 +10,7 @@ export const TABLES = Object.freeze({
   products: "products",
   product_prices: "product_prices",
   product_branch: "product_branch",
+  product_variants: "product_variants",
   orders: "orders",
   branch_tables: "branch_tables",
   table_reservations: "table_reservations",
