@@ -27,8 +27,7 @@ export const PAYMENT_METHOD_REGISTRY = Object.freeze({
  * en el selector de cobro, y si era el único que tenía la sucursal, la caja se
  * quedaba sin ningún método con el que cobrar.
  *
- * Los valores calcan la rama `else` de `payment_method_policy_v3` (migración
- * `20260821_canonicalize_efectivo_payment_method.sql`), que es quien decide de
+ * Los valores calcan la rama `else` de `payment_method_policy_v3`, que es quien decide de
  * verdad al liquidar: rail `online`, sin comprobante obligatorio y sin darse por
  * cobrado solo — alguien tiene que verificarlo a mano.
  *

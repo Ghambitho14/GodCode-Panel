@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Download, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy, Trash2, Loader2 } from 'lucide-react';
+import { Search, Plus, Download, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy, Trash2, Loader2, Ticket } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
 import ClientFormModal from './ClientFormModal';
+import SendCouponEmailModal from './SendCouponEmailModal';
 import AdminIconSlot from './AdminIconSlot';
 import { downloadExcel } from '@/shared/utils/exportUtils';
 import { getScrollableAncestors } from '@/shared/utils/scrollAncestors';
@@ -15,9 +16,21 @@ import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { Button } from "@/components/ui/button";
 
+const COUPON_EMAIL_ROLES = new Set(['owner', 'admin', 'ceo']);
+
+/** Sin login no hay correo; dada de baja, no se le manda. `null` = no se sabe: lo decide el servidor. */
+const accountCanGetCoupon = (account) => Boolean(account) && account.isActive !== false
+    && account.canReceiveEmail !== false && account.emailOptOut !== true;
+
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
     const { formatMoney, locale } = useBranchMoney();
-    const { companyProfile, selectedBranch } = useAdmin();
+    const { companyProfile, selectedBranch, userRole } = useAdmin();
+    /** Cupones por correo: los mismos roles que ven la pestaña Cupones. */
+    const canSendCoupons = COUPON_EMAIL_ROLES.has(String(userRole || '').toLowerCase());
+    /** Cuentas elegidas para mandarles un cupón (pestaña Cuentas). */
+    const [selectedAccountIds, setSelectedAccountIds] = useState(() => new Set());
+    /** Destinatarios del modal abierto; null = cerrado. */
+    const [couponRecipients, setCouponRecipients] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // all, elite, top, frequent
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -404,6 +417,33 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
         }
     };
 
+    const toCouponRecipient = (row) => ({
+        accountId: row.menuAccount.id,
+        name: row.name || 'Cuenta sin pedidos',
+        canReceiveEmail: row.menuAccount.canReceiveEmail,
+        emailOptOut: row.menuAccount.emailOptOut,
+    });
+
+    const toggleAccountSelected = (accountId) => {
+        setSelectedAccountIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(accountId)) next.delete(accountId);
+            else next.add(accountId);
+            return next;
+        });
+    };
+
+    /** Todas las cuentas del filtro actual (todas las páginas) que pueden recibir el cupón. */
+    const couponEligibleFiltered = useMemo(
+        () => (view === 'accounts' ? filteredClients.filter((row) => accountCanGetCoupon(row.menuAccount)) : []),
+        [view, filteredClients],
+    );
+
+    const openCouponForSelected = () => {
+        const rows = accountRows.filter((row) => selectedAccountIds.has(row.menuAccount.id));
+        if (rows.length) setCouponRecipients(rows.map(toCouponRecipient));
+    };
+
     const handleExportCSV = () => {
         if (filteredClients.length === 0) {
             showNotify('No hay clientes para exportar', 'info');
@@ -574,6 +614,19 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 </div>
 
                 <div className="clients-toolbar__actions">
+                    {view === 'accounts' && canSendCoupons ? (
+                        <Button
+                            variant="secondary"
+                            type="button"
+                            size="sm"
+                            disabled={selectedAccountIds.size === 0}
+                            title={selectedAccountIds.size === 0 ? 'Marca los clientes a los que quieres mandar un cupón' : undefined}
+                            onClick={openCouponForSelected}
+                        >
+                            <Ticket size={16} />
+                            {selectedAccountIds.size ? `Enviar cupón (${selectedAccountIds.size})` : 'Enviar cupón'}
+                        </Button>
+                    ) : null}
                     <Button variant="secondary" type="button" size="sm" onClick={handleExportCSV}>
                         <Download size={16} /> Exportar CSV
                     </Button>
@@ -586,6 +639,28 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             <p className="clients-summary">
                 <strong>{filteredClients.length}</strong>{' '}
                 {filteredClients.length === 1 ? 'cliente' : 'clientes'}
+                {view === 'accounts' && canSendCoupons && couponEligibleFiltered.length > 0 ? (
+                    <>
+                        {' · '}
+                        {selectedAccountIds.size > 0 ? (
+                            <button
+                                type="button"
+                                className="clients-summary__link"
+                                onClick={() => setSelectedAccountIds(new Set())}
+                            >
+                                Quitar selección ({selectedAccountIds.size})
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                className="clients-summary__link"
+                                onClick={() => setSelectedAccountIds(new Set(couponEligibleFiltered.map((row) => row.menuAccount.id)))}
+                            >
+                                Elegir {couponEligibleFiltered.length === 1 ? 'la cuenta' : `las ${couponEligibleFiltered.length} cuentas`} para un cupón
+                            </button>
+                        )}
+                    </>
+                ) : null}
             </p>
 
             {/* TABLA (scroll horizontal fuera; contenedor interno visible para menú kebab) */}
@@ -629,8 +704,20 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                 <td data-label="Cliente">
                                     <div className="client-card-header">
                                         <div className="client-card-header__title-row">
+                                            {view === 'accounts' && canSendCoupons && client.menuAccount ? (
+                                                <input
+                                                    type="checkbox"
+                                                    className="clients-row-select"
+                                                    checked={selectedAccountIds.has(client.menuAccount.id)}
+                                                    disabled={!accountCanGetCoupon(client.menuAccount)}
+                                                    title={accountCanGetCoupon(client.menuAccount) ? undefined : 'No recibe correos'}
+                                                    aria-label={`Elegir a ${client.name || 'esta cuenta'} para un cupón`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onChange={() => toggleAccountSelected(client.menuAccount.id)}
+                                                />
+                                            ) : null}
                                             <h4>{client.name || (client.menuAccount && !client.menuAccount.clientId ? 'Cuenta sin pedidos' : 'Sin Nombre')}</h4>
-                                            {client.id ? (
+                                            {client.id || (client.menuAccount && canSendCoupons) ? (
                                                 <div
                                                     className="clients-row-kebab-wrap"
                                                     onClick={(e) => e.stopPropagation()}
@@ -675,6 +762,9 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                         ) : null}
                                         {client.menuAccount && client.menuAccount.isActive === false ? (
                                             <span className="clients-account-note clients-account-note--off">Cuenta desactivada</span>
+                                        ) : null}
+                                        {client.menuAccount && client.menuAccount.emailOptOut === true ? (
+                                            <span className="clients-account-note clients-account-note--off">No recibe correos</span>
                                         ) : null}
                                     </div>
                                 </td>
@@ -782,18 +872,35 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                         aria-label="Acciones del cliente"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button
-                            type="button"
-                            role="menuitem"
-                            className="clients-kebab-menu__item"
-                            onClick={() => {
-                                onSelectClient?.(kebabOpenClient);
-                                closeKebabMenu();
-                            }}
-                        >
-                            <UserCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
-                            Ver ficha
-                        </button>
+                        {kebabOpenClient.id ? (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="clients-kebab-menu__item"
+                                onClick={() => {
+                                    onSelectClient?.(kebabOpenClient);
+                                    closeKebabMenu();
+                                }}
+                            >
+                                <UserCircle size={16} aria-hidden className="clients-kebab-menu__icon" />
+                                Ver ficha
+                            </button>
+                        ) : null}
+                        {kebabOpenClient.menuAccount && canSendCoupons ? (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="clients-kebab-menu__item"
+                                disabled={!accountCanGetCoupon(kebabOpenClient.menuAccount)}
+                                onClick={() => {
+                                    setCouponRecipients([toCouponRecipient(kebabOpenClient)]);
+                                    closeKebabMenu();
+                                }}
+                            >
+                                <Ticket size={16} aria-hidden className="clients-kebab-menu__icon" />
+                                {accountCanGetCoupon(kebabOpenClient.menuAccount) ? 'Enviar cupón por correo' : 'No recibe correos'}
+                            </button>
+                        ) : null}
                         {kebabOpenClient.phone ? (
                             <>
                                 <button
@@ -820,9 +927,11 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                             </>
                         ) : null}
                         {kebabOpenClient.menuAccount ? (
-                            <p className="clients-kebab-menu__note">
-                                No se puede eliminar: esta ficha respalda una cuenta del menú digital.
-                            </p>
+                            kebabOpenClient.id ? (
+                                <p className="clients-kebab-menu__note">
+                                    No se puede eliminar: esta ficha respalda una cuenta del menú digital.
+                                </p>
+                            ) : null
                         ) : (
                             <button
                                 type="button"
@@ -844,7 +953,17 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 )
                 : null}
 
-            <ClientFormModal 
+            {couponRecipients ? (
+                <SendCouponEmailModal
+                    open
+                    recipients={couponRecipients}
+                    showNotify={showNotify}
+                    onClose={() => setCouponRecipients(null)}
+                    onSent={() => setSelectedAccountIds(new Set())}
+                />
+            ) : null}
+
+            <ClientFormModal
                 isOpen={isFormOpen}
                 onClose={() => setIsFormOpen(false)}
                 onClientCreated={onClientCreated}

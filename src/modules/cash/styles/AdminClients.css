@@ -1299,3 +1299,32 @@
 	margin: 0;
 	padding: 6px;
 }
+
+/* ——— Cupones por correo: elegir cuentas ——— */
+.admin-layout .clients-summary__link {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-weight: 600;
+	color: var(--admin-accent, #2563eb);
+	cursor: pointer;
+}
+
+.admin-layout .clients-summary__link:hover {
+	text-decoration: underline;
+}
+
+.admin-layout .clients-row-select {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin: 0;
+	accent-color: var(--admin-accent, #2563eb);
+	cursor: pointer;
+}
+
+.admin-layout .clients-row-select:disabled {
+	cursor: not-allowed;
+	opacity: 0.4;
+}

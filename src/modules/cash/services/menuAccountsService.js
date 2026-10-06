@@ -22,7 +22,9 @@ const text = (value) => {
 /**
  * Acepta la fila de la RPC (snake_case) o la de la Edge Function (camelCase).
  * @param {unknown} row
- * @returns {{ id: string, clientId: string|null, fullName: string|null, phone: string|null, document: string|null, preferredBranchId: string|null, documentCountry: string|null, isActive: boolean, lastLoginAt: string|null, createdAt: string|null }|null}
+ * `canReceiveEmail` y `emailOptOut` solo los trae la Edge Function: con la RPC quedan
+ * en `null` (no se sabe) y el envío de cupones lo decide en el servidor.
+ * @returns {{ id: string, clientId: string|null, fullName: string|null, phone: string|null, document: string|null, preferredBranchId: string|null, documentCountry: string|null, isActive: boolean, lastLoginAt: string|null, createdAt: string|null, canReceiveEmail: boolean|null, emailOptOut: boolean|null }|null}
  */
 function normalizeAccount(row) {
 	if (!row || typeof row !== 'object') return null;
@@ -39,6 +41,8 @@ function normalizeAccount(row) {
 		isActive: (row.isActive ?? row.is_active) !== false,
 		lastLoginAt: row.lastLoginAt ?? row.last_login_at ?? null,
 		createdAt: row.createdAt ?? row.created_at ?? null,
+		canReceiveEmail: typeof row.canReceiveEmail === 'boolean' ? row.canReceiveEmail : null,
+		emailOptOut: typeof row.emailOptOut === 'boolean' ? row.emailOptOut : null,
 	};
 }
 

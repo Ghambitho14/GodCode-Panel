@@ -960,3 +960,179 @@
 .admin-layout .admin-coupons__dates-always {
 	color: var(--admin-text-muted, #64748b);
 }
+
+/* ——— Enviar cupón por correo (modal) ——— */
+.coupon-email-modal {
+	max-width: 560px;
+}
+
+.coupon-form-modal__field .coupon-email-modal__message {
+	width: 100%;
+	box-sizing: border-box;
+	min-height: 76px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.9rem;
+	line-height: 1.45;
+	resize: vertical;
+	outline: none;
+}
+
+.coupon-form-modal__field .coupon-email-modal__message:focus-visible {
+	border-color: var(--coupon-form-focus, #2563eb);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--coupon-form-focus, #2563eb) 20%, transparent);
+}
+
+.coupon-email-modal__sender {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--admin-icon-bg, #f8fafc);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	font-size: 0.8125rem;
+	color: var(--admin-text-muted, #64748b);
+	overflow-wrap: anywhere;
+}
+
+.coupon-email-modal__sender strong {
+	color: var(--admin-text, #0f172a);
+	font-weight: 600;
+}
+
+.coupon-email-modal__warning {
+	margin: 0;
+	font-size: 0.8125rem;
+	color: #b45309;
+}
+
+.coupon-email-modal__preview {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.coupon-email-modal__preview-subject {
+	margin: 0;
+	font-size: 0.8125rem;
+	color: var(--admin-text, #0f172a);
+	overflow-wrap: anywhere;
+}
+
+.coupon-email-modal__preview-frame {
+	width: 100%;
+	height: 420px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	border-radius: 12px;
+	background: #f3f4f6;
+}
+
+.coupon-email-results {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.coupon-email-results__item {
+	display: grid;
+	grid-template-columns: 16px minmax(0, 1fr);
+	column-gap: 10px;
+	align-items: center;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	font-size: 0.85rem;
+}
+
+.coupon-email-results__item.is-sent svg { color: #16a34a; }
+.coupon-email-results__item.is-skipped svg { color: var(--admin-text-muted, #64748b); }
+.coupon-email-results__item.is-failed svg { color: #dc2626; }
+
+.coupon-email-results__name {
+	font-weight: 600;
+	color: var(--admin-text, #0f172a);
+	overflow-wrap: anywhere;
+}
+
+.coupon-email-results__detail {
+	grid-column: 2;
+	color: var(--admin-text-muted, #64748b);
+	overflow-wrap: anywhere;
+}
+
+/* ——— Remitente de los cupones (tarjeta en Cupones) ——— */
+.coupon-sender-card {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-bottom: 14px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+}
+
+.coupon-sender-card__head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.coupon-sender-card__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 700;
+}
+
+.coupon-sender-card__text {
+	margin: 4px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.45;
+	color: var(--admin-text-muted, #64748b);
+	overflow-wrap: anywhere;
+}
+
+.coupon-sender-card__text strong {
+	color: var(--admin-text, #0f172a);
+	font-weight: 600;
+}
+
+.coupon-sender-card__error {
+	margin: 0;
+	font-size: 0.8125rem;
+	color: #b42318;
+	overflow-wrap: anywhere;
+}
+
+.coupon-sender-card__form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.coupon-sender-card__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+	.coupon-sender-card .coupon-form-modal__grid--2 {
+		grid-template-columns: 1fr;
+	}
+}

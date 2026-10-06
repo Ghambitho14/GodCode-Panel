@@ -4,6 +4,7 @@ import { getOrderItemLineTotal } from '@/shared/utils/orderUtils';
  * Diseños del ticket de caja (cliente). Se elige por sucursal en
  * Opciones de sucursal › Ticket y se guarda en `branches.manual_order_settings.ticketDesign`
  * (esa columna ya viaja en el objeto `branch` que reciben todas las impresiones).
+ * La comanda de cocina sale en el mismo diseño, sin precios.
  */
 export const CASHIER_TICKET_DESIGN = /** @type {const} */ ({
 	salon: 'salon',

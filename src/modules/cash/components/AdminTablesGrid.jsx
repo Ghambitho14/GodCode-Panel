@@ -470,7 +470,7 @@ export default function AdminTablesGrid({
 
 	const handleMoveKitchen = (order) => {
 
-		printOrderTicket(order, branch?.name, logoUrl ?? null, { variant: 'kitchen' });
+		printOrderTicket(order, branch?.name, logoUrl ?? null, { variant: 'kitchen', branch });
 
 		moveOrder(order.id, 'active');
 

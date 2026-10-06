@@ -64,8 +64,11 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 	const logoMaxHeightMm = 13;
 	const safeLogoUrl = variant === 'cashier' ? resolveSafeLogoUrl(logoUrl) : '';
 	const showDeliveryCode = resolveTicketShowDeliveryCode(printOptions);
+	// La comanda de cocina sigue el diseño elegido para el ticket de caja.
+	const design = resolveCashierTicketDesign(printOptions);
 
-	if (variant === 'kitchen') {
+	// Comanda «Clásica»: centrada, con banda punteada y letra de máquina.
+	if (variant === 'kitchen' && design === CASHIER_TICKET_DESIGN.classic) {
 		// Banda: #n - COCINA - MESA|RETIRO|DELIVERY - WEB|PDV
 		const fulfillmentEsc = escapeHtml(whereLabelForKitchenTicket(order));
 		const channelEsc = escapeHtml(orderChannelForTicket(order, printOptions.orderChannel));
@@ -214,7 +217,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 	}
 
 	// Diseño «Clásico» (el de siempre): centrado, bandas punteadas, letra de máquina.
-	if (resolveCashierTicketDesign(printOptions) === CASHIER_TICKET_DESIGN.classic) {
+	if (design === CASHIER_TICKET_DESIGN.classic) {
 		const dateTimeLine = escapeHtml(formatTicketDateTime(order, locale));
 		const rawAddr = printOptions.branchAddress != null ? String(printOptions.branchAddress).trim() : '';
 		const addrParts = rawAddr ? rawAddr.split(/\n|,/).map((s) => s.trim()).filter(Boolean) : [];
@@ -561,10 +564,12 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 		`;
 	}
 
-	/* Ticket de caja (cliente). Diseño tipo comanda de salón:
+	/* Diseño «Salón», para el ticket de caja (cliente) y la comanda de cocina:
 	   caja con el número del turno + tipo/hora/canal, datos en dos columnas,
 	   tabla Uds. / Descripción / Importe con los cambios bajo cada producto
-	   y totales. */
+	   y totales. La comanda va sin precios, pago ni totales, y con los
+	   productos más grandes. */
+	const kitchen = variant === 'kitchen';
 	const rawAddr = printOptions.branchAddress != null ? String(printOptions.branchAddress).trim() : '';
 	const addrParts = rawAddr ? rawAddr.split(/\n|,/).map((s) => s.trim()).filter(Boolean) : [];
 	const addressHtml = addrParts.length
@@ -592,14 +597,24 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				<span class="c-info-label">${label}</span>
 				<span class="c-info-value c-info-wide">${value}</span>`;
 
+	// A cocina no le sirven el teléfono, el pago ni la caja de envío (lleva el cargo).
+	// El código de entrega sí va si corresponde, como en la línea CL- de la comanda clásica.
+	const handoffRaw = order?.handoff_code != null ? String(order.handoff_code).trim() : '';
+	const kitchenCodeRow = handoffRaw && (showDeliveryCode || !isOrderDelivery(order))
+		? infoRow('Código.', escapeHtml(handoffRaw))
+		: '';
+	const infoRowsTail = kitchen
+		? kitchenCodeRow
+		: `${clientPhoneRaw ? infoRow('Tel.', escapeHtml(clientPhoneRaw)) : ''}
+				${infoRow('Pago.', payStatusEsc)}`;
+
 	const infoHtml = `
 				<span class="c-info-label">Número.</span>
 				<span class="c-info-value">${companyNumberEsc || '—'}</span>
 				<span class="c-info-label">Fecha.</span>
 				<span class="c-info-value">${dateEsc}</span>
 				${infoRow('Cliente.', safeClientName)}
-				${clientPhoneRaw ? infoRow('Tel.', escapeHtml(clientPhoneRaw)) : ''}
-				${infoRow('Pago.', payStatusEsc)}`;
+				${infoRowsTail}`;
 
 	const itemsHtml = (order.items || []).map((item) => {
 		const price = (item.has_discount && item.discount_price > 0)
@@ -617,10 +632,13 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 			const text = extra.kind === 'change'
 				? `* ${extraName}${extraQty > 1 ? ` (X${extraQty})` : ''}`
 				: `+ ${extraQty}x ${extraName}`;
+			const priceHtml = kitchen
+				? ''
+				: `
+					<span class="c-p">${extraLineTotal > 0 ? fmt(order, extraLineTotal) : ''}</span>`;
 			return `
 				<div class="c-mod">
-					<span class="c-d">${text}</span>
-					<span class="c-p">${extraLineTotal > 0 ? fmt(order, extraLineTotal) : ''}</span>
+					<span class="c-d">${text}</span>${priceHtml}
 				</div>`;
 		}).join('');
 		const modsHtml = modRows ? `
@@ -638,8 +656,8 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 		<div class="c-item">
 			<div class="c-row c-main">
 				<span class="c-q">${safeQuantity}</span>
-				<span class="c-d">${safeName}</span>
-				<span class="c-p">${fmt(order, lineTotal)}</span>
+				<span class="c-d">${safeName}</span>${kitchen ? '' : `
+				<span class="c-p">${fmt(order, lineTotal)}</span>`}
 			</div>${modsHtml}${noteHtml}
 		</div>`;
 	}).join('');
@@ -653,11 +671,46 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 			? `<div class="c-money-row"><span>Descuento</span><span>−${fmt(order, discountTotal)}</span></div>`
 			: '';
 
+	// La comanda lleva «COCINA» donde el ticket de caja lleva logo, empresa y dirección.
+	const headHtml = kitchen
+		? '<h1 class="ticket-brand c-brand">COCINA</h1>'
+		: `${safeLogoUrl ? `<img src="${safeLogoUrl}" class="c-logo" alt="" />` : ''}
+				<h1 class="ticket-brand c-brand">${safeBranchName}</h1>
+				${addressHtml}`;
+
+	const moneyHtml = kitchen
+		? ''
+		: `
+				<div class="c-sec c-money">
+					<div class="c-money-row"><span>Subtotal</span><span>${fmt(order, itemsSubtotal)}</span></div>
+					${discountRow}
+					${deliveryFeeRow}
+					<div class="c-total-big"><span>TOTAL</span><span>${fmt(order, grandTotal)}</span></div>
+				</div>`;
+
+	// Comanda: sin columna de importe y con los productos más grandes, que se leen de lejos.
+	const kitchenCss = kitchen
+		? `
+				.c-row {
+					grid-template-columns: 8mm 1fr;
+				}
+				.c-main {
+					font-size: 12pt;
+				}
+				.c-mod,
+				.c-item-note {
+					font-size: 10.5pt;
+				}
+				.c-foot {
+					margin-top: 2mm;
+				}`
+		: '';
+
 	return `
 		<html>
 		<head>
 			<meta charset="utf-8" />
-			<title>Ticket cliente #${safeOrderId}</title>
+			<title>${kitchen ? 'Comanda cocina' : 'Ticket cliente'} #${safeOrderId}</title>
 			<style>
 				${cssThermalBase(CONTENT_MM)}
 				body {
@@ -876,14 +929,12 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				}
 				.c-foot {
 					margin-top: 0.8mm;
-				}
+				}${kitchenCss}
 			</style>
 		</head>
 		<body>
 			<div class="c-head">
-				${safeLogoUrl ? `<img src="${safeLogoUrl}" class="c-logo" alt="" />` : ''}
-				<h1 class="ticket-brand c-brand">${safeBranchName}</h1>
-				${addressHtml}
+				${headHtml}
 			</div>
 			<div class="c-sheet">
 				<div class="c-sec c-top">
@@ -897,22 +948,16 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				</div>
 				<div class="c-sec c-info">${infoHtml}
 				</div>
-				${isOrderDelivery(order) ? `<div class="c-sec">${deliveryShipmentSectionHtml(order, fmt, { showDeliveryCode })}</div>` : ''}
+				${!kitchen && isOrderDelivery(order) ? `<div class="c-sec">${deliveryShipmentSectionHtml(order, fmt, { showDeliveryCode })}</div>` : ''}
 				<div class="c-sec c-row c-cols">
 					<span class="c-q">Uds.</span>
-					<span class="c-d">Descripción / Modificación</span>
-					<span class="c-p">Importe</span>
+					<span class="c-d">Descripción / Modificación</span>${kitchen ? '' : `
+					<span class="c-p">Importe</span>`}
 				</div>
-				<div class="c-sec c-items">${itemsHtml}</div>
-				<div class="c-sec c-money">
-					<div class="c-money-row"><span>Subtotal</span><span>${fmt(order, itemsSubtotal)}</span></div>
-					${discountRow}
-					${deliveryFeeRow}
-					<div class="c-total-big"><span>TOTAL</span><span>${fmt(order, grandTotal)}</span></div>
-				</div>
+				<div class="c-sec c-items">${itemsHtml}</div>${moneyHtml}
 				${safeOrderNote ? `<div class="c-sec c-note">NOTA: ${safeOrderNote}</div>` : ''}
 			</div>
-			<p class="c-legal">Este documento no tiene valor fiscal.</p>
+			${kitchen ? '' : '<p class="c-legal">Este documento no tiene valor fiscal.</p>'}
 			<p class="c-foot">${footerHtml}</p>
 		</body>
 		</html>

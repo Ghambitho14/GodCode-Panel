@@ -98,7 +98,6 @@ Plataforma GodCode (panel de súper administración y Portal)
 - **Servidor Node**: `server.js` sirve el build de `dist/`, aplica cabeceras de seguridad (CSP básica, `X-Frame-Options`, `nosniff`, HSTS bajo HTTPS) y define una política de caché pensada para el service worker.
 - **Supabase**:
   - `supabase/functions`: Edge Functions `client-pii` (descifrado de datos personales de cuentas del menú), `geocode` (resolución de direcciones a zonas de delivery usando Photon / OpenStreetMap), `tenant-broadcasts` (comunicados de la plataforma) y `tenant-tickets` (tickets de soporte).
-  - `supabase/migrations`: migraciones SQL incrementales (mesas y reservas, cuentas de clientes del menú, grupos de modificadores, recetas, numeración de pedidos por empresa y correcciones de funciones de pedidos y pagos).
   - Las imágenes se guardan en buckets privados de Storage, organizadas por `companyId`, y se muestran con URLs firmadas.
 - **Relación con GodCode**: este repositorio es el panel que usa cada negocio. La administración global de la plataforma se gestiona en el repositorio [`gabjesus15/GodCode`](https://github.com/gabjesus15/GodCode). Ambos comparten la misma base de datos de Supabase (por ejemplo, las tablas de tickets y comunicados de la plataforma).
 
@@ -250,7 +249,7 @@ Las variables `VITE_*` se incluyen en el build, así que deben estar disponibles
 
 **Supabase**
 
-Las Edge Functions de `supabase/functions` y las migraciones de `supabase/migrations` se despliegan aparte con la Supabase CLI, configurando antes los secretos descritos en [Variables de entorno](#variables-de-entorno).
+Las Edge Functions de `supabase/functions` se despliegan aparte con la Supabase CLI, configurando antes los secretos descritos en [Variables de entorno](#variables-de-entorno).
 
 ---
 
@@ -274,8 +273,7 @@ GodCode-Panel/
 │   ├── app.tsx             Rutas de la aplicación
 │   └── main.tsx            Punto de entrada
 ├── supabase/
-│   ├── functions/          Edge Functions (client-pii, geocode, tenant-*)
-│   └── migrations/         Migraciones SQL
+│   └── functions/          Edge Functions (client-pii, geocode, tenant-*)
 ├── tests/                  Pruebas Vitest y Playwright (tests/e2e)
 ├── vite/                   Plugin del BFF para desarrollo
 ├── server.js               Servidor Node de producción (estáticos, auth, proxy)
