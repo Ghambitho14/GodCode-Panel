@@ -193,6 +193,11 @@
 	color: var(--admin-text-muted, #64748b);
 }
 
+.tenant-tickets-field__hint--notice {
+	font-weight: 600;
+	color: #b54708;
+}
+
 .tenant-tickets-textarea {
 	resize: vertical;
 	min-height: 88px;

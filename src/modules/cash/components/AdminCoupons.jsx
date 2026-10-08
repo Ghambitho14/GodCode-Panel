@@ -622,7 +622,7 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 
 	return (
 		<div className="admin-coupons">
-			<CouponEmailSenderCard showNotify={showNotify} />
+			<CouponEmailSenderCard />
 
 			{/* Una sola barra: buscar, estado y acciones. El título y el icono
 			    repetían la cabecera del panel, y el recuento baja a su línea. */}
