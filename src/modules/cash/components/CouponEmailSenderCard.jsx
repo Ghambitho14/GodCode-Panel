@@ -1,34 +1,28 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Mail } from "lucide-react";
+import { ExternalLink, LifeBuoy, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
+import { fetchCouponSenderStatus } from "@/modules/cash/services/couponEmailService";
 import {
-	deleteCouponSender,
-	fetchCouponSenderStatus,
-	saveCouponSender,
-} from "@/modules/cash/services/couponEmailService";
+	buildCouponSenderTicketDraft,
+	queueSupportTicketDraft,
+} from "@/modules/cash/utils/supportTicketDraft";
 
-const emptyForm = (own) => ({
-	apiKey: "",
-	fromEmail: own?.fromEmail ?? "",
-	fromName: own?.fromName ?? "",
-	replyTo: own?.replyTo ?? "",
-});
+const SUPPORT_TAB = "module:tickets";
+const ACCOUNT_EMAIL_URL = "https://www.godcode.me/cuenta?tab=correo";
 
 /**
- * Desde qué correo salen los cupones (pestaña Cupones).
+ * Desde qué correo salen los cupones (pestaña Cupones). Solo informa.
  *
  * - Sin dominio propio: salen por el Resend de GodCode con el nombre del negocio;
  *   no hay nada que configurar.
- * - Con dominio propio: el dueño o el CEO conecta su propio Resend (API key y
- *   remitente de su dominio). Al guardar se manda un correo de prueba y solo se
- *   guarda si llega. Si no sabe hacerlo, lo configuramos desde el super admin.
+ * - Con dominio propio: el Resend del negocio lo conecta el CEO desde su cuenta
+ *   GodCode (/cuenta › Correo de cupones) o lo dejamos listo desde el super admin
+ *   cuando nos lo piden por Soporte.
  */
-export default function CouponEmailSenderCard({ showNotify }) {
+export default function CouponEmailSenderCard() {
+	const { canAccessTab, setActiveTab, userRole } = useAdmin();
 	const [status, setStatus] = useState(null);
-	const [editing, setEditing] = useState(false);
-	const [form, setForm] = useState(() => emptyForm(null));
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState("");
 
 	/** Sin la función (aún no desplegada) la tarjeta no se muestra: los cupones siguen igual. */
 	const readStatus = useCallback(async () => {
@@ -39,11 +33,6 @@ export default function CouponEmailSenderCard({ showNotify }) {
 			return null;
 		}
 	}, []);
-
-	const load = useCallback(async () => {
-		const next = await readStatus();
-		if (next) setStatus(next);
-	}, [readStatus]);
 
 	useEffect(() => {
 		let alive = true;
@@ -56,51 +45,17 @@ export default function CouponEmailSenderCard({ showNotify }) {
 		};
 	}, [readStatus]);
 
-	const startEdit = () => {
-		setForm(emptyForm(status?.own));
-		setError("");
-		setEditing(true);
-	};
-
-	const save = async () => {
-		setSaving(true);
-		setError("");
-		try {
-			const res = await saveCouponSender({
-				apiKey: form.apiKey.trim(),
-				fromEmail: form.fromEmail.trim(),
-				fromName: form.fromName.trim(),
-				replyTo: form.replyTo.trim(),
-			});
-			showNotify?.(`Listo. Te mandamos un correo de prueba a ${res.testSentTo}.`, "success");
-			setEditing(false);
-			await load();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "No se pudo guardar");
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const remove = async () => {
-		if (!window.confirm("¿Quitar tu Resend? Los cupones volverán a salir desde GodCode con el nombre de tu negocio.")) return;
-		setSaving(true);
-		try {
-			await deleteCouponSender();
-			showNotify?.("Remitente quitado.", "success");
-			setEditing(false);
-			await load();
-		} catch (err) {
-			showNotify?.(err instanceof Error ? err.message : "No se pudo quitar", "error");
-		} finally {
-			setSaving(false);
-		}
-	};
-
 	if (!status) return null;
 
 	const own = status.own;
 	const usingOwn = status.mode === "own";
+	const canAskSupport = Boolean(status.customDomain) && canAccessTab?.(SUPPORT_TAB);
+	const isCeo = String(userRole ?? "").toLowerCase() === "ceo";
+
+	const askSupport = () => {
+		queueSupportTicketDraft(buildCouponSenderTicketDraft(status));
+		setActiveTab(SUPPORT_TAB);
+	};
 
 	return (
 		<section className="coupon-sender-card" aria-labelledby="coupon-sender-title">
@@ -121,98 +76,35 @@ export default function CouponEmailSenderCard({ showNotify }) {
 					</p>
 					{status.customDomain && !usingOwn ? (
 						<p className="coupon-sender-card__text">
-							Tu negocio tiene dominio propio (<strong>{status.customDomain}</strong>). Conecta tu cuenta de Resend
-							para que salgan desde tu dominio. Si no sabes cómo, pídenos ayuda desde Soporte y lo dejamos listo.
+							Tu negocio tiene dominio propio (<strong>{status.customDomain}</strong>). Para que los cupones salgan
+							desde tu dominio hay que conectar una cuenta de Resend. El CEO puede hacerlo desde su cuenta GodCode, o
+							pídenos ayuda y lo dejamos listo.
+						</p>
+					) : null}
+					{usingOwn ? (
+						<p className="coupon-sender-card__text">
+							Para cambiarlo, el CEO entra a su cuenta GodCode › Correo de cupones.
 						</p>
 					) : null}
 					{own?.lastError ? <p className="coupon-sender-card__error">Último error de Resend: {own.lastError}</p> : null}
 				</div>
-				{status.customDomain && status.canConfigure && !editing ? (
-					<Button variant="secondary" type="button" size="sm" onClick={startEdit}>
-						{own ? "Cambiar" : "Conectar Resend"}
-					</Button>
-				) : null}
-			</div>
-
-			{editing ? (
-				<form
-					className="coupon-sender-card__form"
-					onSubmit={(e) => {
-						e.preventDefault();
-						void save();
-					}}
-				>
-					<div className="coupon-form-modal__grid coupon-form-modal__grid--2">
-						<div className="coupon-form-modal__field coupon-form-modal__field--span-2">
-							<label htmlFor="coupon-sender-key">API key de Resend</label>
-							<input
-								id="coupon-sender-key"
-								type="password"
-								autoComplete="off"
-								spellCheck={false}
-								disabled={saving}
-								placeholder={own?.apiKeyLast4 ? `Guardada (••••${own.apiKeyLast4}). Déjala vacía para no cambiarla.` : "re_…"}
-								value={form.apiKey}
-								onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-							/>
-							<span className="coupon-form-modal__hint">
-								En resend.com › API Keys. Basta con permiso de envío («Sending access»).
-							</span>
-						</div>
-						<div className="coupon-form-modal__field">
-							<label htmlFor="coupon-sender-from">Correo remitente</label>
-							<input
-								id="coupon-sender-from"
-								type="email"
-								disabled={saving}
-								placeholder={`cupones@${status.customDomain}`}
-								value={form.fromEmail}
-								onChange={(e) => setForm((f) => ({ ...f, fromEmail: e.target.value }))}
-							/>
-						</div>
-						<div className="coupon-form-modal__field">
-							<label htmlFor="coupon-sender-name">Nombre que se ve</label>
-							<input
-								id="coupon-sender-name"
-								type="text"
-								disabled={saving}
-								placeholder="El nombre de tu negocio"
-								value={form.fromName}
-								onChange={(e) => setForm((f) => ({ ...f, fromName: e.target.value }))}
-							/>
-						</div>
-						<div className="coupon-form-modal__field coupon-form-modal__field--span-2">
-							<label htmlFor="coupon-sender-reply">Respuestas a (opcional)</label>
-							<input
-								id="coupon-sender-reply"
-								type="email"
-								disabled={saving}
-								placeholder="hola@tunegocio.com"
-								value={form.replyTo}
-								onChange={(e) => setForm((f) => ({ ...f, replyTo: e.target.value }))}
-							/>
-							<span className="coupon-form-modal__hint">
-								El dominio del remitente tiene que estar verificado en tu Resend. Al guardar te llega un correo de prueba.
-							</span>
-						</div>
-					</div>
-					{error ? <p className="coupon-sender-card__error">{error}</p> : null}
+				{canAskSupport || (status.customDomain && isCeo) ? (
 					<div className="coupon-sender-card__actions">
-						{own ? (
-							<Button variant="secondary" type="button" size="sm" disabled={saving} onClick={() => void remove()}>
-								Quitar
+						{status.customDomain && isCeo ? (
+							<Button variant="ghost" size="sm" asChild>
+								<a href={ACCOUNT_EMAIL_URL} target="_blank" rel="noopener noreferrer">
+									<ExternalLink aria-hidden /> Configurar en mi cuenta
+								</a>
 							</Button>
 						) : null}
-						<Button variant="secondary" type="button" size="sm" disabled={saving} onClick={() => setEditing(false)}>
-							Cancelar
-						</Button>
-						<Button variant="default" type="submit" size="sm" disabled={saving}>
-							{saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
-							{saving ? "Probando…" : "Probar y guardar"}
-						</Button>
+						{canAskSupport ? (
+							<Button variant="secondary" type="button" size="sm" onClick={askSupport}>
+								<LifeBuoy aria-hidden /> Pedir ayuda a Soporte
+							</Button>
+						) : null}
 					</div>
-				</form>
-			) : null}
+				) : null}
+			</div>
 		</section>
 	);
 }

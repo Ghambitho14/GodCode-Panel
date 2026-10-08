@@ -43,19 +43,12 @@ async function invoke(action, payload, fallbackMessage) {
 }
 
 /**
- * @returns {Promise<{ mode: 'own'|'godcode', from: string, replyTo: string|null, customDomain: string|null, canConfigure: boolean, ready: boolean, own: null|{ fromEmail: string, fromName: string, replyTo: string, apiKeyLast4: string, verifiedAt: string|null, lastError: string|null } }>}
+ * Solo lectura: el Resend propio lo configura el CEO desde su cuenta GodCode
+ * (/cuenta › Correo de cupones) o el super admin.
+ * @returns {Promise<{ mode: 'own'|'godcode', from: string, replyTo: string|null, customDomain: string|null, ready: boolean, own: null|{ fromEmail: string, fromName: string, replyTo: string, apiKeyLast4: string, verifiedAt: string|null, lastError: string|null } }>}
  */
 export function fetchCouponSenderStatus() {
 	return invoke('sender-status', {}, 'No se pudo leer el remitente de los cupones');
-}
-
-/** @param {{ apiKey?: string, fromEmail: string, fromName?: string, replyTo?: string }} sender */
-export function saveCouponSender(sender) {
-	return invoke('save-sender', sender, 'No se pudo guardar el remitente');
-}
-
-export function deleteCouponSender() {
-	return invoke('delete-sender', {}, 'No se pudo quitar el remitente');
 }
 
 /**
