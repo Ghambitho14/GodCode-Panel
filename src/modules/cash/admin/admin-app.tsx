@@ -4,10 +4,12 @@ import { Loader2 } from "lucide-react";
 import { supabase, TABLES, bootstrapSession, logout } from "@/integrations/supabase";
 import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
 import { buildTenantThemeCss } from "@/shared/utils/panel-theme-css";
-import { buildResolvedTabLabels } from "@/shared/constants/admin-panel-tabs";
+import { buildResolvedTabLabels, normalizeStoredNavTabId } from "@/shared/constants/admin-panel-tabs";
 import {
+	applyPlanProductModeToPanelAccess,
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
+	resolvePlanProductMode,
 } from "@/lib/tenant/menu-settings";
 import { useSignedImageUrl } from "@/shared/hooks/useSignedImageUrl";
 import { isCloudinaryImageUrl } from "@/shared/utils/supabaseStorage";
@@ -281,20 +283,30 @@ export function AdminApp({
 			? rawLogoUrl
 			: null);
 	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
-	const effectivePanelAccess = panelAccessProp ?? resolvedPanelAccess;
+	const effectivePanelAccess = useMemo(
+		() => applyPlanProductModeToPanelAccess(
+			resolvePlanProductMode(effectiveCompanyProfile?.planFeatures),
+			panelAccessProp ?? resolvedPanelAccess,
+			normalizeStoredNavTabId,
+		),
+		[effectiveCompanyProfile?.planFeatures, panelAccessProp, resolvedPanelAccess],
+	);
 	const effectiveTabLabels = Object.keys(tabLabelsFromProp).length
 		? tabLabelsFromProp
 		: resolvedTabLabels;
 	const effectiveAdminShortcuts =
 		adminShortcutsEnabledProp ?? resolvedAdminShortcutsEnabled;
 	const effectiveStorefrontMenuUrl = useMemo(
-		() => resolveStorefrontMenuUrl({
+		() => resolvePlanProductMode(effectiveCompanyProfile?.planFeatures) === "panel_only"
+			// «Solo panel CEO»: no hay menú público que abrir.
+			? null
+			: resolveStorefrontMenuUrl({
 			explicitUrl: storefrontMenuUrl,
 			publicSlug: resolvedPublicSlug,
 			customDomain: effectiveCompanyProfile?.custom_domain,
 			integrationSettings: effectiveCompanyProfile?.integration_settings,
 		}),
-		[storefrontMenuUrl, resolvedPublicSlug, effectiveCompanyProfile?.custom_domain, effectiveCompanyProfile?.integration_settings],
+		[storefrontMenuUrl, resolvedPublicSlug, effectiveCompanyProfile?.custom_domain, effectiveCompanyProfile?.integration_settings, effectiveCompanyProfile?.planFeatures],
 	);
 
 	useEffect(() => {
