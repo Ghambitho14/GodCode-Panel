@@ -54,8 +54,10 @@ describe('diseño del ticket de caja', () => {
 			expect(off).not.toContain('4821');
 			expect(on).toContain('COD. VERIF: 4821');
 		}
-		// La comanda tampoco lo muestra en la línea de referencia.
-		expect(buildTicketHtml(order, 'X', null, 'kitchen', { branch: branchWith() })).not.toContain('CL-4821');
+		// La comanda tampoco lo muestra, en ninguno de los dos diseños.
+		for (const ticketDesign of ['salon', 'classic']) {
+			expect(buildTicketHtml(order, 'X', null, 'kitchen', { branch: branchWith(), ticketDesign })).not.toContain('4821');
+		}
 	});
 
 	it('la dirección va primero y antes del cargo de envío', () => {
@@ -74,11 +76,14 @@ describe('Opciones de sucursal › Ticket', () => {
 				expect(screen.getByTitle(`Vista previa del ticket ${name} · ${tipo}`)).toBeInTheDocument();
 			}
 		}
-		expect(screen.getByTitle('Vista previa de la comanda de cocina · Delivery')).toBeInTheDocument();
+		const kitchenPreview = () => screen.getByTitle('Vista previa de la comanda de cocina · Delivery').getAttribute('srcdoc');
+		expect(kitchenPreview()).toContain('c-num-box');
 		expect(screen.getByRole('radio', { name: /Salón/ })).toBeChecked();
 		expect(screen.queryByText('Cambios sin guardar')).toBeNull();
 
 		fireEvent.click(screen.getByRole('radio', { name: /Clásico/ }));
+		// La comanda sigue el diseño marcado.
+		expect(kitchenPreview()).toContain('k-band-order');
 		fireEvent.click(screen.getByRole('button', { name: /Guardar/ }));
 
 		await waitFor(() => expect(onSaved).toHaveBeenCalled());

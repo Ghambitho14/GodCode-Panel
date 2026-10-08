@@ -916,6 +916,7 @@ export const useOrderEdit = (
 				companyId: branch.company_id,
 				branchSettings: branchDeliveryCfg,
 				branchName: branch.name,
+				branch,
 				logoUrl: null,
 				showNotify,
 				callerRole: userRole,

@@ -776,6 +776,8 @@ export const ordersService = {
                 printOrderTicket(updated, options.branchName ?? null, options.logoUrl ?? null, {
                     variant: 'kitchen',
                     branchAddress: options.branchAddress ?? null,
+                    // Con la sucursal la comanda sale en el diseño que eligió.
+                    branch: options.branch ?? null,
                 });
             } catch (printErr) {
                 console.warn('[updateOrder] reimpresion cocina fallo:', printErr);

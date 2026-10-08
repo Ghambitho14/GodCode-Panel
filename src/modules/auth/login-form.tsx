@@ -108,9 +108,14 @@ export function LoginForm() {
           />
           <span>Recordarme</span>
         </label>
-        <button type="button" className="login-forgot-link">
+        <a
+          className="login-forgot-link"
+          href="https://www.godcode.me/login/recuperar"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           ¿Olvidaste tu contraseña?
-        </button>
+        </a>
       </div>
 
       <button type="submit" className="login-submit-btn" disabled={loading}>

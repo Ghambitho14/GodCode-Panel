@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useDeferredValue, useEffect, useId } from 'react';
-import { Search, PackageX, X } from 'lucide-react';
+import { Search, PackageX, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
 import { Button } from "@/components/ui/button";
@@ -136,6 +136,7 @@ const ManualOrderCatalog = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [searchPhase, setSearchPhase] = useState(/** @type {'closed' | 'open' | 'closing'} */ ('closed'));
     const [activeCategory, setActiveCategory] = useState(null);
+    const [navOverflow, setNavOverflow] = useState({ left: false, right: false });
     const searchInputId = useId();
     const searchInputRef = useRef(null);
 
@@ -304,6 +305,34 @@ const ManualOrderCatalog = ({
         const nav = categoriesNavRef.current;
         scrollChipIntoNav(chip, nav);
     }, [activeCategory, searchPhase]);
+
+    // Flechas de la nav: solo se muestran hacia el lado donde quedan chips ocultos.
+    // El nav se desmonta con la busqueda abierta, por eso depende de `searchPhase`.
+    useEffect(() => {
+        const nav = categoriesNavRef.current;
+        if (!nav || searchPhase !== 'closed') return undefined;
+
+        const updateOverflow = () => {
+            const left = nav.scrollLeft > 2;
+            const right = nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2;
+            setNavOverflow((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+        };
+
+        updateOverflow();
+        nav.addEventListener('scroll', updateOverflow, { passive: true });
+        const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateOverflow) : null;
+        resizeObserver?.observe(nav);
+        return () => {
+            nav.removeEventListener('scroll', updateOverflow);
+            resizeObserver?.disconnect();
+        };
+    }, [sidebarCategories, searchPhase]);
+
+    const scrollCategoriesBy = (direction) => {
+        const nav = categoriesNavRef.current;
+        if (!nav) return;
+        nav.scrollBy({ left: direction * nav.clientWidth * 0.75, behavior: 'smooth' });
+    };
 
 	/*
 	 * Espia de scroll.
@@ -614,32 +643,59 @@ const ManualOrderCatalog = ({
                                 justo cuando la cifra menos importa. El recuento sigue
                                 anunciandose en la region `aria-live` de arriba. */}
                             {sidebarCategories.length > 0 ? (
-                                <nav
-                                    ref={categoriesNavRef}
-                                    className="manual-order-catalog-categories manual-order-catalog-categories--enter flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scroll-smooth py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                                    aria-label="Categorías"
+                                <div
+                                    className="manual-order-catalog-categories-shell relative flex min-w-0 flex-1 items-center"
+                                    data-overflow-left={navOverflow.left ? '' : undefined}
+                                    data-overflow-right={navOverflow.right ? '' : undefined}
                                 >
-                                    {sidebarCategories.map((it) => {
-                                        const isActive = activeCategory === it.key;
-                                        return (
-                                            <button
-                                                key={it.key}
-                                                ref={setCategoryChipRef(it.key)}
-                                                type="button"
-                                                onClick={() => scrollToCategory(it.key)}
-                                                className={cn(
-                                                    `manual-order-catalog-category-chip shrink-0 snap-start whitespace-nowrap border px-3.5 py-2 sm:py-1.5 ${pillRadiusClass} ${textScale.body} leading-snug transition-[background-color,border-color,color,box-shadow]`,
-                                                    isActive
-                                                        ? 'border-gc-accent bg-gc-accent font-semibold text-white shadow-sm'
-                                                        : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-accent/25 hover:bg-gc-accent/5 hover:text-gc-text',
-                                                )}
-                                                aria-current={isActive ? 'true' : undefined}
-                                            >
-                                                {it.name}
-                                            </button>
-                                        );
-                                    })}
-                                </nav>
+                                    <nav
+                                        ref={categoriesNavRef}
+                                        className="manual-order-catalog-categories manual-order-catalog-categories--enter flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scroll-smooth py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                                        aria-label="Categorías"
+                                    >
+                                        {sidebarCategories.map((it) => {
+                                            const isActive = activeCategory === it.key;
+                                            return (
+                                                <button
+                                                    key={it.key}
+                                                    ref={setCategoryChipRef(it.key)}
+                                                    type="button"
+                                                    onClick={() => scrollToCategory(it.key)}
+                                                    className={cn(
+                                                        `manual-order-catalog-category-chip shrink-0 snap-start whitespace-nowrap border px-3.5 py-2 sm:py-1.5 ${pillRadiusClass} ${textScale.body} leading-snug transition-[background-color,border-color,color,box-shadow]`,
+                                                        isActive
+                                                            ? 'border-gc-accent bg-gc-accent font-semibold text-white shadow-sm'
+                                                            : 'border-gc-border bg-gc-card font-medium text-gc-text-muted hover:border-gc-accent/25 hover:bg-gc-accent/5 hover:text-gc-text',
+                                                    )}
+                                                    aria-current={isActive ? 'true' : undefined}
+                                                >
+                                                    {it.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </nav>
+                                    {/* Fuera del <nav>: los botones de adentro son solo los chips. */}
+                                    {navOverflow.left ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => scrollCategoriesBy(-1)}
+                                            className={`manual-order-catalog-categories-arrow absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center ${pillRadiusClass} border border-gc-border bg-gc-card text-gc-text-muted shadow-sm transition-colors hover:border-gc-text/20 hover:text-gc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent/30`}
+                                            aria-label="Ver categorías anteriores"
+                                        >
+                                            <ChevronLeft size={18} aria-hidden="true" />
+                                        </button>
+                                    ) : null}
+                                    {navOverflow.right ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => scrollCategoriesBy(1)}
+                                            className={`manual-order-catalog-categories-arrow absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center ${pillRadiusClass} border border-gc-border bg-gc-card text-gc-text-muted shadow-sm transition-colors hover:border-gc-text/20 hover:text-gc-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gc-accent/30`}
+                                            aria-label="Ver más categorías"
+                                        >
+                                            <ChevronRight size={18} aria-hidden="true" />
+                                        </button>
+                                    ) : null}
+                                </div>
                             ) : (
                                 <div className="min-w-0 flex-1" />
                             )}

@@ -11,6 +11,7 @@ import { invalidateBranchInventory } from '../../services/panelDataCache';
 import { manualOrderV2Service } from '../../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../../services/orderLifecycleV3Service';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
+import { persistProductVariants } from '../products/services/productVariants';
 
 /**
  * CRUD de productos/categorías y comprobantes de pago en el panel admin.
@@ -279,13 +280,39 @@ export function useAdminCatalog({
 				if (sizesErr) sizesError = sizesErr;
 			}
 
+			// Variantes: la lista completa va a `admin_set_product_variants` (como los
+			// tamaños). Con producto nuevo se copian a todas sus sucursales, igual que el
+			// producto. Si fallan, el producto ya quedó guardado: se avisa y se puede
+			// reintentar editando.
+			let variantsWarning = null;
+			if (formData.variantsEnabled && Array.isArray(formData.variants)) {
+				try {
+					await persistProductVariants({
+						productId,
+						branchId: selectedBranch.id,
+						companyId,
+						groups: formData.variants,
+						baseline: formData.variantsBaseline ?? [],
+						applyToAllBranches,
+					});
+				} catch (variantsError) {
+					variantsWarning = variantsError?.message || 'error desconocido';
+				}
+			}
+
 			const savedLabel = editingProduct ? "Producto actualizado" : "Producto creado";
+			const warnings = [];
 			if (recipeError) {
 				console.warn('recipe save:', recipeError);
-				showNotify(`${savedLabel}, pero la receta no se guardó: ${recipeError.message}`, 'warning');
-			} else if (sizesError) {
+				warnings.push(`la receta no se guardó: ${recipeError.message}`);
+			}
+			if (sizesError) {
 				console.warn('sizes save:', sizesError);
-				showNotify(`${savedLabel}, pero los tamaños no se guardaron: ${sizesError.message}`, 'warning');
+				warnings.push(`los tamaños no se guardaron: ${sizesError.message}`);
+			}
+			if (variantsWarning) warnings.push(`las variantes no se guardaron: ${variantsWarning}`);
+			if (warnings.length > 0) {
+				showNotify(`${savedLabel}, pero ${warnings.join(' y ')}`, 'warning');
 			} else {
 				showNotify(savedLabel);
 			}

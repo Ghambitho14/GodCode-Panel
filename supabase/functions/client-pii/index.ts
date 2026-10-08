@@ -131,7 +131,7 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
 	const { data, error } = await ctx.admin
 		.from("menu_client_accounts")
 		.select(
-			"id, client_id, full_name, phone, document_raw, document_country, preferred_branch_id, is_active, last_login_at, created_at",
+			"id, client_id, auth_user_id, full_name, phone, document_raw, document_country, preferred_branch_id, is_active, last_login_at, created_at, marketing_email_opt_out_at",
 		)
 		.eq("company_id", ctx.companyId)
 		.order("created_at", { ascending: false });
@@ -150,6 +150,10 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
 			isActive: row.is_active !== false,
 			lastLoginAt: row.last_login_at ?? null,
 			createdAt: row.created_at ?? null,
+			// Para los cupones por correo: si tiene login (y por tanto correo) y si se
+			// dio de baja. El correo en sí no sale de la función `coupon-emails`.
+			canReceiveEmail: Boolean(row.auth_user_id),
+			emailOptOut: Boolean(row.marketing_email_opt_out_at),
 		})),
 	);
 	return jsonResponse({ accounts });

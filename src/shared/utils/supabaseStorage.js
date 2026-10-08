@@ -59,6 +59,8 @@ export function resolveImageTransform(presetOrTransform) {
 
 export const IMAGE_STORAGE_CONTEXTS = Object.freeze({
     CATALOG_PRODUCT: 'catalog-product',
+    /** Foto propia de una variante de producto ("Pollo" con su foto); va junto al producto. */
+    PRODUCT_VARIANT: 'product-variant',
     CART_UPSELL: 'cart-upsell',
     MENU_CAROUSEL: 'menu-carousel',
     STOREFRONT_BRANDING: 'storefront-branding',
@@ -67,6 +69,7 @@ export const IMAGE_STORAGE_CONTEXTS = Object.freeze({
 
 const STORAGE_CONTEXT_BUCKETS = Object.freeze({
     [IMAGE_STORAGE_CONTEXTS.CATALOG_PRODUCT]: STORAGE_BUCKETS.MENU,
+    [IMAGE_STORAGE_CONTEXTS.PRODUCT_VARIANT]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.CART_UPSELL]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.MENU_CAROUSEL]: STORAGE_BUCKETS.MENU,
     [IMAGE_STORAGE_CONTEXTS.STOREFRONT_BRANDING]: STORAGE_BUCKETS.MENU,
@@ -163,6 +166,14 @@ export function getCompanyImageStorageTarget(context, options = {}) {
         return {
             bucket,
             folder: companyStorageFolder(companyId, 'catalog/products', entityId || 'drafts'),
+        };
+    }
+
+    if (context === IMAGE_STORAGE_CONTEXTS.PRODUCT_VARIANT) {
+        // entityId = id del producto; el menú público lee la ruta tal cual (bucket público).
+        return {
+            bucket,
+            folder: companyStorageFolder(companyId, 'catalog/variants', entityId || 'drafts'),
         };
     }
 

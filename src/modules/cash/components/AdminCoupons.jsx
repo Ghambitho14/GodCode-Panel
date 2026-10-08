@@ -10,6 +10,7 @@ import { isSealedPiiValue } from "@/shared/utils/sealedPii";
 import { Button } from "@/components/ui/button";
 import CouponDateTimeField from "@/modules/cash/components/CouponDateTimeField";
 import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
+import CouponEmailSenderCard from "@/modules/cash/components/CouponEmailSenderCard";
 
 const emptyDraft = () => ({
 	id: "",
@@ -621,6 +622,8 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 
 	return (
 		<div className="admin-coupons">
+			<CouponEmailSenderCard showNotify={showNotify} />
+
 			{/* Una sola barra: buscar, estado y acciones. El título y el icono
 			    repetían la cabecera del panel, y el recuento baja a su línea. */}
 			<div className="admin-toolbar glass admin-coupons__toolbar">

@@ -51,7 +51,7 @@ function TicketPreviewPair({ tickets, titlePrefix }) {
 /**
  * Opciones de sucursal › Ticket: muestra los diseños del ticket de caja con un pedido de
  * ejemplo (en Retiro y en Delivery) y deja elegir cuál imprime esta sucursal. La comanda
- * de cocina tiene un solo diseño y se muestra como referencia.
+ * de cocina sale en el mismo diseño y se muestra como referencia.
  */
 export default function AdminMenuTicketSection({
 	selectedBranch,
@@ -122,14 +122,18 @@ export default function AdminMenuTicketSection({
 			})),
 		[previewOrders, branchName, logoUrl, printOptions],
 	);
+	// La comanda sigue el diseño marcado arriba, aunque todavía no se haya guardado.
 	const kitchenTickets = useMemo(
 		() =>
 			previewOrders.map(({ id, label, order }) => ({
 				id,
 				label,
-				html: buildTicketHtml(order, branchName, null, "kitchen", printOptions),
+				html: buildTicketHtml(order, branchName, null, "kitchen", {
+					...printOptions,
+					ticketDesign: current.ticketDesign,
+				}),
 			})),
-		[previewOrders, branchName, printOptions],
+		[previewOrders, branchName, printOptions, current.ticketDesign],
 	);
 
 	const dirty =
@@ -224,7 +228,7 @@ export default function AdminMenuTicketSection({
 			<div className="admin-branch-options__block">
 				<h3 className="admin-branch-options__block-title">Comanda de cocina</h3>
 				<p className="admin-branch-options__block-hint">
-					La que va a cocina, sin precios. Por ahora tiene un solo diseño.
+					La que va a cocina, sin precios. Usa el mismo diseño que elijas para el ticket de caja.
 				</p>
 				<div className="admin-ticket-options__designs">
 					<div className="admin-ticket-options__design admin-ticket-options__design--static">

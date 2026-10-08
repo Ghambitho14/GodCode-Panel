@@ -2768,6 +2768,23 @@
     animation: manual-order-catalog-categories-in 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* Desvanece el borde de la nav donde quedan chips ocultos; las flechas van
+   encima. Con mascara (no degradado de color) sirve en claro y oscuro. */
+.manual-order-catalog-categories-shell[data-overflow-right] .manual-order-catalog-categories {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent);
+}
+
+.manual-order-catalog-categories-shell[data-overflow-left] .manual-order-catalog-categories {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 56px);
+    mask-image: linear-gradient(to right, transparent, #000 56px);
+}
+
+.manual-order-catalog-categories-shell[data-overflow-left][data-overflow-right] .manual-order-catalog-categories {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 56px, #000 calc(100% - 56px), transparent);
+}
+
 @keyframes manual-order-catalog-search-in {
     0% {
         opacity: 0;

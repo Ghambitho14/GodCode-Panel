@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import AdminMenuSelect from '@/modules/cash/components/AdminMenuSelect';
+import ProductVariantsEditor from './ProductVariantsEditor';
+import { listProductVariants, validateVariantGroups } from '../services/productVariants';
 import { supabase, TABLES } from '@/integrations/supabase';
 import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from '@/shared/utils/fetchAllPaginated';
 import { INVENTORY_ITEMS_PANEL_SELECT, PRODUCT_INVENTORY_RECIPE_SELECT } from '@/modules/cash/services/inventorySelects';
@@ -71,6 +73,50 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
   const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState({});
 
+  /* Variantes (grupos de opción única que cambian el producto). Se cargan por
+     producto y sucursal al editar; en un producto nuevo arrancan vacías y se guardan
+     junto con él. Si la base aún no tiene la tabla, el editor se deshabilita y el
+     guardado del producto sigue funcionando sin tocar variantes. */
+  const [variantGroups, setVariantGroups] = useState([]);
+  const [variantsBaseline, setVariantsBaseline] = useState([]);
+  const [variantErrors, setVariantErrors] = useState({});
+  const productId = product?.id || null;
+  // Al editar, el estado arranca en "cargando": el efecto solo escribe cuando responde la base.
+  const [variantStatus, setVariantStatus] = useState(() =>
+    productId && branchId ? { kind: 'info', message: 'Cargando variantes…' } : null,
+  );
+  const [variantsEnabled, setVariantsEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!productId || !branchId) return undefined;
+    let cancelled = false;
+    listProductVariants(productId, branchId)
+      .then((groups) => {
+        if (cancelled) return;
+        setVariantGroups(groups);
+        setVariantsBaseline(groups);
+        setVariantsEnabled(true);
+        setVariantStatus(null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setVariantsEnabled(false);
+        setVariantStatus({
+          kind: 'error',
+          message: `No se pudieron cargar las variantes (${error?.message || 'error'}). El producto se guarda igual, sin tocarlas.`,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, branchId]);
+
+  const handleVariantsChange = (next) => {
+    setVariantGroups(next);
+    setVariantErrors({});
+    setIsDirty(true);
+  };
+
   useEffect(() => {
     setTimeout(() => nameInputRef.current?.focus(), 100);
   }, []);
@@ -83,7 +129,6 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
   const [recipeLoading, setRecipeLoading] = useState(true);
   const [recipeLoadError, setRecipeLoadError] = useState(null);
   const [recipeDirty, setRecipeDirty] = useState(false);
-  const productId = product?.id ?? null;
 
   useEffect(() => {
     if (!companyId) {
@@ -293,6 +338,10 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
       newErrors.recipe = 'Cada artículo de la receta necesita una cantidad mayor que 0';
     }
 
+    const nextVariantErrors = variantsEnabled ? validateVariantGroups(variantGroups) : {};
+    setVariantErrors(nextVariantErrors);
+    if (Object.keys(nextVariantErrors).length > 0) newErrors.variants = 'Revisa las variantes';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -332,7 +381,15 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
       });
     }
     try {
-      await onSave(payload, localFile);
+      await onSave(
+        {
+          ...payload,
+          variantsEnabled,
+          variants: variantsEnabled ? variantGroups : null,
+          variantsBaseline,
+        },
+        localFile,
+      );
     } finally {
       setSubmitting(false);
     }
@@ -602,6 +659,16 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                     </div>
                   )}
                 </div>
+
+                <ProductVariantsEditor
+                  groups={variantGroups}
+                  onChange={handleVariantsChange}
+                  errors={variantErrors}
+                  currency={currency}
+                  productName={formData.name}
+                  disabled={busy || !variantsEnabled}
+                  status={variantStatus}
+                />
               </div>
 
               <ProductRecipePanel
