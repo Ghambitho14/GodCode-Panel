@@ -52,7 +52,7 @@ test('fallback global conserva decimales USD', async ({ page }) => {
 	await page.getByRole('button', { name: 'Contexto' }).click();
 	await page.getByLabel('Nombre').fill('Global Customer');
 	await page.getByRole('button', { name: 'Pago' }).click();
-	await expect(page.getByRole('complementary', { name: 'Carrito' })).toContainText('$10.50');
+	await expect(page.getByRole('complementary', { name: 'Carrito' })).toContainText(/USD\s10\.50/);
 	await page.getByLabel('Cobrar ahora').check();
 	await page.getByRole('button', { name: 'Cobrar y crear' }).click();
 	await expect(page.getByTestId('result')).toContainText('"totalMinor":1050');
