@@ -10,6 +10,7 @@ import {
 	listMessages as listMessagesService,
 	sendMessage as sendMessageService,
 } from '../services/ticketsService';
+import { clearSupportTicketDraft, peekSupportTicketDraft } from '../utils/supportTicketDraft';
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'critical'];
 const CATEGORY_OPTIONS = ['general', 'billing', 'technical', 'product', 'account'];
@@ -108,6 +109,8 @@ function getMessageDisplay(m) {
 
 export default function TenantTicketsPanel({ showNotify }) {
 	const { locale } = useBranchMoney();
+	/** Ticket ya escrito por otra pantalla (p. ej. Cupones › Pedir ayuda a Soporte). */
+	const [draft] = React.useState(() => peekSupportTicketDraft());
 	const [tickets, setTickets] = React.useState([]);
 	const [selectedTicketId, setSelectedTicketId] = React.useState(null);
 	const [messages, setMessages] = React.useState([]);
@@ -115,20 +118,35 @@ export default function TenantTicketsPanel({ showNotify }) {
 	const [reply, setReply] = React.useState('');
 	const [loading, setLoading] = React.useState(true);
 	const [saving, setSaving] = React.useState(false);
-	const [mobileView, setMobileView] = React.useState('list');
+	const [mobileView, setMobileView] = React.useState(draft ? 'create' : 'list');
 
-	const [subject, setSubject] = React.useState('');
-	const [description, setDescription] = React.useState('');
+	const [subject, setSubject] = React.useState(draft?.subject ?? '');
+	const [description, setDescription] = React.useState(draft?.description ?? '');
 	const [priority, setPriority] = React.useState('medium');
-	const [category, setCategory] = React.useState('general');
+	const [category, setCategory] = React.useState(
+		CATEGORY_OPTIONS.includes(draft?.category) ? draft.category : 'general',
+	);
+	const [draftNotice, setDraftNotice] = React.useState(draft?.notice ?? '');
 
 	const [isClient, setIsClient] = React.useState(false);
+	const descriptionRef = React.useRef(null);
 
 	React.useEffect(() => {
 		setIsClient(true);
+		clearSupportTicketDraft();
 		void fetchTickets();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+
+	/** Con borrador, el cursor queda al final de la descripción para sumar detalles. */
+	React.useEffect(() => {
+		if (!isClient || !draft) return;
+		const el = descriptionRef.current;
+		if (!el) return;
+		el.focus();
+		const end = el.value.length;
+		el.setSelectionRange(end, end);
+	}, [isClient, draft]);
 
 	React.useEffect(() => {
 		if (selectedTicketId) void fetchMessages(selectedTicketId);
@@ -157,6 +175,7 @@ export default function TenantTicketsPanel({ showNotify }) {
 			const result = await createTicketService({ subject, description, priority, category });
 			setSubject('');
 			setDescription('');
+			setDraftNotice('');
 			await fetchTickets();
 			const created = result?.ticket;
 			if (created?.id) {
@@ -266,13 +285,19 @@ export default function TenantTicketsPanel({ showNotify }) {
 								<label htmlFor="ticket-description">Descripción</label>
 								<textarea
 									id="ticket-description"
+									ref={descriptionRef}
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 									placeholder="Qué pasó, en qué pantalla, sucursal y pasos para reproducirlo…"
-									rows={4}
+									rows={draft ? 6 : 4}
 									className="form-input tenant-tickets-textarea"
 								/>
 								<p className="tenant-tickets-field__hint">Incluye capturas o datos útiles en el texto si puedes.</p>
+								{draftNotice ? (
+									<p className="tenant-tickets-field__hint tenant-tickets-field__hint--notice" role="note">
+										{draftNotice}
+									</p>
+								) : null}
 							</div>
 							<div className="tenant-tickets-form__row">
 								<div className="tenant-tickets-field">
