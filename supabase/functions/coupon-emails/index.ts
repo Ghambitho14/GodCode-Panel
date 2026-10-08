@@ -1,14 +1,10 @@
 /**
  * Edge Function: coupon-emails
  *
- * Manda cupones personales por correo a las cuentas del menú y administra el
- * Resend propio de la empresa. Siempre POST con `{ action, ... }`:
+ * Manda cupones personales por correo a las cuentas del menú. Siempre POST con
+ * `{ action, ... }`:
  *
  *   action="sender-status"   -> con qué remitente salen hoy los cupones
- *   action="save-sender"     { apiKey?, fromEmail, fromName?, replyTo? }
- *                            -> manda un correo de prueba con ese Resend y, si
- *                               llega, lo guarda (solo owner/ceo, solo con dominio propio)
- *   action="delete-sender"   -> vuelve al Resend de GodCode (solo owner/ceo)
  *   action="preview"         { discountType, discountValue, minOrderSubtotal?, validUntil, message? }
  *                            -> asunto, remitente y HTML de ejemplo
  *   action="send-coupon"     { campaignId, accountIds: [], ...lo de preview }
@@ -18,6 +14,9 @@
  *  - Dominio propio vigente + Resend propio verificado -> el Resend de la empresa.
  *  - Si no -> el Resend de GodCode, «<Empresa> <COUPON_EMAIL_FROM>», respuestas al
  *    correo de la empresa.
+ * El Resend propio solo lo configura soporte desde el super admin de GodCode
+ * (`lib/email/company-sender.ts`); el panel lo pide con un ticket. Por eso aquí no
+ * hay acciones para guardarlo ni quitarlo.
  *
  * Auth: igual que `client-pii`. `verify_jwt=true`; el usuario se resuelve en `users`
  * por `auth_user_id` y todo se filtra por su `company_id`. El correo de un cliente
@@ -37,23 +36,21 @@ import {
 	companyPrimaryColor,
 	type CompanyForEmail,
 	type CompanySenderRow,
-	cleanDisplayName,
 	effectiveCustomDomain,
-	formatFrom,
 	generateCouponCode,
 	isValidEmail,
 	MAX_ACCOUNTS_PER_CALL,
 	parseCouponDraft,
 	renderCouponEmail,
-	renderSenderTestEmail,
 	resolveMenuUrl,
 	resolveSender,
 	type CouponDraft,
 } from "../_shared/coupon-email.ts";
-import { createSecretBox, secretLast4 } from "../_shared/secret-box.ts";
+import { createSecretBox } from "../_shared/secret-box.ts";
 import { buildUnsubscribeUrl } from "../_shared/unsubscribe-token.ts";
 
 const STAFF_ROLES = new Set(["owner", "admin", "ceo"]);
+/** Quienes pueden pedir a soporte el Resend propio (lo muestra `canConfigure`). */
 const CONFIG_ROLES = new Set(["owner", "ceo"]);
 const RESEND_API = "https://api.resend.com/emails";
 /** Resend acepta 2 envíos por segundo en el plan base: se espacian un poco más. */
@@ -68,7 +65,6 @@ type StaffContext = {
 	admin: SupabaseClient;
 	companyId: string;
 	role: string;
-	userEmail: string | null;
 };
 type ContextError = { error: string; status: number };
 
@@ -127,7 +123,6 @@ async function getStaffContext(authHeader: string | null): Promise<StaffContext 
 		admin,
 		companyId: String(row.company_id),
 		role,
-		userEmail: data.user.email ? data.user.email.trim().toLowerCase() : null,
 	};
 }
 
@@ -214,72 +209,6 @@ async function handleSenderStatus(ctx: StaffContext): Promise<Response> {
 				}
 			: null,
 	});
-}
-
-async function handleSaveSender(body: Record<string, unknown>, ctx: StaffContext): Promise<Response> {
-	if (!CONFIG_ROLES.has(ctx.role)) return jsonResponse({ error: "Solo el dueño o el CEO configuran el correo" }, 403);
-	const [company, current] = await Promise.all([loadCompany(ctx), loadSender(ctx)]);
-	if (!effectiveCustomDomain(company)) {
-		return jsonResponse({ error: "Tu negocio no tiene dominio propio: los cupones salen desde GodCode con tu nombre." }, 400);
-	}
-
-	const fromEmail = String(body.fromEmail ?? "").trim().toLowerCase();
-	const fromName = cleanDisplayName(String(body.fromName ?? ""));
-	const replyTo = String(body.replyTo ?? "").trim().toLowerCase();
-	const newKey = String(body.apiKey ?? "").trim();
-	if (!isValidEmail(fromEmail)) return jsonResponse({ error: "El correo remitente no es válido" }, 400);
-	if (replyTo && !isValidEmail(replyTo)) return jsonResponse({ error: "El correo para respuestas no es válido" }, 400);
-	if (newKey && !/^re_[A-Za-z0-9_]{8,}$/.test(newKey)) {
-		return jsonResponse({ error: "La API key de Resend empieza con «re_»" }, 400);
-	}
-	if (!newKey && !current) return jsonResponse({ error: "Falta la API key de Resend" }, 400);
-	if (!ctx.userEmail) return jsonResponse({ error: "Tu usuario no tiene correo para mandarte la prueba" }, 400);
-
-	const box = await createSecretBox(Deno.env.get("EMAIL_SENDER_SECRET_KEY") ?? "");
-	const apiKey = newKey || (await box.open(current!.api_key_sealed));
-	const from = formatFrom(fromName || companyDisplayName(company), fromEmail);
-
-	// Se guarda solo lo que de verdad manda: una prueba al correo de quien configura.
-	const test = renderSenderTestEmail(companyDisplayName(company), from);
-	const sent = await sendViaResend(apiKey, {
-		from,
-		to: ctx.userEmail,
-		subject: test.subject,
-		html: test.html,
-		text: test.text,
-		...(replyTo ? { reply_to: replyTo } : {}),
-		tags: [{ name: "kind", value: "sender_test" }],
-	});
-	if (!sent.ok) {
-		return jsonResponse({ error: `Resend no envió la prueba: ${sent.error}` }, 400);
-	}
-
-	const nowIso = new Date().toISOString();
-	const { error } = await ctx.admin.from("company_email_senders").upsert(
-		{
-			company_id: ctx.companyId,
-			provider: "resend",
-			api_key_sealed: newKey ? await box.seal(newKey) : current!.api_key_sealed,
-			api_key_last4: newKey ? secretLast4(newKey) : current!.api_key_last4 ?? "",
-			from_email: fromEmail,
-			from_name: fromName,
-			reply_to: replyTo || null,
-			verified_at: nowIso,
-			last_error: null,
-			updated_by: ctx.userEmail,
-			updated_at: nowIso,
-		},
-		{ onConflict: "company_id" },
-	);
-	if (error) return jsonResponse({ error: error.message }, 500);
-	return jsonResponse({ ok: true, testSentTo: ctx.userEmail });
-}
-
-async function handleDeleteSender(ctx: StaffContext): Promise<Response> {
-	if (!CONFIG_ROLES.has(ctx.role)) return jsonResponse({ error: "Solo el dueño o el CEO configuran el correo" }, 403);
-	const { error } = await ctx.admin.from("company_email_senders").delete().eq("company_id", ctx.companyId);
-	if (error) return jsonResponse({ error: error.message }, 500);
-	return jsonResponse({ ok: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -544,8 +473,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 		const action = String(body.action ?? "").trim().toLowerCase();
 		if (action === "sender-status") return await handleSenderStatus(ctx);
-		if (action === "save-sender") return await handleSaveSender(body, ctx);
-		if (action === "delete-sender") return await handleDeleteSender(ctx);
+		if (action === "save-sender" || action === "delete-sender") {
+			return jsonResponse({ error: "El correo de los cupones lo configura Soporte de GodCode. Pídelo con un ticket." }, 403);
+		}
 		if (action === "preview") return await handlePreview(body, ctx);
 		if (action === "send-coupon") return await handleSendCoupon(body, ctx);
 		return jsonResponse({ error: "Accion desconocida" }, 400);

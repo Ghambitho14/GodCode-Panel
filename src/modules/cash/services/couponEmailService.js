@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase';
 
 /**
  * Cupones por correo y remitente de la empresa (Edge Function `coupon-emails`).
+ * El remitente se lee aquí, pero lo configura soporte desde el super admin de GodCode.
  *
  * El correo de cada cliente y la API key de Resend nunca llegan al navegador: el
  * panel manda ids de cuentas y recibe un resultado por cuenta.
@@ -18,7 +19,7 @@ const SERVER_ERRORS = {
 
 /**
  * `supabase.functions.invoke` deja el cuerpo de un 4xx en `error.context` (un Response):
- * se lee para mostrar el mensaje real («La API key de Resend empieza con re_», etc.).
+ * se lee para mostrar el mensaje real («Elige al menos un cliente», etc.).
  */
 async function invoke(action, payload, fallbackMessage) {
 	const response = await supabase.functions.invoke(FN_NAME, {
@@ -47,15 +48,6 @@ async function invoke(action, payload, fallbackMessage) {
  */
 export function fetchCouponSenderStatus() {
 	return invoke('sender-status', {}, 'No se pudo leer el remitente de los cupones');
-}
-
-/** @param {{ apiKey?: string, fromEmail: string, fromName?: string, replyTo?: string }} sender */
-export function saveCouponSender(sender) {
-	return invoke('save-sender', sender, 'No se pudo guardar el remitente');
-}
-
-export function deleteCouponSender() {
-	return invoke('delete-sender', {}, 'No se pudo quitar el remitente');
 }
 
 /**

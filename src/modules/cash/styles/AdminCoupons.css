@@ -1118,21 +1118,3 @@
 	overflow-wrap: anywhere;
 }
 
-.coupon-sender-card__form {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.coupon-sender-card__actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-	flex-wrap: wrap;
-}
-
-@media (max-width: 560px) {
-	.coupon-sender-card .coupon-form-modal__grid--2 {
-		grid-template-columns: 1fr;
-	}
-}

@@ -6,7 +6,7 @@ vi.mock('@/integrations/supabase', () => ({
 	supabase: { functions: { invoke: (...args) => invoke(...args) } },
 }));
 
-const { sendCouponEmails, saveCouponSender, COUPON_EMAIL_BATCH_SIZE } = await import(
+const { sendCouponEmails, fetchCouponSenderStatus, COUPON_EMAIL_BATCH_SIZE } = await import(
 	'@/modules/cash/services/couponEmailService'
 );
 
@@ -62,7 +62,7 @@ describe('couponEmailService', () => {
 			error: { message: 'Edge Function returned a non-2xx status code', context: { status: 404, json: async () => ({}) } },
 		});
 
-		await expect(saveCouponSender({ apiKey: 'x', fromEmail: 'a@b.cl' })).rejects.toThrow(
+		await expect(fetchCouponSenderStatus()).rejects.toThrow(
 			'El envío de cupones por correo todavía no está activado en el servidor.',
 		);
 	});
@@ -72,12 +72,12 @@ describe('couponEmailService', () => {
 			data: null,
 			error: {
 				message: 'Edge Function returned a non-2xx status code',
-				context: { json: async () => ({ error: 'La API key de Resend empieza con «re_»' }) },
+				context: { json: async () => ({ error: 'No tienes permisos para enviar cupones' }) },
 			},
 		});
 
-		await expect(saveCouponSender({ apiKey: 'x', fromEmail: 'a@b.cl' })).rejects.toThrow(
-			'La API key de Resend empieza con «re_»',
+		await expect(fetchCouponSenderStatus()).rejects.toThrow(
+			'No tienes permisos para enviar cupones',
 		);
 	});
 });
