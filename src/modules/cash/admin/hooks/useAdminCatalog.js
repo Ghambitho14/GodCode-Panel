@@ -268,6 +268,18 @@ export function useAdminCatalog({
 				}
 			}
 
+			/* Tamaños: igual que la receta, si fallan no se lanza (el producto ya existe). */
+			let sizesError = null;
+			if (Array.isArray(formData.sizes)) {
+				const { error: sizesErr } = await supabase.rpc('admin_set_product_sizes', {
+					p_product_id: productId,
+					p_branch_id: selectedBranch.id,
+					p_sizes: formData.sizes,
+					p_apply_to_all_branches: applyToAllBranches,
+				});
+				if (sizesErr) sizesError = sizesErr;
+			}
+
 			// Variantes: la lista completa va a `admin_set_product_variants` (como los
 			// tamaños). Con producto nuevo se copian a todas sus sucursales, igual que el
 			// producto. Si fallan, el producto ya quedó guardado: se avisa y se puede
@@ -293,6 +305,10 @@ export function useAdminCatalog({
 			if (recipeError) {
 				console.warn('recipe save:', recipeError);
 				warnings.push(`la receta no se guardó: ${recipeError.message}`);
+			}
+			if (sizesError) {
+				console.warn('sizes save:', sizesError);
+				warnings.push(`los tamaños no se guardaron: ${sizesError.message}`);
 			}
 			if (variantsWarning) warnings.push(`las variantes no se guardaron: ${variantsWarning}`);
 			if (warnings.length > 0) {

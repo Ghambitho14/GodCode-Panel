@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, Save, Image as ImageIcon, Loader2, Trash2, Star, Tag } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Loader2, Trash2, Star, Tag, Ruler } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
@@ -12,6 +12,8 @@ import { fetchAllPaginated, PANEL_PAGINATION_PAGE_SIZE } from '@/shared/utils/fe
 import { INVENTORY_ITEMS_PANEL_SELECT, PRODUCT_INVENTORY_RECIPE_SELECT } from '@/modules/cash/services/inventorySelects';
 import { normalizeUnit, toNativeQty } from '@/lib/recipe-units';
 import ProductRecipePanel from './ProductRecipePanel';
+import ProductSizesPanel from './ProductSizesPanel';
+import { minSizeRowPrice, newSizeRow, validateSizeRows } from './productSizes';
 
 const INITIAL_STATE = {
   name: '',
@@ -183,6 +185,67 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
     };
   }, [companyId, productId]);
 
+  /* Tamaños (Familiar, Mediana…): precio propio por sucursal en product_sizes. Igual que
+     la receta, solo se mandan si se tocaron: un fallo de carga nunca los borra. */
+  const [sizeRows, setSizeRows] = useState([]);
+  const [sizesEnabled, setSizesEnabled] = useState(false);
+  const [sizesLoading, setSizesLoading] = useState(Boolean(productId && branchId));
+  const [sizesLoadError, setSizesLoadError] = useState(null);
+  const [sizesDirty, setSizesDirty] = useState(false);
+
+  useEffect(() => {
+    if (!productId || !branchId || branchId === 'all') {
+      setSizesLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from(TABLES.product_sizes)
+          .select('id, name, price, sort_order')
+          .eq('product_id', productId)
+          .eq('branch_id', branchId)
+          .order('sort_order');
+        if (error) throw error;
+        if (cancelled) return;
+        const rows = (data || []).map((r) => ({ ...newSizeRow(r.name, r.price), id: r.id }));
+        setSizeRows(rows);
+        setSizesEnabled(rows.length > 0);
+      } catch (e) {
+        console.warn('product sizes', e);
+        if (!cancelled) setSizesLoadError('No se pudieron cargar los tamaños. El producto se guardará sin tocarlos.');
+      } finally {
+        if (!cancelled) setSizesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, branchId]);
+
+  const handleSizesChange = useCallback((next) => {
+    setSizeRows(next);
+    setSizesDirty(true);
+    setIsDirty(true);
+  }, []);
+
+  const toggleSizes = useCallback(() => {
+    const next = !sizesEnabled;
+    if (next) {
+      // Primera vez: una fila con el precio actual, para no empezar en blanco.
+      if (sizeRows.length === 0) setSizeRows([newSizeRow('', formData.price || '')]);
+      // Con tamaños la oferta no aplica: el precio de cada tamaño es el que se cobra.
+      setFormData((prev) => ({ ...prev, has_discount: false }));
+    }
+    setSizesEnabled(next);
+    setSizesDirty(true);
+    setIsDirty(true);
+  }, [sizesEnabled, sizeRows.length, formData.price]);
+
+  const sizesActive = sizesEnabled && !sizesLoadError;
+  const minSizePrice = sizesActive ? minSizeRowPrice(sizeRows) : null;
+
   const handleRecipeChange = useCallback((next) => {
     setRecipeLines(next);
     setRecipeDirty(true);
@@ -255,10 +318,15 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
   const validate = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Nombre requerido';
-    if (!formData.price || Number(formData.price) <= 0) newErrors.price = 'Precio inválido';
+    if (sizesActive) {
+      const sizesError = validateSizeRows(sizeRows);
+      if (sizesError) newErrors.sizes = sizesError;
+    } else if (!formData.price || Number(formData.price) <= 0) {
+      newErrors.price = 'Precio inválido';
+    }
     if (!formData.category_id) newErrors.category_id = 'Categoría requerida';
 
-    if (formData.has_discount) {
+    if (formData.has_discount && !sizesActive) {
       if (!formData.discount_price || Number(formData.discount_price) <= 0) {
         newErrors.discount_price = 'Precio oferta inválido';
       } else if (Number(formData.discount_price) >= Number(formData.price)) {
@@ -284,6 +352,22 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
     if (!validate()) return;
     setSubmitting(true);
     const payload = { ...formData };
+    if (sizesActive) {
+      // El precio base queda en el tamaño más barato: es el "Desde" del menú y lo que
+      // cobra una caja que todavía no elige tamaño.
+      payload.price = minSizeRowPrice(sizeRows);
+      payload.has_discount = false;
+      payload.discount_price = '';
+    }
+    if (sizesDirty && !sizesLoadError && !sizesLoading) {
+      payload.sizes = sizesEnabled
+        ? sizeRows.map((r) => ({
+            ...(r.id ? { id: r.id } : {}),
+            name: String(r.name).trim(),
+            price: Number(r.price),
+          }))
+        : [];
+    }
     if (recipeDirty && !recipeLoadError) {
       // La receta se guarda en la unidad nativa del artículo, igual que en Inventario.
       payload.recipe = recipeLines.map((l) => {
@@ -429,13 +513,18 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                         className="form-input"
                         aria-invalid={Boolean(errors.price)}
                         name="price"
-                        value={formData.price}
+                        value={sizesActive ? (minSizePrice ?? '') : formData.price}
                         onChange={handleChange}
                         placeholder="0"
                         min="0"
                         aria-label={`Precio en ${currency}`}
+                        disabled={sizesActive}
+                        title={sizesActive ? 'Con tamaños, el precio es el del tamaño más barato' : undefined}
                       />
                     </div>
+                    {sizesActive ? (
+                      <span className="product-form__field-hint">Desde: el tamaño más barato</span>
+                    ) : null}
                     {errors.price && <span className="error-text">{errors.price}</span>}
                   </div>
 
@@ -489,25 +578,63 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                     </Button>
                   </div>
 
-                  <div className={`product-form__option${formData.has_discount ? ' is-on' : ''}`}>
-                    <span className="product-form__option-icon" aria-hidden><Tag size={16} strokeWidth={1.75} /></span>
+                  <div className={`product-form__option${sizesActive ? ' is-on' : ''}`}>
+                    <span className="product-form__option-icon" aria-hidden><Ruler size={16} strokeWidth={1.75} /></span>
                     <div className="switch-content">
-                      <span className="switch-title">Precio de oferta</span>
-                      <span className="switch-desc">El menú muestra el precio tachado y el rebajado</span>
+                      <span className="switch-title">Varios tamaños</span>
+                      <span className="switch-desc">
+                        {sizesLoading
+                          ? 'Cargando tamaños…'
+                          : sizesLoadError
+                            ? sizesLoadError
+                            : 'Ej: pizza familiar, mediana y pequeña, cada una con su precio'}
+                      </span>
                     </div>
                     <Button variant="default"
                       type="button"
-                      className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
+                      className={`menu-carousel-switch menu-carousel-switch--sm${sizesActive ? ' is-on' : ''}`}
                       role="switch"
-                      aria-checked={formData.has_discount}
-                      aria-label={formData.has_discount ? 'Desactivar oferta' : 'Activar oferta'}
-                      onClick={() => setField('has_discount', !formData.has_discount)}
+                      aria-checked={sizesActive}
+                      aria-label={sizesActive ? 'Quitar tamaños' : 'Usar varios tamaños'}
+                      onClick={toggleSizes}
+                      disabled={sizesLoading || Boolean(sizesLoadError)}
                     >
                       <span className="menu-carousel-switch-knob" aria-hidden />
                     </Button>
                   </div>
 
-                  {formData.has_discount && (
+                  {sizesActive && (
+                    <ProductSizesPanel
+                      rows={sizeRows}
+                      onChange={handleSizesChange}
+                      currency={currency}
+                      error={errors.sizes}
+                      disabled={busy}
+                    />
+                  )}
+
+                  {/* Con tamaños la oferta no aplica: cada tamaño tiene su precio. */}
+                  {!sizesActive && (
+                    <div className={`product-form__option${formData.has_discount ? ' is-on' : ''}`}>
+                      <span className="product-form__option-icon" aria-hidden><Tag size={16} strokeWidth={1.75} /></span>
+                      <div className="switch-content">
+                        <span className="switch-title">Precio de oferta</span>
+                        <span className="switch-desc">El menú muestra el precio tachado y el rebajado</span>
+                      </div>
+                      <Button variant="default"
+                        type="button"
+                        className={`menu-carousel-switch menu-carousel-switch--sm${formData.has_discount ? ' is-on' : ''}`}
+                        role="switch"
+                        aria-checked={formData.has_discount}
+                        aria-label={formData.has_discount ? 'Desactivar oferta' : 'Activar oferta'}
+                        onClick={() => setField('has_discount', !formData.has_discount)}
+                      >
+                        <span className="menu-carousel-switch-knob" aria-hidden />
+                      </Button>
+                    </div>
+                  )}
+
+                  {!sizesActive && formData.has_discount && (
                     <div className="product-form__option-field animate-slide-down">
                       <label htmlFor="product-discount-price">
                         Precio con oferta <span className="req">*</span>
