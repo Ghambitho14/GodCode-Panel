@@ -8,6 +8,11 @@ export default function AdminMenuChannelBanner({ menuCapabilities }) {
 	if (!menuCapabilities) return null;
 
 	const messages = [];
+	if (menuCapabilities.showMenuOnlyBanner) {
+		messages.push(
+			'Tu plan es solo menú digital: aquí cargas productos y banners. Los pedidos te llegan por WhatsApp.',
+		);
+	}
 	if (menuCapabilities.showCatalogOnlyBanner) {
 		messages.push('Menú en modo catálogo. Los clientes no pueden pedir desde la web.');
 	}

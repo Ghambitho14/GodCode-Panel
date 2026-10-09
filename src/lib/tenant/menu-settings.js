@@ -75,8 +75,60 @@ export function requiresOpenShiftForCheckout(orderChannel) {
 export const SALES_TAB_IDS = ['caja', 'analytics', 'local_expenses'];
 
 /**
+ * Qué producto trae el plan (`plans.features.product_mode`, lo guarda el super admin):
+ * - `full`: menú digital y panel completos (también si falta la clave).
+ * - `menu_only`: solo menú digital. Los pedidos van al WhatsApp del dueño y el panel queda
+ *   en catálogo (productos, categorías, bebidas, extras, cambios) y banners.
+ * - `panel_only`: panel completo sin menú público.
+ * @typedef {'full' | 'menu_only' | 'panel_only'} PlanProductMode
+ */
+
+const PLAN_PRODUCT_MODES = new Set(['full', 'menu_only', 'panel_only']);
+
+/** Pestañas del panel con «solo menú digital». */
+export const MENU_ONLY_PANEL_TABS = [
+	'categories',
+	'products',
+	'menu_beverages',
+	'menu_extras',
+	'menu_modifiers',
+	'menu_carousel',
+];
+
+/**
+ * @param {unknown} planFeatures
+ * @returns {PlanProductMode}
+ */
+export function resolvePlanProductMode(planFeatures) {
+	if (!planFeatures || typeof planFeatures !== 'object' || Array.isArray(planFeatures)) return 'full';
+	const value = /** @type {Record<string, unknown>} */ (planFeatures).product_mode;
+	return typeof value === 'string' && PLAN_PRODUCT_MODES.has(value)
+		? /** @type {PlanProductMode} */ (value)
+		: 'full';
+}
+
+/**
+ * Pestañas que el plan deja ver. Con «solo menú digital» se recorta a catálogo y banners
+ * aunque `theme_config.panelAccess` (copia del plan) esté desactualizado.
+ * @param {PlanProductMode} mode
+ * @param {string[] | null | undefined} panelAccess `null`/`undefined` = todas.
+ * @param {(tabId: string) => string} [normalizeTabId]
+ * @returns {string[] | null | undefined}
+ */
+export function applyPlanProductModeToPanelAccess(mode, panelAccess, normalizeTabId = (tabId) => tabId) {
+	if (mode !== 'menu_only') return panelAccess;
+	if (!Array.isArray(panelAccess) || panelAccess.length === 0) return [...MENU_ONLY_PANEL_TABS];
+	const allowed = new Set(MENU_ONLY_PANEL_TABS);
+	const kept = panelAccess.filter((tab) => allowed.has(normalizeTabId(tab)));
+	return kept.length > 0 ? kept : [...MENU_ONLY_PANEL_TABS];
+}
+
+/**
  * @typedef {{
  *   menuSettings: CompanyMenuSettings;
+ *   planProductMode: PlanProductMode;
+ *   hasPublicMenu: boolean;
+ *   showMenuOnlyBanner: boolean;
  *   onlineOrderingEnabled: boolean;
  *   receivesMenuCheckoutInPanel: boolean;
  *   menuCheckoutUsesWhatsApp: boolean;
@@ -95,8 +147,13 @@ export const SALES_TAB_IDS = ['caja', 'analytics', 'local_expenses'];
  * @returns {TenantPanelOrderCapabilities}
  */
 export function resolvePanelCapabilities(menuSettings, planFeatures) {
-	const onlineOrderingEnabled = resolveOnlineOrderingEnabled(planFeatures, menuSettings);
-	const { cartEnabled, orderChannel } = menuSettings;
+	const planProductMode = resolvePlanProductMode(planFeatures);
+	// «Solo menú digital»: no hay panel que reciba pedidos, todo llega por WhatsApp.
+	const effectiveSettings = planProductMode === 'menu_only'
+		? { ...menuSettings, orderChannel: /** @type {OrderChannelMode} */ ('whatsapp_only') }
+		: menuSettings;
+	const onlineOrderingEnabled = resolveOnlineOrderingEnabled(planFeatures, effectiveSettings);
+	const { cartEnabled, orderChannel } = effectiveSettings;
 
 	const receivesMenuCheckoutInPanel = cartEnabled
 		&& onlineOrderingEnabled
@@ -109,14 +166,18 @@ export function resolvePanelCapabilities(menuSettings, planFeatures) {
 		&& requiresOpenShiftForCheckout(orderChannel);
 
 	return {
-		menuSettings,
+		menuSettings: effectiveSettings,
+		planProductMode,
+		hasPublicMenu: planProductMode !== 'panel_only',
+		showMenuOnlyBanner: planProductMode === 'menu_only',
 		onlineOrderingEnabled,
 		receivesMenuCheckoutInPanel,
 		menuCheckoutUsesWhatsApp,
 		menuCheckoutRequiresOpenShift,
 		showOnlineOrdersQueue: receivesMenuCheckoutInPanel,
 		showCatalogOnlyBanner: !cartEnabled || !onlineOrderingEnabled,
-		showWhatsAppOnlyBanner: cartEnabled && onlineOrderingEnabled && orderChannel === 'whatsapp_only',
+		showWhatsAppOnlyBanner: planProductMode !== 'menu_only'
+			&& cartEnabled && onlineOrderingEnabled && orderChannel === 'whatsapp_only',
 		showPanelOnlyBanner: cartEnabled && onlineOrderingEnabled && orderChannel === 'panel_only',
 		hideSalesTabs: !cartEnabled || !onlineOrderingEnabled,
 	};
