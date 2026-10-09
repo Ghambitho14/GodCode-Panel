@@ -7,9 +7,12 @@ import ProgressiveProductImage from '@/modules/cash/components/ProgressiveProduc
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import { spacing, textScale, cardRadiusClass } from './manualOrderStyles';
+import { minProductSizePrice, productHasSizes } from '../../hooks/manual-order/cartLines';
 
 /**
  * Tarjeta de producto para el catálogo del pedido manual.
+ * Con tamaños muestra «Desde» (el más barato) y el «+» abre el selector de tamaño
+ * (lo decide el catálogo); la cantidad se ajusta en el carrito, línea por tamaño.
  */
 const ProductCard = ({
     product,
@@ -23,8 +26,11 @@ const ProductCard = ({
     const { formatMoney } = useBranchMoney();
     const mediaRef = React.useRef(null);
     const [imageNearViewport, setImageNearViewport] = React.useState(false);
-    const hasDiscount = Boolean(product.has_discount) && product.discount_price != null && Number(product.discount_price) > 0;
-    const unitPrice = hasDiscount ? Number(product.discount_price) : Number(product.price);
+    const hasSizes = productHasSizes(product);
+    const hasDiscount = !hasSizes && Boolean(product.has_discount) && product.discount_price != null && Number(product.discount_price) > 0;
+    const unitPrice = hasSizes
+        ? minProductSizePrice(product)
+        : hasDiscount ? Number(product.discount_price) : Number(product.price);
 
     // Realimentacion al anadir: un pulso breve en el control, sin que cambie de
     // tamano. Se apaga al terminar para poder repetirse en el siguiente +.
@@ -88,12 +94,14 @@ const ProductCard = ({
         shouldLoadImage,
     );
 
-    const floatingAction = quantity === 0 ? (
+    // Con tamaños el «-» de la tarjeta no sabe qué línea bajar: solo «+» (elegir tamaño).
+    const floatingAction = quantity === 0 || hasSizes ? (
         <Button variant="default"
             type="button"
             onClick={handleAddClick}
             className="manual-order-tap-44 flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-gc-accent p-0 text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
-            aria-label={`Agregar ${product.name}`}
+            aria-label={hasSizes ? `Elegir tamaño de ${product.name}` : `Agregar ${product.name}`}
+            aria-haspopup={hasSizes ? 'dialog' : undefined}
         >
             +
         </Button>
@@ -136,9 +144,19 @@ const ProductCard = ({
                 cardRadiusClass,
             )}
             onClick={() => addItem(product)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') addItem(product); }}
+            onKeyDown={(e) => {
+                // Solo la tarjeta: Enter en el «+» o el «−» lo resuelve su propio botón (antes
+                // la tarjeta sumaba otra unidad). El preventDefault evita que ese mismo Enter
+                // o Espacio llegue al selector de tamaño que se abre.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    addItem(product);
+                }
+            }}
             role="button"
             tabIndex={0}
+            aria-haspopup={hasSizes ? 'dialog' : undefined}
         >
             {hasDiscount && (
                 <span className={`pointer-events-none absolute left-2 top-2 z-10 rounded-[4px] border border-gc-discount/25 bg-white px-1.5 py-0.5 shadow-xs ${textScale.micro} font-bold uppercase tracking-wide text-gc-discount`}>
@@ -199,7 +217,16 @@ const ProductCard = ({
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="min-w-0 flex-1 flex flex-col items-start justify-end gap-1">
-                        {hasDiscount ? (
+                        {hasSizes ? (
+                            <>
+                                <span className={`${textScale.micro} font-medium leading-none text-gc-text-muted`}>
+                                    Desde
+                                </span>
+                                <span className="max-w-full text-[clamp(0.8125rem,12.5cqi,1.25rem)] font-bold leading-none text-gc-text tabular-nums">
+                                    {formatMoney(unitPrice)}
+                                </span>
+                            </>
+                        ) : hasDiscount ? (
                             <>
                                 <span className={`${textScale.micro} font-medium leading-none text-gc-text-muted line-through tabular-nums`}>
                                     {formatMoney(Number(product.price))}

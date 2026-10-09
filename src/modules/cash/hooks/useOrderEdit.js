@@ -28,10 +28,17 @@ import { buildCouponPreview } from '@/lib/discount-coupon';
 import { revealOrderContact } from '../services/clientPiiService';
 import { isSealedDeliveryAddress, isSealedPiiValue, orderHasSealedContact } from '@/shared/utils/sealedPii';
 import {  } from '../utils/deliveryFeePermissions';
+import {
+	buildCartLineFields,
+	buildOrderItemLineIds,
+	getLineProductId,
+	hasSizeOrVariantLines,
+} from './manual-order/cartLines';
 import { deliveryFieldsFromClientRecord, maybeSaveClientDefaultDeliveryAddress } from '../services/clientService';
 import {
 	COUPON_PREVIEW_ERR_MSG,
 	getEffectiveItemPrice,
+	getItemChangesTotal,
 	OPEN_MESA_CAJA_DEFAULTS,
 	applyLocalFulfillmentMode,
 	applyMesaPartyMode,
@@ -75,9 +82,10 @@ function buildV3DeliveryPatch(form, branchDeliveryCfg, fulfillment) {
 	};
 }
 
+/** Subtotal de las líneas con sus cambios, igual que el carrito nuevo y que la base. */
 function totalItemsMajor(items, currency, fractionDigits) {
 	return minorToMajor(sumMinor((items || []).map((item) => (
-		majorToMinor(getEffectiveItemPrice(item), currency, fractionDigits) * (Number(item.quantity) || 1)
+		majorToMinor(getEffectiveItemPrice(item) + getItemChangesTotal(item), currency, fractionDigits) * (Number(item.quantity) || 1)
 	))), currency, fractionDigits);
 }
 
@@ -101,9 +109,14 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 			selected_client_id: '',
 		};
 	}
-	const items = Array.isArray(initialOrder.items) ? initialOrder.items.map((it) => ({
+	const rawItems = Array.isArray(initialOrder.items) ? initialOrder.items : [];
+	// Id de línea propio (tamaño y variantes incluidos): dos tamaños del mismo producto
+	// son dos líneas. `product_id` conserva el producto, que es lo que va a la RPC.
+	const lineIds = buildOrderItemLineIds(rawItems);
+	const items = rawItems.map((it, index) => ({
 		...it,
-		id: String(it.id ?? ''),
+		id: lineIds[index],
+		product_id: String(it.product_id ?? it.id ?? ''),
 		line_id: it.line_id ?? it.lineId ?? null,
 		name: String(it.name ?? ''),
 		price: Number(it.price) || 0,
@@ -117,7 +130,7 @@ function buildInitialState(initialOrder, currency = 'CLP', fractionDigits = isoF
 		note: typeof it.note === 'string' ? it.note : '',
 		manual_order_source: it.manual_order_source ?? null,
 		is_extra: Boolean(it.is_extra),
-	})) : [];
+	}));
 
 	const computedTotal = totalItemsMajor(items, currency, fractionDigits);
 
@@ -519,25 +532,24 @@ export const useOrderEdit = (
 	};
 
 	const addItem = useCallback(
-		(product) => {
+		(product, { size = null } = {}) => {
+			// Misma regla que `useManualOrderCart`: con tamaño, una línea por tamaño.
+			const lineFields = buildCartLineFields(product, size);
+			const lineId = lineFields.id;
 			setManualOrder((prev) => {
 				const currentItems = prev.items || [];
-				const exists = currentItems.find((i) => i.id === product.id);
+				const exists = currentItems.find((i) => i.id === lineId);
 				let newItems;
 				if (exists) {
 					if (exists.quantity >= 20) return prev;
 					newItems = currentItems.map((i) =>
-						i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
+						i.id === lineId ? { ...i, quantity: i.quantity + 1 } : i,
 					);
 				} else {
 					newItems = [
 						...currentItems,
 						{
-							id: product.id,
-							name: product.name,
-							price: product.price,
-							has_discount: product.has_discount,
-							discount_price: product.discount_price,
+							...lineFields,
 							image_url: product.image_url,
 							description: product.description,
 							quantity: 1,
@@ -774,7 +786,8 @@ export const useOrderEdit = (
 				: sanitizeManualOrderInput(manualOrder.client_name);
 			const itemsForOrder = (manualOrder.items || []).map((item) => ({
 				...item,
-				id: item.id,
+				// A la RPC va el producto; el tamaño viaja en `size_id` (ya en `...item`).
+				id: getLineProductId(item),
 				line_id: item.line_id ?? item.lineId ?? null,
 				name: String(item.name ?? ''),
 				quantity: Number(item.quantity) || 1,
@@ -864,7 +877,10 @@ export const useOrderEdit = (
 			if (useLifecycleV3) {
 				const previousTotalMinor = Number(initialOrder.total_minor ?? majorToMinor(initialOrder.total, currency, fractionDigits));
 				let expectedTotalMinor = checkoutMinor;
-				if (branch?.id) {
+				// La cotización V2 no tiene verificados tamaños ni variantes: con esas líneas
+				// vale el total local (ya usa el precio de cada línea) y `update_order_v3`
+				// lo revalida con `validate_and_normalize_order_items`.
+				if (branch?.id && !hasSizeOrVariantLines(itemsForOrder)) {
 					try {
 						const quote = await manualOrderV2Service.quote({
 							branchId: branch.id,

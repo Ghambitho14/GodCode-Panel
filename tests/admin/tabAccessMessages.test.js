@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePanelCapabilities } from '@/lib/tenant/menu-settings';
 import {
+	MENU_ONLY_PANEL_TABS,
+	applyPlanProductModeToPanelAccess,
+	resolvePanelCapabilities,
+} from '@/lib/tenant/menu-settings';
+import { normalizeStoredNavTabId } from '@/shared/constants/admin-panel-tabs';
+import {
+	getNoAccessibleTabsMessage,
 	getTabAccessDenialMessage,
+	getTabAccessDenialMessageForTab,
+	resolveAllowedPanelTabIds,
+	resolveRoleAllowedTabIds,
 	resolveTabAccessDenialReason,
 	resolveSidebarRestrictedHint,
 } from '@/modules/cash/admin/utils/tabAccessMessages';
@@ -99,5 +108,66 @@ describe('tabAccessMessages', () => {
 			}),
 		});
 		expect(roleHint).toContain('rol diferente');
+	});
+});
+
+describe('plan «solo menú digital»', () => {
+	const menuOnly = (cartEnabled = true) => resolvePanelCapabilities(
+		{ cartEnabled, orderChannel: 'both' },
+		{ product_mode: 'menu_only', online_ordering: false },
+	);
+	// Lo que llega a AdminProvider: `panelAccess` recortado por el plan (admin-app.tsx).
+	const panelAccess = (stored) => applyPlanProductModeToPanelAccess('menu_only', stored, normalizeStoredNavTabId)
+		.map(normalizeStoredNavTabId);
+
+	it('el cajero ve el catálogo en vez de quedarse sin pestañas', () => {
+		for (const userRole of ['cashier', 'staff', 'Cashier ']) {
+			expect(resolveAllowedPanelTabIds({
+				userRole,
+				normalizedPanelAccess: panelAccess(null),
+				menuCapabilities: menuOnly(),
+			})).toEqual(MENU_ONLY_PANEL_TABS);
+		}
+		expect(resolveRoleAllowedTabIds('cashier', 'menu_only')).toEqual(MENU_ONLY_PANEL_TABS);
+		// Con el plan completo el cajero sigue con su caja.
+		expect(resolveRoleAllowedTabIds('cashier', 'full')).toEqual(['orders', 'caja', 'local_expenses']);
+	});
+
+	it('dueño y cajero ven lo mismo, dentro del panelAccess del local', () => {
+		const ctx = { normalizedPanelAccess: panelAccess(['orders', 'products', 'carousel']), menuCapabilities: menuOnly(false) };
+		expect(resolveAllowedPanelTabIds({ ...ctx, userRole: 'owner' })).toEqual(['products', 'menu_carousel']);
+		expect(resolveAllowedPanelTabIds({ ...ctx, userRole: 'cashier' })).toEqual(['products', 'menu_carousel']);
+	});
+
+	it('la caja se niega por el plan, con un aviso que lo dice', () => {
+		const ctx = { userRole: 'cashier', normalizedPanelAccess: panelAccess(null), menuCapabilities: menuOnly() };
+		expect(resolveTabAccessDenialReason({ ...ctx, tabId: 'products' })).toBeNull();
+		expect(resolveTabAccessDenialReason({ ...ctx, tabId: 'caja' })).toBe('menu_only_plan');
+		expect(getTabAccessDenialMessageForTab({ ...ctx, tabId: 'caja' }))
+			.toBe('Tu plan es solo menú digital. Esta sección no está incluida.');
+	});
+
+	it('sin rol todavía se usa el acceso del local sin lo que oculta el canal', () => {
+		expect(resolveAllowedPanelTabIds({
+			userRole: null,
+			normalizedPanelAccess: null,
+			menuCapabilities: resolvePanelCapabilities({ cartEnabled: true, orderChannel: 'whatsapp_only' }),
+		})).not.toContain('orders');
+	});
+
+	it('si aun así no queda ninguna pestaña, el panel lo explica', () => {
+		expect(resolveAllowedPanelTabIds({
+			userRole: 'cashier',
+			normalizedPanelAccess: ['products'],
+			menuCapabilities: resolvePanelCapabilities({ cartEnabled: true, orderChannel: 'both' }),
+		})).toEqual([]);
+		expect(getNoAccessibleTabsMessage('menu_only')).toEqual({
+			title: 'Tu plan no incluye caja',
+			text: 'Carga tu menú desde el panel CEO.',
+		});
+		expect(getNoAccessibleTabsMessage('full')).toEqual({
+			title: 'No tienes secciones habilitadas',
+			text: 'Pide a un administrador que habilite tu acceso a este panel.',
+		});
 	});
 });

@@ -9,8 +9,11 @@ export default function AdminMenuChannelBanner({ menuCapabilities }) {
 
 	const messages = [];
 	if (menuCapabilities.showMenuOnlyBanner) {
+		// Con el carrito apagado no hay pedidos que lleguen: lo dice el aviso de catálogo.
 		messages.push(
-			'Tu plan es solo menú digital: aquí cargas productos y banners. Los pedidos te llegan por WhatsApp.',
+			menuCapabilities.showMenuOnlyWhatsAppHint
+				? 'Tu plan es solo menú digital: aquí cargas productos y banners. Los pedidos te llegan por WhatsApp.'
+				: 'Tu plan es solo menú digital: aquí cargas productos y banners.',
 		);
 	}
 	if (menuCapabilities.showCatalogOnlyBanner) {
@@ -18,7 +21,7 @@ export default function AdminMenuChannelBanner({ menuCapabilities }) {
 	}
 	if (menuCapabilities.showWhatsAppOnlyBanner) {
 		messages.push(
-			'Pedidos del menú: solo WhatsApp. La cola de pedidos online no recibirá nuevos checkout.',
+			'Pedidos del menú: solo WhatsApp. La cola de pedidos online no recibirá pedidos nuevos.',
 		);
 	}
 	if (menuCapabilities.showPanelOnlyBanner) {

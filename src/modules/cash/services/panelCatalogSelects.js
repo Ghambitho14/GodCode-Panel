@@ -11,6 +11,9 @@ export const PRODUCT_PRICES_BRANCH_SELECT =
 export const PRODUCT_BRANCH_SELECT =
 	'id, product_id, is_active, is_special, category_id, inventory_pause_reason, inventory_paused_at';
 
+/** Tamaños (`product_sizes`) de la sucursal: los usa la caja para cobrar el tamaño elegido. */
+export const PRODUCT_SIZES_BRANCH_SELECT = 'id, product_id, name, price, sort_order';
+
 export const CLIENTS_PANEL_SELECT =
 	'id, name, phone, phone_normalized, rut, total_orders, total_spent, is_frequent, first_order_at, last_order_at, created_at, updated_at, company_id, default_delivery_address';
 

@@ -26,7 +26,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
             const message = getTabDeniedMessage(tabId);
             if (message) return message;
         }
-        return 'Necesitás un rol diferente para acceder.';
+        return 'Necesitas un rol diferente para acceder.';
     }, [getTabDeniedMessage]);
 
     useEffect(() => {

@@ -9,7 +9,7 @@ import { createSessionCache } from './createSessionCache';
 /** TTL por defecto: catálogo de empresa (categories + products). */
 export const COMPANY_CATALOG_MAX_AGE_MS = 5 * 60_000;
 
-/** TTL por defecto: overlay por sucursal (prices, product_branch, category_branch). */
+/** TTL por defecto: overlay por sucursal (prices, product_branch, category_branch, product_sizes). */
 export const BRANCH_OVERLAY_MAX_AGE_MS = 3 * 60_000;
 
 const cache = createSessionCache({

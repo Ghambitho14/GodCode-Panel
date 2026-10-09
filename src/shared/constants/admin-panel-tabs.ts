@@ -30,6 +30,10 @@ export type AdminPanelTabId = (typeof ADMIN_PANEL_TAB_OPTIONS)[number]["id"];
 
 const ALL_TABS = ADMIN_PANEL_TAB_IDS as unknown as string[];
 
+/**
+ * Pestañas por rol con el plan completo. Con «solo menú digital» no aplican: todo rol ve
+ * el catálogo (`resolveRoleAllowedTabIds` en `admin/utils/tabAccessMessages.ts`).
+ */
 export const DEFAULT_ROLE_NAV_PERMISSIONS: Record<string, string[]> = {
   owner: [...ALL_TABS],
   admin: [...ALL_TABS],

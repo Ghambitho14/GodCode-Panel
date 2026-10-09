@@ -85,7 +85,15 @@ export const SALES_TAB_IDS = ['caja', 'analytics', 'local_expenses'];
 
 const PLAN_PRODUCT_MODES = new Set(['full', 'menu_only', 'panel_only']);
 
-/** Pestañas del panel con «solo menú digital». */
+/**
+ * Pestañas del panel con «solo menú digital».
+ *
+ * Espejo de `MENU_ONLY_CEO_TABS` en GodCode (`lib/plans/plan-product-mode.ts`), que
+ * guarda bebidas y extras como `beverages`/`extras`; aquí van con el id canónico del
+ * panel (`menu_beverages`/`menu_extras`) y `normalizeStoredNavTabId` empareja ambos.
+ * Si cambias una lista, cambia la otra y la copia del test «contrato con GodCode» en
+ * `tests/lib/tenant/menu-settings.test.js`, que falla si no coinciden.
+ */
 export const MENU_ONLY_PANEL_TABS = [
 	'categories',
 	'products',
@@ -129,6 +137,7 @@ export function applyPlanProductModeToPanelAccess(mode, panelAccess, normalizeTa
  *   planProductMode: PlanProductMode;
  *   hasPublicMenu: boolean;
  *   showMenuOnlyBanner: boolean;
+ *   showMenuOnlyWhatsAppHint: boolean;
  *   onlineOrderingEnabled: boolean;
  *   receivesMenuCheckoutInPanel: boolean;
  *   menuCheckoutUsesWhatsApp: boolean;
@@ -152,7 +161,12 @@ export function resolvePanelCapabilities(menuSettings, planFeatures) {
 	const effectiveSettings = planProductMode === 'menu_only'
 		? { ...menuSettings, orderChannel: /** @type {OrderChannelMode} */ ('whatsapp_only') }
 		: menuSettings;
-	const onlineOrderingEnabled = resolveOnlineOrderingEnabled(planFeatures, effectiveSettings);
+	// Con «solo menú digital» la bandera `online_ordering` del plan (pedidos al panel) no
+	// aplica: el único interruptor es el carrito del dueño. Así los avisos no se
+	// contradicen («llegan por WhatsApp» y «no pueden pedir» a la vez).
+	const onlineOrderingEnabled = planProductMode === 'menu_only'
+		? menuSettings.cartEnabled
+		: resolveOnlineOrderingEnabled(planFeatures, effectiveSettings);
 	const { cartEnabled, orderChannel } = effectiveSettings;
 
 	const receivesMenuCheckoutInPanel = cartEnabled
@@ -170,6 +184,8 @@ export function resolvePanelCapabilities(menuSettings, planFeatures) {
 		planProductMode,
 		hasPublicMenu: planProductMode !== 'panel_only',
 		showMenuOnlyBanner: planProductMode === 'menu_only',
+		// Solo con el carrito encendido; apagado manda el aviso de catálogo.
+		showMenuOnlyWhatsAppHint: planProductMode === 'menu_only' && cartEnabled,
 		onlineOrderingEnabled,
 		receivesMenuCheckoutInPanel,
 		menuCheckoutUsesWhatsApp,

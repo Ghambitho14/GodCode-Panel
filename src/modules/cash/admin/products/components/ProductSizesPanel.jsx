@@ -96,8 +96,8 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
         </Button>
       ) : null}
       <p className="product-form__sizes-hint">
-        El menú muestra «Desde» con el más barato y el cliente elige al agregar. El orden de la lista es el del menú.
-        Los tamaños son de esta sucursal.
+        El menú online muestra «Desde» con el más barato y el cliente elige al agregar. El orden de esta lista es
+        el del menú online. Los tamaños son de esta sucursal.
       </p>
       {error ? <span className="error-text">{error}</span> : null}
     </div>

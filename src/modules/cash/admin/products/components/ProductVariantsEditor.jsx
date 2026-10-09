@@ -77,7 +77,8 @@ function VariantOptionThumb({ option, disabled, onPick, onClear }) {
 /**
  * Editor de variantes de un producto. Controlado: recibe `groups` (borrador) y avisa
  * cada cambio con `onChange(nextGroups)`. `errors` es el mapa que devuelve
- * `validateVariantGroups`, por `key` de grupo u opción.
+ * `validateVariantGroups`, por `key` de grupo u opción. Con tamaños, `sizeName` (el
+ * primero) entra al ejemplo de línea, que la base arma como «Producto (Tamaño, Variante)».
  */
 export default function ProductVariantsEditor({
   groups,
@@ -85,6 +86,7 @@ export default function ProductVariantsEditor({
   errors = {},
   currency = '',
   productName = '',
+  sizeName = '',
   disabled = false,
   status = null,
 }) {
@@ -138,8 +140,9 @@ export default function ProductVariantsEditor({
         <div>
           <h4 className="pv__title">Variantes</h4>
           <p className="pv__hint">
-            Opciones que cambian el producto principal (proteína, masa, tamaño de la porción…). El cliente elige una por
-            grupo; la primera viene marcada. El precio del producto suma la diferencia de la opción elegida.
+            Opciones que cambian el producto principal (proteína, masa, punto de cocción…). El cliente elige una por
+            grupo; la primera viene marcada. El precio del producto, o el del tamaño, suma la diferencia de la opción
+            elegida. Para tamaños con precio propio usa «Varios tamaños».
           </p>
         </div>
       </div>
@@ -242,7 +245,7 @@ export default function ProductVariantsEditor({
             <div className="pv-group__foot">
               <p className="pv-group__preview" title="Así se verá la línea en el menú y en la caja">
                 {firstOptionName
-                  ? `El cliente verá «${previewLineName(productName, [firstOptionName])}»`
+                  ? `El cliente verá «${previewLineName(productName, [sizeName, firstOptionName])}»`
                   : 'La primera opción queda marcada por defecto'}
               </p>
               <button type="button" className="pv-add" onClick={() => addOption(group.key)} disabled={disabled}>

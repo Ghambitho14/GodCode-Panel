@@ -12,6 +12,7 @@ import { manualOrderV2Service } from '../../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../../services/orderLifecycleV3Service';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../../services/paymentEvidenceOutbox';
 import { persistProductVariants } from '../products/services/productVariants';
+import { productSizesSaveWarning } from '../products/components/productSizes';
 
 /**
  * CRUD de productos/categorías y comprobantes de pago en el panel admin.
@@ -308,7 +309,8 @@ export function useAdminCatalog({
 			}
 			if (sizesError) {
 				console.warn('sizes save:', sizesError);
-				warnings.push(`los tamaños no se guardaron: ${sizesError.message}`);
+				// Nunca el texto crudo de la RPC/PostgREST: se traduce a una frase del panel.
+				warnings.push(productSizesSaveWarning(sizesError));
 			}
 			if (variantsWarning) warnings.push(`las variantes no se guardaron: ${variantsWarning}`);
 			if (warnings.length > 0) {

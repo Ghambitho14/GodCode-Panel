@@ -62,7 +62,7 @@ const EMPTY_TAB_LABELS: Record<string, string> = {};
 const EMPTY_DYNAMIC_MODULES: AdminAppProps["dynamicModules"] = [];
 
 interface AdminAppProps {
-	/** Opcional: forzar empresa (solo si necesitás override explícito; por defecto se toma de la sesión). */
+	/** Opcional: forzar empresa (solo si necesitas fijarla; por defecto se toma de la sesión). */
 	companyId?: string;
 	companyName?: string;
 	logoUrl?: string | null;
@@ -226,7 +226,7 @@ export function AdminApp({
 
 			if (!row?.company_id) {
 				if (cancelled) return;
-				setGateError('Tu usuario no está asociado a una empresa en el sistema. Contactá al administrador.');
+				setGateError('Tu usuario no está asociado a una empresa en el sistema. Contacta al administrador.');
 				setGateLoading(false);
 				return;
 			}

@@ -21,6 +21,7 @@ import ManualOrderCheckout, {
 import ManualOrderCloseConfirm from './manual-order/ManualOrderCloseConfirm';
 import useManualOrderBranchConfig from './manual-order/useManualOrderBranchConfig';
 import { getLocalFulfillmentMode, isOpenOrderSessionStatus } from '../hooks/manual-order/manualOrderShared';
+import { countProductInCart, SIZES_NOT_SUPPORTED_MESSAGE } from '../hooks/manual-order/cartLines';
 import { ADMIN_MOBILE_MQ, ADMIN_TABLET_MQ } from '../constants/responsive';
 import { Button } from "@/components/ui/button";
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
@@ -478,6 +479,16 @@ const ManualOrderModal = ({
 		showNotify,
 	});
 
+	/*
+	 * Tamaños: el pedido nuevo con V2 (`quote_manual_order_v2` / `create_manual_order_v2`)
+	 * no tiene verificado `size_id`, así que ahí se avisa en vez de cobrar el precio base.
+	 * El flujo clásico y la edición pasan por `validate_and_normalize_order_items`.
+	 */
+	const sizesBlocked = !isEditMode && Boolean(manualOrder?.v2Enabled);
+	const handleSizedProductBlocked = React.useCallback(() => {
+		showNotify?.(SIZES_NOT_SUPPORTED_MESSAGE, 'warning');
+	}, [showNotify]);
+
 	const canCancelOrder = Boolean(
 		isEditMode &&
 		moveOrder &&
@@ -524,10 +535,9 @@ const ManualOrderModal = ({
 			addItem={addItem}
 			updateQuantity={updateQuantity}
 			removeItem={removeItem}
-			getQty={(id) => {
-				const key = id == null ? '' : String(id);
-				return manualOrder.items.find((i) => String(i.id) === key)?.quantity || 0;
-			}}
+			// Suma todos los tamaños del producto: la tarjeta muestra un solo badge.
+			getQty={(id) => countProductInCart(manualOrder.items, id)}
+			onSizedProductBlocked={sizesBlocked ? handleSizedProductBlocked : null}
 		/>
 	);
 

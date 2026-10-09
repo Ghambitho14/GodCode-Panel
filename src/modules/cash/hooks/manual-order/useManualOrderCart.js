@@ -1,12 +1,13 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getEffectiveItemPrice, getItemChangesTotal } from './manualOrderShared';
+import { buildCartLineFields, normalizeLineId } from './cartLines';
 import { majorToMinor, minorToMajor, sumMinor } from '@/lib/money/minor-units';
 
 /**
  * Hook especializado en gestionar los ítems agregados al pedido manual,
  * cantidades, precios (con o sin descuento), notas por producto y cálculo del total.
  */
-const normalizeItemId = (id) => (id == null ? '' : String(id));
+const normalizeItemId = normalizeLineId;
 
 export const useManualOrderCart = (initialItems = [], options = {}) => {
     const [items, setItems] = useState(initialItems);
@@ -22,28 +23,26 @@ export const useManualOrderCart = (initialItems = [], options = {}) => {
 		[totalMinor, options.currency, options.fractionDigits],
 	);
 
-    // Añadir producto al carrito
-    const addItem = useCallback((product) => {
-        const productId = normalizeItemId(product?.id);
-        if (!productId) return;
+    // Añadir producto al carrito. Con `size` (producto con tamaños) la línea es
+    // por tamaño: ver `buildCartLineFields`.
+    const addItem = useCallback((product, { size = null } = {}) => {
+        const lineFields = buildCartLineFields(product, size);
+        const lineId = lineFields.id;
+        if (!lineFields.product_id) return;
 
         setItems(currentItems => {
-            const exists = currentItems.find(i => normalizeItemId(i.id) === productId);
+            const exists = currentItems.find(i => normalizeItemId(i.id) === lineId);
             if (exists) {
 				if (exists.quantity >= 20) {
 					options.onLimitReached?.(exists);
 					return currentItems;
 				}
                 return currentItems.map(i => (
-                    normalizeItemId(i.id) === productId ? { ...i, quantity: i.quantity + 1 } : i
+                    normalizeItemId(i.id) === lineId ? { ...i, quantity: i.quantity + 1 } : i
                 ));
             } else {
                 return [...currentItems, {
-                    id: productId,
-                    name: product.name,
-                    price: product.price,
-                    has_discount: product.has_discount,
-                    discount_price: product.discount_price,
+                    ...lineFields,
                     image_url: product.image_url,
                     description: product.description,
                     category_id: product.category_id ?? null,

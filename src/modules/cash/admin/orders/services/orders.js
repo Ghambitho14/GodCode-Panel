@@ -268,21 +268,31 @@ export const ordersService = {
             const branchCurrency = branchCurrencyCode(branchCfg);
             const upsellCatalogMap = buildUpsellCatalogMap(branchCfg?.delivery_settings);
 
+            // Una entrada por línea: el mismo producto puede ir en dos tamaños distintos.
             const requestedMap = new Map(
                 regularItems
                     .filter((item) => Boolean(item?.id))
-                    .map((item) => [String(item.id), {
-                        quantity: Math.max(1, Number(item.quantity) || 1),
-                        description: item.description ?? null,
-                        note: normalizePersistedItemNote(item.note),
-                        // Cambios del armador "Agregar cambios": el RPC suma `extras_total` al precio unitario.
-                        extras: Array.isArray(item.extras) && item.extras.length > 0 ? item.extras : null,
-                        extras_total: Math.max(0, Number(item.extras_total) || 0),
-                    }])
+                    .map((item) => {
+                        const productId = String(item.id);
+                        const sizeId = item.size_id ? String(item.size_id) : null;
+                        return [sizeId ? `${productId}::${sizeId}` : productId, {
+                            productId,
+                            sizeId,
+                            quantity: Math.max(1, Number(item.quantity) || 1),
+                            description: item.description ?? null,
+                            note: normalizePersistedItemNote(item.note),
+                            // Cambios del armador "Agregar cambios": el RPC suma `extras_total` al precio unitario.
+                            extras: Array.isArray(item.extras) && item.extras.length > 0 ? item.extras : null,
+                            extras_total: Math.max(0, Number(item.extras_total) || 0),
+                        }];
+                    })
             );
 
-            const requestedIds = Array.from(requestedMap.keys());
-            
+            const requestedIds = Array.from(new Set(Array.from(requestedMap.values(), (entry) => entry.productId)));
+            const requestedSizeIds = Array.from(new Set(
+                Array.from(requestedMap.values(), (entry) => entry.sizeId).filter(Boolean),
+            ));
+
             if (requestedIds.length === 0 && upsellItems.length === 0) {
                 throw new Error('El pedido debe contener al menos un producto válido.');
             }
@@ -290,12 +300,14 @@ export const ordersService = {
             let prices = [];
             let branchRows = [];
             let productsMeta = [];
+            let sizeRows = [];
             let pricesError = null;
             let branchRowsError = null;
             let productsMetaError = null;
+            let sizesError = null;
 
             if (requestedIds.length > 0) {
-                const [pricesRes, branchRes, productsRes] = await Promise.all([
+                const [pricesRes, branchRes, productsRes, sizesRes] = await Promise.all([
                     supabase
                         .from(TABLES.product_prices)
                         .select('product_id, price, has_discount, discount_price')
@@ -313,6 +325,16 @@ export const ordersService = {
                         .select('id, name')
                         .eq('is_active', true)
                         .in('id', requestedIds),
+                    // Tamaños elegidos en la caja: su precio es el que se cobra (la RPC
+                    // vuelve a validarlo en `validate_and_normalize_order_items`).
+                    requestedSizeIds.length > 0
+                        ? supabase
+                            .from(TABLES.product_sizes)
+                            .select('id, product_id, name, price')
+                            .eq('branch_id', orderData.branch_id)
+                            .eq('is_active', true)
+                            .in('id', requestedSizeIds)
+                        : Promise.resolve({ data: [], error: null }),
                 ]);
                 prices = pricesRes.data || [];
                 pricesError = pricesRes.error;
@@ -320,23 +342,55 @@ export const ordersService = {
                 branchRowsError = branchRes.error;
                 productsMeta = productsRes.data || [];
                 productsMetaError = productsRes.error;
+                sizeRows = sizesRes.data || [];
+                sizesError = sizesRes.error;
             }
 
-            if (pricesError || branchRowsError || productsMetaError) {
+            if (pricesError || branchRowsError || productsMetaError || sizesError) {
                 throw new Error('No se pudo validar los productos de la sucursal. Intenta nuevamente.');
             }
 
             const pricesByProduct = new Map((prices || []).map((row) => [String(row.product_id), row]));
             const branchActiveIds = new Set((branchRows || []).map((row) => String(row.product_id)));
             const productNames = new Map((productsMeta || []).map((row) => [String(row.id), row.name]));
+            const sizesById = new Map((sizeRows || []).map((row) => [String(row.id), row]));
 
             const normalizedItems = [];
 
-            for (const productId of requestedIds) {
+            for (const requested of requestedMap.values()) {
+                const { productId } = requested;
                 if (!branchActiveIds.has(productId)) continue;
 
                 const dbPriceRow = pricesByProduct.get(productId);
                 if (!dbPriceRow) continue;
+
+                if (requested.sizeId) {
+                    const sizeRow = sizesById.get(requested.sizeId);
+                    if (!sizeRow || String(sizeRow.product_id) !== productId) {
+                        throw new Error('El tamaño elegido ya no existe en esta sucursal. Actualiza el menú e intenta de nuevo.');
+                    }
+                    const sizePrice = Number(sizeRow.price);
+                    if (!Number.isFinite(sizePrice) || sizePrice <= 0) continue;
+                    // Con tamaño no hay oferta: se cobra el precio del tamaño y el nombre
+                    // va como lo compone el servidor, «Producto (Tamaño)».
+                    normalizedItems.push({
+                        id: productId,
+                        size_id: requested.sizeId,
+                        name: `${String(productNames.get(productId) || 'Producto')} (${String(sizeRow.name || '').trim()})`,
+                        quantity: requested.quantity,
+                        price: sizePrice,
+                        has_discount: false,
+                        discount_price: null,
+                        description: requested.description,
+                        note: requested.note,
+                        manual_order_source: null,
+                        is_extra: false,
+                        ...(requested.extras
+                            ? { extras: requested.extras, extras_total: requested.extras_total }
+                            : {}),
+                    });
+                    continue;
+                }
 
                 const basePrice = Number(dbPriceRow.price || 0);
                 const discountPrice = Number(dbPriceRow.discount_price || 0);
@@ -346,9 +400,6 @@ export const ordersService = {
                 // Hay que mandar base + flags de descuento; el total sí usa el efectivo.
                 if (!Number.isFinite(basePrice) || basePrice < 0) continue;
                 if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) continue;
-
-                const requested = requestedMap.get(productId);
-                if (!requested) continue;
 
                 normalizedItems.push({
                     id: productId,
@@ -451,9 +502,9 @@ export const ordersService = {
                     // Hasta entonces, el cajero debe elegir la zona explícitamente
                     // o cambiar el modo de delivery de la sucursal a Tarifa fija / Distancia.
                     throw new Error(
-                        'Geocoding por dirección no disponible. Elegí la zona de entrega ' +
-                        'desde el selector, o cambiá el modo de delivery de esta sucursal ' +
-                        'a Tarifa fija o Distancia en Settings.',
+                        'La caja no puede ubicar la dirección sola. Elige la zona de entrega ' +
+                        'en el selector o cambia el modo de delivery de esta sucursal a ' +
+                        'Tarifa fija o Distancia en Opciones de sucursal.',
                     );
                 }
 

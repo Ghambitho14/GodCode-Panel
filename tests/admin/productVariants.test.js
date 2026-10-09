@@ -86,6 +86,38 @@ describe('validateVariantGroups (mismas reglas que la RPC)', () => {
 	});
 });
 
+describe('validateVariantGroups con el precio más bajo (tamaños o precio base)', () => {
+	it('acepta rebajas que dejan el precio por encima de 0', () => {
+		const proteina = group('Proteína', [{ name: 'Carne' }, { name: 'Vegetal', priceDelta: '-1000' }]);
+		const masa = group('Masa', [{ name: 'Fina', priceDelta: '-500' }, { name: 'Gruesa', priceDelta: '800' }]);
+		expect(validateVariantGroups([proteina, masa], { minPrice: 6000 })).toEqual({});
+	});
+
+	it('marca las rebajas que dejan el tamaño más barato en 0 o menos', () => {
+		// Pizza Personal a 3.000 (el más barato): «Sin queso» −2.000 y «Masa fina» −1.000 la dejan en 0.
+		const queso = group('Queso', [{ name: 'Con queso' }, { name: 'Sin queso', priceDelta: '-2000' }]);
+		const masa = group('Masa', [{ name: 'Fina', priceDelta: '-1000' }, { name: 'Gruesa', priceDelta: '500' }]);
+		const errors = validateVariantGroups([queso, masa], { minPrice: 3000 });
+		expect(errors[queso.options[1].key]).toBe('Con esta rebaja el precio más bajo queda en 0 o menos');
+		expect(errors[masa.options[0].key]).toBe('Con esta rebaja el precio más bajo queda en 0 o menos');
+		expect(errors[masa.options[1].key]).toBeUndefined();
+		// Con un tamaño más barato a 3.500 ya alcanza.
+		expect(validateVariantGroups([queso, masa], { minPrice: 3500 })).toEqual({});
+	});
+
+	it('sin precio todavía no inventa errores de rebaja', () => {
+		const g = group('Queso', [{ name: 'Sin queso', priceDelta: '-9000' }]);
+		expect(validateVariantGroups([g], { minPrice: null })).toEqual({});
+		expect(validateVariantGroups([g], { minPrice: 0 })).toEqual({});
+		expect(validateVariantGroups([g])).toEqual({});
+	});
+
+	it('no tapa un error propio de la opción', () => {
+		const g = group('Queso', [{ name: '', priceDelta: '-9000' }]);
+		expect(validateVariantGroups([g], { minPrice: 5000 })[g.options[0].key]).toMatch(/nombre de la opción/);
+	});
+});
+
 describe('flattenVariantGroups y parseDelta', () => {
 	it('arma la lista plana en orden de pantalla con id, delta numérico y foto', () => {
 		const g = group('Proteína', [

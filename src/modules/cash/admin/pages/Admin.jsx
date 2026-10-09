@@ -3,7 +3,7 @@ import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
   Loader2,
-  PlusCircle, Plus, RefreshCw, HelpCircle, Store,
+  PlusCircle, Plus, RefreshCw, HelpCircle, Store, Lock,
 } from 'lucide-react';
 import AdminSidebar from '../../components/AdminSidebar';
 import OrderDetailModal from '../../components/OrderDetailModal';
@@ -24,6 +24,7 @@ import OrderNotificationSoundControl from '../../components/OrderNotificationSou
 import PaymentReceiptPanel from '../../components/PaymentReceiptPanel';
 import { isModKey, isTypingContext } from '../utils/keyboardAdmin';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
+import { getNoAccessibleTabsMessage } from '../utils/tabAccessMessages';
 import { listBroadcasts, acknowledgeBroadcast as acknowledgeBroadcastService } from '../../services/broadcastsService';
 
 const AdminAnalyticsTab = React.lazy(() => import('../tabs/analytics'));
@@ -241,6 +242,14 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
     return [...core, ...mods];
   }, [canAccessTab, dynamicModules, tabLabels]);
 
+  // Con el rol ya resuelto y ninguna pestaña accesible, el área principal lo explica
+  // (p. ej. plan «solo menú» con un `panelAccess` que no deja nada).
+  const hasAccessibleTab = !userRole || paletteItems.length > 0;
+  const noAccessibleTabsMessage = React.useMemo(
+    () => getNoAccessibleTabsMessage(menuCapabilities?.planProductMode),
+    [menuCapabilities?.planProductMode],
+  );
+
   const shortcutRows = React.useMemo(() => {
     if (!adminShortcutsEnabled) return [];
     const base = [
@@ -380,7 +389,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
         canAccessTab={canAccessTab}
         getTabDeniedMessage={getTabAccessDeniedMessage}
         tabAccessContext={sidebarTabAccessContext}
-        onDeniedAccess={(tabId) => showNotify(getTabAccessDeniedMessage(tabId) || 'Necesitás un rol diferente para acceder a esta sección.', 'error')}
+        onDeniedAccess={(tabId) => showNotify(getTabAccessDeniedMessage(tabId) || 'Necesitas un rol diferente para acceder a esta sección.', 'error')}
         userEmail={userEmail || initialEmail}
         branchName={selectedBranch?.name}
         companyName={companyProfile?.name || companyName}
@@ -388,15 +397,16 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
         dynamicModules={dynamicModules}
         storefrontMenuUrl={storefrontMenuUrl}
         tabLabelsById={tabLabels}
-        onStorefrontMissing={() => showNotify('No encontramos la URL del menú público. Revisá el slug de la empresa en GodCode.', 'error')}
+        onStorefrontMissing={() => showNotify('No encontramos el enlace de tu menú online. Avisa al equipo de Gcode.', 'error')}
         onLogout={signOut}
       />
 
       <main className="admin-content">
+        {/* Sin pestañas: ni título ni acciones de una pestaña que no se puede abrir. */}
         <AdminTopBar
-          title={pageTitle}
-          hideTitleVisual={hideOrdersHeaderTitle}
-          clusterClassName={activeTab === 'orders' ? 'header-actions-cluster--orders' : ''}
+          title={hasAccessibleTab ? pageTitle : noAccessibleTabsMessage.title}
+          hideTitleVisual={hasAccessibleTab ? hideOrdersHeaderTitle : true}
+          clusterClassName={hasAccessibleTab && activeTab === 'orders' ? 'header-actions-cluster--orders' : ''}
         >
             <div className="header-actions-toolbar-row">
               <AdminNotificationCenter
@@ -449,7 +459,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
               className="header-action-branch"
             />
 
-            {activeTab === 'orders' && (
+            {hasAccessibleTab && activeTab === 'orders' && (
               <div className="header-actions-orders-row">
                 <OrderIntakePauseControl
                   branchId={selectedBranch?.id}
@@ -498,7 +508,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
                 ) : null}
               </div>
             )}
-            {activeTab === 'products' && (
+            {hasAccessibleTab && activeTab === 'products' && (
               <Button variant="default"
                 type="button"
                 onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
@@ -509,7 +519,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
                 <Plus size={18} /> Nuevo Producto
               </Button>
             )}
-            {activeTab === 'categories' && (
+            {hasAccessibleTab && activeTab === 'categories' && (
               <Button variant="default"
                 type="button"
                 onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
@@ -552,6 +562,15 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
           </div>
         ) : branches.length === 0 ? (
           <AdminTabFallback />
+        ) : !hasAccessibleTab ? (
+          /* Rol resuelto y ninguna pestaña: mejor decirlo que dejar el panel en blanco. */
+          <div className="admin-empty-branches glass animate-fade" role="status">
+            <div className="admin-empty-branches__icon" aria-hidden>
+              <Lock size={40} strokeWidth={1.5} />
+            </div>
+            <h2 className="admin-empty-branches__title">{noAccessibleTabsMessage.title}</h2>
+            <p className="admin-empty-branches__text">{noAccessibleTabsMessage.text}</p>
+          </div>
         ) : (
         <>
         {activeTab === 'orders' && (

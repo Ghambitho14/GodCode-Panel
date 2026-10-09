@@ -11,6 +11,7 @@ import {
 	CLIENTS_PANEL_SELECT,
 	PRODUCT_BRANCH_SELECT,
 	PRODUCT_PRICES_BRANCH_SELECT,
+	PRODUCT_SIZES_BRANCH_SELECT,
 	PRODUCTS_PANEL_SELECT,
 } from '../../services/panelCatalogSelects';
 import { INVENTORY_BRANCH_WITH_ITEM_SELECT } from '../../services/inventorySelects';
@@ -107,17 +108,33 @@ export function useAdminPanelLoad({
 
 	const fetchBranchOverlay = useCallback(async (branchId, options = {}) => {
 		if (!branchId || branchId === 'all' || !companyId) {
-			return { categoryBranchRows: [], branchPrices: [], branchStatuses: [] };
+			return { categoryBranchRows: [], branchPrices: [], branchStatuses: [], branchSizes: [] };
 		}
 		return getBranchOverlay(
 			branchId,
 			async () => {
-				const [categoryBranchRows, branchPrices, branchStatuses] = await Promise.all([
+				const [categoryBranchRows, branchPrices, branchStatuses, branchSizes] = await Promise.all([
 					fetchAllPaginated(supabase.from(TABLES.category_branch).select('category_id, order, is_active').eq('branch_id', branchId), { pageSize: PANEL_PAGINATION_PAGE_SIZE }),
 					fetchAllPaginated(supabase.from(TABLES.product_prices).select(PRODUCT_PRICES_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId), { pageSize: PANEL_PAGINATION_PAGE_SIZE }),
 					fetchAllPaginated(supabase.from(TABLES.product_branch).select(PRODUCT_BRANCH_SELECT).eq('company_id', companyId).eq('branch_id', branchId), { pageSize: PANEL_PAGINATION_PAGE_SIZE }),
+					// Tamaños activos de la sucursal para la caja (orden por id: paginación estable;
+					// el de cada producto lo pone `mergeCatalogForBranch`). Si la base aún no tiene
+					// `product_sizes`, el catálogo sigue cargando sin tamaños en vez de quedarse vacío.
+					fetchAllPaginated(
+						supabase
+							.from(TABLES.product_sizes)
+							.select(PRODUCT_SIZES_BRANCH_SELECT)
+							.eq('company_id', companyId)
+							.eq('branch_id', branchId)
+							.eq('is_active', true)
+							.order('id'),
+						{ pageSize: PANEL_PAGINATION_PAGE_SIZE },
+					).catch((error) => {
+						console.warn('product_sizes load:', error);
+						return [];
+					}),
 				]);
-				return { categoryBranchRows, branchPrices, branchStatuses };
+				return { categoryBranchRows, branchPrices, branchStatuses, branchSizes };
 			},
 			{ force: options.force },
 		);

@@ -104,8 +104,12 @@ export async function listProductVariants(productId, branchId) {
 /**
  * Mismas reglas que `admin_set_product_variants`. Devuelve un mapa de errores por
  * `key` (grupo u opción) más `general`; sin errores, el objeto queda vacío.
+ *
+ * Con `minPrice` (el precio base o, con tamaños, el del tamaño más barato) suma la regla
+ * de la venta: la variante se suma a ese precio y la base rechaza la línea que quede en
+ * 0 o menos, así que la opción más barata de cada grupo tiene que dejarlo por encima de 0.
  */
-export function validateVariantGroups(groups) {
+export function validateVariantGroups(groups, { minPrice = null } = {}) {
   const errors = {};
   const list = Array.isArray(groups) ? groups : [];
   const seen = new Set();
@@ -139,6 +143,28 @@ export function validateVariantGroups(groups) {
   }
   if (total > VARIANT_OPTIONS_MAX) {
     errors.general = `Como máximo ${VARIANT_OPTIONS_MAX} opciones entre todos los grupos`;
+  }
+
+  const floor = Number(minPrice);
+  if (minPrice != null && minPrice !== '' && Number.isFinite(floor) && floor > 0) {
+    let lowest = floor;
+    const discounted = [];
+    for (const group of list) {
+      let cheapest = null;
+      for (const option of group.options ?? []) {
+        const delta = parseDelta(option.priceDelta);
+        if (!Number.isFinite(delta)) continue;
+        if (cheapest == null || delta < cheapest.delta) cheapest = { key: option.key, delta };
+      }
+      if (!cheapest) continue;
+      lowest += cheapest.delta;
+      if (cheapest.delta < 0) discounted.push(cheapest.key);
+    }
+    if (lowest <= 0) {
+      for (const key of discounted) {
+        errors[key] = errors[key] || 'Con esta rebaja el precio más bajo queda en 0 o menos';
+      }
+    }
   }
   return errors;
 }

@@ -45,6 +45,12 @@ describe('ProductVariantsEditor', () => {
 		expect(onChange.mock.calls[2][0][0].options).toHaveLength(3);
 	});
 
+	it('con tamaños, el ejemplo de línea lleva el tamaño como lo compone la base', () => {
+		const group = createVariantGroupDraft({ name: 'Proteína', options: [createVariantOptionDraft({ name: 'Pollo' })] });
+		render(<ProductVariantsEditor groups={[group]} onChange={() => {}} productName="Pizza" sizeName="Familiar" />);
+		expect(screen.getByText('El cliente verá «Pizza (Familiar, Pollo)»')).toBeTruthy();
+	});
+
 	it('pinta los errores por grupo y por opción, y el general', () => {
 		const group = createVariantGroupDraft({ name: '', options: [createVariantOptionDraft({ name: '' })] });
 		const errors = {

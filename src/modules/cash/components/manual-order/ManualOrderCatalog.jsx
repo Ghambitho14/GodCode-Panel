@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useRef, useDeferredValue, useEffect, useId } from 'react';
+import React, { useState, useMemo, useRef, useDeferredValue, useEffect, useId, useCallback } from 'react';
 import { Search, PackageX, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductCard from './ProductCard';
+import ManualOrderSizePicker from './ManualOrderSizePicker';
 import { Button } from "@/components/ui/button";
 import { catalogGridGapClass, spacing, textScale, pillRadiusClass } from './manualOrderStyles';
+import { productHasSizes } from '../../hooks/manual-order/cartLines';
 
 /**
  * Agrupa los productos en base a su categoría y los ordena según corresponda.
@@ -132,13 +134,34 @@ const ManualOrderCatalog = ({
     updateQuantity,
     removeItem,
     getQty,
+    /** Si llega, el pedido no admite tamaños: se avisa en vez de abrir el selector. */
+    onSizedProductBlocked = null,
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchPhase, setSearchPhase] = useState(/** @type {'closed' | 'open' | 'closing'} */ ('closed'));
     const [activeCategory, setActiveCategory] = useState(null);
     const [navOverflow, setNavOverflow] = useState({ left: false, right: false });
+    // Producto con tamaños a la espera de que el cajero elija uno.
+    const [sizePickerProduct, setSizePickerProduct] = useState(null);
     const searchInputId = useId();
     const searchInputRef = useRef(null);
+
+    // Con tamaños no se agrega a ciegas: primero se elige el tamaño (y su precio).
+    const handleAddItem = useCallback((product) => {
+        if (productHasSizes(product)) {
+            if (onSizedProductBlocked) onSizedProductBlocked(product);
+            else setSizePickerProduct(product);
+            return;
+        }
+        addItem(product);
+    }, [addItem, onSizedProductBlocked]);
+
+    const handlePickSize = useCallback((size) => {
+        if (sizePickerProduct) addItem(sizePickerProduct, { size });
+        setSizePickerProduct(null);
+    }, [addItem, sizePickerProduct]);
+
+    const closeSizePicker = useCallback(() => setSizePickerProduct(null), []);
 
     const catalogScrollRef = useRef(null);
     const categoriesNavRef = useRef(null);
@@ -166,6 +189,8 @@ const ManualOrderCatalog = ({
     const isProductAvailableForManualOrder = (product) => {
         if (!product) return false;
         if (product.is_active !== true) return false;
+        // Con tamaños se cobra el del tamaño elegido, no el precio base.
+        if (productHasSizes(product)) return true;
         const basePrice = Number(product?.price || 0);
         const hasDiscount = Boolean(product?.has_discount) && product?.discount_price != null && Number(product.discount_price) > 0;
         const effectivePrice = hasDiscount ? Number(product.discount_price) : basePrice;
@@ -436,7 +461,7 @@ const ManualOrderCatalog = ({
                                         key={p.id}
                                         product={p}
                                         quantity={getQty(p.id)}
-                                        addItem={addItem}
+                                        addItem={handleAddItem}
                                         updateQuantity={updateQuantity}
                                         removeItem={removeItem}
                                         showProductImages
@@ -468,7 +493,7 @@ const ManualOrderCatalog = ({
                                     key={p.id}
                                     product={p}
                                     quantity={getQty(p.id)}
-                                    addItem={addItem}
+                                    addItem={handleAddItem}
                                     updateQuantity={updateQuantity}
                                     removeItem={removeItem}
                                     showProductImages
@@ -508,7 +533,7 @@ const ManualOrderCatalog = ({
                         key={p.id}
                         product={p}
                         quantity={getQty(p.id)}
-                        addItem={addItem}
+                        addItem={handleAddItem}
                         updateQuantity={updateQuantity}
                         removeItem={removeItem}
                         showProductImages
@@ -734,7 +759,7 @@ const ManualOrderCatalog = ({
                                 </div>
                                 <div>
                                     <p className={`${textScale.emphasis} font-bold text-gc-text`}>No se encontraron productos</p>
-                                    <p className={`${textScale.body} text-gc-text-muted`}>Probá con otra búsqueda o categoría.</p>
+                                    <p className={`${textScale.body} text-gc-text-muted`}>Prueba con otra búsqueda o categoría.</p>
                                 </div>
                             </div>
                         ) : (
@@ -757,6 +782,13 @@ const ManualOrderCatalog = ({
                     </div>
                 </div>
             </div>
+            {sizePickerProduct ? (
+                <ManualOrderSizePicker
+                    product={sizePickerProduct}
+                    onPick={handlePickSize}
+                    onClose={closeSizePicker}
+                />
+            ) : null}
         </div>
     );
 };

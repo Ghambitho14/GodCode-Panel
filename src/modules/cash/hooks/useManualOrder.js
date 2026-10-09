@@ -31,6 +31,7 @@ import {
 	validateManualDeliveryDetails,
 	OPEN_MESA_CAJA_DEFAULTS,
 } from './manual-order/manualOrderShared';
+import { buildOrderItemsPayload, cartHasSizedLines, SIZES_NOT_SUPPORTED_MESSAGE } from './manual-order/cartLines';
 
 function toV2Fulfillment(form, _openMesaMode) {
 	if (form.order_type === 'delivery' || getLocalFulfillmentMode(form) === 'delivery') return 'delivery';
@@ -43,23 +44,8 @@ function toV2Mode(openMesaMode, fulfillment) {
 	return 'quick_sale';
 }
 
-function buildItems(items) {
-	return (items || []).map((item) => ({
-		id: item.id,
-		name: String(item.name ?? ''),
-		quantity: Math.max(1, Number(item.quantity) || 1),
-		price: Number(item.price) || 0,
-		has_discount: Boolean(item.has_discount),
-		discount_price: item.has_discount && item.discount_price != null ? Number(item.discount_price) : null,
-		description: item.description ? String(item.description) : null,
-		note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
-		manual_order_source: item.manual_order_source || null,
-		is_extra: Boolean(item.is_extra),
-		...(Array.isArray(item.extras) && item.extras.length > 0
-			? { extras: item.extras, extras_total: getItemChangesTotal(item) }
-			: {}),
-	}));
-}
+// Líneas del carrito a `p_items` (con `size_id` cuando hay tamaño): `cartLines.js`.
+const buildItems = buildOrderItemsPayload;
 
 function deriveV2PaymentLines(form, quote, methods, currency, fractionDigits) {
 	if (Array.isArray(form.payment_lines) && form.payment_lines.length > 0) return form.payment_lines;
@@ -230,7 +216,8 @@ export const useManualOrder = (
 	);
 
 	useEffect(() => {
-		if (!v2Enabled || !branch?.id || items.length === 0 || effectiveBranchConfigError) {
+		// Con tamaños no se cotiza en V2 (no los conoce): lo frena `validateContext`.
+		if (!v2Enabled || !branch?.id || items.length === 0 || effectiveBranchConfigError || cartHasSizedLines(items)) {
 			setQuote(null);
 			return;
 		}
@@ -287,6 +274,8 @@ export const useManualOrder = (
 		if (!branch) return 'No hay sucursal seleccionada.';
 		if (effectiveBranchConfigError) return `No se pudo validar la configuración: ${effectiveBranchConfigError}`;
 		if (items.length === 0) return 'Agrega al menos un producto.';
+		// La caja no deja agregarlos con V2; esto cubre un borrador restaurado.
+		if (v2Enabled && cartHasSizedLines(items)) return SIZES_NOT_SUPPORTED_MESSAGE;
 		if (quoteRevisionPending) return 'La cotización cambió. Revisa el nuevo total y confírmalo antes de continuar.';
 		const requirements = requirementsFor(manualOrderSettings, fulfillment);
 		if (openMesaMode && fulfillment === 'table' && !String(form.selected_table_id ?? '').trim()) {
@@ -318,7 +307,7 @@ export const useManualOrder = (
 			if (deliveryError) return deliveryError;
 		}
 		return null;
-	}, [branch, effectiveBranchConfigError, items.length, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, form.selected_table_id, countryProfile, branchDeliveryCfg, deliveryPayload, openMesaMode, includePhone, includeDocument]);
+	}, [branch, effectiveBranchConfigError, items, v2Enabled, quoteRevisionPending, manualOrderSettings, fulfillment, form.client_name, form.client_phone, form.client_rut, form.selected_table_id, countryProfile, branchDeliveryCfg, deliveryPayload, openMesaMode, includePhone, includeDocument]);
 
 	const submitOrder = useCallback(async () => {
 		if (submitInFlightRef.current) return;

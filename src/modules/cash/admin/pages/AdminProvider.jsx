@@ -8,11 +8,10 @@ import { resolveReportPeriodRange } from '../../utils/reportPeriodRange';
 import { getAppScopedPath } from '@/shared/utils/app-route';
 import {
 	ADMIN_PANEL_TAB_IDS,
-	DEFAULT_ROLE_NAV_PERMISSIONS as SHARED_DEFAULT_ROLE_NAV_PERMISSIONS,
 	normalizeStoredNavTabId,
 } from '@/shared/constants/admin-panel-tabs';
 import { panelNotify } from '../utils/panelNotify';
-import { getTabAccessDenialMessageForTab } from '../utils/tabAccessMessages';
+import { getTabAccessDenialMessageForTab, resolveAllowedPanelTabIds } from '../utils/tabAccessMessages';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { useAdminBranchLoadEffects } from '../hooks/useAdminBranchLoad';
 import { useAdminOrdersRealtime } from '../hooks/useAdminOrdersRealtime';
@@ -35,11 +34,9 @@ import { normalizeConfiguredPaymentMethods, normalizePaymentMethods, validatePay
 import {
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
-	SALES_TAB_IDS,
 } from '@/lib/tenant/menu-settings';
 
 const ALL_ADMIN_TABS = ADMIN_PANEL_TAB_IDS;
-const DEFAULT_ROLE_NAV_PERMISSIONS = { ...SHARED_DEFAULT_ROLE_NAV_PERMISSIONS };
 
 const EMPTY_DYNAMIC_MODULES = /** @type {any[]} */ ([]);
 const EMPTY_TAB_LABELS = /** @type {Record<string, string>} */ ({});
@@ -330,17 +327,6 @@ export const AdminProvider = ({
 		return resolvePanelCapabilities(menuSettings, companyProfile?.planFeatures);
 	}, [menuCapabilitiesProp, companyProfile]);
 
-	const menuRestrictedTabs = useMemo(() => {
-		const hidden = new Set();
-		if (menuCapabilities.hideSalesTabs) {
-			hidden.add('orders');
-			for (const tab of SALES_TAB_IDS) hidden.add(tab);
-		} else if (!menuCapabilities.showOnlineOrdersQueue) {
-			hidden.add('orders');
-		}
-		return hidden;
-	}, [menuCapabilities]);
-
 	const normalizedDynamicModules = useMemo(() => (
 		Array.isArray(dynamicModules)
 			? dynamicModules
@@ -394,25 +380,17 @@ export const AdminProvider = ({
 		}
 	}, [signOut, userEmail]);
 
-	const allowedTabs = useMemo(() => {
-		const rawRoleKey = (userRole || '').toLowerCase();
-		const roleKey = rawRoleKey === 'staff' ? 'cashier' : rawRoleKey;
-		const companyAllowedTabs = new Set(normalizedPanelAccess ?? ALL_ADMIN_TABS);
-		/*
-		 * Sin rol aún: no usar el fallback del cajero (bloqueaba CEO/productos hasta verifyAdminAccess).
-		 * Tras verify, si el rol es inválido, verify redirige; aquí damos acceso amplio solo mientras roleKey está vacío.
-		 */
-		if (!roleKey) {
-			return new Set([...companyAllowedTabs].filter((tab) => !menuRestrictedTabs.has(tab)));
-		}
-
-		const fallbackForRole = DEFAULT_ROLE_NAV_PERMISSIONS[roleKey] ?? DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
-		const roleAllowedTabs = Array.isArray(fallbackForRole) ? fallbackForRole : DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
-
-		return new Set(
-			roleAllowedTabs.filter((tab) => companyAllowedTabs.has(tab) && !menuRestrictedTabs.has(tab)),
-		);
-	}, [normalizedPanelAccess, userRole, menuRestrictedTabs]);
+	/*
+	 * Sin rol aún no se usa el fallback del cajero (bloqueaba CEO/productos hasta verifyAdminAccess):
+	 * mientras el rol está vacío se da el acceso del local; si luego es inválido, verify redirige.
+	 * Con «solo menú digital» todo rol, cajero incluido, ve el catálogo. Misma regla que
+	 * `resolveTabAccessDenialReason`, así el aviso al pulsar coincide con lo visible.
+	 */
+	const allowedTabs = useMemo(() => new Set(resolveAllowedPanelTabIds({
+		userRole,
+		normalizedPanelAccess,
+		menuCapabilities,
+	})), [normalizedPanelAccess, userRole, menuCapabilities]);
 
 	const dynamicModuleTabs = useMemo(() => {
 		const roleKey = String(userRole || '').toLowerCase() === 'staff'
@@ -501,7 +479,7 @@ export const AdminProvider = ({
 		}
 
 		const message = getTabAccessDeniedMessage(tabId);
-		showNotify(message || 'Necesitás un rol diferente para acceder a esta sección.', 'error');
+		showNotify(message || 'Necesitas un rol diferente para acceder a esta sección.', 'error');
 	}, [canAccessTab, showNotify, getTabAccessDeniedMessage]);
 
 	const setSelectedBranchWithGuard = useCallback((nextBranch) => {

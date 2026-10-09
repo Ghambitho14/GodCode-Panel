@@ -13,7 +13,7 @@ import { INVENTORY_ITEMS_PANEL_SELECT, PRODUCT_INVENTORY_RECIPE_SELECT } from '@
 import { normalizeUnit, toNativeQty } from '@/lib/recipe-units';
 import ProductRecipePanel from './ProductRecipePanel';
 import ProductSizesPanel from './ProductSizesPanel';
-import { minSizeRowPrice, newSizeRow, validateSizeRows } from './productSizes';
+import { applySizesToProductPayload, minSizeRowPrice, newSizeRow, validateSizeRows } from './productSizes';
 
 const INITIAL_STATE = {
   name: '',
@@ -245,6 +245,8 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
 
   const sizesActive = sizesEnabled && !sizesLoadError;
   const minSizePrice = sizesActive ? minSizeRowPrice(sizeRows) : null;
+  // Para el ejemplo de las variantes: la línea sale como «Producto (Tamaño, Variante)».
+  const firstSizeName = String(sizeRows.find((row) => String(row.name ?? '').trim())?.name ?? '').trim();
 
   const handleRecipeChange = useCallback((next) => {
     setRecipeLines(next);
@@ -338,7 +340,11 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
       newErrors.recipe = 'Cada artículo de la receta necesita una cantidad mayor que 0';
     }
 
-    const nextVariantErrors = variantsEnabled ? validateVariantGroups(variantGroups) : {};
+    // La variante se suma al precio base o al del tamaño: el piso es el más barato.
+    const variantPriceFloor = sizesActive ? minSizeRowPrice(sizeRows) : Number(formData.price);
+    const nextVariantErrors = variantsEnabled
+      ? validateVariantGroups(variantGroups, { minPrice: variantPriceFloor })
+      : {};
     setVariantErrors(nextVariantErrors);
     if (Object.keys(nextVariantErrors).length > 0) newErrors.variants = 'Revisa las variantes';
 
@@ -351,23 +357,16 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
     if (busy) return;
     if (!validate()) return;
     setSubmitting(true);
-    const payload = { ...formData };
-    if (sizesActive) {
-      // El precio base queda en el tamaño más barato: es el "Desde" del menú y lo que
-      // cobra una caja que todavía no elige tamaño.
-      payload.price = minSizeRowPrice(sizeRows);
-      payload.has_discount = false;
-      payload.discount_price = '';
-    }
-    if (sizesDirty && !sizesLoadError && !sizesLoading) {
-      payload.sizes = sizesEnabled
-        ? sizeRows.map((r) => ({
-            ...(r.id ? { id: r.id } : {}),
-            name: String(r.name).trim(),
-            price: Number(r.price),
-          }))
-        : [];
-    }
+    // Con tamaños, el precio base es el del más barato y la oferta se apaga
+    // (ver `applySizesToProductPayload`).
+    const payload = applySizesToProductPayload(formData, {
+      sizesActive,
+      sizesEnabled,
+      sizesDirty,
+      sizesLoading,
+      sizesLoadError,
+      sizeRows,
+    });
     if (recipeDirty && !recipeLoadError) {
       // La receta se guarda en la unidad nativa del artículo, igual que en Inventario.
       payload.recipe = recipeLines.map((l) => {
@@ -666,6 +665,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                   errors={variantErrors}
                   currency={currency}
                   productName={formData.name}
+                  sizeName={sizesActive ? firstSizeName : ''}
                   disabled={busy || !variantsEnabled}
                   status={variantStatus}
                 />

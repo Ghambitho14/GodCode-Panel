@@ -253,7 +253,7 @@ export default function AdminBranchTablesSection({
 				{tables.length === 0 && !loading ? (
 					<div className="admin-branch-tables__canvas-empty">
 						<Armchair size={28} aria-hidden />
-						<p>Todavía no hay mesas. Agregá la primera arriba.</p>
+						<p>Todavía no hay mesas. Agrega la primera arriba.</p>
 					</div>
 				) : null}
 				{tables.map((table) => (

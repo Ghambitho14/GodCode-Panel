@@ -6,6 +6,7 @@ import { supabase, TABLES } from '@/integrations/supabase';
 import { cn } from '@/lib/utils';
 import { lineInPart, optionInLines } from '../../utils/modifierMatching';
 import { changeSurcharge } from '../../utils/modifierPricing';
+import { getLineProductId } from '../../hooks/manual-order/cartLines';
 import { primaryActionButtonClass, textScale } from './manualOrderStyles';
 
 /*
@@ -26,7 +27,8 @@ const lower = (value) => String(value ?? '').trim().toLowerCase();
 
 function groupApplies(group, item) {
 	if (group.scope === 'categories') return (group.category_ids ?? []).map(String).includes(String(item.category_id ?? ''));
-	if (group.scope === 'products') return (group.product_ids ?? []).map(String).includes(String(item.id));
+	// El id de una línea con tamaño lleva el tamaño: el grupo se cruza con el producto.
+	if (group.scope === 'products') return (group.product_ids ?? []).map(String).includes(getLineProductId(item));
 	return true;
 }
 
@@ -142,6 +144,7 @@ export default function ManualOrderChangesModal({ item, formatMoney, onSave, onC
 	));
 	const [path, setPath] = useState({ groupId: null, actionKey: null, optionId: null });
 	const closeRef = useRef(null);
+	const productId = getLineProductId(item);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -150,7 +153,7 @@ export default function ManualOrderChangesModal({ item, formatMoney, onSave, onC
 			if (item.company_id) groupsQuery = groupsQuery.eq('company_id', item.company_id);
 			const [groupsRes, recipeRes] = await Promise.all([
 				groupsQuery,
-				supabase.from(TABLES.product_inventory_recipe).select('part, inventory_item_id, inventory_items(name)').eq('product_id', item.id),
+				supabase.from(TABLES.product_inventory_recipe).select('part, inventory_item_id, inventory_items(name)').eq('product_id', productId),
 			]);
 			if (cancelled) return;
 			if (groupsRes.error) {
@@ -163,7 +166,7 @@ export default function ManualOrderChangesModal({ item, formatMoney, onSave, onC
 			setState({ loading: false, error: null, groups: groupsRes.data ?? [], recipe });
 		})();
 		return () => { cancelled = true; };
-	}, [item.id, item.company_id]);
+	}, [productId, item.company_id]);
 
 	useEffect(() => {
 		closeRef.current?.focus();
