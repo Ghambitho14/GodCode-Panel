@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Columns3, Tag, Wallet, Images, MapPin } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, CirclePlus, Columns3, Tag, Wallet, Images, MapPin } from 'lucide-react';
 import { getSafeLogoImageSrc } from '@/shared/utils/documentFavicon';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { resolveSidebarRestrictedHint } from '../admin/utils/tabAccessMessages';
@@ -124,7 +124,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 					{ id: 'products', label: L.products || 'Productos', icon: ShoppingBag },
 					{ id: 'inventory', label: L.inventory || 'Inventario', icon: ClipboardList },
 					{ id: 'menu_beverages', label: L.menu_beverages || 'Bebidas', icon: CupSoda },
-					{ id: 'menu_extras', label: L.menu_extras || 'Extras', icon: Sparkles },
+					{ id: 'menu_extras', label: L.menu_extras || 'Extras', icon: CirclePlus },
 					{ id: 'menu_modifiers', label: L.menu_modifiers || 'Agregar cambios', icon: Columns3 },
 					{ id: 'menu_carousel', label: L.menu_carousel || 'Carrusel', icon: Images },
 					...menuModules.map((module) => ({
