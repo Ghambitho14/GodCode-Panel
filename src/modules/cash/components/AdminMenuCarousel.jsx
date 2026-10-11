@@ -3,7 +3,7 @@ import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
 	Loader2, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff, MoreVertical,
-	ExternalLink, WandSparkles,
+	ExternalLink, SlidersHorizontal,
 	Images, X,
 } from 'lucide-react';
 import {
@@ -861,7 +861,7 @@ export default function AdminMenuCarousel({
 						void openEditorForBanner(kebabOpenBanner);
 					}}
 				>
-					<AdminIconSlot Icon={WandSparkles} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
+					<AdminIconSlot Icon={SlidersHorizontal} slotSize="xxs" className="menu-carousel-kebab-item-icon" />
 					Ajustar diseño
 				</button>
 				<button
