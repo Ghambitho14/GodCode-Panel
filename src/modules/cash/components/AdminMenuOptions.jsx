@@ -3,6 +3,7 @@ import { Truck, LayoutGrid, Save, Armchair, Receipt } from "lucide-react";
 import AdminMenuDeliverySection from "./AdminMenuDeliverySection";
 import AdminBranchTablesSection from "./AdminBranchTablesSection";
 import AdminMenuTicketSection from "./AdminMenuTicketSection";
+import DesktopPrinterSettings from "./DesktopPrinterSettings";
 import OrdersViewSwitch from "./OrdersViewSwitch";
 import LocalOrderChannelsSwitch from "./LocalOrderChannelsSwitch";
 import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
@@ -277,15 +278,25 @@ export default function AdminMenuOptions({ showNotify, selectedBranch, companyId
 				className="admin-menu-options-subpanel"
 			>
 				{activeSubTab === "ticket" ? (
-					<AdminMenuTicketSection
-						key={branchKey}
-						selectedBranch={selectedBranch}
-						companyName={companyName}
-						logoUrl={logoUrl}
-						company={companyProfile}
-						showNotify={showNotify}
-						onSaved={onDeliverySaved}
-					/>
+					<>
+						{/* Por equipo, no por sucursal: solo aparece en la app de escritorio. */}
+						<DesktopPrinterSettings
+							selectedBranch={selectedBranch}
+							companyName={companyName}
+							logoUrl={logoUrl}
+							company={companyProfile}
+							showNotify={showNotify}
+						/>
+						<AdminMenuTicketSection
+							key={branchKey}
+							selectedBranch={selectedBranch}
+							companyName={companyName}
+							logoUrl={logoUrl}
+							company={companyProfile}
+							showNotify={showNotify}
+							onSaved={onDeliverySaved}
+						/>
+					</>
 				) : null}
 			</div>
 		</div>

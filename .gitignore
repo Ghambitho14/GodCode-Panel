@@ -71,3 +71,6 @@ supabase/.temp/
 .claude/
 VIDEO/
 skills-lock.json
+
+# Instalador de la app de escritorio (se genera con `npm run desktop:dist`)
+desktop/release/

@@ -32,6 +32,7 @@ describe('impresion de comandas', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		delete window.godcodeDesktop;
 		document.body.innerHTML = '';
 	});
 
@@ -75,5 +76,67 @@ describe('impresion de comandas', () => {
 		const ok = printOrderTicket(order, 'Local', null, { variant: 'kitchen' });
 		expect(ok).toBe(true);
 		expect(iframes()).toHaveLength(1);
+	});
+});
+
+describe('impresion en la app de escritorio', () => {
+	let openSpy;
+
+	/** Lo que expone `desktop/preload.cjs`. */
+	const stubDesktop = (printResult = { ok: true }) => {
+		const printTicket = vi.fn().mockResolvedValue(printResult);
+		window.godcodeDesktop = {
+			version: '1.0.0',
+			listPrinters: vi.fn().mockResolvedValue([]),
+			getConfig: vi.fn().mockResolvedValue({ cashierPrinter: '', kitchenPrinter: null, autoPrint: true }),
+			setConfig: vi.fn(),
+			printTicket,
+		};
+		return printTicket;
+	};
+
+	beforeEach(() => {
+		document.body.innerHTML = '';
+		stubMatchMedia({});
+		openSpy = vi.spyOn(window, 'open');
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		delete window.godcodeDesktop;
+		document.body.innerHTML = '';
+	});
+
+	it('manda el ticket a la app: sin ventana de vista previa ni iframe', async () => {
+		const printTicket = stubDesktop();
+		const ok = printOrderTicket(order, 'Local', null, { variant: 'kitchen' });
+		expect(ok).toBe(true);
+		await vi.waitFor(() => expect(printTicket).toHaveBeenCalledTimes(1));
+		expect(printTicket).toHaveBeenCalledWith(expect.objectContaining({ variant: 'kitchen', auto: false }));
+		expect(printTicket.mock.calls[0][0].html).toContain('PIZZA');
+		expect(openSpy).not.toHaveBeenCalled();
+		expect(iframes()).toHaveLength(0);
+	});
+
+	it('la impresion automatica de un pedido nuevo llega marcada como auto', async () => {
+		const printTicket = stubDesktop();
+		printOrderTicket(order, 'Local', null, { variant: 'cashier', auto: true });
+		await vi.waitFor(() => expect(printTicket).toHaveBeenCalledTimes(1));
+		expect(printTicket).toHaveBeenCalledWith(expect.objectContaining({ variant: 'cashier', auto: true }));
+	});
+
+	it('si la impresora no esta, cae al dialogo de siempre', async () => {
+		stubDesktop({ ok: false, reason: 'printer-not-found' });
+		printOrderTicket(order, 'Local', null, { variant: 'kitchen' });
+		await vi.waitFor(() => expect(iframes()).toHaveLength(1));
+		expect(openSpy).not.toHaveBeenCalled();
+	});
+
+	it('si este equipo no imprime los pedidos nuevos, no muestra el dialogo', async () => {
+		const printTicket = stubDesktop({ ok: true, skipped: true });
+		printOrderTicket(order, 'Local', null, { variant: 'cashier', auto: true });
+		await vi.waitFor(() => expect(printTicket).toHaveBeenCalledTimes(1));
+		await Promise.resolve();
+		expect(iframes()).toHaveLength(0);
 	});
 });

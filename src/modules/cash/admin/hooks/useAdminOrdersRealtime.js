@@ -132,6 +132,8 @@ export function useAdminOrdersRealtime({
 								branch: selectedBranch,
 								company: companyProfile,
 								exchangeRate: branchExchangeRate,
+								// En la app de escritorio cada equipo decide si imprime los pedidos nuevos.
+								auto: true,
 							},
 						);
 					} catch (err) {

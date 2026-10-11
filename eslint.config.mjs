@@ -14,6 +14,7 @@ export default tseslint.config(
 			"node_modules/**",
 			"public/**",
 			"supabase/functions/**", // Deno: su propio runtime y tipos, no los de este tsconfig.
+			"desktop/release/**", // Instalador de la app de escritorio ya empaquetado.
 		],
 	},
 
@@ -83,6 +84,18 @@ export default tseslint.config(
 		},
 		rules: {
 			"no-console": "off",
+		},
+	},
+
+	// La app de escritorio (Electron) es CommonJS y corre en Node.
+	{
+		files: ["desktop/**/*.cjs"],
+		languageOptions: {
+			sourceType: "commonjs",
+			globals: { ...globals.node },
+		},
+		rules: {
+			"@typescript-eslint/no-require-imports": "off",
 		},
 	},
 

@@ -1,6 +1,7 @@
 import { isVenezuelaCountry, resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { fetchBcvRate } from '@/lib/money/bcv-rate';
 import { resolveTicketExchangeRate } from '@/lib/money/order-amount';
+import { getDesktopBridge } from './desktopBridge';
 import { resolveSafeLogoUrl } from './thermalUtils';
 import { buildTicketHtml } from './ticketHtml';
 import { revealOrderContact } from '@/modules/cash/services/clientPiiService';
@@ -100,6 +101,21 @@ function printViaIframe(html, hasLogo) {
 }
 
 /**
+ * En la app de escritorio el ticket sale directo por la impresora elegida en este
+ * equipo. Si no se puede (impresora desconectada o renombrada) se cae al diálogo de
+ * siempre para que el ticket no se pierda.
+ * @param {import('./desktopBridge').DesktopBridge} desktop
+ */
+function printViaDesktop(desktop, html, variant, auto, hasLogo) {
+	void Promise.resolve()
+		.then(() => desktop.printTicket({ html, variant, auto }))
+		.then((result) => {
+			if (!result?.ok) printViaIframe(html, hasLogo);
+		})
+		.catch(() => printViaIframe(html, hasLogo));
+}
+
+/**
  * @param {Window} printWindow
  * @param {string} html
  */
@@ -122,22 +138,30 @@ function writePrintHtml(printWindow, html) {
  *   branch?: object | null;
  *   company?: object | null;
  *   exchangeRate?: unknown;
- * }} [options]
+ *   auto?: boolean;
+ * }} [options] `auto`: impresión automática de un pedido nuevo; en la app de
+ *   escritorio cada equipo decide si la hace.
  */
 export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl = null, options = {}) => {
 	const variant = options.variant === 'kitchen' ? 'kitchen' : 'cashier';
 	const previewWindowWidth = 520;
 	const hasLogo = variant === 'cashier' && Boolean(resolveSafeLogoUrl(logoUrl));
 
-	// Movil y PWA van por iframe. En escritorio se sigue abriendo la ventana de
-	// vista previa, y si el navegador la bloquea ya no se falla: se cae al
-	// iframe en vez de pedirle al cajero que cambie la configuracion.
-	const inline = shouldPrintInline();
-	const printWindow = inline ? null : window.open('', '', `width=${previewWindowWidth},height=700`);
-	const useIframe = inline || !printWindow;
+	// La app de escritorio imprime directo, sin ventana ni iframe. Movil y PWA
+	// van por iframe. En escritorio se sigue abriendo la ventana de vista previa,
+	// y si el navegador la bloquea ya no se falla: se cae al iframe en vez de
+	// pedirle al cajero que cambie la configuracion.
+	const desktop = getDesktopBridge();
+	const inline = !desktop && shouldPrintInline();
+	const printWindow = desktop || inline ? null : window.open('', '', `width=${previewWindowWidth},height=700`);
+	const useIframe = !desktop && (inline || !printWindow);
 
 	const render = (ticketOrder, printOptions) => {
 		const html = buildTicketHtml(ticketOrder, branchName, logoUrl, variant, printOptions);
+		if (desktop) {
+			printViaDesktop(desktop, html, variant, options.auto === true, hasLogo);
+			return;
+		}
 		if (useIframe) {
 			printViaIframe(html, hasLogo);
 			return;
@@ -174,7 +198,7 @@ export const printOrderTicket = (order, branchName = 'NOMBRE DEL LOCAL', logoUrl
 		&& resolvedRate == null;
 
 	if (needsBcvFetch) {
-		if (!useIframe) {
+		if (printWindow) {
 			writePrintHtml(
 				printWindow,
 				'<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Ticket</title></head>'

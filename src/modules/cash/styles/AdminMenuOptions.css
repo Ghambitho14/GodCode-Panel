@@ -2723,3 +2723,38 @@
 	line-height: 1.35;
 	color: var(--admin-text-muted, #64748b);
 }
+
+/* Impresora de este equipo (solo en la app de escritorio), encima del diseño del ticket. */
+.admin-desktop-printers {
+	margin-bottom: 16px;
+}
+
+.admin-desktop-printers__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem;
+}
+
+.admin-desktop-printers__row .admin-menu-options-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1 1 16rem;
+	min-width: 0;
+	max-width: 28rem;
+}
+
+/* Mismo campo que los inputs del admin (AdminShared.css) y la altura de los de Envío. */
+.admin-desktop-printers .form-input {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+	height: 38px;
+	padding: 0 12px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	border-radius: 10px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-size: 0.875rem;
+}
