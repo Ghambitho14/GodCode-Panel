@@ -6,6 +6,14 @@ import type { DatabaseCompanyTheme } from "@/shared/types/company-theme";
 import { buildTenantThemeCss } from "@/shared/utils/panel-theme-css";
 import { buildResolvedTabLabels, normalizeStoredNavTabId } from "@/shared/constants/admin-panel-tabs";
 import {
+	COMPANY_ADDONS_SELECT,
+	activeCompanyAddons,
+	addonDynamicModules,
+	mergeAddonPanelAccess,
+	type ActiveCompanyAddon,
+	type CompanyAddonRow,
+} from "@/lib/tenant/company-addons";
+import {
 	applyPlanProductModeToPanelAccess,
 	extractMenuSettingsFromIntegration,
 	resolvePanelCapabilities,
@@ -135,6 +143,7 @@ export function AdminApp({
 	const [resolvedUserRole, setResolvedUserRole] = useState<string | null>(initialUserRole);
 	const [resolvedAssignedBranchId, setResolvedAssignedBranchId] = useState<string | null>(null);
 	const [resolvedPublicSlug, setResolvedPublicSlug] = useState<string | null>(null);
+	const [companyAddons, setCompanyAddons] = useState<ActiveCompanyAddon[]>([]);
 	const [gateLoading, setGateLoading] = useState(() => !companyIdProp?.trim());
 	const [gateError, setGateError] = useState<string | null>(null);
 	const gateResolvedKeyRef = useRef<string | null>(null);
@@ -256,6 +265,27 @@ export function AdminApp({
 		};
 	}, [companyIdProp, navigate]);
 
+	// Extras vigentes de la empresa: suman las pestañas que desbloquean (RLS: solo los suyos).
+	useEffect(() => {
+		if (!resolvedCompanyId) return;
+		let cancelled = false;
+		void supabase
+			.from("company_addons")
+			.select(COMPANY_ADDONS_SELECT)
+			.eq("company_id", resolvedCompanyId)
+			.then(({ data, error }) => {
+				if (cancelled) return;
+				if (error) {
+					console.warn("[panel] extras de la empresa:", error.message);
+					return;
+				}
+				setCompanyAddons(activeCompanyAddons(data as CompanyAddonRow[] | null));
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [resolvedCompanyId]);
+
 	const menuCapabilities = useMemo(() => {
 		const profile = companyProfileProp ?? resolvedCompanyProfile;
 		const menuSettings = extractMenuSettingsFromIntegration(profile?.integration_settings);
@@ -284,12 +314,25 @@ export function AdminApp({
 			: null);
 	const effectiveCompanyProfile = companyProfileProp ?? resolvedCompanyProfile;
 	const effectivePanelAccess = useMemo(
-		() => applyPlanProductModeToPanelAccess(
-			resolvePlanProductMode(effectiveCompanyProfile?.planFeatures),
-			panelAccessProp ?? resolvedPanelAccess,
+		() => mergeAddonPanelAccess(
+			applyPlanProductModeToPanelAccess(
+				resolvePlanProductMode(effectiveCompanyProfile?.planFeatures),
+				panelAccessProp ?? resolvedPanelAccess,
+				normalizeStoredNavTabId,
+			),
+			// Un extra comprado vale aunque el plan sea «solo menú digital».
+			companyAddons,
 			normalizeStoredNavTabId,
 		),
-		[effectiveCompanyProfile?.planFeatures, panelAccessProp, resolvedPanelAccess],
+		[effectiveCompanyProfile?.planFeatures, panelAccessProp, resolvedPanelAccess, companyAddons],
+	);
+	// Los extras a medida (`src/addons/`) suman su pestaña al menú, como Soporte.
+	const effectiveDynamicModules = useMemo(
+		() => {
+			const fromAddons = addonDynamicModules(companyAddons);
+			return fromAddons.length > 0 ? [...(dynamicModules ?? []), ...fromAddons] : dynamicModules;
+		},
+		[dynamicModules, companyAddons],
 	);
 	const effectiveTabLabels = Object.keys(tabLabelsFromProp).length
 		? tabLabelsFromProp
@@ -372,7 +415,7 @@ export function AdminApp({
 						initialUserRole={initialUserRole ?? resolvedUserRole}
 						initialAssignedBranchId={resolvedAssignedBranchId}
 						panelAccess={effectivePanelAccess}
-						dynamicModules={dynamicModules}
+						dynamicModules={effectiveDynamicModules}
 						resolvedTabLabels={effectiveTabLabels}
 						adminShortcutsEnabled={effectiveAdminShortcuts}
 						companyProfile={effectiveCompanyProfile}

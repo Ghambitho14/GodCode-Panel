@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { VitePWA } from "vite-plugin-pwa";
 import { bffDevPlugin } from "./vite/bff-dev-plugin";
+import { addonsManifestPlugin } from "./vite/addons-manifest-plugin";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -12,6 +13,7 @@ export default defineConfig(({ mode }) => ({
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   plugins: [
     bffDevPlugin(mode),
+    addonsManifestPlugin(__dirname),
     react(),
     VitePWA({
       // En e2e no hay service worker, pero el módulo virtual de registro

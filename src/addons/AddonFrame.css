@@ -1,0 +1,51 @@
+.addon-frame {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	min-width: 0;
+}
+
+.addon-frame__bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--admin-border, #e2e8f0);
+}
+
+.addon-frame__back {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+	height: 32px;
+	padding: 0 10px 0 8px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	border-radius: 9px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font: inherit;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.addon-frame__back:hover {
+	border-color: var(--admin-accent, #2563eb);
+	color: var(--admin-accent, #2563eb);
+}
+
+.addon-frame__title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.addon-frame__body {
+	min-width: 0;
+}

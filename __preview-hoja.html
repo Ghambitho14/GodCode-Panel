@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Vista previa · Hoja de cálculo</title>
+</head>
+<body style="margin:0">
+	<!-- TEMPORAL: vista previa del extra sin login. Borrar. -->
+	<div class="admin-layout" style="min-height:100vh;padding:20px;box-sizing:border-box;background:var(--admin-page-bg);font-family:var(--admin-font)">
+		<div id="root"></div>
+	</div>
+	<script type="module">
+		import "/src/modules/cash/styles/index.css";
+		import "/src/modules/cash/styles/AdminLayout.css";
+		import { createElement, useEffect, useState } from "react";
+		import { createRoot } from "react-dom/client";
+		import AddonFrame from "/src/addons/AddonFrame.tsx";
+		import HojaCalculo from "/src/addons/plantilla-excel/HojaCalculo.tsx";
+		import { reviveWorkbook } from "/src/addons/plantilla-excel/hoja-calculo.ts";
+
+		// Sin login no hay Supabase: la vista previa guarda solo en el navegador.
+		const key = "preview:hoja";
+		if (location.search.includes("reset")) localStorage.removeItem(key);
+		function Preview() {
+			const [book, setBook] = useState(() => {
+				try { return reviveWorkbook(JSON.parse(localStorage.getItem(key) || "null")); } catch { return reviveWorkbook(null); }
+			});
+			useEffect(() => { localStorage.setItem(key, JSON.stringify(book)); }, [book]);
+			return createElement(HojaCalculo, {
+				book, onBookChange: setBook, saveStatus: "local", savedAt: null,
+				zoomKey: `${key}:zoom`, locale: "es-CL", branchName: "Sucursal Centro",
+			});
+		}
+		createRoot(document.getElementById("root")).render(
+			createElement(AddonFrame, { title: "Hoja de cálculo", onBack: () => {} }, createElement(Preview)),
+		);
+	</script>
+</body>
+</html>

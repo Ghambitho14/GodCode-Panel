@@ -1,0 +1,7 @@
+{
+	"id": "_plantilla",
+	"label": "Plantilla",
+	"description": "Ejemplo de extra a medida.",
+	"navGroup": "root",
+	"allowedRoles": ["owner", "admin", "ceo"]
+}

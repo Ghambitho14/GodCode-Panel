@@ -1,0 +1,117 @@
+.admin-addons {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	max-width: 960px;
+}
+
+.admin-addons__head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.admin-addons__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-addons__text {
+	margin: 4px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.45;
+	color: var(--admin-text-muted, #64748b);
+	overflow-wrap: anywhere;
+}
+
+.admin-addons__text strong {
+	color: var(--admin-text, #0f172a);
+	font-weight: 600;
+}
+
+.admin-addons__error {
+	margin: 0;
+	font-size: 0.8125rem;
+	color: #b42318;
+}
+
+.admin-addons__loading {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.8125rem;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-addons__empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 32px 20px;
+	border-radius: 14px;
+	border: 1px dashed var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	text-align: center;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-addons__empty .admin-addons__text {
+	max-width: 440px;
+}
+
+.admin-addons__empty-title {
+	margin: 4px 0 0;
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-addons__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 12px;
+}
+
+.admin-addons__card {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 14px 16px;
+	border-radius: 14px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+}
+
+.admin-addons__name {
+	margin: 0;
+	font-size: 0.9rem;
+	font-weight: 700;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-addons__meta {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 8px 0 0;
+	font-size: 0.75rem;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-addons__foot {
+	margin-top: 0;
+}
+
+.admin-addons__actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 10px;
+}

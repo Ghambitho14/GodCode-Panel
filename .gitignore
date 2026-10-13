@@ -74,3 +74,6 @@ skills-lock.json
 
 # Instalador de la app de escritorio (se genera con `npm run desktop:dist`)
 desktop/release/
+
+# Referencias de extras a medida (Excel de clientes con datos reales): no se versionan.
+src/addons/*/referencia/

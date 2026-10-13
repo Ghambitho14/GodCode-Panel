@@ -50,6 +50,16 @@ function AdminRouteFallback() {
  */
 const DEFAULT_DYNAMIC_MODULES = [
   {
+    id: "system-module-addons",
+    tabId: "module:addons",
+    label: "Addons",
+    description: "Los extras de tu negocio y lo que desbloquean.",
+    navGroup: "root" as const,
+    navOrder: 80,
+    allowedRoles: ["owner", "admin", "ceo", "cashier", "staff"],
+    isActive: true,
+  },
+  {
     id: "system-module-tickets",
     tabId: "module:tickets",
     label: "Soporte",

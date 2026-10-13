@@ -32,6 +32,9 @@ const AdminClients = React.lazy(() => import('../../components/AdminClients'));
 const AdminInventory = React.lazy(() => import('../tabs/inventory'));
 const CashManager = React.lazy(() => import('../../components/caja/CashManager'));
 const AdminCoupons = React.lazy(() => import('../../components/AdminCoupons'));
+const AdminAddons = React.lazy(() => import('../../components/AdminAddons'));
+import { addonIdFromTab, getAddonModule } from '@/addons/registry';
+import AddonFrame from '@/addons/AddonFrame';
 const AdminMenuOptions = React.lazy(() => import('../../components/AdminMenuOptions'));
 const AdminMenuBeverages = React.lazy(() => import('../../components/AdminMenuBeverages'));
 const AdminMenuExtras = React.lazy(() => import('../../components/AdminMenuExtras'));
@@ -712,7 +715,33 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
           </AdminErrorBoundary>
         )}
 
-        {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && (
+        {activeDynamicModule && activeDynamicModule.tabId === 'module:addons' && (
+          <AdminErrorBoundary tabLabel={tabLabels['module:addons'] || activeDynamicModule.label || 'Addons'} onRetry={() => refreshAllData()}>
+            <React.Suspense fallback={<AdminTabFallback />}>
+              <AdminAddons />
+            </React.Suspense>
+          </AdminErrorBoundary>
+        )}
+
+        {activeDynamicModule && addonIdFromTab(activeDynamicModule.tabId) && (() => {
+          const addonModule = getAddonModule(addonIdFromTab(activeDynamicModule.tabId));
+          const AddonScreen = addonModule?.Component;
+          const addonTitle = tabLabels[activeDynamicModule.tabId] || activeDynamicModule.label || 'Extra';
+          return AddonScreen ? (
+            <AddonFrame
+              title={addonTitle}
+              onBack={canAccessTab?.('module:addons') ? () => setActiveTab('module:addons') : undefined}
+            >
+              <AdminErrorBoundary tabLabel={addonTitle} onRetry={() => refreshAllData()}>
+                <React.Suspense fallback={<AdminTabFallback />}>
+                  <AddonScreen />
+                </React.Suspense>
+              </AdminErrorBoundary>
+            </AddonFrame>
+          ) : null;
+        })()}
+
+        {activeDynamicModule && activeDynamicModule.tabId !== 'module:tickets' && activeDynamicModule.tabId !== 'module:addons' && !addonIdFromTab(activeDynamicModule.tabId) && (
           <AdminErrorBoundary tabLabel={tabLabels[activeDynamicModule.tabId] || activeDynamicModule.label || 'Módulo'} onRetry={() => refreshAllData()}>
           <div className="glass admin-dynamic-module">
             <div>
