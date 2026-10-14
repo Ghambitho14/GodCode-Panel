@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Ban, ChevronDown, Pipette } from "lucide-react";
 
 import type { ColorOption } from "./colores";
+import { usePopover } from "./usePopover";
 
 type ColorMenuProps = {
 	/** «Relleno», «Color de letra». */
@@ -20,28 +21,7 @@ type ColorMenuProps = {
 
 /** Botón con paleta flotante: colores fijos, «sin color» y el selector del sistema. */
 export default function ColorMenu({ label, icon, colors, noneLabel, current, onPick, onDone }: ColorMenuProps) {
-	const [open, setOpen] = useState(false);
-	const rootRef = useRef<HTMLDivElement>(null);
-	const buttonRef = useRef<HTMLButtonElement>(null);
-	const panelId = useId();
-
-	useEffect(() => {
-		if (!open) return;
-		const onPointerDown = (event: PointerEvent) => {
-			if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-		};
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key !== "Escape") return;
-			setOpen(false);
-			buttonRef.current?.focus();
-		};
-		document.addEventListener("pointerdown", onPointerDown);
-		document.addEventListener("keydown", onKeyDown);
-		return () => {
-			document.removeEventListener("pointerdown", onPointerDown);
-			document.removeEventListener("keydown", onKeyDown);
-		};
-	}, [open]);
+	const { open, setOpen, rootRef, buttonRef, panelId } = usePopover();
 
 	const pick = (color: string | null) => {
 		onPick(color);

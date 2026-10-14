@@ -1,37 +1,64 @@
 import {
 	memo,
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 	type ChangeEvent,
+	type ClipboardEvent,
 	type CSSProperties,
 	type Dispatch,
 	type KeyboardEvent,
 	type MouseEvent as ReactMouseEvent,
+	type ReactNode,
 	type RefObject,
 	type SetStateAction,
 } from "react";
-import { Baseline, Download, PaintBucket, Plus, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+	AlignCenter,
+	AlignLeft,
+	AlignRight,
+	Baseline,
+	Bold,
+	Download,
+	Italic,
+	PaintBucket,
+	Plus,
+	Redo2,
+	Strikethrough,
+	Underline,
+	Undo2,
+	X,
+	ZoomIn,
+	ZoomOut,
+} from "lucide-react";
 
+import BordesMenu from "./BordesMenu";
 import ColorMenu from "./ColorMenu";
 import { FILL_COLORS, TEXT_COLORS, TEXT_ON_FILL } from "./colores";
 import {
 	activeSheet,
 	addSheet,
 	addToSelection,
+	applyBorders,
+	blockFromSheet,
 	cellKey,
 	clearCells,
 	columnLabel,
+	DEFAULT_FONT_SIZE,
 	evaluateSheet,
 	extendSelection,
+	FONT_SIZES,
 	growSheet,
 	isMultiSelection,
 	keysInRanges,
 	MAX_COLS,
 	MAX_ROWS,
 	parseCellRef,
+	pasteBlock,
+	rangeFrom,
 	rangeLabel,
 	removeSheet,
 	renameSheet,
@@ -42,14 +69,22 @@ import {
 	setStyle,
 	sheetCsv,
 	stepZoom,
+	trimToUsed,
 	ZOOM_STEPS,
+	type BorderMode,
+	type CellAlign,
+	type CellRange,
 	type CellResult,
 	type CellStyle,
+	type ClipBlock,
 	type Pos,
 	type Selection,
 	type SelectionKind,
+	type StyleFlag,
+	type StylePatch,
 	type Workbook,
 } from "./hoja-calculo";
+import { parseClipboardHtml, parseTsv, toHtml, toTsv } from "./portapapeles";
 import "./HojaCalculo.css";
 
 /** Cómo va el guardado (lo muestra la barra de arriba). */
@@ -92,6 +127,100 @@ function useZoom(storageKey: string) {
 	return { zoom, setZoom };
 }
 
+const HISTORY_LIMIT = 100;
+
+/**
+ * Deshacer y rehacer: guarda el libro de antes de cada cambio (solo en memoria; se pierde al
+ * recargar). Abrir otra hoja no cuenta como cambio.
+ */
+function useBookHistory(book: Workbook, setBook: Dispatch<SetStateAction<Workbook>>) {
+	const bookRef = useRef(book);
+	const past = useRef<Workbook[]>([]);
+	const future = useRef<Workbook[]>([]);
+	const [counts, setCounts] = useState({ past: 0, future: 0 });
+
+	useLayoutEffect(() => {
+		bookRef.current = book;
+	}, [book]);
+
+	const write = useCallback(
+		(next: Workbook) => {
+			bookRef.current = next;
+			setBook(next);
+			setCounts({ past: past.current.length, future: future.current.length });
+		},
+		[setBook],
+	);
+
+	/** Un cambio que se puede deshacer. */
+	const change = useCallback(
+		(fn: (b: Workbook) => Workbook) => {
+			const prev = bookRef.current;
+			const next = fn(prev);
+			if (next === prev) return;
+			past.current = [...past.current.slice(-(HISTORY_LIMIT - 1)), prev];
+			future.current = [];
+			write(next);
+		},
+		[write],
+	);
+
+	/** Un cambio que no entra al historial (abrir otra hoja). */
+	const changeQuietly = useCallback(
+		(fn: (b: Workbook) => Workbook) => {
+			const next = fn(bookRef.current);
+			if (next !== bookRef.current) write(next);
+		},
+		[write],
+	);
+
+	/** Vuelve un paso atrás o adelante; devuelve el libro que quedó (o `null` si no había). */
+	const travel = (from: RefObject<Workbook[]>, to: RefObject<Workbook[]>): Workbook | null => {
+		const target = from.current.at(-1);
+		if (!target) return null;
+		from.current = from.current.slice(0, -1);
+		to.current = [...to.current, bookRef.current];
+		write(target);
+		return target;
+	};
+
+	return {
+		change,
+		changeQuietly,
+		undo: () => travel(past, future),
+		redo: () => travel(future, past),
+		canUndo: counts.past > 0,
+		canRedo: counts.future > 0,
+	};
+}
+
+/** Lo último copiado desde una hoja de aquí: al pegarlo se usan sus fórmulas y su formato. */
+let lastCopy: { text: string; block: ClipBlock } | null = null;
+
+const normalizeClipText = (text: string) => text.replace(/\r\n?/g, "\n").replace(/\n$/, "");
+
+/** Lo que trae el portapapeles, listo para pegar; nada útil → `null`. */
+function blockFromClipboard(data: DataTransfer): ClipBlock | null {
+	const text = data.getData("text/plain");
+	if (lastCopy && text && normalizeClipText(text) === normalizeClipText(lastCopy.text)) return lastCopy.block;
+	const values = parseTsv(text);
+	if (values.length === 0) return null;
+	const styles = parseClipboardHtml(data.getData("text/html"), values);
+	return {
+		// Las celdas son de una línea: un salto dentro de una celda de Excel queda como espacio.
+		cells: values.map((row, r) => row.map((raw, c) => ({ raw: raw.replace(/\s*\n\s*/g, " "), style: styles?.[r]?.[c] ?? null }))),
+		withStyles: styles !== null,
+	};
+}
+
+/** Atajos de formato: Ctrl+B, Ctrl+I, Ctrl+U y Ctrl+5 (tachado, como en Excel). */
+const FORMAT_KEYS: Record<string, StyleFlag> = { b: "bold", i: "italic", u: "underline", 5: "strike" };
+
+function formatShortcut(event: KeyboardEvent): StyleFlag | undefined {
+	if (!(event.ctrlKey || event.metaKey) || event.altKey) return undefined;
+	return FORMAT_KEYS[event.key.toLowerCase()];
+}
+
 /** Al escribir una fórmula, tras `=`, un operador o `(`, un clic en otra celda pone su nombre. */
 function isPointing(draft: string): boolean {
 	return draft.trimStart().startsWith("=") && /[=+\-*/(;:,]\s*$/.test(draft);
@@ -123,6 +252,7 @@ type CellHandlers = {
 	onCellDoubleClick: (pos: Pos) => void;
 	onEditorChange: (event: ChangeEvent<HTMLInputElement>) => void;
 	onEditorKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+	onEditorPaste: (event: ClipboardEvent<HTMLInputElement>) => void;
 	onEditorBlur: () => void;
 };
 
@@ -149,10 +279,36 @@ function parseSpans(marked: string): Array<[number, number]> {
 	});
 }
 
+/** Tamaño de letra de Excel → px de pantalla (el 11 normal son los 13 px de siempre). */
+const fontPx = (size: number) => Math.round(((size * 13) / DEFAULT_FONT_SIZE) * 100) / 100;
+
 function cellStyle(style: CellStyle | undefined, isError: boolean): CSSProperties | undefined {
 	if (!style) return undefined;
 	const color = style.color ?? (style.bg ? TEXT_ON_FILL : undefined);
-	return { backgroundColor: style.bg, color: isError ? undefined : color };
+	const decoration = [style.underline && "underline", style.strike && "line-through"].filter(Boolean).join(" ");
+	return {
+		backgroundColor: style.bg,
+		color: isError ? undefined : color,
+		fontWeight: style.bold ? 700 : undefined,
+		fontStyle: style.italic ? "italic" : undefined,
+		textDecorationLine: decoration || undefined,
+		fontSize: style.size ? `calc(${fontPx(style.size)}px * var(--hoja-zoom, 1))` : undefined,
+		textAlign: style.align,
+	};
+}
+
+/**
+ * Bordes de una celda como clases. Cada celda pinta su línea de la derecha y la de abajo (la de la
+ * cuadrícula), también si la vecina pidió ese lado; la columna A y la fila 1 pintan además el de la
+ * izquierda y el de arriba.
+ */
+function borderClasses(styles: Record<string, CellStyle>, key: string, col: number, row: number): string {
+	const own = styles[key]?.border;
+	const right = own?.r || styles[cellKey(col + 1, row)]?.border?.l;
+	const bottom = own?.b || styles[cellKey(col, row + 1)]?.border?.t;
+	return `${right ? " has-border-r" : ""}${bottom ? " has-border-b" : ""}${col === 0 && own?.l ? " has-border-l" : ""}${
+		row === 0 && own?.t ? " has-border-t" : ""
+	}`;
 }
 
 const SheetRow = memo(function SheetRow({
@@ -191,7 +347,7 @@ const SheetRow = memo(function SheetRow({
 			<td
 				key={key}
 				data-cell={key}
-				className={`hoja__cell${kind}${activeCol === col ? " is-selected" : ""}${inRange ? " is-in-range" : ""}`}
+				className={`hoja__cell${kind}${activeCol === col ? " is-selected" : ""}${inRange ? " is-in-range" : ""}${borderClasses(styles, key, col, row)}`}
 				style={style}
 				title={result?.error ? errorHelp[result.error] : undefined}
 				onMouseDown={(event) => handlers.onCellMouseDown({ col, row }, event)}
@@ -208,6 +364,7 @@ const SheetRow = memo(function SheetRow({
 						autoComplete="off"
 						onChange={handlers.onEditorChange}
 						onKeyDown={handlers.onEditorKeyDown}
+						onPaste={handlers.onEditorPaste}
 						onBlur={handlers.onEditorBlur}
 					/>
 				) : (
@@ -246,6 +403,7 @@ type PointerActions = {
 };
 
 const LONG_PRESS_MS = 500;
+const NOTICE_MS = 5000;
 
 function saveStatusText(status: SaveStatus, savedAt: Date | null, locale: string): string {
 	if (status === "saving") return "Guardando…";
@@ -255,9 +413,59 @@ function saveStatusText(status: SaveStatus, savedAt: Date | null, locale: string
 	return `Guardado ${savedAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+function numberFormatter(locale: string, options: Intl.NumberFormatOptions) {
+	let nf: Intl.NumberFormat;
+	try {
+		nf = new Intl.NumberFormat(locale, options);
+	} catch {
+		nf = new Intl.NumberFormat("es", options);
+	}
+	return (value: number) => nf.format(value);
+}
+
+type ToolButtonProps = {
+	label: string;
+	/** Solo los botones que se prenden y apagan (negrita, alinear…). */
+	pressed?: boolean;
+	disabled?: boolean;
+	onClick: () => void;
+	children: ReactNode;
+};
+
+/** Botón de la barra de formato. No se lleva el foco: la celda que se edita o la hoja lo conservan. */
+function ToolButton({ label, pressed, disabled, onClick, children }: ToolButtonProps) {
+	return (
+		<button
+			type="button"
+			className="hoja__tool"
+			title={label}
+			aria-label={label}
+			aria-pressed={pressed}
+			disabled={disabled}
+			onMouseDown={(event) => event.preventDefault()}
+			onClick={onClick}
+		>
+			{children}
+		</button>
+	);
+}
+
+const ALIGN_BUTTONS: Array<{ align: CellAlign; label: string; icon: ReactNode }> = [
+	{ align: "left", label: "Alinear a la izquierda", icon: <AlignLeft size={15} aria-hidden="true" /> },
+	{ align: "center", label: "Centrar", icon: <AlignCenter size={15} aria-hidden="true" /> },
+	{ align: "right", label: "Alinear a la derecha", icon: <AlignRight size={15} aria-hidden="true" /> },
+];
+
+const FLAG_BUTTONS: Array<{ flag: StyleFlag; label: string; icon: ReactNode }> = [
+	{ flag: "bold", label: "Negrita (Ctrl+B)", icon: <Bold size={15} aria-hidden="true" /> },
+	{ flag: "italic", label: "Cursiva (Ctrl+I)", icon: <Italic size={15} aria-hidden="true" /> },
+	{ flag: "underline", label: "Subrayado (Ctrl+U)", icon: <Underline size={15} aria-hidden="true" /> },
+	{ flag: "strike", label: "Tachado (Ctrl+5)", icon: <Strikethrough size={15} aria-hidden="true" /> },
+];
+
 export default function HojaCalculo({
 	book,
-	onBookChange: setBook,
+	onBookChange,
 	saveStatus,
 	savedAt,
 	zoomKey,
@@ -269,7 +477,9 @@ export default function HojaCalculo({
 	const [sel, setSel] = useState<Selection>(() => selectAt(sheet, { col: 0, row: 0 }));
 	const [editing, setEditingState] = useState<Editing | null>(null);
 	const [renamingId, setRenamingId] = useState<string | null>(null);
+	const [notice, setNotice] = useState<string | null>(null);
 	const { zoom, setZoom } = useZoom(zoomKey);
+	const { change, changeQuietly, undo, redo, canUndo, canRedo } = useBookHistory(book, onBookChange);
 
 	// Copia sincrónica de la edición: el blur llega después de Esc o de confirmar, y no debe volver
 	// a escribir lo que ya se canceló.
@@ -287,15 +497,15 @@ export default function HojaCalculo({
 		setEditingState(next);
 	};
 
-	const format = useMemo(() => {
-		let nf: Intl.NumberFormat;
-		try {
-			nf = new Intl.NumberFormat(locale, { maximumFractionDigits: 4 });
-		} catch {
-			nf = new Intl.NumberFormat("es", { maximumFractionDigits: 4 });
-		}
-		return (value: number) => nf.format(value);
-	}, [locale]);
+	useEffect(() => {
+		if (!notice) return undefined;
+		const timer = window.setTimeout(() => setNotice(null), NOTICE_MS);
+		return () => window.clearTimeout(timer);
+	}, [notice]);
+
+	const format = useMemo(() => numberFormatter(locale, { maximumFractionDigits: 4 }), [locale]);
+	/** Números para copiar: sin separador de miles y con el decimal del idioma, como los lee Excel. */
+	const plainNumber = useMemo(() => numberFormatter(locale, { useGrouping: false, maximumFractionDigits: 10 }), [locale]);
 
 	const active = sel.anchor;
 	const activeKey = cellKey(active.col, active.row);
@@ -312,7 +522,7 @@ export default function HojaCalculo({
 		if (!current) return;
 		setEditing(null);
 		const sheetId = sheet.id;
-		setBook((b) => setCell(b, sheetId, cellKey(current.col, current.row), current.draft));
+		change((b) => setCell(b, sheetId, cellKey(current.col, current.row), current.draft));
 	};
 
 	const cancelEdit = () => {
@@ -356,24 +566,117 @@ export default function HojaCalculo({
 	}, [editKey]);
 
 	const selectedKeys = () => keysInRanges(sel.ranges, sheet);
+	const activeStyle = sheet.styles[activeKey];
+
+	/** Da formato a lo marcado (o a las celdas que se pasen). */
+	const paint = (patch: StylePatch, keys = selectedKeys()) => {
+		const sheetId = sheet.id;
+		change((b) => setStyle(b, sheetId, keys, patch));
+	};
+
+	/** Negrita, cursiva…: si la celda activa ya la tiene, se quita en todo lo marcado; si no, se pone. */
+	const toggleFlag = (flag: StyleFlag) => paint({ [flag]: !activeStyle?.[flag] });
+
+	const setBorders = (mode: BorderMode) => {
+		const sheetId = sheet.id;
+		const ranges = sel.ranges;
+		change((b) => applyBorders(b, sheetId, ranges, mode));
+	};
+
+	/** Deshacer o rehacer; si cambió la hoja abierta o se achicó, la selección vuelve a una celda válida. */
+	const stepHistory = (direction: "undo" | "redo") => {
+		setEditing(null);
+		const restored = direction === "undo" ? undo() : redo();
+		if (!restored) return;
+		const next = activeSheet(restored);
+		setSel((current) => {
+			if (next.id !== sheet.id) return selectAt(next, { col: 0, row: 0 });
+			if (current.ranges.every((r) => r.c1 < next.cols && r.r1 < next.rows)) return current;
+			return selectAt(next, { col: Math.min(current.anchor.col, next.cols - 1), row: Math.min(current.anchor.row, next.rows - 1) });
+		});
+	};
+
+	/** Pega un bloque y marca lo pegado (salvo una celda que llenó lo que ya estaba marcado). */
+	const pasteInto = (block: ClipBlock, targets: CellRange[]) => {
+		const sheetId = sheet.id;
+		const out: { range: CellRange | null; clipped: boolean } = { range: null, clipped: false };
+		change((b) => {
+			const result = pasteBlock(b, sheetId, targets, block);
+			out.range = result.range;
+			out.clipped = result.clipped;
+			return result.book;
+		});
+		const single = block.cells.length === 1 && block.cells[0].length === 1;
+		const range = out.range;
+		if (range && !single) {
+			setSel(extendSelection(sheet, selectAt(sheet, { col: range.c0, row: range.r0 }), { col: range.c1, row: range.r1 }));
+		}
+		if (out.clipped) setNotice(`Se pegó solo lo que cabe: hasta la fila ${MAX_ROWS} y la columna ${columnLabel(MAX_COLS - 1)}.`);
+	};
+
+	const plainText = (result: CellResult | undefined): string => {
+		if (!result) return "";
+		if (result.error) return result.error;
+		if (result.value === null) return "";
+		return typeof result.value === "number" ? plainNumber(result.value) : result.value;
+	};
+
+	/**
+	 * Ctrl+C / Ctrl+X con la hoja enfocada: deja el último bloque marcado como texto (con los
+	 * resultados) y como tabla HTML (con el formato), para pegarlo en Excel. Cortar lo borra de aquí.
+	 */
+	const copySelection = (event: ClipboardEvent<HTMLDivElement>, cut: boolean) => {
+		if (event.target !== event.currentTarget) return;
+		const last = sel.ranges[sel.ranges.length - 1];
+		if (!last) return;
+		event.preventDefault();
+		const whole = sel.kind !== "cell" || (last.c0 === 0 && last.r0 === 0 && last.c1 >= sheet.cols - 1 && last.r1 >= sheet.rows - 1);
+		const range = whole ? trimToUsed(sheet, last) : last;
+		const cells = blockFromSheet(sheet, range);
+		const values = cells.map((line, r) => line.map((_, c) => plainText(results.get(cellKey(range.c0 + c, range.r0 + r)))));
+		const text = toTsv(values);
+		event.clipboardData.setData("text/plain", text);
+		event.clipboardData.setData("text/html", toHtml(values, cells.map((line) => line.map((cell) => cell.style))));
+		lastCopy = { text, block: { cells, withStyles: true, from: cut ? undefined : { col: range.c0, row: range.r0 } } };
+		if (sel.ranges.length > 1) setNotice("Se copió solo el último bloque marcado.");
+		if (cut) {
+			const sheetId = sheet.id;
+			const keys = keysInRanges([range], sheet);
+			change((b) => clearCells(b, sheetId, keys, { withStyles: true }));
+		}
+	};
+
+	/** Ctrl+V con la hoja enfocada: pega desde la celda activa (o llena lo marcado con una sola celda). */
+	const onGridPaste = (event: ClipboardEvent<HTMLDivElement>) => {
+		if (event.target !== event.currentTarget) return;
+		const block = blockFromClipboard(event.clipboardData);
+		if (!block) return;
+		event.preventDefault();
+		pasteInto(block, sel.ranges);
+	};
 
 	/** Teclas de la hoja cuando no se está editando. */
 	const onGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		if (event.target !== event.currentTarget) return;
 		const { key, shiftKey } = event;
 		const mod = event.ctrlKey || event.metaKey;
+		const lower = key.toLowerCase();
+		const flag = formatShortcut(event);
 		const arrows: Record<string, [number, number]> = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 		let handled = true;
 		if (arrows[key] && shiftKey) extendTo({ col: sel.focus.col + arrows[key][0], row: sel.focus.row + arrows[key][1] });
 		else if (arrows[key]) moveBy(arrows[key][0], arrows[key][1]);
-		else if (mod && key.toLowerCase() === "a") setSel(selectAll(sheet));
+		else if (mod && lower === "a") setSel(selectAll(sheet));
+		else if (mod && !event.altKey && lower === "z") stepHistory(shiftKey ? "redo" : "undo");
+		else if (mod && !event.altKey && lower === "y") stepHistory("redo");
+		else if (flag) toggleFlag(flag);
 		else if (key === "Enter") moveBy(0, shiftKey ? -1 : 1);
 		else if (key === "Tab") moveBy(shiftKey ? -1 : 1, 0);
 		else if (key === "F2") startEdit(active, rawAt(active), "edit");
 		else if (key === "Delete" || key === "Backspace") {
 			const sheetId = sheet.id;
 			const keys = selectedKeys();
-			setBook((b) => clearCells(b, sheetId, keys));
+			change((b) => clearCells(b, sheetId, keys));
 		} else if (key.length === 1 && !mod && !event.altKey) startEdit(active, key, "enter");
 		else handled = false;
 		if (handled) event.preventDefault();
@@ -385,6 +688,14 @@ export default function HojaCalculo({
 		if (!current) return;
 		const { key, shiftKey } = event;
 		const at = { col: current.col, row: current.row };
+		const flag = formatShortcut(event);
+		if (flag) {
+			// El formato es de toda la celda: se ve mientras se escribe.
+			event.preventDefault();
+			const target = cellKey(at.col, at.row);
+			paint({ [flag]: !sheet.styles[target]?.[flag] }, [target]);
+			return;
+		}
 		let next: Pos | null = null;
 		if (key === "Enter") next = { col: at.col, row: at.row + (shiftKey ? -1 : 1) };
 		else if (key === "Tab") next = { col: at.col + (shiftKey ? -1 : 1), row: at.row };
@@ -403,6 +714,24 @@ export default function HojaCalculo({
 		event.preventDefault();
 		commitEdit();
 		moveTo(next);
+		focusGrid();
+	};
+
+	/**
+	 * Pegar mientras se edita: un solo valor entra donde está el cursor (lo hace el navegador); varias
+	 * celdas cancelan la edición y se pegan como bloque desde esta celda.
+	 */
+	const onEditorPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+		const current = editRef.current;
+		if (!current) return;
+		const values = parseTsv(event.clipboardData.getData("text/plain"));
+		if (values.length <= 1 && (values[0]?.length ?? 0) <= 1) return;
+		const block = blockFromClipboard(event.clipboardData);
+		if (!block) return;
+		event.preventDefault();
+		setEditing(null);
+		const at = { col: current.col, row: current.row };
+		pasteInto(block, [rangeFrom(at, at)]);
 		focusGrid();
 	};
 
@@ -448,6 +777,7 @@ export default function HojaCalculo({
 				if (current) setEditing({ ...current, draft: event.target.value });
 			},
 			onEditorKeyDown,
+			onEditorPaste,
 			onEditorBlur: () => {
 				if (editRef.current?.from === "cell") commitEdit();
 			},
@@ -466,6 +796,7 @@ export default function HojaCalculo({
 			onCellDoubleClick: (pos) => latest.current?.onCellDoubleClick(pos),
 			onEditorChange: (event) => latest.current?.onEditorChange(event),
 			onEditorKeyDown: (event) => latest.current?.onEditorKeyDown(event),
+			onEditorPaste: (event) => latest.current?.onEditorPaste(event),
 			onEditorBlur: () => latest.current?.onEditorBlur(),
 		}),
 		[],
@@ -559,21 +890,15 @@ export default function HojaCalculo({
 	const openSheet = (id: string) => {
 		if (id === sheet.id) return;
 		commitEdit();
-		setBook((b) => ({ ...b, activeSheetId: id }));
+		changeQuietly((b) => ({ ...b, activeSheetId: id }));
 		resetSelection();
 	};
 
 	const deleteSheet = (id: string, name: string) => {
 		if (!window.confirm(`¿Borrar la hoja «${name}» y todo lo que tiene?`)) return;
 		setEditing(null);
-		setBook((b) => removeSheet(b, id));
+		change((b) => removeSheet(b, id));
 		resetSelection();
-	};
-
-	const paint = (patch: { bg?: string | null; color?: string | null }) => {
-		const sheetId = sheet.id;
-		const keys = selectedKeys();
-		setBook((b) => setStyle(b, sheetId, keys, patch));
 	};
 
 	const downloadCsv = () => {
@@ -593,7 +918,8 @@ export default function HojaCalculo({
 		: multi && lastRange
 			? `${rangeLabel(lastRange)}${sel.ranges.length > 1 ? ` +${sel.ranges.length - 1}` : ""}`
 			: activeKey;
-	const activeStyle = sheet.styles[activeKey];
+	const activeSize = activeStyle?.size ?? DEFAULT_FONT_SIZE;
+	const sizeOptions = FONT_SIZES.includes(activeSize) ? FONT_SIZES : [...FONT_SIZES, activeSize].sort((a, b) => a - b);
 	const barEditing = editing !== null;
 	const hasCells = Object.keys(sheet.cells).length > 0;
 	const markedCols = new Set<number>();
@@ -641,35 +967,22 @@ export default function HojaCalculo({
 	return (
 		<div className="hoja">
 			<div className="hoja__toolbar">
-				<span
-					className={`hoja__status${saveStatus === "offline" ? " is-offline" : ""}`}
-					role="status"
-					title={saveStatus === "offline" ? "Los cambios quedan en este navegador y se suben solos al volver la conexión." : undefined}
-				>
-					{branchName ? `${branchName} · ` : ""}
-					{saveStatusText(saveStatus, savedAt, locale)}
-				</span>
+				<div className="hoja__info">
+					<span
+						className={`hoja__status${saveStatus === "offline" ? " is-offline" : ""}`}
+						role="status"
+						title={saveStatus === "offline" ? "Los cambios quedan en este navegador y se suben solos al volver la conexión." : undefined}
+					>
+						{branchName ? `${branchName} · ` : ""}
+						{saveStatusText(saveStatus, savedAt, locale)}
+					</span>
+					{notice ? (
+						<span className="hoja__notice" role="status">
+							{notice}
+						</span>
+					) : null}
+				</div>
 				<div className="hoja__actions">
-					<div className="hoja__colors" role="group" aria-label="Colores">
-						<ColorMenu
-							label="Relleno"
-							icon={<PaintBucket size={15} aria-hidden="true" />}
-							colors={FILL_COLORS}
-							noneLabel="Sin relleno"
-							current={activeStyle?.bg ?? null}
-							onPick={(color) => paint({ bg: color })}
-							onDone={focusGrid}
-						/>
-						<ColorMenu
-							label="Color de letra"
-							icon={<Baseline size={15} aria-hidden="true" />}
-							colors={TEXT_COLORS}
-							noneLabel="Automático"
-							current={activeStyle?.color ?? null}
-							onPick={(color) => paint({ color })}
-							onDone={focusGrid}
-						/>
-					</div>
 					<div className="hoja__zoom" role="group" aria-label="Zoom">
 						<button
 							type="button"
@@ -705,7 +1018,7 @@ export default function HojaCalculo({
 						type="button"
 						className="hoja__btn"
 						disabled={sheet.rows >= MAX_ROWS}
-						onClick={() => setBook((b) => growSheet(b, sheet.id, { rows: 10 }))}
+						onClick={() => change((b) => growSheet(b, sheet.id, { rows: 10 }))}
 					>
 						<Plus size={14} aria-hidden="true" />
 						10 filas
@@ -714,7 +1027,7 @@ export default function HojaCalculo({
 						type="button"
 						className="hoja__btn"
 						disabled={sheet.cols >= MAX_COLS}
-						onClick={() => setBook((b) => growSheet(b, sheet.id, { cols: 1 }))}
+						onClick={() => change((b) => growSheet(b, sheet.id, { cols: 1 }))}
 					>
 						<Plus size={14} aria-hidden="true" />
 						1 columna
@@ -723,6 +1036,71 @@ export default function HojaCalculo({
 						<Download size={14} aria-hidden="true" />
 						CSV
 					</button>
+				</div>
+			</div>
+
+			<div className="hoja__format" role="toolbar" aria-label="Formato">
+				<div className="hoja__group" role="group" aria-label="Deshacer">
+					<ToolButton label="Deshacer (Ctrl+Z)" disabled={!canUndo} onClick={() => stepHistory("undo")}>
+						<Undo2 size={15} aria-hidden="true" />
+					</ToolButton>
+					<ToolButton label="Rehacer (Ctrl+Y)" disabled={!canRedo} onClick={() => stepHistory("redo")}>
+						<Redo2 size={15} aria-hidden="true" />
+					</ToolButton>
+				</div>
+				<div className="hoja__group" role="group" aria-label="Letra">
+					<select
+						className="hoja__size"
+						aria-label="Tamaño de letra"
+						title="Tamaño de letra"
+						value={activeSize}
+						onChange={(event) => {
+							paint({ size: Number(event.target.value) });
+							focusGrid();
+						}}
+					>
+						{sizeOptions.map((size) => (
+							<option key={size} value={size}>
+								{size}
+							</option>
+						))}
+					</select>
+					{FLAG_BUTTONS.map(({ flag, label, icon }) => (
+						<ToolButton key={flag} label={label} pressed={Boolean(activeStyle?.[flag])} onClick={() => toggleFlag(flag)}>
+							{icon}
+						</ToolButton>
+					))}
+				</div>
+				<div className="hoja__group" role="group" aria-label="Alinear">
+					{ALIGN_BUTTONS.map(({ align, label, icon }) => {
+						const pressed = activeStyle?.align === align;
+						return (
+							<ToolButton key={align} label={label} pressed={pressed} onClick={() => paint({ align: pressed ? null : align })}>
+								{icon}
+							</ToolButton>
+						);
+					})}
+				</div>
+				<div className="hoja__group" role="group" aria-label="Bordes y colores">
+					<BordesMenu onPick={setBorders} onDone={focusGrid} />
+					<ColorMenu
+						label="Relleno"
+						icon={<PaintBucket size={15} aria-hidden="true" />}
+						colors={FILL_COLORS}
+						noneLabel="Sin relleno"
+						current={activeStyle?.bg ?? null}
+						onPick={(color) => paint({ bg: color })}
+						onDone={focusGrid}
+					/>
+					<ColorMenu
+						label="Color de letra"
+						icon={<Baseline size={15} aria-hidden="true" />}
+						colors={TEXT_COLORS}
+						noneLabel="Automático"
+						current={activeStyle?.color ?? null}
+						onPick={(color) => paint({ color })}
+						onDone={focusGrid}
+					/>
 				</div>
 			</div>
 
@@ -749,6 +1127,7 @@ export default function HojaCalculo({
 						setEditing({ ...current, draft: event.target.value });
 					}}
 					onKeyDown={onEditorKeyDown}
+					onPaste={onEditorPaste}
 					onBlur={() => {
 						if (editRef.current?.from === "bar") commitEdit();
 					}}
@@ -762,6 +1141,9 @@ export default function HojaCalculo({
 				aria-label={`Hoja ${sheet.name}`}
 				style={{ "--hoja-zoom": zoom / 100 } as CSSProperties}
 				onKeyDown={onGridKeyDown}
+				onCopy={(event) => copySelection(event, false)}
+				onCut={(event) => copySelection(event, true)}
+				onPaste={onGridPaste}
 			>
 				<table className="hoja__table">
 					<thead>
@@ -807,7 +1189,7 @@ export default function HojaCalculo({
 								onBlur={(event) => {
 									if (!event.currentTarget.dataset.cancel) {
 										const name = event.currentTarget.value;
-										setBook((b) => renameSheet(b, s.id, name));
+										change((b) => renameSheet(b, s.id, name));
 									}
 									setRenamingId(null);
 								}}
@@ -847,7 +1229,7 @@ export default function HojaCalculo({
 					title="Agregar hoja"
 					onClick={() => {
 						commitEdit();
-						setBook((b) => addSheet(b));
+						change((b) => addSheet(b));
 						resetSelection();
 					}}
 				>
@@ -858,7 +1240,10 @@ export default function HojaCalculo({
 			<p className="hoja__help">
 				Las fórmulas empiezan con <code>=</code>: <code>+ - * /</code>, paréntesis, celdas como <code>B3</code> y{" "}
 				<code>=SUMA(A1:A31)</code>. Shift+clic marca un bloque, Ctrl+clic suma celdas y arrastrar también marca; en
-				el celular, mantén apretado y arrastra. Doble clic o F2 para editar; Supr borra.
+				el celular, mantén apretado y arrastra. Doble clic o F2 para editar; Supr borra. <code>Ctrl+C</code>,{" "}
+				<code>Ctrl+X</code> y <code>Ctrl+V</code> copian, cortan y pegan (también desde Excel, con su formato);{" "}
+				<code>Ctrl+Z</code> deshace. <code>Ctrl+B</code> negrita, <code>Ctrl+I</code> cursiva, <code>Ctrl+U</code>{" "}
+				subrayado.
 			</p>
 		</div>
 	);

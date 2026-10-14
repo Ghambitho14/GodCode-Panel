@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import {
 	addSheet,
+	applyBorders,
+	blockFromSheet,
 	cellKey,
 	clearCells,
 	columnLabel,
 	columnRange,
 	emptyWorkbook,
 	evaluateSheet,
+	growSheet,
 	inRanges,
 	keysInRanges,
+	MAX_ROWS,
 	parseCellRef,
 	parseNumber,
+	pasteBlock,
 	rangeFrom,
 	rangeLabel,
 	removeSheet,
@@ -23,7 +28,10 @@ import {
 	setStyle,
 	sheetCsv,
 	sheetRange,
+	shiftFormula,
 	stepZoom,
+	trimToUsed,
+	type ClipBlock,
 	type Sheet,
 } from "@/addons/plantilla-excel/hoja-calculo";
 
@@ -108,6 +116,202 @@ describe("colores", () => {
 		});
 		expect(book.sheets[0].styles).toEqual({});
 		expect(book.sheets[1].styles).toEqual({ A1: { bg: "#abcdef" } });
+	});
+});
+
+describe("formato de letra", () => {
+	it("pone y quita negrita, cursiva, subrayado, tachado, tamaño y alineación", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setStyle(book, id, ["A1", "B1"], { bold: true, italic: true, size: 14, align: "center" });
+		book = setStyle(book, id, ["A1"], { underline: true, strike: true, bg: "#fff4bf" });
+		expect(book.sheets[0].styles).toEqual({
+			A1: { bg: "#fff4bf", bold: true, italic: true, underline: true, strike: true, size: 14, align: "center" },
+			B1: { bold: true, italic: true, size: 14, align: "center" },
+		});
+
+		// false o null quitan; el tamaño 11 es el normal y no se guarda.
+		book = setStyle(book, id, ["A1", "B1"], { bold: false, italic: null, size: 11, align: null });
+		expect(book.sheets[0].styles).toEqual({ A1: { bg: "#fff4bf", underline: true, strike: true } });
+
+		// Un valor que no sirve deja lo que había; sin cambios, el mismo libro.
+		const same = setStyle(book, id, ["A1"], { size: 500, underline: true });
+		expect(same).toBe(book);
+	});
+
+	it("revive el formato nuevo y descarta lo raro", () => {
+		const book = reviveWorkbook({
+			version: 1,
+			activeSheetId: "a",
+			sheets: [
+				{
+					id: "a",
+					name: "Caja",
+					rows: 5,
+					cols: 5,
+					cells: {},
+					styles: {
+						A1: { bold: true, italic: "si", size: 14.4, align: "center", border: { t: true, x: true, b: 1 } },
+						A2: { size: 11, align: "justify", border: {} },
+						A3: { underline: true, strike: true, size: 200 },
+					},
+				},
+			],
+		});
+		expect(book.sheets[0].styles).toEqual({
+			A1: { bold: true, size: 14, align: "center", border: { t: true } },
+			A3: { underline: true, strike: true },
+		});
+	});
+});
+
+describe("bordes", () => {
+	const block = rangeFrom({ col: 1, row: 1 }, { col: 2, row: 2 });
+
+	it("todos, exterior y por lado van por el borde del bloque", () => {
+		const book = emptyWorkbook();
+		const id = book.activeSheetId;
+		expect(applyBorders(book, id, [block], "all").sheets[0].styles).toEqual({
+			B2: { border: { t: true, r: true, b: true, l: true } },
+			C2: { border: { t: true, r: true, b: true, l: true } },
+			B3: { border: { t: true, r: true, b: true, l: true } },
+			C3: { border: { t: true, r: true, b: true, l: true } },
+		});
+		expect(applyBorders(book, id, [block], "outer").sheets[0].styles).toEqual({
+			B2: { border: { t: true, l: true } },
+			C2: { border: { t: true, r: true } },
+			B3: { border: { b: true, l: true } },
+			C3: { border: { r: true, b: true } },
+		});
+		expect(applyBorders(book, id, [block], "bottom").sheets[0].styles).toEqual({
+			B3: { border: { b: true } },
+			C3: { border: { b: true } },
+		});
+	});
+
+	it("sin bordes también limpia el lado que comparte la vecina, y deja los colores", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setStyle(book, id, ["B2"], { bg: "#dff5e1" });
+		book = applyBorders(book, id, [rangeFrom({ col: 0, row: 0 }, { col: 3, row: 3 })], "all");
+		book = applyBorders(book, id, [block], "none");
+		const styles = book.sheets[0].styles;
+		expect(styles.B2).toEqual({ bg: "#dff5e1" });
+		expect(styles.C3).toBeUndefined();
+		// La de arriba ya no tiene borde abajo; la de la izquierda, ni a la derecha.
+		expect(styles.B1).toEqual({ border: { t: true, r: true, l: true } });
+		expect(styles.A2).toEqual({ border: { t: true, b: true, l: true } });
+		const empty = emptyWorkbook();
+		expect(applyBorders(empty, empty.activeSheetId, [block], "none")).toBe(empty);
+	});
+});
+
+describe("fórmulas copiadas", () => {
+	it("corre las celdas relativas y deja fijas las de $", () => {
+		expect(shiftFormula("=A2+B2", 0, 1)).toBe("=A3+B3");
+		expect(shiftFormula("=SUMA(a1:a5)*$C$1+C$1+$D2", 1, 2)).toBe("=SUMA(B3:B7)*$C$1+D$1+$D4");
+		expect(shiftFormula("=Z1+1", 1, 0)).toBe("=AA1+1");
+		expect(shiftFormula("hola A1", 1, 1)).toBe("hola A1");
+		expect(shiftFormula("=A1", 0, 0)).toBe("=A1");
+	});
+
+	it("una celda que se sale de la hoja queda #REF!", () => {
+		const shifted = shiftFormula("=A1+B2", 0, -1);
+		expect(shifted).toBe("=#REF!+B1");
+		expect(valueOf({ C1: shifted }, "C1")?.error).toBe("#REF!");
+	});
+});
+
+describe("pegar un bloque", () => {
+	const at = (col: number, row: number) => [rangeFrom({ col, row }, { col, row })];
+	const cells = (rows: string[][], style?: object): ClipBlock["cells"] =>
+		rows.map((row) => row.map((raw) => ({ raw, style: style ?? null })));
+
+	it("pega desde la celda activa, borra con vacías y devuelve lo pegado", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setCell(book, id, "C3", "viejo");
+		const out = pasteBlock(book, id, at(1, 1), { cells: cells([["Fecha", "Monto"], ["", "62.500"]]), withStyles: false });
+		expect(out.book.sheets[0].cells).toEqual({ B2: "Fecha", C2: "Monto", C3: "62.500" });
+		expect(out.range).toEqual({ c0: 1, r0: 1, c1: 2, r1: 2 });
+		expect(out.clipped).toBe(false);
+	});
+
+	it("con formato reemplaza el de destino; texto sin formato lo deja", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setStyle(book, id, ["A1", "B1"], { bg: "#fde2e1" });
+		const plain = pasteBlock(book, id, at(0, 0), { cells: cells([["a", "b"]]), withStyles: false }).book;
+		expect(plain.sheets[0].styles).toEqual({ A1: { bg: "#fde2e1" }, B1: { bg: "#fde2e1" } });
+		const styled = pasteBlock(book, id, at(0, 0), {
+			cells: [[{ raw: "a", style: { bold: true } }, { raw: "b", style: null }]],
+			withStyles: true,
+		}).book;
+		expect(styled.sheets[0].styles).toEqual({ A1: { bold: true } });
+	});
+
+	it("agranda la hoja y corta lo que pasa del máximo", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		const tall = cells(Array.from({ length: 60 }, (_, i) => [String(i)]));
+		const grown = pasteBlock(book, id, at(0, 0), { cells: tall, withStyles: false });
+		expect(grown.book.sheets[0].rows).toBe(60);
+		expect(grown.clipped).toBe(false);
+
+		book = growSheet(book, id, { rows: MAX_ROWS });
+		const clipped = pasteBlock(book, id, at(0, MAX_ROWS - 2), { cells: cells([["1"], ["2"], ["3"]]), withStyles: false });
+		expect(clipped.clipped).toBe(true);
+		expect(clipped.range).toEqual({ c0: 0, r0: MAX_ROWS - 2, c1: 0, r1: MAX_ROWS - 1 });
+		expect(Object.keys(clipped.book.sheets[0].cells)).toEqual([`A${MAX_ROWS - 1}`, `A${MAX_ROWS}`]);
+	});
+
+	it("una celda copiada llena todo lo marcado, corriendo su fórmula", () => {
+		const book = emptyWorkbook();
+		const id = book.activeSheetId;
+		const out = pasteBlock(book, id, [rangeFrom({ col: 2, row: 2 }, { col: 2, row: 4 })], {
+			cells: [[{ raw: "=A2+B2" }]],
+			withStyles: true,
+			from: { col: 2, row: 1 },
+		});
+		expect(out.book.sheets[0].cells).toEqual({ C3: "=A3+B3", C4: "=A4+B4", C5: "=A5+B5" });
+	});
+
+	it("copiado de esta hoja corre las fórmulas; cortado no", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setCell(book, id, "A1", "10");
+		book = setCell(book, id, "B1", "=A1*2");
+		book = setStyle(book, id, ["B1"], { bold: true });
+		const copied = blockFromSheet(book.sheets[0], rangeFrom({ col: 0, row: 0 }, { col: 1, row: 0 }));
+		expect(copied).toEqual([[{ raw: "10", style: null }, { raw: "=A1*2", style: { bold: true } }]]);
+
+		const moved = pasteBlock(book, id, at(0, 3), { cells: copied, withStyles: true, from: { col: 0, row: 0 } }).book;
+		expect(moved.sheets[0].cells.B4).toBe("=A4*2");
+		expect(moved.sheets[0].styles.B4).toEqual({ bold: true });
+		const cut = pasteBlock(book, id, at(0, 3), { cells: copied, withStyles: true }).book;
+		expect(cut.sheets[0].cells.B4).toBe("=A1*2");
+	});
+
+	it("cortar borra contenido y formato; Supr solo el contenido", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setCell(book, id, "A1", "1");
+		book = setStyle(book, id, ["A1"], { bold: true });
+		expect(clearCells(book, id, ["A1"]).sheets[0].styles).toEqual({ A1: { bold: true } });
+		const cut = clearCells(book, id, ["A1"], { withStyles: true }).sheets[0];
+		expect(cut.cells).toEqual({});
+		expect(cut.styles).toEqual({});
+		expect(clearCells(book, id, ["Z9"])).toBe(book);
+	});
+
+	it("copiar una columna entera llega hasta la última celda usada", () => {
+		let book = emptyWorkbook();
+		const id = book.activeSheetId;
+		book = setCell(book, id, "B3", "x");
+		book = setStyle(book, id, ["B7"], { bold: true });
+		const sheet = book.sheets[0];
+		expect(trimToUsed(sheet, columnRange(sheet, 1))).toEqual({ c0: 1, r0: 0, c1: 1, r1: 6 });
+		expect(trimToUsed(sheet, columnRange(sheet, 4))).toEqual({ c0: 4, r0: 0, c1: 4, r1: 0 });
 	});
 });
 

@@ -22,9 +22,25 @@ cliente (`referencia/2026 f.ods.zip`, con datos reales; no se sube a git, está 
   celdas o bloques sueltos, **arrastrar** con el mouse marca un bloque, clic en la letra o el número
   marca la columna o fila entera (también con Shift/Ctrl) y la esquina, toda la hoja. Teclado:
   Shift+flechas y Ctrl+A. En el celular: mantener apretado medio segundo y arrastrar.
-- Colores: **Relleno** y **Color de letra** pintan todo lo marcado (paleta, «Sin relleno» /
-  «Automático» y «Más colores…» con el selector del sistema). Supr borra el contenido y deja los
-  colores. Una celda con relleno y sin color de letra se escribe en oscuro para que se lea.
+- Formato (barra de abajo, aplica a todo lo marcado): **tamaño de letra** (11 es el normal, como en
+  Excel), **negrita** (Ctrl+B), **cursiva** (Ctrl+I), **subrayado** (Ctrl+U), **tachado** (Ctrl+5),
+  **alinear** izquierda / centro / derecha, **bordes** (todos, exterior, por lado o sin bordes),
+  **Relleno** y **Color de letra** (paleta, «Sin relleno» / «Automático» y «Más colores…» con el
+  selector del sistema). El botón se ve apretado si la celda activa lo tiene; apretarlo de nuevo lo
+  quita. Supr borra el contenido y deja el formato. Una celda con relleno y sin color de letra se
+  escribe en oscuro para que se lea.
+- **Copiar, cortar y pegar** (Ctrl+C / Ctrl+X / Ctrl+V con la hoja enfocada):
+  - Desde Excel, Google Sheets o LibreOffice llegan los valores, cada uno en su celda, y el formato
+    que se pueda leer (negrita, cursiva, subrayado, tachado, tamaño, colores, alineación, bordes). De
+    Excel llegan los resultados, no las fórmulas (Excel no las deja en el portapapeles del navegador).
+  - Pega desde la celda activa y marca lo pegado; si no cabe, la hoja crece (hasta 1000 filas y AZ).
+    Una sola celda copiada sobre varias marcadas las llena todas.
+  - Copiado dentro de la hoja, las fórmulas se corren como en Excel (`=A2+B2` una fila más abajo queda
+    `=A3+B3`; con `$` no se mueven). Cortar borra el origen al tiro y pega las fórmulas sin correrlas.
+  - Hacia Excel va el resultado y el formato. Si hay varios bloques marcados, se copia el último.
+  - Pegar varias celdas mientras se escribe en una pega el bloque desde esa celda.
+- **Deshacer / rehacer** (Ctrl+Z / Ctrl+Y o los botones ↶ ↷): hasta 100 pasos, solo mientras la
+  pantalla está abierta. Abrir otra hoja no cuenta como paso.
 - Zoom con **−** / **+** (de 50 % a 200 %); tocar el porcentaje vuelve a 100 %. Se recuerda en ese
   navegador.
 
@@ -41,15 +57,22 @@ vez que se abre. Si dos personas editan la misma hoja a la vez, gana el último 
 - `index.tsx` + `manifest.json`: sale en el menú como «Hoja de cálculo» (o el nombre del catálogo).
 - `Screen.tsx`: toma empresa, sucursal y formato de números de `useAdmin()` y carga/guarda con
   `useAddonData` (`src/addons/`).
-- `HojaCalculo.tsx` + `HojaCalculo.css`: la cuadrícula, la selección, la barra de fórmula y las pestañas.
-- `ColorMenu.tsx` + `colores.ts`: el botón con la paleta y los colores de la paleta.
-- `hoja-calculo.ts`: las fórmulas y el libro (sin React), probados en `tests/addons/hoja-calculo.test.ts`.
+- `HojaCalculo.tsx` + `HojaCalculo.css`: la cuadrícula, la selección, la barra de formato y la de
+  fórmula, copiar/pegar, deshacer y las pestañas (probado en `tests/addons/hoja-calculo-ui.test.tsx`).
+- `ColorMenu.tsx` + `colores.ts`: el botón con la paleta y los colores de la paleta. `BordesMenu.tsx`:
+  el menú de bordes. Los dos abren y cierran con `usePopover.ts`.
+- `hoja-calculo.ts`: las fórmulas, el formato y el libro (sin React), probados en
+  `tests/addons/hoja-calculo.test.ts`.
+- `portapapeles.ts`: leer lo copiado (texto con tabulaciones y HTML de Excel, Sheets y LibreOffice) y
+  armar lo que se copia, probado en `tests/addons/portapapeles.test.ts`.
 
 Ojo en Windows: no nombres igual un `.ts` y un `.tsx` que solo cambian en mayúsculas (`hoja.ts` y
 `Hoja.tsx`): `./Hoja` puede resolver al `.ts` equivocado.
 
 ## Lo que falta
 
-1. Copiar y pegar rangos, deshacer, copiar formato, negrita, bordes, ancho de columnas.
+1. Copiar solo el formato (brocha), ancho de columnas, combinar celdas.
 2. Más funciones (PROMEDIO, SI…) y referencias entre hojas, si el cliente las pide.
-3. Edición a la vez entre varias personas (hoy gana el último que guarda).
+3. Edición a la vez entre varias personas (hoy gana el último que guarda). Ojo al desplegar: una
+   pestaña abierta con la versión anterior no conoce el formato nuevo y lo pierde si guarda.
+4. Copiar y pegar con botones (hoy es con teclado; en el celular no hay Ctrl+C / Ctrl+V).

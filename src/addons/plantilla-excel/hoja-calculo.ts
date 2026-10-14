@@ -13,12 +13,52 @@ export type Sheet = {
 	cols: number;
 	/** Lo escrito en cada celda, por nombre (`"A1"`). Las vacías no se guardan. */
 	cells: Record<string, string>;
-	/** Colores por celda. Van aparte del contenido: borrar una celda deja su color, como en Excel. */
+	/** Formato por celda. Va aparte del contenido: borrar una celda deja su formato, como en Excel. */
 	styles: Record<string, CellStyle>;
 };
 
-/** Relleno y color de letra, como `#rrggbb`. */
-export type CellStyle = { bg?: string; color?: string };
+export type CellAlign = "left" | "center" | "right";
+
+/** Lados con borde: arriba, derecha, abajo, izquierda. */
+export type CellBorder = { t?: true; r?: true; b?: true; l?: true };
+
+/**
+ * Formato de una celda. Relleno y letra como `#rrggbb`; `size` es el tamaño de letra como en Excel
+ * (sin `size`, la normal: 11). Solo se guarda lo que la celda tiene.
+ */
+export type CellStyle = {
+	bg?: string;
+	color?: string;
+	bold?: true;
+	italic?: true;
+	underline?: true;
+	strike?: true;
+	size?: number;
+	align?: CellAlign;
+	border?: CellBorder;
+};
+
+/** Negrita, cursiva, subrayado y tachado: se prenden y apagan. */
+export type StyleFlag = "bold" | "italic" | "underline" | "strike";
+
+/** Cambio de formato: `null` (o `false`) quita esa parte; lo que no se pasa queda como estaba. */
+export type StylePatch = {
+	bg?: string | null;
+	color?: string | null;
+	bold?: boolean | null;
+	italic?: boolean | null;
+	underline?: boolean | null;
+	strike?: boolean | null;
+	size?: number | null;
+	align?: CellAlign | null;
+};
+
+/** Tamaño de letra normal (el de Excel); en pantalla son los 13 px de siempre. */
+export const DEFAULT_FONT_SIZE = 11;
+/** Tamaños de la lista, como en Excel. */
+export const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36];
+const MIN_FONT_SIZE = 6;
+const MAX_FONT_SIZE = 72;
 
 /** Bloque de celdas, con `c0 <= c1` y `r0 <= r1` (índices desde 0). */
 export type CellRange = { c0: number; r0: number; c1: number; r1: number };
@@ -122,7 +162,7 @@ export function parseNumber(text: string): number {
 }
 
 /** Lo que no es fórmula: vacío, número (con signo, `$` o espacios) o texto tal cual. */
-function literalValue(raw: string): number | string | null {
+export function literalValue(raw: string): number | string | null {
 	const trimmed = raw.trim();
 	if (!trimmed) return null;
 	const compact = trimmed.replace(/[\s$]/g, "");
@@ -187,6 +227,8 @@ function tokenize(source: string): Token[] {
 			i += 1;
 			continue;
 		}
+		// Lo deja `shiftFormula` cuando una celda copiada apunta fuera de la hoja.
+		if (rest.toUpperCase().startsWith("#REF!")) throw new FormulaError("#REF!");
 		throw new FormulaError("#ERROR!");
 	}
 	return tokens;
@@ -368,16 +410,51 @@ export function isHexColor(value: unknown): value is string {
 	return typeof value === "string" && HEX_COLOR.test(value);
 }
 
+const STYLE_FLAGS: StyleFlag[] = ["bold", "italic", "underline", "strike"];
+const ALIGNS: CellAlign[] = ["left", "center", "right"];
+const BORDER_SIDES = ["t", "r", "b", "l"] as const;
+
+/** Tamaño válido distinto del normal; si no, `null`. */
+function cleanFontSize(raw: unknown): number | null {
+	if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+	const size = Math.round(raw);
+	return size >= MIN_FONT_SIZE && size <= MAX_FONT_SIZE && size !== DEFAULT_FONT_SIZE ? size : null;
+}
+
+function cleanBorder(raw: unknown): CellBorder | null {
+	if (!raw || typeof raw !== "object") return null;
+	const border: CellBorder = {};
+	for (const side of BORDER_SIDES) if ((raw as Record<string, unknown>)[side] === true) border[side] = true;
+	return Object.keys(border).length > 0 ? border : null;
+}
+
+/** Deja solo lo válido de un formato (leído, pegado o armado); sin nada → `null`. */
+export function cleanStyle(raw: unknown): CellStyle | null {
+	if (!raw || typeof raw !== "object") return null;
+	const { bg, color, size, align, border } = raw as Record<string, unknown>;
+	const style: CellStyle = {};
+	if (isHexColor(bg)) style.bg = bg.toLowerCase();
+	if (isHexColor(color)) style.color = color.toLowerCase();
+	for (const flag of STYLE_FLAGS) if ((raw as Record<string, unknown>)[flag] === true) style[flag] = true;
+	const cleanSize = cleanFontSize(size);
+	if (cleanSize !== null) style.size = cleanSize;
+	if (ALIGNS.includes(align as CellAlign)) style.align = align as CellAlign;
+	const cleanSides = cleanBorder(border);
+	if (cleanSides) style.border = cleanSides;
+	return Object.keys(style).length > 0 ? style : null;
+}
+
+function sameStyle(a: CellStyle | null | undefined, b: CellStyle | null | undefined): boolean {
+	return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
 function reviveStyles(raw: unknown): Record<string, CellStyle> {
 	const styles: Record<string, CellStyle> = {};
 	if (!raw || typeof raw !== "object") return styles;
 	for (const [key, value] of Object.entries(raw)) {
-		if (!parseCellRef(key) || !value || typeof value !== "object") continue;
-		const { bg, color } = value as CellStyle;
-		const style: CellStyle = {};
-		if (isHexColor(bg)) style.bg = bg.toLowerCase();
-		if (isHexColor(color)) style.color = color.toLowerCase();
-		if (style.bg || style.color) styles[key.toUpperCase()] = style;
+		if (!parseCellRef(key)) continue;
+		const style = cleanStyle(value);
+		if (style) styles[key.toUpperCase()] = style;
 	}
 	return styles;
 }
@@ -427,51 +504,261 @@ function updateSheet(book: Workbook, sheetId: string, change: (sheet: Sheet) => 
 	return { ...book, sheets: book.sheets.map((s) => (s.id === sheetId ? change(s) : s)) };
 }
 
-/** Escribe en una celda; vacío la borra. */
-export function setCell(book: Workbook, sheetId: string, key: string, raw: string): Workbook {
-	const name = key.toUpperCase();
-	return updateSheet(book, sheetId, (sheet) => {
-		const cells = { ...sheet.cells };
-		if (raw.trim() === "") delete cells[name];
-		else cells[name] = raw;
-		return { ...sheet, cells };
-	});
+function findSheet(book: Workbook, sheetId: string): Sheet | undefined {
+	return book.sheets.find((s) => s.id === sheetId);
 }
 
-/** Borra el contenido de varias celdas; los colores se quedan. */
-export function clearCells(book: Workbook, sheetId: string, keys: string[]): Workbook {
+/** Escribe en una celda; vacío la borra. Si queda igual, devuelve el mismo libro. */
+export function setCell(book: Workbook, sheetId: string, key: string, raw: string): Workbook {
+	const name = key.toUpperCase();
+	const next = raw.trim() === "" ? "" : raw;
+	if ((findSheet(book, sheetId)?.cells[name] ?? "") === next) return book;
 	return updateSheet(book, sheetId, (sheet) => {
 		const cells = { ...sheet.cells };
-		for (const key of keys) delete cells[key.toUpperCase()];
+		if (next === "") delete cells[name];
+		else cells[name] = next;
 		return { ...sheet, cells };
 	});
 }
 
 /**
- * Pinta varias celdas. `bg` o `color` en `null` quitan ese color; si no se pasan, quedan como
- * estaban. Una celda sin colores sale de `styles`.
+ * Borra el contenido de varias celdas; el formato se queda (Supr), salvo con `withStyles`
+ * (cortar). Si no había nada que borrar, devuelve el mismo libro.
  */
-export function setStyle(
+export function clearCells(book: Workbook, sheetId: string, keys: string[], { withStyles = false } = {}): Workbook {
+	const sheet = findSheet(book, sheetId);
+	if (!sheet) return book;
+	const names = keys.map((k) => k.toUpperCase());
+	const hasSomething = names.some((k) => k in sheet.cells || (withStyles && k in sheet.styles));
+	if (!hasSomething) return book;
+	return updateSheet(book, sheetId, (s) => {
+		const cells = { ...s.cells };
+		const styles = withStyles ? { ...s.styles } : s.styles;
+		for (const key of names) {
+			delete cells[key];
+			if (withStyles) delete styles[key];
+		}
+		return { ...s, cells, styles };
+	});
+}
+
+/** Aplica un cambio de formato a un estilo; un valor que no sirve deja lo que había. */
+function patchStyle(current: CellStyle | undefined, patch: StylePatch): CellStyle | null {
+	const next: Record<string, unknown> = { ...current };
+	for (const [prop, value] of Object.entries(patch)) {
+		if (value === undefined) continue;
+		if (value === null || value === false || (prop === "size" && value === DEFAULT_FONT_SIZE)) {
+			delete next[prop];
+			continue;
+		}
+		const valid = cleanStyle({ [prop]: value }) as Record<string, unknown> | null;
+		if (valid && prop in valid) next[prop] = valid[prop];
+	}
+	return cleanStyle(next);
+}
+
+/**
+ * Da formato a varias celdas (ver `StylePatch`). Una celda sin formato sale de `styles`. Si nada
+ * cambia, devuelve el mismo libro.
+ */
+export function setStyle(book: Workbook, sheetId: string, keys: string[], patch: StylePatch): Workbook {
+	const sheet = findSheet(book, sheetId);
+	if (!sheet) return book;
+	const styles = { ...sheet.styles };
+	let changed = false;
+	for (const raw of keys) {
+		const key = raw.toUpperCase();
+		const next = patchStyle(styles[key], patch);
+		if (sameStyle(next, cleanStyle(styles[key]))) continue;
+		changed = true;
+		if (next) styles[key] = next;
+		else delete styles[key];
+	}
+	return changed ? updateSheet(book, sheetId, (s) => ({ ...s, styles })) : book;
+}
+
+/** Bordes como los del menú de Excel. */
+export type BorderMode = "all" | "outer" | "top" | "bottom" | "left" | "right" | "none";
+
+/**
+ * Pone o quita bordes en los bloques marcados. `outer`, `top`, `bottom`, `left` y `right` van por el
+ * borde de cada bloque; `none` quita los de las celdas y también el lado que la vecina comparte con
+ * el bloque, para que la línea deje de verse.
+ */
+export function applyBorders(book: Workbook, sheetId: string, ranges: CellRange[], mode: BorderMode): Workbook {
+	const sheet = findSheet(book, sheetId);
+	if (!sheet) return book;
+	const styles = { ...sheet.styles };
+	let changed = false;
+	const edit = (col: number, row: number, change: (border: CellBorder) => void) => {
+		if (col < 0 || row < 0 || col >= sheet.cols || row >= sheet.rows) return;
+		const key = cellKey(col, row);
+		const border: CellBorder = { ...styles[key]?.border };
+		change(border);
+		const next = cleanStyle({ ...styles[key], border });
+		if (sameStyle(next, styles[key])) return;
+		changed = true;
+		if (next) styles[key] = next;
+		else delete styles[key];
+	};
+	for (const range of ranges) {
+		const r = { c0: Math.max(0, range.c0), r0: Math.max(0, range.r0), c1: Math.min(range.c1, sheet.cols - 1), r1: Math.min(range.r1, sheet.rows - 1) };
+		for (let row = r.r0; row <= r.r1; row += 1) {
+			for (let col = r.c0; col <= r.c1; col += 1) {
+				edit(col, row, (b) => {
+					if (mode === "none") {
+						for (const side of BORDER_SIDES) delete b[side];
+						return;
+					}
+					const all = mode === "all";
+					const outer = mode === "outer";
+					if (all || ((outer || mode === "top") && row === r.r0)) b.t = true;
+					if (all || ((outer || mode === "bottom") && row === r.r1)) b.b = true;
+					if (all || ((outer || mode === "left") && col === r.c0)) b.l = true;
+					if (all || ((outer || mode === "right") && col === r.c1)) b.r = true;
+				});
+			}
+		}
+		if (mode === "none") {
+			for (let col = r.c0; col <= r.c1; col += 1) {
+				edit(col, r.r0 - 1, (b) => delete b.b);
+				edit(col, r.r1 + 1, (b) => delete b.t);
+			}
+			for (let row = r.r0; row <= r.r1; row += 1) {
+				edit(r.c0 - 1, row, (b) => delete b.r);
+				edit(r.c1 + 1, row, (b) => delete b.l);
+			}
+		}
+	}
+	return changed ? updateSheet(book, sheetId, (s) => ({ ...s, styles })) : book;
+}
+
+/** Celdas dentro de una fórmula; el carácter de antes va aparte para no tomar trozos de nombres. */
+const FORMULA_REF = /(^|[^A-Za-z0-9_$])(\$?)([A-Za-z]{1,3})(\$?)(\d{1,7})(?![A-Za-z0-9_(])/g;
+
+/**
+ * Corre las celdas de una fórmula copiada `dc` columnas y `dr` filas, como Excel: `=A2+B2` una fila
+ * más abajo queda `=A3+B3`; con `$` (`$A$2`) no se mueve. Si sale de la hoja queda `#REF!`. Lo que
+ * no es fórmula vuelve tal cual.
+ */
+export function shiftFormula(raw: string, dc: number, dr: number): string {
+	if ((dc === 0 && dr === 0) || !raw.trimStart().startsWith("=")) return raw;
+	return raw.replace(FORMULA_REF, (_match, before: string, colFixed: string, letters: string, rowFixed: string, digits: string) => {
+		const col = columnIndex(letters) + (colFixed ? 0 : dc);
+		const row = Number(digits) - 1 + (rowFixed ? 0 : dr);
+		if (col < 0 || row < 0) return `${before}#REF!`;
+		return `${before}${colFixed}${columnLabel(col)}${rowFixed}${row + 1}`;
+	});
+}
+
+/** Una celda copiada o por pegar: lo escrito y su formato. */
+export type ClipCell = { raw: string; style?: CellStyle | null };
+
+export type ClipBlock = {
+	/** Filas × columnas, todas del mismo largo. */
+	cells: ClipCell[][];
+	/** Reemplaza el formato de destino; `false` (texto sin formato) deja el que había. */
+	withStyles: boolean;
+	/** Celda de arriba a la izquierda del origen, si se copió de una hoja de aquí: corre las fórmulas. */
+	from?: Pos;
+};
+
+/**
+ * Pega un bloque en un solo cambio. Va desde la esquina de arriba a la izquierda del último bloque
+ * marcado; si se copió una sola celda y hay varias marcadas, las llena todas (como Excel). La hoja
+ * crece si hace falta, hasta el máximo; lo que no cabe queda fuera (`clipped`). Devuelve también lo
+ * pegado, para marcarlo.
+ */
+export function pasteBlock(
 	book: Workbook,
 	sheetId: string,
-	keys: string[],
-	patch: { bg?: string | null; color?: string | null },
-): Workbook {
-	return updateSheet(book, sheetId, (sheet) => {
-		const styles = { ...sheet.styles };
-		for (const raw of keys) {
-			const key = raw.toUpperCase();
-			const next: CellStyle = { ...styles[key] };
-			for (const prop of ["bg", "color"] as const) {
-				const value = patch[prop];
-				if (value === null) delete next[prop];
-				else if (isHexColor(value)) next[prop] = value.toLowerCase();
-			}
-			if (next.bg || next.color) styles[key] = next;
+	targets: CellRange[],
+	block: ClipBlock,
+): { book: Workbook; range: CellRange; clipped: boolean } {
+	const sheet = findSheet(book, sheetId);
+	const last = targets[targets.length - 1];
+	const height = block.cells.length;
+	const width = block.cells[0]?.length ?? 0;
+	if (!sheet || !last || height === 0 || width === 0) {
+		return { book, range: last ?? { c0: 0, r0: 0, c1: 0, r1: 0 }, clipped: false };
+	}
+	const cells = { ...sheet.cells };
+	const styles = block.withStyles ? { ...sheet.styles } : sheet.styles;
+	const put = (col: number, row: number, clip: ClipCell, source: Pos | undefined) => {
+		const key = cellKey(col, row);
+		const raw = source ? shiftFormula(clip.raw, col - source.col, row - source.row) : clip.raw;
+		if (raw.trim() === "") delete cells[key];
+		else cells[key] = raw;
+		if (block.withStyles) {
+			const style = cleanStyle(clip.style);
+			if (style) styles[key] = style;
 			else delete styles[key];
 		}
-		return { ...sheet, styles };
-	});
+	};
+
+	let rows = sheet.rows;
+	let cols = sheet.cols;
+	let range: CellRange;
+	let clipped = false;
+	const keys = keysInRanges(targets, sheet);
+	if (height === 1 && width === 1 && keys.length > 1) {
+		for (const key of keys) {
+			const pos = parseCellRef(key);
+			if (pos) put(pos.col, pos.row, block.cells[0][0], block.from);
+		}
+		range = { c0: last.c0, r0: last.r0, c1: Math.min(last.c1, sheet.cols - 1), r1: Math.min(last.r1, sheet.rows - 1) };
+	} else {
+		const at = { col: last.c0, row: last.r0 };
+		rows = Math.min(MAX_ROWS, Math.max(rows, at.row + height));
+		cols = Math.min(MAX_COLS, Math.max(cols, at.col + width));
+		clipped = at.row + height > rows || at.col + width > cols;
+		const r1 = Math.min(at.row + height, rows) - 1;
+		const c1 = Math.min(at.col + width, cols) - 1;
+		for (let row = at.row; row <= r1; row += 1) {
+			for (let col = at.col; col <= c1; col += 1) {
+				const dr = row - at.row;
+				const dc = col - at.col;
+				const source = block.from ? { col: block.from.col + dc, row: block.from.row + dr } : undefined;
+				put(col, row, block.cells[dr][dc], source);
+			}
+		}
+		range = { c0: at.col, r0: at.row, c1, r1 };
+	}
+	return {
+		book: updateSheet(book, sheetId, (s) => ({ ...s, rows, cols, cells, styles })),
+		range,
+		clipped,
+	};
+}
+
+/**
+ * Recorta un bloque hasta la última fila y columna con algo (contenido o formato), para que copiar
+ * una columna entera no lleve mil filas vacías. Nunca queda más chico que su primera celda.
+ */
+export function trimToUsed(sheet: Sheet, range: CellRange): CellRange {
+	let lastRow = range.r0;
+	let lastCol = range.c0;
+	for (const key of [...Object.keys(sheet.cells), ...Object.keys(sheet.styles)]) {
+		const ref = parseCellRef(key);
+		if (!ref || ref.col < range.c0 || ref.col > range.c1 || ref.row < range.r0 || ref.row > range.r1) continue;
+		lastRow = Math.max(lastRow, ref.row);
+		lastCol = Math.max(lastCol, ref.col);
+	}
+	return { ...range, r1: lastRow, c1: lastCol };
+}
+
+/** Lo escrito y el formato de un bloque (dentro de la hoja), para copiar. */
+export function blockFromSheet(sheet: Sheet, range: CellRange): ClipCell[][] {
+	const out: ClipCell[][] = [];
+	for (let row = range.r0; row <= Math.min(range.r1, sheet.rows - 1); row += 1) {
+		const line: ClipCell[] = [];
+		for (let col = range.c0; col <= Math.min(range.c1, sheet.cols - 1); col += 1) {
+			const key = cellKey(col, row);
+			line.push({ raw: sheet.cells[key] ?? "", style: sheet.styles[key] ?? null });
+		}
+		out.push(line);
+	}
+	return out;
 }
 
 export function rangeFrom(a: { col: number; row: number }, b: { col: number; row: number }): CellRange {

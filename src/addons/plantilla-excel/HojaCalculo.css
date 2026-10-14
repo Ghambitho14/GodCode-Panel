@@ -5,6 +5,8 @@
 	--hoja-accent: var(--admin-accent, #2563eb);
 	--hoja-bad: var(--admin-danger, #b42318);
 	--hoja-range-tint: color-mix(in srgb, var(--admin-accent, #2563eb) 16%, transparent);
+	/* Bordes de celda: sale del color del texto, así se ven en tema claro y oscuro. */
+	--hoja-ink: color-mix(in srgb, var(--admin-text, #0f172a) 82%, transparent);
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
@@ -28,6 +30,82 @@
 .hoja__status.is-offline {
 	color: #b45309;
 	font-weight: 600;
+}
+
+.hoja__info {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+/* Aviso breve: «Se pegó solo lo que cabe…» */
+.hoja__notice {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--hoja-accent);
+}
+
+/* Barra de formato: deshacer, letra, alinear, bordes y colores */
+.hoja__format {
+	display: flex;
+	align-items: center;
+	gap: 8px 12px;
+	flex-wrap: wrap;
+}
+
+.hoja__group {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.hoja__tool {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--hoja-grid);
+	border-radius: 9px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	cursor: pointer;
+}
+
+.hoja__tool:hover:not(:disabled) {
+	border-color: var(--hoja-accent);
+}
+
+.hoja__tool[aria-pressed="true"] {
+	border-color: var(--hoja-accent);
+	background: var(--hoja-head-active);
+	color: var(--hoja-accent);
+}
+
+.hoja__tool:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.hoja__size {
+	height: 32px;
+	padding: 0 6px;
+	border: 1px solid var(--hoja-grid);
+	border-radius: 9px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font: inherit;
+	font-size: 0.8125rem;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+}
+
+.hoja__size:hover,
+.hoja__size:focus-visible {
+	border-color: var(--hoja-accent);
 }
 
 /* Abriendo / no se pudo abrir */
@@ -314,13 +392,35 @@
 	background-image: none;
 }
 
-/* Paleta de colores (Relleno / Color de letra) */
-.hoja__colors {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
+/*
+ * Bordes de celda: cada celda tiñe su línea de la derecha y la de abajo. La columna A y la fila 1
+ * no tienen vecina a la izquierda o arriba, así que esos dos lados van por dentro.
+ */
+.hoja__cell.has-border-r {
+	border-right-color: var(--hoja-ink);
 }
 
+.hoja__cell.has-border-b {
+	border-bottom-color: var(--hoja-ink);
+}
+
+.hoja__cell.has-border-l::before,
+.hoja__cell.has-border-t::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+.hoja__cell.has-border-l::before {
+	border-left: 1px solid var(--hoja-ink);
+}
+
+.hoja__cell.has-border-t::before {
+	border-top: 1px solid var(--hoja-ink);
+}
+
+/* Paleta de colores (Relleno / Color de letra) y menú de bordes */
 .hoja-color {
 	position: relative;
 }
@@ -428,6 +528,34 @@
 	height: 100%;
 	opacity: 0;
 	cursor: pointer;
+}
+
+.hoja-bordes__panel {
+	gap: 2px;
+	width: 200px;
+	padding: 6px;
+}
+
+.hoja-bordes__item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 32px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--admin-text, #0f172a);
+	font: inherit;
+	font-size: 0.8125rem;
+	text-align: left;
+	cursor: pointer;
+}
+
+.hoja-bordes__item:hover,
+.hoja-bordes__item:focus-visible {
+	background: var(--hoja-head-bg);
+	color: var(--hoja-accent);
 }
 
 .hoja__editor {
