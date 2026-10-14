@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Tag, Plus, Loader2, Pencil, Ban, CircleCheck, Search, RefreshCw, X, Trash2 } from "lucide-react";
+import { Tag, Gift, Plus, Loader2, Pencil, Ban, CircleCheck, Search, RefreshCw, X, Trash2 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { normalizeCouponCode } from "@/lib/discount-coupon";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import CouponDateTimeField from "@/modules/cash/components/CouponDateTimeField";
 import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
 import CouponEmailSenderCard from "@/modules/cash/components/CouponEmailSenderCard";
+import AdminLoyaltyRewards from "@/modules/cash/components/AdminLoyaltyRewards";
 
 const emptyDraft = () => ({
 	id: "",
@@ -64,7 +65,7 @@ function formatCouponRowDates(row, locale) {
 	return { from: fmt(row.valid_from), until: fmt(row.valid_until) };
 }
 
-export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
+function CouponsView({ showNotify, companyId, clients = [] }) {
 	const { formatMoney, locale } = useBranchMoney();
 	const [rows, setRows] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -91,6 +92,8 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 				.from(TABLES.discount_coupons)
 				.select(DISCOUNT_COUPONS_PANEL_SELECT)
 				.eq("company_id", cid)
+				// Los cupones que entrega un canje de puntos se ven en "Recompensas por puntos".
+				.neq("source", "loyalty")
 				.order("created_at", { ascending: false });
 			if (error) throw error;
 			setRows(data || []);
@@ -811,6 +814,46 @@ export default function AdminCoupons({ showNotify, companyId, clients = [] }) {
 					</div>
 				)}
 			</div>
+		</div>
+	);
+}
+
+/**
+ * Pestaña Cupones: los cupones de siempre y, al lado, las recompensas que los clientes
+ * con cuenta canjean con sus puntos (también se entregan como cupón). Van en la misma
+ * pestaña para no sumar un id nuevo a los permisos de cada plan.
+ */
+export default function AdminCoupons({ showNotify, companyId, clients = [], products = [] }) {
+	const [view, setView] = useState("coupons");
+	return (
+		<div className="admin-coupons admin-coupons--shell">
+			<div className="admin-coupons__chips admin-coupons__views" role="tablist" aria-label="Cupones o recompensas">
+				<button
+					type="button"
+					role="tab"
+					aria-selected={view === "coupons"}
+					className={`filter-chip${view === "coupons" ? " active" : ""}`}
+					onClick={() => setView("coupons")}
+				>
+					<Tag size={14} aria-hidden />
+					Cupones
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={view === "rewards"}
+					className={`filter-chip${view === "rewards" ? " active" : ""}`}
+					onClick={() => setView("rewards")}
+				>
+					<Gift size={14} aria-hidden />
+					Recompensas por puntos
+				</button>
+			</div>
+			{view === "coupons" ? (
+				<CouponsView showNotify={showNotify} companyId={companyId} clients={clients} />
+			) : (
+				<AdminLoyaltyRewards showNotify={showNotify} companyId={companyId} products={products} />
+			)}
 		</div>
 	);
 }

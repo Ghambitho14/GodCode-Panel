@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Columns3, Tag, Wallet, Images, MapPin } from 'lucide-react';
+import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Columns3, Tag, Wallet, Images, MapPin, Puzzle } from 'lucide-react';
+import { addonIdFromTab } from '@/addons/registry';
 import { getSafeLogoImageSrc } from '@/shared/utils/documentFavicon';
 import { ADMIN_PANEL_TAB_IDS } from '@/shared/constants/admin-panel-tabs';
 import { resolveSidebarRestrictedHint } from '../admin/utils/tabAccessMessages';
@@ -13,12 +14,18 @@ const SidebarIcon = ({ Icon, size }) => (
 
 const SIDEBAR_LOGO_PLACEHOLDER = '/favicon.png';
 
+/** Ícono propio de algunos módulos; el resto usa Blocks. */
+const MODULE_ICONS = { 'module:addons': Puzzle };
+const moduleIcon = (tabId) => MODULE_ICONS[tabId] || Blocks;
+
 const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRole, onLogout, onStorefrontMissing, userEmail, branchName, logoUrl, companyName = null, canAccessTab, getTabDeniedMessage, onDeniedAccess, tabAccessContext, dynamicModules = [], storefrontMenuUrl = null, tabLabelsById = {} }) => {
     // Estado para evitar SSR mismatch en logo y brand-info
         // SSR mismatch guard removed: logo and brand-info always rendered
     const { pathname } = useLocation();
     const [logoFailed, setLogoFailed] = useState(false);
     const pendingCount = kanbanColumns?.pending?.length || 0;
+    // Los extras no van en el menú: se abren desde Addons, que queda marcado mientras tanto.
+    const navTab = addonIdFromTab(activeTab) ? 'module:addons' : activeTab;
     const isTabAllowed = useCallback((tabId) => (typeof canAccessTab === 'function' ? canAccessTab(tabId) : true), [canAccessTab]);
 
     const getDeniedTooltip = useCallback((tabId) => {
@@ -74,7 +81,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
             : String(userRole || '').toLowerCase();
 
         const visibleModules = (Array.isArray(dynamicModules) ? dynamicModules : [])
-            .filter((module) => module?.isActive)
+            .filter((module) => module?.isActive && !addonIdFromTab(module.tabId))
             .filter((module) => {
                 if (!Array.isArray(module.allowedRoles) || module.allowedRoles.length === 0) return true;
                 return module.allowedRoles.map((role) => String(role).toLowerCase()).includes(normalizedRole);
@@ -110,7 +117,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 						id: module.tabId,
 						label: L[module.tabId] || module.label,
 						description: module.description,
-						icon: Blocks,
+						icon: moduleIcon(module.tabId),
 					})),
 				]
 			},
@@ -131,7 +138,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
 						id: module.tabId,
 						label: L[module.tabId] || module.label,
 						description: module.description,
-						icon: Blocks,
+						icon: moduleIcon(module.tabId),
 					})),
 				]
 			},
@@ -146,7 +153,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                     id: module.tabId,
                     label: L[module.tabId] || module.label,
                     description: module.description,
-                    icon: Blocks,
+                    icon: moduleIcon(module.tabId),
                 });
             });
         }
@@ -172,12 +179,12 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
     }, [hasRestrictedItems, tabAccessContext, dynamicModules]);
 
     const [expandedGroups, setExpandedGroups] = useState(() => {
-        const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
+        const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === navTab));
         return activeGroup ? { [activeGroup.id]: true } : {};
     });
 
     useEffect(() => {
-        const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === activeTab));
+        const activeGroup = menuItems.find(item => item.isGroup && item.children?.some(child => child.id === navTab));
         if (activeGroup) {
             const timer = setTimeout(() => {
                 setExpandedGroups(prev => {
@@ -187,7 +194,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
             }, 50);
             return () => clearTimeout(timer);
         }
-    }, [activeTab, menuItems]);
+    }, [navTab, menuItems]);
 
     const toggleGroup = (groupId) => {
         setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -230,8 +237,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                             }
                                             setActiveTab(child.id);
                                         }}
-                                        className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
-                                        aria-current={activeTab === child.id ? 'page' : undefined}
+                                        className={`nav-item ${navTab === child.id ? 'active' : ''}`}
+                                        aria-current={navTab === child.id ? 'page' : undefined}
                                         title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
                                         aria-disabled={disabled || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
@@ -253,8 +260,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         }
                                         setActiveTab(item.id);
                                     }}
-                                    className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                                    aria-current={activeTab === item.id ? 'page' : undefined}
+                                    className={`nav-item ${navTab === item.id ? 'active' : ''}`}
+                                    aria-current={navTab === item.id ? 'page' : undefined}
                                     title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
                                     aria-disabled={disabled || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
@@ -269,7 +276,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                     : menuItems.map(item => {
                         if (item.isGroup) {
                             const isExpanded = expandedGroups[item.id];
-                            const isActiveGroup = item.children.some(child => child.id === activeTab);
+                            const isActiveGroup = item.children.some(child => child.id === navTab);
                             return (
                                 <div key={item.id} className="nav-group-wrapper">
                                     <button 
@@ -300,8 +307,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                                         }
                                                         setActiveTab(child.id);
                                                     }}
-                                                    className={`nav-item ${activeTab === child.id ? 'active' : ''}`}
-                                        aria-current={activeTab === child.id ? 'page' : undefined}
+                                                    className={`nav-item ${navTab === child.id ? 'active' : ''}`}
+                                        aria-current={navTab === child.id ? 'page' : undefined}
                                                     title={disabled ? getDeniedTooltip(child.id) : child.description || undefined}
                                                     aria-disabled={disabled || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
@@ -326,8 +333,8 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                                         }
                                         setActiveTab(item.id);
                                     }} 
-                                    className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-                                    aria-current={activeTab === item.id ? 'page' : undefined}
+                                    className={`nav-item ${navTab === item.id ? 'active' : ''}`}
+                                    aria-current={navTab === item.id ? 'page' : undefined}
                                     title={disabled ? getDeniedTooltip(item.id) : item.description || undefined}
                                     aria-disabled={disabled || undefined}
                                         style={disabled ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}

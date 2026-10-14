@@ -187,6 +187,30 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
         };
     }, [companyId]);
 
+    /**
+     * Puntos por ficha, calculados por la base (`loyalty_balances`): lo que ganó cada
+     * pedido al crearse, con las reglas que el CEO arma en /cuenta › Mi menú, menos los
+     * canjes activos. Es el mismo número que ve el cliente en Mi Cuenta.
+     */
+    const [balances, setBalances] = useState(() => new Map());
+
+    useEffect(() => {
+        if (!companyId) return undefined;
+        let alive = true;
+        void (async () => {
+            const { data, error } = await supabase.rpc('loyalty_balances', { p_company_id: companyId });
+            if (!alive) return;
+            if (error) {
+                setBalances(new Map());
+                return;
+            }
+            setBalances(new Map((data || []).map((row) => [row.client_id, row])));
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [companyId]);
+
     // Calcular métricas derivadas por cliente usando orders
     const enrichedClients = useMemo(() => {
         if (!Array.isArray(clients)) return [];
@@ -214,7 +238,10 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 ? dbSpent
                 : clientOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
             
-            const fidelityPoints = Math.floor(globalTotalSpent / 1000); // 1 punto por cada $1000
+            const balance = balances.get(client.id);
+            const earnedPoints = Number(balance?.earned) || 0;
+            const redeemedPoints = Number(balance?.redeemed) || 0;
+            const fidelityPoints = Number(balance?.available) || 0;
             
             // Segmento
             let segment = 'none';
@@ -243,11 +270,13 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                 total_orders: globalTotalOrders,
                 total_spent: globalTotalSpent,
                 fidelityPoints,
+                earnedPoints,
+                redeemedPoints,
                 segment,
                 status,
             };
         });
-    }, [clients, orders]);
+    }, [clients, orders, balances]);
 
     const clientsById = useMemo(() => {
         const map = new Map();
@@ -459,6 +488,7 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             'Total Pedidos': c.totalOrders || 0,
             'Total Gastado ($)': c.total_spent || 0,
             'Puntos Fidelity': c.fidelityPoints || 0,
+            'Puntos canjeados': c.redeemedPoints || 0,
             Segmento: c.segment || 'none',
             Estado: c.status || 'inactive',
             'Cuenta del menú': c.menuAccount ? 'Sí' : 'No',
@@ -784,7 +814,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
                                     </td>
                                 )}
                                 <td className="text-center" data-label="Puntos">
-                                    <span className="points-badge">
+                                    <span
+                                        className="points-badge"
+                                        title={client.redeemedPoints
+                                            ? `Ganados ${client.earnedPoints} · Canjeados ${client.redeemedPoints}`
+                                            : undefined}
+                                    >
                                         <AdminIconSlot
                                             Icon={Star}
                                             tone="accent"

@@ -1125,3 +1125,110 @@
 	gap: 8px;
 	flex-wrap: wrap;
 }
+
+/* =========================================
+   Recompensas por puntos (AdminLoyaltyRewards.jsx), dentro de la pestaña Cupones
+   ========================================= */
+
+:is(.admin-layout, main.admin-content) .admin-coupons .admin-coupons__views .filter-chip {
+	gap: 6px;
+}
+
+:is(.admin-layout, main.admin-content) .loyalty-rewards__desc {
+	margin-top: 2px;
+	font-size: 0.75rem;
+	line-height: 1.35;
+	color: var(--admin-text-muted, #64748b);
+	white-space: normal;
+}
+
+:is(.admin-layout, main.admin-content) .loyalty-rewards__points {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+:is(.admin-layout, main.admin-content) .loyalty-rewards__heading {
+	margin: 6px 0 0;
+	font-size: 0.95rem;
+	font-weight: 800;
+	color: var(--admin-text, #0f172a);
+}
+
+.coupon-form-modal .loyalty-rewards__textarea {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	font-family: inherit;
+	font-size: 0.9rem;
+	resize: vertical;
+	outline: none;
+}
+
+.coupon-form-modal .loyalty-rewards__textarea:focus {
+	border-color: var(--coupon-form-focus, #2563eb);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--coupon-form-focus, #2563eb) 20%, transparent);
+}
+
+.coupon-form-modal .loyalty-rewards__picked {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	min-height: 40px;
+	padding: 0 6px 0 12px;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-icon-bg, #f8fafc);
+	color: var(--admin-text, #0f172a);
+	font-size: 0.9rem;
+}
+
+.coupon-form-modal .loyalty-rewards__product-results {
+	max-height: 220px;
+	overflow-y: auto;
+	margin: 0;
+	padding: 4px;
+	list-style: none;
+	border-radius: 10px;
+	border: 1px solid var(--admin-border, #e2e8f0);
+	background: var(--admin-card-bg, #fff);
+}
+
+.coupon-form-modal .loyalty-rewards__product-results button {
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--admin-text, #0f172a);
+	font: inherit;
+	font-size: 0.875rem;
+	text-align: left;
+	cursor: pointer;
+}
+
+.coupon-form-modal .loyalty-rewards__product-results button:hover,
+.coupon-form-modal .loyalty-rewards__product-results button:focus-visible {
+	background: var(--admin-icon-bg, #f0f2f6);
+	outline: none;
+}
+
+:is(.admin-layout, main.admin-content) .loyalty-rewards__rule-hint {
+	margin: 0;
+	font-size: 0.8125rem;
+}
+
+:is(.admin-layout, main.admin-content) .loyalty-rewards__rule-hint a {
+	font-weight: 700;
+	color: #2563eb;
+}

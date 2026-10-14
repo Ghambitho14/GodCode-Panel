@@ -43,7 +43,8 @@ necesita consultas o muchos datos (miles de filas), ahí sí conviene su propia 
 ## Cómo llega al panel
 
 `admin-app.tsx` lee los extras vigentes de la empresa (`company_addons`, activos y sin vencer) y, por
-cada uno con `panel_module`, agrega una pestaña `module:addon-<modulo>` al menú. `Admin.jsx` pinta su
+cada uno con `panel_module`, agrega una pestaña `module:addon-<modulo>`. No sale en la barra lateral:
+se abre con «Abrir» en la pantalla Addons, que queda marcada en el menú mientras tanto. `Admin.jsx` pinta su
 `Component` dentro de `AddonFrame.tsx` (la barra con «← Addons» y el nombre del extra), con la barra
 lateral del panel a la vista. Los datos del extra (tablas propias, si las necesita) van con su migración aparte y RLS
 por `company_id`.

@@ -28,4 +28,6 @@ export const TABLES = Object.freeze({
   hero_banners: "hero_banners",
   discount_coupons: "discount_coupons",
   discount_coupon_redemptions: "discount_coupon_redemptions",
+  loyalty_rewards: "loyalty_rewards",
+  loyalty_redemptions: "loyalty_redemptions",
 });
