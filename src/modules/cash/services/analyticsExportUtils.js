@@ -1,4 +1,5 @@
 import { supabase, TABLES } from '@/integrations/supabase';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 
 const LARGE_EXPORT_THRESHOLD = 1000;
 
@@ -28,14 +29,15 @@ export async function countOrdersInRange({ companyId, branchId, startIso, endIso
 /**
  * @param {number} count
  * @param {number} [threshold]
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
 export function confirmLargeExport(count, threshold = LARGE_EXPORT_THRESHOLD, locale) {
-	if (count <= threshold) return true;
-	const msg =
-		`Este mes tiene ${count.toLocaleString(locale)} pedidos. ` +
-		'El reporte descarga todos los pedidos incluyendo ítems y puede tardar. ¿Continuar?';
-	return window.confirm(msg);
+	if (count <= threshold) return Promise.resolve(true);
+	return confirmDialog({
+		title: `Este mes tiene ${count.toLocaleString(locale)} pedidos`,
+		text: 'El reporte descarga todos los pedidos incluyendo ítems y puede tardar.',
+		confirmLabel: 'Descargar igual',
+	});
 }
 
 export const MONTHLY_EXPORT_DISCLAIMER =

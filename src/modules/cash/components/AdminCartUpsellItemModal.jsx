@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { alertDialog, confirmDialog } from "../admin/utils/confirmDialog";
 import { Loader2, Save, Trash2, X, Image as ImageIcon } from "lucide-react";
 import { parseTagList } from "@/lib/inventory-taxonomy";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
@@ -133,9 +134,9 @@ export default function AdminCartUpsellItemModal({
 		queueMicrotask(run);
 	}, [isOpen, item, suggestId, existingIds, isBev]);
 
-	const handleSafeClose = useCallback(() => {
+	const handleSafeClose = useCallback(async () => {
 		if (isDirty && !saving) {
-			if (typeof window !== "undefined" && window.confirm("¿Cerrar sin guardar los cambios?")) {
+			if (await confirmDialog({ title: "¿Cerrar sin guardar?", text: "Los cambios de este ítem se perderán.", confirmLabel: "Cerrar sin guardar", cancelLabel: "Seguir editando", danger: true })) {
 				onClose();
 			}
 			return;
@@ -165,7 +166,7 @@ export default function AdminCartUpsellItemModal({
 	const processFile = (file) => {
 		if (file && file.type.startsWith("image/")) {
 			if (file.size > 20 * 1024 * 1024) {
-				alert("La imagen es muy pesada (Máx 20MB)");
+				void alertDialog({ title: "La imagen es muy pesada", text: "El máximo es 20 MB. Elige una imagen más liviana." });
 				return;
 			}
 			setLocalFile(file);
@@ -186,9 +187,9 @@ export default function AdminCartUpsellItemModal({
 		if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
 	};
 
-	const clearImage = (e) => {
+	const clearImage = async (e) => {
 		e.stopPropagation();
-		if (window.confirm("¿Quitar la imagen actual?")) {
+		if (await confirmDialog({ title: "¿Quitar la imagen actual?", confirmLabel: "Quitar imagen", danger: true })) {
 			setLocalFile(null);
 			setPreviewUrl("");
 			setFormData((prev) => ({ ...prev, imageUrl: "" }));
@@ -267,9 +268,9 @@ export default function AdminCartUpsellItemModal({
 		);
 	};
 
-	const handleDeleteClick = () => {
+	const handleDeleteClick = async () => {
 		if (!item || typeof onDelete !== "function") return;
-		if (window.confirm("¿Eliminar este ítem del catálogo?")) {
+		if (await confirmDialog({ title: "¿Eliminar este ítem del catálogo?", text: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", danger: true })) {
 			onDelete(item);
 		}
 	};

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
+import { confirmDialog } from '../../utils/confirmDialog';
 import { X, Save, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -41,16 +43,18 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
     }
   }, [isOpen, category, defaultOrder]);
 
-  const handleSafeClose = useCallback(() => {
+  const handleSafeClose = useCallback(async () => {
     if (busy) return;
     if (isDirty) {
-      if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
+      if (await confirmDialog({ title: 'Tienes cambios sin guardar', text: '¿Seguro que quieres cerrar? Los cambios se perderán.', confirmLabel: 'Cerrar sin guardar', cancelLabel: 'Seguir editando', danger: true })) {
         onClose();
       }
     } else {
       onClose();
     }
   }, [isDirty, busy, onClose]);
+
+  useHistoryBack(Boolean(isOpen), handleSafeClose);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -123,7 +127,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
                 <input
                   id="cat-order"
                   className="form-input"
-                  type="number"
+                  type="number" inputMode="decimal"
                   name="order"
                   value={formData.order}
                   onChange={handleChange}
@@ -155,7 +159,7 @@ const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, defaultOr
             </div>
           </div>
 
-          <footer className="modal-footer" style={{ borderTop: '1px solid #22304a' }}>
+          <footer className="modal-footer">
             <Button variant="secondary" type="button" onClick={handleSafeClose} className="" disabled={busy}>Cancelar</Button>
             <Button variant="default" type="submit" className="" disabled={busy}>
               {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <Save size={18} aria-hidden />}

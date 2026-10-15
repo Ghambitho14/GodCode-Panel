@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DayPickerPopover from './DayPickerPopover';
@@ -231,7 +232,7 @@ export default function AdminTableReservationsSection({
 	};
 
 	const handleCancel = async (reservation) => {
-		if (!window.confirm('¿Cancelar esta reserva?')) return;
+		if (!(await confirmDialog({ title: '¿Cancelar esta reserva?', confirmLabel: 'Cancelar reserva', cancelLabel: 'Volver', danger: true }))) return;
 		setSaving(true);
 		try {
 			await tableReservationsService.cancel(reservation.id);
@@ -371,7 +372,7 @@ export default function AdminTableReservationsSection({
 						<label>
 							<span>Personas</span>
 							<input
-								type="number"
+								type="number" inputMode="decimal"
 								min={1}
 								max={50}
 								value={draft.partySize}
@@ -399,7 +400,7 @@ export default function AdminTableReservationsSection({
 						<label>
 							<span>Duración (min)</span>
 							<input
-								type="number"
+								type="number" inputMode="decimal"
 								min={15}
 								step={15}
 								value={draft.durationMinutes}

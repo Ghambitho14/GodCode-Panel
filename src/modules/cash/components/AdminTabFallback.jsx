@@ -1,35 +1,28 @@
 import React from 'react';
 
+/**
+ * Esqueleto que se ve mientras carga una pestaña: una barra de herramientas y
+ * tres tarjetas, en los grises del panel claro (los estilos van en
+ * AdminShared.css, `.admin-tab-skeleton`).
+ */
 export function AdminTabFallback() {
 	return (
-		<div className="admin-tab-skeleton" style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-			<div
-				className="admin-skeleton-block"
-				style={{
-					height: 18,
-					width: '40%',
-					borderRadius: 8,
-					background: 'linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%)',
-					backgroundSize: '200% 100%',
-					animation: 'admin-shimmer 1.2s ease-in-out infinite',
-				}}
-			/>
-			<div
-				className="admin-skeleton-block"
-				style={{
-					height: 120,
-					borderRadius: 12,
-					background: 'linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%)',
-					backgroundSize: '200% 100%',
-					animation: 'admin-shimmer 1.2s ease-in-out infinite',
-				}}
-			/>
-			<style>{`
-				@keyframes admin-shimmer {
-					0% { background-position: 100% 0; }
-					100% { background-position: -100% 0; }
-				}
-			`}</style>
+		<div className="admin-tab-skeleton" role="status" aria-label="Cargando…">
+			<div className="admin-tab-skeleton__toolbar">
+				<div className="admin-skeleton-block admin-skeleton-block--search" />
+				<div className="admin-skeleton-block admin-skeleton-block--chip" />
+				<div className="admin-skeleton-block admin-skeleton-block--chip" />
+			</div>
+			<div className="admin-tab-skeleton__grid">
+				{[0, 1, 2].map((i) => (
+					<div key={i} className="admin-tab-skeleton__card">
+						<div className="admin-skeleton-block admin-skeleton-block--line admin-skeleton-block--short" />
+						<div className="admin-skeleton-block admin-skeleton-block--value" />
+						<div className="admin-skeleton-block admin-skeleton-block--line" />
+					</div>
+				))}
+			</div>
+			<div className="admin-skeleton-block admin-skeleton-block--panel" />
 		</div>
 	);
 }

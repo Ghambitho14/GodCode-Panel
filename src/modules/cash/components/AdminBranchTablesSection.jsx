@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { Loader2, Plus, Trash2, Save, Armchair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { branchTablesService } from '../services/branchTablesService';
@@ -95,7 +96,7 @@ export default function AdminBranchTablesSection({
 	};
 
 	const handleDelete = async (table) => {
-		if (!window.confirm(`¿Eliminar ${table.code}?`)) return;
+		if (!(await confirmDialog({ title: `¿Eliminar la mesa ${table.code}?`, text: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', danger: true }))) return;
 		setSaving(true);
 		try {
 			await branchTablesService.deleteTable(table.id, branchId);
@@ -214,7 +215,7 @@ export default function AdminBranchTablesSection({
 					<span className="admin-menu-options-field-label">Asientos</span>
 					<input
 						className="form-input"
-						type="number"
+						type="number" inputMode="decimal"
 						min={1}
 						max={50}
 						value={draftSeats}

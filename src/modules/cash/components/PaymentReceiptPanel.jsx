@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import {
     AlertTriangle,
     ExternalLink,
@@ -116,6 +117,7 @@ export default function PaymentReceiptPanel({
     onSave,
     onClose,
 }) {
+    useHistoryBack(Boolean(order), () => { if (!uploading) onClose?.(); });
     const inputRef = useRef(null);
     const panelRef = useRef(null);
     const closeButtonRef = useRef(null);

@@ -1,0 +1,173 @@
+/**
+ * Táctil y sensación de app en todo el panel. Se carga al final (admin-app)
+ * para ganar a las hojas de cada pestaña.
+ *
+ * `(hover: none)` = la entrada principal es el dedo (teléfono, tablet, caja
+ * táctil), sin importar el ancho. Ahí los objetivos crecen a ≥40 px, no hay
+ * efectos de hover que se queden pegados y lo que solo aparecía al pasar el
+ * mouse se muestra siempre.
+ */
+
+/* ---------- Todos los dispositivos ---------- */
+
+/* Sin flechitas en los campos numéricos (la rueda del mouse ya no cambia el valor por accidente) */
+.admin-layout input[type="number"] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+}
+
+.admin-layout input[type="number"]::-webkit-inner-spin-button,
+.admin-layout input[type="number"]::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+/* El scroll de una ventana no arrastra la página de atrás */
+.admin-layout .modal-content,
+.admin-layout .modal-body,
+.admin-layout .admin-side-panel,
+.admin-layout .cash-order-detail-drawer,
+.admin-layout .order-detail-panel,
+.admin-layout .table-session-modal,
+.admin-layout .client-form-modal,
+.admin-layout .local-expense-modal-panel,
+.admin-layout .coupon-form-modal,
+.admin-layout .sidebar-menu {
+	overscroll-behavior: contain;
+}
+
+/* Botones y fichas no se seleccionan como texto al mantener presionado */
+.admin-layout button,
+.admin-layout .nav-item,
+.admin-layout .table-tile,
+.admin-layout .kanban-card,
+.admin-layout .cat-card,
+.admin-layout .inventory-card,
+.admin-layout .cash-history-card,
+.admin-layout .filter-chip {
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+.admin-layout button {
+	touch-action: manipulation;
+}
+
+/* ---------- Solo con el dedo ---------- */
+@media (hover: none) {
+	/* Se nota que se tocó */
+	.admin-layout button:not(:disabled):active,
+	.admin-layout .nav-item:active,
+	.admin-layout .table-tile:active,
+	.admin-layout .cat-card:active,
+	.admin-layout .cash-history-card:active {
+		opacity: 0.72;
+		transition: opacity 0.06s ease;
+	}
+
+	/* Los "levantamientos" de hover se quedaban pegados tras tocar */
+	.admin-layout .table-tile:hover,
+	.admin-layout .cat-card:hover,
+	.admin-layout .rpt-kpi:hover,
+	.admin-layout .admin-cart-upsell-card:hover,
+	.admin-layout .cash-kpi-card:hover,
+	.admin-layout .cash-method-metric:hover,
+	.admin-layout .cash-container .btn-primary:hover,
+	.admin-layout .cash-container .btn-danger:hover,
+	.admin-layout .cash-container .btn-table-action:hover,
+	.admin-layout .cash-container .btn-income:hover,
+	.admin-layout .cash-container .btn-expense:hover,
+	.admin-layout .btn-add-recipe:hover,
+	.admin-layout .manual-order-floating-close:hover,
+	.admin-layout .manual-order-confirm-btn:hover:not(:disabled),
+	.admin-layout .open-mesa-floor__seat:hover {
+		transform: none;
+	}
+
+	/* Lo que solo aparecía al pasar el mouse, siempre visible */
+	.admin-layout .image-overlay {
+		opacity: 1;
+		background: transparent;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		align-items: flex-end;
+		justify-content: flex-end;
+		padding: 8px;
+	}
+
+	.admin-layout .admin-cart-upsell-pick-inv__add,
+	.admin-layout .menu-carousel-thumb-open,
+	.admin-layout .cash-shift-detail-movement-view-hint {
+		opacity: 1;
+	}
+
+	/* Objetivos de al menos 40 px */
+	.admin-layout .order-card-tool-btn {
+		width: 40px;
+		height: 40px;
+		min-width: 40px;
+		min-height: 40px;
+	}
+
+	.admin-layout .btn-icon-action {
+		min-width: 40px;
+		min-height: 40px;
+	}
+
+	.admin-layout .order-card .btn-action {
+		min-height: 40px;
+		font-size: 0.8rem;
+	}
+
+	/* La casilla de "preparado" se toca desde un área mayor sin cambiar su dibujo */
+	.admin-layout .order-item-checkbox-label::before {
+		content: "";
+		position: absolute;
+		inset: -12px;
+	}
+
+	.admin-layout .mobile-tabs button {
+		min-height: 44px;
+	}
+
+	.admin-layout .table-tile__tool-btn {
+		width: 36px;
+		height: 36px;
+		min-width: 36px;
+		min-height: 36px;
+	}
+
+	.admin-layout .cat-status-button {
+		min-height: 36px !important;
+		padding-left: 12px !important;
+		padding-right: 12px !important;
+	}
+
+	.admin-layout .cat-card-footer .cat-btn {
+		min-height: 44px !important;
+	}
+
+	.admin-layout .inv-icon-btn,
+	.admin-layout .inv-toggle,
+	.admin-layout .product-form__size-btn,
+	.admin-layout .admin-icon-btn,
+	.admin-layout .clients-whatsapp-btn,
+	.admin-layout .table-session-receipt__icon-btn {
+		width: 40px;
+		height: 40px;
+		min-width: 40px;
+		min-height: 40px;
+	}
+
+	.admin-layout .btn-close,
+	.admin-layout .client-form-modal__close,
+	.admin-layout .coupon-form-modal__close,
+	.admin-layout .btn-close-sidepanel,
+	.admin-layout .local-expense-modal-close {
+		width: 40px !important;
+		height: 40px !important;
+		min-width: 40px !important;
+		min-height: 40px !important;
+	}
+}

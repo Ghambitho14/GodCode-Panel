@@ -430,6 +430,24 @@
 		display: none;
 	}
 
+	/* Sombra en el borde derecho mientras haya más pestañas hacia allá */
+	.admin-layout .admin-sidebar::after {
+		content: "";
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 40px;
+		pointer-events: none;
+		opacity: 0;
+		background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.97) 70%);
+		transition: opacity 0.2s ease;
+	}
+
+	.admin-layout .admin-sidebar[data-more-right="1"]::after {
+		opacity: 1;
+	}
+
 	/* Misma “tile” para cada acción: evita anchos distintos según el texto */
 	.admin-layout .sidebar-menu > .nav-item {
 		width: 72px;

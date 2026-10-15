@@ -3,8 +3,10 @@
    ========================================= */
 
 /* --- LAYOUT DEL MODAL --- */
-/* Crece con el contenido; al llegar a max-height el cuerpo hace scroll (flex: 0 1 auto) */
-.modal-content {
+/* Crece con el contenido; al llegar a max-height el cuerpo hace scroll (flex: 0 1 auto).
+   Solo el modal de producto (y el de bebidas/extras, que lo reutiliza): antes esta regla
+   era global y pisaba el alto en teléfono de los demás modales. */
+.modal-content.product-modal-content {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -18,7 +20,7 @@
 }
 
 /* Form puede crecer con contenido (0 1 auto) y encoger cuando el modal llega a 90vh */
-.modal-content form {
+.modal-content.product-modal-content form {
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;

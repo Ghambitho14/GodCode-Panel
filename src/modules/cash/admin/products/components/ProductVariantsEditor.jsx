@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { alertDialog, confirmDialog } from '../../utils/confirmDialog';
 import { Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
 
 import { useSignedImageUrl } from '@/shared/hooks/useSignedImageUrl';
@@ -30,7 +31,7 @@ function VariantOptionThumb({ option, disabled, onPick, onClear }) {
     event.target.value = '';
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      window.alert('La imagen es muy pesada (Máx 20MB)');
+      void alertDialog({ title: 'La imagen es muy pesada', text: 'El máximo es 20 MB. Elige una imagen más liviana.' });
       return;
     }
     onPick(file);
@@ -127,10 +128,10 @@ export default function ProductVariantsEditor({
     );
   };
 
-  const removeGroup = (groupKey) => {
+  const removeGroup = async (groupKey) => {
     const group = list.find((entry) => entry.key === groupKey);
     const hasContent = group && group.options.some((option) => String(option.name ?? '').trim());
-    if (hasContent && !window.confirm(`¿Quitar el grupo "${group.name || 'sin nombre'}" y sus opciones?`)) return;
+    if (hasContent && !(await confirmDialog({ title: `¿Quitar el grupo "${group.name || 'sin nombre'}"?`, text: 'Se quitarán también sus opciones.', confirmLabel: 'Quitar grupo', danger: true }))) return;
     onChange(list.filter((entry) => entry.key !== groupKey));
   };
 

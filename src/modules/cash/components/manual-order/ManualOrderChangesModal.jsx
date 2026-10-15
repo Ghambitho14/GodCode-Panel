@@ -319,7 +319,7 @@ export default function ManualOrderChangesModal({ item, formatMoney, onSave, onC
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="manual-order-changes-title"
-				className="flex h-[min(680px,92vh)] w-full max-w-md flex-col overflow-hidden rounded-t-[22px] border border-gc-border bg-gc-page shadow-xl sm:rounded-[22px]"
+				className="flex h-[min(680px,92dvh)] w-full max-w-md flex-col overflow-hidden rounded-t-[22px] border border-gc-border bg-gc-page shadow-xl sm:rounded-[22px]"
 			>
 				<header className="flex items-center gap-2 border-b border-gc-border bg-gc-card px-3 py-3">
 					{level > 0 ? (

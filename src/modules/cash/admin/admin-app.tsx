@@ -50,6 +50,8 @@ import "../styles/AdminMenuOptions.css";
 import "../styles/AdminCartUpsell.css";
 import "../styles/TenantTicketsPanel.css";
 import "../styles/CashSystem.css";
+// Al final: táctil y sensación de app, gana a las hojas de cada pestaña.
+import "../styles/AdminTouch.css";
 import { AdminPage } from "./pages/Admin";
 import { AdminProvider } from "./pages/AdminProvider";
 import { LocationProvider } from "../context/LocationContext";
@@ -360,9 +362,14 @@ export function AdminApp({
 			description: `Panel de caja y operación de ${resolvedCompanyName}`,
 			imageUrl: effectiveLogoUrl,
 		});
+		// La barra de estado del teléfono toma el color del panel (el login es azul)
+		const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+		const previousTheme = themeMeta?.content ?? null;
+		if (themeMeta) themeMeta.content = "#fbfbfd";
 		return () => {
 			applyDocumentFavicon(null);
 			resetDocumentMeta();
+			if (themeMeta && previousTheme !== null) themeMeta.content = previousTheme;
 		};
 	}, [effectiveLogoUrl, gateLoading, resolvedCompanyId, resolvedCompanyName]);
 

@@ -61,14 +61,12 @@ html.pwa-standalone .login-shell {
 }
 
 html.pwa-standalone .modal-overlay,
-html.pwa-standalone .order-detail-overlay {
-	padding: var(--pwa-safe-top) var(--pwa-safe-right) var(--pwa-safe-bottom) var(--pwa-safe-left);
-	box-sizing: border-box;
-}
-
+html.pwa-standalone .order-detail-overlay,
 html.pwa-standalone .payment-receipt-panel__overlay,
 html.pwa-standalone .menu-carousel-editor-overlay {
-	padding: var(--pwa-safe-top) var(--pwa-safe-right) var(--pwa-safe-bottom) var(--pwa-safe-left);
+	/* max(): se conserva el margen normal y solo crece donde el área segura es mayor
+	   (antes, en vertical los modales quedaban pegados a los bordes). */
+	padding: max(12px, var(--pwa-safe-top)) max(12px, var(--pwa-safe-right)) max(12px, var(--pwa-safe-bottom)) max(12px, var(--pwa-safe-left));
 	box-sizing: border-box;
 }
 
@@ -126,12 +124,5 @@ html.pwa-standalone .manual-order-close-confirm {
 }
 
 /* Gavetas laterales de alto completo (ficha de cliente, recibo de pago y
-   detalle de pedido en Caja): el fondo sigue llegando a los bordes de la
-   pantalla, pero su contenido se aparta de la barra de estado y del indicador
-   de inicio. */
-html.pwa-standalone .admin-side-panel,
-html.pwa-standalone .cash-order-detail-drawer {
-	padding-top: var(--pwa-safe-top);
-	padding-bottom: var(--pwa-safe-bottom);
-	box-sizing: border-box;
-}
+   detalle de pedido en Caja): su cabecera y su pie ya suman el área segura
+   con env(); no se repite aquí (quedaba doble margen). */

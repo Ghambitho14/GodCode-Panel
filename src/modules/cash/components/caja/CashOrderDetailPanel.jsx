@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { createPortal } from 'react-dom';
 import {
 	X, KeyRound, MapPin, Send, ExternalLink, ChefHat, Banknote, Phone,
@@ -52,6 +53,7 @@ export default function CashOrderDetailPanel({
 	companyName = null,
 	companyProfile = null,
 }) {
+	useHistoryBack(Boolean(order), onClose);
 	const orderMoney = useOrderMoney();
 	const { formatMoney: fmt, formatOrderAmount } = orderMoney;
 	const formStrategy = useMemo(

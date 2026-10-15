@@ -256,7 +256,7 @@ export default function SendCouponEmailModal({ open, onClose, recipients, showNo
 									</label>
 									<input
 										id="coupon-email-value"
-										type="number"
+										type="number" inputMode="decimal"
 										min="1"
 										step="1"
 										disabled={sending}
@@ -276,7 +276,7 @@ export default function SendCouponEmailModal({ open, onClose, recipients, showNo
 									<label htmlFor="coupon-email-min">Mínimo del pedido</label>
 									<input
 										id="coupon-email-min"
-										type="number"
+										type="number" inputMode="decimal"
 										min="0"
 										disabled={sending}
 										value={draft.minOrderSubtotal}

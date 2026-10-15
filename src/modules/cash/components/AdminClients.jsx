@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useLayoutEffect, useCallback } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { createPortal } from 'react-dom';
 import { Search, Plus, Download, MoreVertical, ArrowUpDown, ChevronLeft, ChevronRight, MessageCircle, Star, UserCircle, Copy, Trash2, Loader2, Ticket } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -525,9 +526,12 @@ const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClie
             return;
         }
         const label = client.name?.trim() || 'este cliente';
-        const ok = window.confirm(
-            `¿Eliminar a ${label}? Esta acción no se puede deshacer.\n\nSi el cliente tiene pedidos u otros registros vinculados, deberás eliminarlos o reasignarlos antes.`,
-        );
+        const ok = await confirmDialog({
+            title: `¿Eliminar a ${label}?`,
+            text: 'Esta acción no se puede deshacer.\n\nSi el cliente tiene pedidos u otros registros vinculados, deberás eliminarlos o reasignarlos antes.',
+            confirmLabel: 'Eliminar',
+            danger: true,
+        });
         if (!ok) return;
 
         setDeletingClientId(client.id);

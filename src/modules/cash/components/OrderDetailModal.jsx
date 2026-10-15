@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
@@ -186,6 +187,8 @@ const OrderDetailModal = ({
         window.addEventListener('keydown', onEsc);
         return () => window.removeEventListener('keydown', onEsc);
     }, [order, onClose]);
+
+    useHistoryBack(Boolean(order), onClose);
 
     const shareLocale = useMemo(() => ({
         branch,

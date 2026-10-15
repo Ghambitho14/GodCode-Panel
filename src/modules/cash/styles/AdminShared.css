@@ -283,7 +283,102 @@
 	--z-admin-manual-order: 11050;
 	--z-admin-popover: 10060;
 	--z-admin-menu-portal: 13000;
+	--z-admin-dialog: 14000;
 	--z-admin-toast: 15000;
+}
+
+/* Esqueleto de carga de las pestañas (AdminTabFallback): grises del panel claro */
+.admin-layout .admin-tab-skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 20px 0;
+}
+
+.admin-layout .admin-tab-skeleton__toolbar {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.admin-layout .admin-tab-skeleton__grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.admin-layout .admin-tab-skeleton__card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 18px;
+	border: 1px solid var(--admin-border, #e5e5ea);
+	border-radius: 16px;
+	background: var(--admin-card-bg, #fff);
+}
+
+.admin-layout .admin-skeleton-block {
+	height: 14px;
+	border-radius: 8px;
+	background: linear-gradient(
+		90deg,
+		var(--admin-icon-bg, #eef0f4) 25%,
+		color-mix(in srgb, var(--admin-icon-bg, #eef0f4) 45%, #fff) 50%,
+		var(--admin-icon-bg, #eef0f4) 75%
+	);
+	background-size: 200% 100%;
+	animation: admin-shimmer 1.3s ease-in-out infinite;
+}
+
+.admin-layout .admin-skeleton-block--search {
+	flex: 0 1 320px;
+	height: 40px;
+	border-radius: 12px;
+}
+
+.admin-layout .admin-skeleton-block--chip {
+	width: 88px;
+	height: 32px;
+	border-radius: 999px;
+}
+
+.admin-layout .admin-skeleton-block--short {
+	width: 45%;
+}
+
+.admin-layout .admin-skeleton-block--value {
+	width: 60%;
+	height: 26px;
+}
+
+.admin-layout .admin-skeleton-block--panel {
+	height: 180px;
+	border-radius: 16px;
+}
+
+@keyframes admin-shimmer {
+	0% {
+		background-position: 100% 0;
+	}
+	100% {
+		background-position: -100% 0;
+	}
+}
+
+@media (max-width: 767px) {
+	.admin-layout .admin-tab-skeleton__grid {
+		grid-template-columns: 1fr;
+	}
+
+	.admin-layout .admin-skeleton-block--chip:last-child {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-layout .admin-skeleton-block {
+		animation: none;
+	}
 }
 
 /* Toasts */

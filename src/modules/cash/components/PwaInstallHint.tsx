@@ -38,7 +38,7 @@ export function PwaInstallHint() {
 				<p className="pwa-install-hint__text">
 					<strong>Instalar en el iPhone:</strong> toca{" "}
 					<strong>Compartir</strong>{" "}
-					<span className="pwa-install-hint__ios-share" aria-hidden>⎋</span> y luego{" "}
+					<Share size={14} strokeWidth={2} className="pwa-install-hint__ios-share" style={{ display: "inline", verticalAlign: "-2px" }} aria-hidden /> y luego{" "}
 					<strong>Añadir a pantalla de inicio</strong>. Así se oculta la barra del navegador.
 				</p>
 			</div>

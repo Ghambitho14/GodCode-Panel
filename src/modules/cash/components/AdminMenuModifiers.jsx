@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { alertDialog, confirmDialog } from "../admin/utils/confirmDialog";
 import { ChevronRight, Info, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase, TABLES } from "@/integrations/supabase";
@@ -330,7 +331,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 
 	const deleteGroup = async () => {
 		const removedId = group.id;
-		if (!window.confirm(`¿Eliminar el grupo «${group.name || "Sin nombre"}»?`)) return;
+		if (!(await confirmDialog({ title: `¿Eliminar el grupo «${group.name || "Sin nombre"}»?`, text: "Se quitarán también sus acciones y opciones.", confirmLabel: "Eliminar", danger: true }))) return;
 		// Fuera del autoguardado antes de cualquier await, y esperar al guardado que ya salió.
 		const wasDirty = dirtyRef.current.delete(removedId);
 		if (useDb) {
@@ -355,7 +356,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 			if (failure) {
 				console.error("[AdminMenuModifiers] error al eliminar", error ?? failure);
 				if (wasDirty) dirtyRef.current.add(removedId);
-				window.alert(`No se pudo eliminar el grupo: ${failure}.`);
+				await alertDialog({ title: "No se pudo eliminar el grupo", text: `${failure}.` });
 				return;
 			}
 		}
@@ -448,7 +449,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 										<span className="admin-modifiers__rank">{i + 1}</span>
 										<span className="admin-modifiers__rank-name">{o.name || "Sin nombre"}</span>
 										<input
-											type="number"
+											type="number" inputMode="decimal"
 											min="0"
 											step={priceStep}
 											className="admin-modifiers__price"
@@ -644,7 +645,7 @@ export default function AdminMenuModifiers({ companyId, categories = [], product
 										</button>
 									) : on ? (
 										<input
-											type="number"
+											type="number" inputMode="decimal"
 											min="0"
 											step={priceStep}
 											className="admin-modifiers__price"

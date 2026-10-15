@@ -243,9 +243,11 @@ function createMainWindow() {
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
+		minWidth: 900,
+		minHeight: 600,
 		show: false,
 		title: 'GodCode Caja',
-		backgroundColor: '#16171d',
+		backgroundColor: '#fbfbfd',
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.cjs'),
 			additionalArguments: [`--godcode-caja-version=${app.getVersion()}`],

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChefHat, ShoppingBag, BarChart3, Users, List, LogOut, DollarSign, Store, ChevronDown, ClipboardList, Blocks, SlidersHorizontal, Calculator, FolderTree, CupSoda, Sparkles, Columns3, Tag, Wallet, Images, MapPin, Puzzle } from 'lucide-react';
 import { addonIdFromTab } from '@/addons/registry';
@@ -196,6 +196,30 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
         }
     }, [navTab, menuItems]);
 
+    // Barra inferior del teléfono: marca en el <aside> si quedan pestañas hacia la derecha
+    const navRef = useRef(null);
+    useEffect(() => {
+        const el = navRef.current;
+        const aside = el?.parentElement;
+        if (!renderMobile || !el || !aside) {
+            if (aside) delete aside.dataset.moreRight;
+            return undefined;
+        }
+        const update = () => {
+            const more = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+            if (more) aside.dataset.moreRight = '1';
+            else delete aside.dataset.moreRight;
+        };
+        update();
+        el.addEventListener('scroll', update, { passive: true });
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+        ro?.observe(el);
+        return () => {
+            el.removeEventListener('scroll', update);
+            ro?.disconnect();
+        };
+    }, [renderMobile, menuItems]);
+
     const toggleGroup = (groupId) => {
         setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
     };
@@ -221,12 +245,14 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                 </div>
             </div>
             
-            <nav className="sidebar-menu" aria-label="Secciones del panel">
+            <nav ref={navRef} className="sidebar-menu" aria-label="Secciones del panel">
                 {renderMobile
                     ? menuItems.flatMap(item => {
                         if (item.isGroup) {
                             return item.children.map(child => {
                                 const disabled = !isTabAllowed(child.id);
+                                // En el teléfono el espacio es poco: lo prohibido no ocupa lugar
+                                if (disabled) return null;
                                 return (
                                     <button
                                         key={child.id}
@@ -250,6 +276,7 @@ const AdminSidebar = ({ activeTab, setActiveTab, isMobile, kanbanColumns, userRo
                             });
                         } else {
                             const disabled = !isTabAllowed(item.id);
+                            if (disabled) return null;
                             return (
                                 <button
                                     key={item.id}

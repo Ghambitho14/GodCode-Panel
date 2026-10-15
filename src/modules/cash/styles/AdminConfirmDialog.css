@@ -1,0 +1,218 @@
+/**
+ * Ventana de confirmación del panel (AdminConfirmDialog). Va por encima de los
+ * modales y de la barra del teléfono, debajo de los toasts. En celular sube
+ * desde abajo como una hoja.
+ */
+
+.admin-layout .admin-confirm-dialog__overlay {
+	position: fixed;
+	inset: 0;
+	z-index: var(--z-admin-dialog, 14000);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.45));
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+	animation: admin-confirm-fade 0.15s ease-out;
+}
+
+.admin-layout .admin-confirm-dialog {
+	width: 100%;
+	max-width: 420px;
+	padding: 22px 22px 18px;
+	border-radius: 18px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	border: 1px solid var(--admin-border, #e5e5ea);
+	box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28);
+	animation: admin-confirm-pop 0.18s ease-out;
+}
+
+.admin-layout .admin-confirm-dialog__head {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.admin-layout .admin-confirm-dialog__icon {
+	flex-shrink: 0;
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--accent-primary, #2563eb) 12%, #fff);
+	color: var(--accent-primary, #2563eb);
+}
+
+.admin-layout .admin-confirm-dialog__icon--danger {
+	background: #fef2f2;
+	color: #dc2626;
+}
+
+.admin-layout .admin-confirm-dialog__copy {
+	flex: 1;
+	min-width: 0;
+	padding-top: 2px;
+}
+
+.admin-layout .admin-confirm-dialog__title {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 800;
+	line-height: 1.3;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .admin-confirm-dialog__text {
+	margin: 6px 0 0;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--admin-text-muted, #64748b);
+	/* Los mensajes traen saltos de línea a propósito ("\n\nSi el pedido tiene…") */
+	white-space: pre-line;
+}
+
+.admin-layout .admin-confirm-dialog__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 18px;
+}
+
+.admin-layout .admin-confirm-dialog__btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 42px;
+	padding: 0 18px;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	font: inherit;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	touch-action: manipulation;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: background-color 0.15s ease, transform 0.08s ease;
+}
+
+.admin-layout .admin-confirm-dialog__btn:active {
+	transform: scale(0.97);
+}
+
+.admin-layout .admin-confirm-dialog__btn:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.admin-layout .admin-confirm-dialog__btn:focus-visible {
+	outline: 3px solid color-mix(in srgb, var(--accent-primary, #2563eb) 35%, transparent);
+	outline-offset: 1px;
+}
+
+.admin-layout .admin-confirm-dialog__btn--cancel {
+	background: var(--admin-icon-bg, #f5f5f7);
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .admin-confirm-dialog__btn--cancel:hover {
+	background: color-mix(in srgb, var(--admin-icon-bg, #f5f5f7) 80%, #000 4%);
+}
+
+.admin-layout .admin-confirm-dialog__btn--confirm {
+	background: var(--accent-primary, #2563eb);
+	color: #fff;
+}
+
+.admin-layout .admin-confirm-dialog__btn--confirm:hover {
+	background: var(--accent-hover, #1d4ed8);
+}
+
+.admin-layout .admin-confirm-dialog__btn--danger {
+	background: #dc2626;
+	color: #fff;
+}
+
+.admin-layout .admin-confirm-dialog__btn--danger:hover {
+	background: #b91c1c;
+}
+
+.admin-layout .admin-confirm-dialog__btn--danger:focus-visible {
+	outline-color: rgba(220, 38, 38, 0.35);
+}
+
+@keyframes admin-confirm-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes admin-confirm-pop {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes admin-confirm-slide-up {
+	from {
+		transform: translateY(24px);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+/* Celular: hoja desde abajo, botones a lo ancho */
+@media (max-width: 640px) {
+	.admin-layout .admin-confirm-dialog__overlay {
+		align-items: flex-end;
+		padding: 0;
+	}
+
+	.admin-layout .admin-confirm-dialog {
+		max-width: none;
+		border-radius: 22px 22px 0 0;
+		border-bottom: 0;
+		padding: 22px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+		animation: admin-confirm-slide-up 0.22s ease-out;
+	}
+
+	.admin-layout .admin-confirm-dialog__actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.admin-layout .admin-confirm-dialog__actions > .admin-confirm-dialog__btn:only-child {
+		grid-column: 1 / -1;
+	}
+
+	.admin-layout .admin-confirm-dialog__btn {
+		height: 46px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-layout .admin-confirm-dialog__overlay,
+	.admin-layout .admin-confirm-dialog {
+		animation: none;
+	}
+
+	.admin-layout .admin-confirm-dialog__btn {
+		transition: none;
+	}
+}

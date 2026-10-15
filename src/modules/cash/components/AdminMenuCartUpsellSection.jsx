@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "../admin/utils/confirmDialog";
 import "../styles/AdminMenuOptions.css";
 import "../styles/AdminCartUpsell.css";
 import "../styles/AdminMenuCarousel.css";
@@ -607,7 +608,7 @@ export default function AdminMenuCartUpsellSection({
 		return (
 			<section className="glass animate-fade admin-menu-options-card admin-menu-options-cart-upsell">
 				<p className="admin-menu-options-card-desc" style={{ margin: 0 }}>
-					Selecciona una <strong style={{ color: "white" }}>sucursal</strong> en el encabezado para configurar{" "}
+					Selecciona una <strong>sucursal</strong> en el encabezado para configurar{" "}
 					{isBev ? "las bebidas" : "los extras"} del carrito.
 				</p>
 			</section>
@@ -867,9 +868,9 @@ export default function AdminMenuCartUpsellSection({
 														<button
 															type="button"
 															className="btn-trash-sm"
-															onClick={(e) => {
+															onClick={async (e) => {
 																e.stopPropagation();
-																if (window.confirm(`¿Eliminar «${item.name}»?`)) {
+																if (await confirmDialog({ title: `¿Eliminar «${item.name}»?`, text: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", danger: true })) {
 																	void handleModalDelete(item);
 																}
 															}}

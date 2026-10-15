@@ -28,10 +28,10 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico", "favicon.png", "favicon-32.png", "apple-touch-icon.png"],
       manifest: {
         name: "GodCode Caja",
-        short_name: "GodCode",
-        description: "Sistema de Caja y Panel de Control de GodCode",
+        short_name: "Caja",
+        description: "Acceso de caja y operación diaria del local con GodCode.",
         theme_color: "#4F5BFF",
-        background_color: "#16171d",
+        background_color: "#fbfbfd",
         display: "standalone",
         start_url: "/",
         scope: "/",
@@ -66,6 +66,24 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MiB to support Fondopublic.png (2.15 MB)
+        // La fuente (Google Fonts) también sin internet: la hoja se revalida
+        // en segundo plano y los archivos de la fuente se guardan un año.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "google-fonts-stylesheets" },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useId } from "react";
+import { useHistoryBack } from "@/modules/cash/hooks/useHistoryBack";
 import { X, Save, MapPin, Loader2 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
 import { getInventoryUnitSelectGroups, getUnitLabel, normalizeUnit } from "@/lib/inventory-units";
@@ -41,6 +42,7 @@ const InventoryItemModal = ({
 	companyId,
 	newItemPreset = null,
 }) => {
+	useHistoryBack(Boolean(isOpen), onClose);
 	const { currency } = useBranchMoney();
 	const beverageKindListId = `inv-bev-kind-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 	const [formData, setFormData] = useState({
@@ -361,7 +363,7 @@ const InventoryItemModal = ({
 								<div className="inventory-field">
 									<input
 										id="inv-item-stock"
-										type="number"
+										type="number" inputMode="decimal"
 										step="any"
 										className="inventory-field__input"
 										value={formData.stock}
@@ -377,7 +379,7 @@ const InventoryItemModal = ({
 								<div className="inventory-field">
 									<input
 										id="inv-item-min"
-										type="number"
+										type="number" inputMode="decimal"
 										step="any"
 										className="inventory-field__input"
 										value={formData.min_stock}
@@ -396,7 +398,7 @@ const InventoryItemModal = ({
 								<span className="inventory-field__affix" aria-hidden>{currency}</span>
 								<input
 									id="inv-item-cost"
-									type="number"
+									type="number" inputMode="decimal"
 									className="inventory-field__input"
 									min={0}
 									step="any"

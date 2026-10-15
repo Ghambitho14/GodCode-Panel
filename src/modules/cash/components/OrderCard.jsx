@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import {
     Clock, X, Upload, ImageIcon, Printer, Pencil, Copy, Send,
     ChefHat, Banknote, Eye, Loader2, Check,
@@ -105,12 +106,15 @@ const OrderCard = ({
         moveOrder(order.id, 'active');
     };
 
-    const handleCancelOrder = (e) => {
+    const handleCancelOrder = async (e) => {
         e?.stopPropagation?.();
-        const refundNote = '\n\nSi el pedido tiene venta registrada en caja, se aplicará una devolución automática.';
-        const ok = typeof window !== 'undefined'
-            ? window.confirm(`¿Cancelar pedido #${orderDisplayNumber(order)}?${refundNote}`)
-            : true;
+        const ok = await confirmDialog({
+            title: `¿Cancelar el pedido #${orderDisplayNumber(order)}?`,
+            text: 'Si el pedido tiene venta registrada en caja, se aplicará una devolución automática.',
+            confirmLabel: 'Cancelar pedido',
+            cancelLabel: 'Volver',
+            danger: true,
+        });
         if (!ok) return;
         moveOrder(order.id, 'cancelled');
     };

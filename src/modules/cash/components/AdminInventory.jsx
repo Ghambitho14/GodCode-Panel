@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { confirmDialog } from "../admin/utils/confirmDialog";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import {
 	Search,
@@ -510,7 +511,7 @@ const AdminInventory = ({
 	};
 
 	const handleDelete = async (id) => {
-		if (!window.confirm("¿Estás seguro de eliminar este artículo?")) return;
+		if (!(await confirmDialog({ title: "¿Eliminar este artículo?", text: "Esta acción no se puede deshacer.", confirmLabel: "Eliminar", danger: true }))) return;
 		try {
 			const { error } = await supabase
 				.from(TABLES.inventory_items)
@@ -1583,7 +1584,7 @@ const AdminInventory = ({
 														/>
 													</span>
 													<input
-														type="number"
+														type="number" inputMode="decimal"
 														step="any"
 														min="0"
 														className="inventory-recipe-line__qty"

@@ -34,7 +34,7 @@
     /* Alineado a Analíticas: cards blancas sobre fondo de página suave */
     background-color: color-mix(in srgb, var(--cash-bg) 92%, #e8e8ed);
     color: var(--c-text);
-    min-height: 100vh;
+    min-height: 100dvh;
     animation: cashEntrance 0.6s var(--expo-out);
 }
 
@@ -175,7 +175,7 @@
     border: 1px solid var(--cash-border);
     border-radius: 20px;
     width: 100%;
-    max-height: 90vh;
+    max-height: 90dvh;
     overflow-y: auto;
     box-shadow: var(--shadow-heavy);
     animation: slideUp 0.3s var(--expo-out);
@@ -725,7 +725,7 @@
 
 .admin-layout .cash-container .cash-dialog.cash-shift-modal--close {
     max-width: min(680px, 96vw);
-    max-height: 90vh;
+    max-height: 90dvh;
 }
 
 .admin-layout .cash-container .cash-dialog.cash-shift-detail-modal {
@@ -2141,7 +2141,7 @@
 
     .admin-layout .cash-container .modal-content {
         border-radius: 20px 20px 0 0;
-        max-height: 85vh;
+        max-height: 85dvh;
         padding: 0 16px 16px;
     }
 
@@ -2272,14 +2272,14 @@
    =========================================== */
 .admin-layout .cash-container .cash-shift-modal--close {
     max-width: min(680px, 96vw);
-    max-height: 90vh;
+    max-height: 90dvh;
     display: flex;
     flex-direction: column;
 }
 
 .admin-layout .cash-container .cash-shift-modal__body {
     overflow-y: auto;
-    max-height: calc(90vh - 150px);
+    max-height: calc(90dvh - 150px);
     padding-right: 2px;
     scrollbar-gutter: stable;
 }

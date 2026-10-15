@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -8,13 +9,20 @@ import { Button } from "@/components/ui/button";
 
 const MAX_NAME_LENGTH = 200;
 
-const sanitizeText = (value) => {
+/**
+ * Sin etiquetas HTML y con tope de largo. Mientras se escribe no se recortan
+ * los espacios (si no, el espacio final se borra y no se puede escribir
+ * "Juan Pérez"); al guardar sí.
+ */
+const sanitizeText = (value, { trim = true } = {}) => {
 	if (value == null) return '';
-	const raw = String(value).replace(/<[^>]*>?/gm, '').trim();
+	let raw = String(value).replace(/<[^>]*>?/gm, '');
+	if (trim) raw = raw.trim();
 	return raw.slice(0, MAX_NAME_LENGTH);
 };
 
 const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, companyId, formCountry = 'CL' }) => {
+	useHistoryBack(Boolean(isOpen), onClose);
 	const strategy = useMemo(() => getFormStrategy(formCountry), [formCountry]);
 	const [loading, setLoading] = useState(false);
 	const [formData, setFormData] = useState({
@@ -30,7 +38,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 		const { name, value } = e.target;
 		let finalValue = value;
 		if (name === 'rut') finalValue = strategy.formatId(value);
-		if (name === 'name') finalValue = sanitizeText(value);
+		if (name === 'name') finalValue = sanitizeText(value, { trim: false });
 		setFormData({ ...formData, [name]: finalValue });
 	};
 
@@ -126,6 +134,7 @@ const ClientFormModal = ({ isOpen, onClose, onClientCreated, showNotify, company
 						<input
 							id="client-form-phone"
 							type="tel"
+							autoComplete="tel"
 							name="phone"
 							placeholder={strategy.phonePrefix}
 							value={formData.phone}

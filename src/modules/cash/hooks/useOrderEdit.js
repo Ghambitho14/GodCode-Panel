@@ -12,6 +12,7 @@
  *   formulario lo edite como strings simples (igual que `useManualOrder`).
  */
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { validateImageFile } from '@/shared/utils/supabaseStorage';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { isVenezuelaCountry } from '@/lib/geo/tenant-locale';
@@ -900,9 +901,11 @@ export const useOrderEdit = (
 				}
 				if (
 					expectedTotalMinor !== previousTotalMinor
-					&& !window.confirm(
-						`El nuevo total es ${formatMinor(expectedTotalMinor, { currency, fractionDigits })}. ¿Confirmas el cambio?`,
-					)
+					&& !(await confirmDialog({
+						title: 'El total del pedido cambió',
+						text: `El nuevo total es ${formatMinor(expectedTotalMinor, { currency, fractionDigits })}. ¿Confirmas el cambio?`,
+						confirmLabel: 'Confirmar cambio',
+					}))
 				) {
 					return;
 				}

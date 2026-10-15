@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { confirmDialog } from "../admin/utils/confirmDialog";
 import { createPortal } from "react-dom";
 import { Gift, Plus, Loader2, Pencil, Ban, CircleCheck, RefreshCw, X, Trash2, Star } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
@@ -278,7 +279,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 	};
 
 	const deleteReward = async (row) => {
-		if (!window.confirm(`¿Eliminar la recompensa "${row.title}"? Los cupones ya canjeados siguen valiendo.`)) return;
+		if (!(await confirmDialog({ title: `¿Eliminar la recompensa "${row.title}"?`, text: "Los cupones ya canjeados siguen valiendo.", confirmLabel: "Eliminar", danger: true }))) return;
 		setSaving(true);
 		try {
 			const { error } = await supabase.from(TABLES.loyalty_rewards).delete().eq("id", row.id);
@@ -379,7 +380,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 									<label htmlFor="reward-points">Puntos que cuesta</label>
 									<input
 										id="reward-points"
-										type="number"
+										type="number" inputMode="decimal"
 										min="1"
 										step="1"
 										disabled={saving}
@@ -498,7 +499,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 									</label>
 									<input
 										id="reward-value"
-										type="number"
+										type="number" inputMode="decimal"
 										min="0"
 										step="1"
 										disabled={saving}
@@ -510,7 +511,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 									<label htmlFor="reward-min">Compra mínima</label>
 									<input
 										id="reward-min"
-										type="number"
+										type="number" inputMode="decimal"
 										min="0"
 										disabled={saving}
 										placeholder="Sin mínimo"
@@ -522,7 +523,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 									<label htmlFor="reward-days">Válido por (días)</label>
 									<input
 										id="reward-days"
-										type="number"
+										type="number" inputMode="decimal"
 										min="1"
 										max="3650"
 										disabled={saving}

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../../admin/utils/confirmDialog';
 import { createPortal } from 'react-dom';
 import {
     X, ArrowDownCircle, RotateCcw, DollarSign, CreditCard, FileText, Search, Loader2,
@@ -261,10 +262,13 @@ const LocalExpenseModal = ({
         try {
             const shouldCancel = foundOrder.status !== 'cancelled'
                 && typeof moveOrder === 'function'
-                && window.confirm(
-                    `¿También cancelar el pedido #${String(foundOrder.id).slice(-4)}?\n\n`
-                    + 'Al aceptar, la cancelación registrará la devolución automáticamente.',
-                );
+                && (await confirmDialog({
+                    title: `¿También cancelar el pedido #${String(foundOrder.id).slice(-4)}?`,
+                    text: 'Al aceptar, la cancelación registrará la devolución automáticamente.',
+                    confirmLabel: 'Cancelar pedido',
+                    cancelLabel: 'No',
+                    danger: true,
+                }));
 
             if (shouldCancel) {
                 const cancelled = await moveOrder(foundOrder.id, 'cancelled');

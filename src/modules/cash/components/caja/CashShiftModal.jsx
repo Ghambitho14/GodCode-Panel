@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import {
 	X,
 	AlertTriangle,
@@ -103,6 +104,7 @@ const CashShiftModal = ({
 	getTotals,
 	orders = [],
 }) => {
+	useHistoryBack(Boolean(isOpen), onClose);
 	const { formatMoney: fmt, currency, locale, fractionDigits } = useBranchMoney();
 	/* "Usar esperado" escribe con el separador decimal del país y los decimales de
 	   la moneda, para que el campo muestre lo mismo que la etiqueta "Esperado". */

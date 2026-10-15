@@ -255,6 +255,56 @@
     }
 }
 
+/* --- Teléfono: los modales genéricos suben desde abajo como una hoja.
+   El de producto va a pantalla completa con sus propias reglas. --- */
+@media (max-width: 600px) {
+	.admin-layout .modal-overlay:not(:has(.product-modal-content)),
+	html.pwa-standalone .admin-layout .modal-overlay:not(:has(.product-modal-content)) {
+		align-items: flex-end;
+		padding: max(12px, env(safe-area-inset-top)) 0 0;
+		overflow: hidden;
+	}
+
+	.admin-layout .modal-content:not(.product-modal-content) {
+		max-width: none;
+		max-height: calc(100dvh - max(12px, env(safe-area-inset-top)));
+		border-radius: 20px 20px 0 0;
+		animation: slideUpMobile 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	.admin-layout .modal-content:not(.product-modal-content) .modal-footer {
+		padding-bottom: calc(16px + env(safe-area-inset-bottom));
+	}
+}
+
+/* Nuevo cliente: hoja desde abajo en teléfono */
+@media (max-width: 640px) {
+	.client-form-modal-overlay {
+		align-items: flex-end;
+		padding: max(12px, env(safe-area-inset-top)) 0 0;
+	}
+
+	.client-form-modal {
+		max-width: none;
+		max-height: calc(100dvh - max(12px, env(safe-area-inset-top)));
+		border-radius: 20px 20px 0 0;
+		padding-bottom: env(safe-area-inset-bottom, 0px);
+	}
+
+	.client-form-modal__header {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-layout .modal-content,
+	.admin-layout .modal-overlay {
+		animation: none;
+	}
+}
+
 /* --- Admin CEO: mismo shell claro que el resto del panel --- */
 .admin-layout .modal-overlay {
     background: var(--admin-overlay-scrim, rgba(15, 23, 42, 0.5));

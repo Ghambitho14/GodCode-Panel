@@ -209,7 +209,7 @@ export default function AdminDeliveryZonesPanel({
 								</label>
 								<input
 									id="adm-del-price-km"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -225,7 +225,7 @@ export default function AdminDeliveryZonesPanel({
 								</label>
 								<input
 									id="adm-del-base"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -250,7 +250,7 @@ export default function AdminDeliveryZonesPanel({
 									<li key={row.id} className="admin-delivery-rule">
 										<span className="admin-delivery-rule__text">Hasta</span>
 										<input
-											type="number"
+											type="number" inputMode="decimal"
 											min={0}
 											step="any"
 											className="admin-delivery-rule__input"
@@ -266,7 +266,7 @@ export default function AdminDeliveryZonesPanel({
 										/>
 										<span className="admin-delivery-rule__text">km, el envío cuesta</span>
 										<input
-											type="number"
+											type="number" inputMode="decimal"
 											min={0}
 											step="any"
 											className="admin-delivery-rule__input"
@@ -388,7 +388,7 @@ export default function AdminDeliveryZonesPanel({
 											<label htmlFor={`adm-del-place-fee-${row.id}`}>Envío</label>
 											<input
 												id={`adm-del-place-fee-${row.id}`}
-												type="number"
+												type="number" inputMode="decimal"
 												min={0}
 												step="any"
 												className="form-input"

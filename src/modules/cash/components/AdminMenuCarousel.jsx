@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { useBranchMoney } from '@/modules/cash/hooks/useBranchMoney';
 import { createPortal } from 'react-dom';
 import {
@@ -421,7 +422,7 @@ export default function AdminMenuCarousel({
 	};
 
 	const removeBanner = async (banner) => {
-		if (!window.confirm('¿Eliminar esta imagen del carrusel?')) return;
+		if (!(await confirmDialog({ title: '¿Eliminar esta imagen del carrusel?', text: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', danger: true }))) return;
 		if (!companyId) {
 			showNotify('Falta identificar la empresa', 'error');
 			return;
@@ -900,7 +901,7 @@ export default function AdminMenuCarousel({
 						<span>Rota cada</span>
 						<input
 							id="carousel-interval"
-							type="number"
+							type="number" inputMode="decimal"
 							min={2}
 							max={60}
 							value={intervalSec}
@@ -915,7 +916,7 @@ export default function AdminMenuCarousel({
 						<span>Máximo</span>
 						<input
 							id="carousel-max"
-							type="number"
+							type="number" inputMode="decimal"
 							min={1}
 							max={20}
 							value={maxSlides}
@@ -1082,7 +1083,7 @@ export default function AdminMenuCarousel({
 														<span>Se retira a los</span>
 														<input
 															id={`promo-days-${b.id}`}
-															type="number"
+															type="number" inputMode="decimal"
 															min={1}
 															max={90}
 															className="form-input menu-carousel-promo-days-input"

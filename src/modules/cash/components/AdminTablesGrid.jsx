@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 
 import { createPortal } from 'react-dom';
 
@@ -480,10 +481,14 @@ export default function AdminTablesGrid({
 
 
 
-	const handleCancel = (order) => {
-
-		const ok = window.confirm(`¿Cancelar #${order.shift_sequence ?? order.id}?`);
-
+	const handleCancel = async (order) => {
+		const ok = await confirmDialog({
+			title: `¿Cancelar el pedido #${order.shift_sequence ?? order.id}?`,
+			text: 'Si el pedido tiene venta registrada en caja, se aplicará una devolución automática.',
+			confirmLabel: 'Cancelar pedido',
+			cancelLabel: 'Volver',
+			danger: true,
+		});
 		if (!ok) return;
 
 		moveOrder(order.id, 'cancelled');

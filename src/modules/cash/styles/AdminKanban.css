@@ -73,7 +73,7 @@
 
     /* Lógica de altura robusta: Llenar el contenedor padre */
     height: calc(100dvh - 230px);
-    min-height: 560px;
+    min-height: min(560px, calc(100dvh - 230px)); /* tablets apaisadas: no se pasa del alto */
     
     /* Prevenir overflow horizontal */
     width: 100%;

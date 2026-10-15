@@ -1,0 +1,124 @@
+/* Modal "¿Dónde quieres aplicar este cambio?" (ScopeSelectionModal) */
+
+.admin-layout .scope-modal__overlay {
+	z-index: var(--z-admin-dialog, 14000);
+}
+
+.admin-layout .scope-modal {
+	max-width: 460px;
+}
+
+.admin-layout .scope-modal__body {
+	padding: 20px 24px 24px;
+}
+
+.admin-layout .scope-modal__intro {
+	text-align: center;
+	margin-bottom: 20px;
+}
+
+.admin-layout .scope-modal__badge {
+	display: grid;
+	place-items: center;
+	width: 56px;
+	height: 56px;
+	margin: 0 auto 12px;
+	border-radius: 50%;
+	background: #fff7ed;
+	color: #f59e0b;
+}
+
+.admin-layout .scope-modal__question {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 800;
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-layout .scope-modal__hint {
+	margin: 6px 0 0;
+	font-size: 14px;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-layout .scope-modal__options {
+	display: grid;
+	gap: 10px;
+}
+
+.admin-layout .scope-option {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	width: 100%;
+	padding: 14px 16px;
+	text-align: left;
+	font: inherit;
+	color: var(--admin-text, #0f172a);
+	background: var(--admin-card-bg, #fff);
+	border: 1px solid var(--admin-border, #e5e5ea);
+	border-radius: 14px;
+	cursor: pointer;
+	touch-action: manipulation;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.08s ease;
+}
+
+.admin-layout .scope-option:hover {
+	border-color: var(--accent-primary, #2563eb);
+	background: color-mix(in srgb, var(--accent-primary, #2563eb) 5%, #fff);
+}
+
+.admin-layout .scope-option:active {
+	transform: scale(0.985);
+}
+
+.admin-layout .scope-option:focus-visible {
+	outline: 2px solid var(--accent-primary, #2563eb);
+	outline-offset: 2px;
+}
+
+.admin-layout .scope-option__icon {
+	flex-shrink: 0;
+	display: grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	border-radius: 12px;
+}
+
+.admin-layout .scope-option__icon--local {
+	background: #eff6ff;
+	color: #2563eb;
+}
+
+.admin-layout .scope-option__icon--global {
+	background: #ecfdf5;
+	color: #059669;
+}
+
+.admin-layout .scope-option__text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.admin-layout .scope-option__title {
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.admin-layout .scope-option__desc {
+	font-size: 13px;
+	color: var(--admin-text-muted, #64748b);
+}
+
+/* En táctil no hay hover que se quede pegado */
+@media (hover: none) {
+	.admin-layout .scope-option:hover {
+		border-color: var(--admin-border, #e5e5ea);
+		background: var(--admin-card-bg, #fff);
+	}
+}

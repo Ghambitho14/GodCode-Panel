@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { createPortal } from "react-dom";
 import { Tag, Gift, Plus, Loader2, Pencil, Ban, CircleCheck, Search, RefreshCw, X, Trash2 } from "lucide-react";
 import { supabase, TABLES } from "@/integrations/supabase";
@@ -254,7 +255,7 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 
 	const deleteCoupon = async (row) => {
 		if (!row?.id) return;
-		if (!window.confirm(`¿Estás seguro de que deseas eliminar el cupón "${row.code}"?`)) return;
+		if (!(await confirmDialog({ title: `¿Eliminar el cupón "${row.code}"?`, text: 'Esta acción no se puede deshacer.', confirmLabel: 'Eliminar', danger: true }))) return;
 		setSaving(true);
 		try {
 			const { error } = await supabase
@@ -403,6 +404,8 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 										disabled={saving}
 										value={draft.code}
 										placeholder="EJEMPLO15"
+										autoCapitalize="characters"
+										autoCorrect="off"
 										onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
 									/>
 								</div>
@@ -430,7 +433,7 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 									</label>
 									<input
 										id="coupon-value"
-										type="number"
+										type="number" inputMode="decimal"
 										min="0"
 										step="1"
 										disabled={saving}
@@ -513,7 +516,7 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 									<label htmlFor="coupon-min">Mínimo del pedido</label>
 									<input
 										id="coupon-min"
-										type="number"
+										type="number" inputMode="decimal"
 										min="0"
 										disabled={saving}
 										value={draft.min_order_subtotal}
@@ -529,7 +532,7 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 									<label htmlFor="coupon-max-client">Usos por cliente</label>
 									<input
 										id="coupon-max-client"
-										type="number"
+										type="number" inputMode="decimal"
 										min="1"
 										disabled={saving}
 										value={draft.max_redemptions_per_client}
@@ -545,7 +548,7 @@ function CouponsView({ showNotify, companyId, clients = [] }) {
 									<label htmlFor="coupon-max-total">Usos totales</label>
 									<input
 										id="coupon-max-total"
-										type="number"
+										type="number" inputMode="decimal"
 										min="1"
 										disabled={saving}
 										placeholder="Sin límite"

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
+import { confirmDialog } from '../admin/utils/confirmDialog';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { createMoneyFormatter } from '@/shared/utils/money';
@@ -202,8 +204,15 @@ const ManualOrderModal = ({
 			setClosePromptOpen(false);
 			setCloseAction(null);
 			if (!isEditMode && restoreOrder && draftIdentity.companyId && draftIdentity.branchId && !pendingSeatReservation) {
-				void loadManualOrderDraft(draftIdentity).then((saved) => {
-					if (!saved?.draft || !window.confirm('Encontramos un borrador de pedido de las últimas 24 horas. ¿Quieres restaurarlo?')) return;
+				void loadManualOrderDraft(draftIdentity).then(async (saved) => {
+					if (!saved?.draft) return;
+					const restore = await confirmDialog({
+						title: 'Encontramos un borrador',
+						text: 'Hay un pedido sin terminar de las últimas 24 horas. ¿Quieres restaurarlo?',
+						confirmLabel: 'Restaurar',
+						cancelLabel: 'Empezar de cero',
+					});
+					if (!restore) return;
 					restoreOrder(saved.draft);
 					restoreReceipt?.(saved.receiptBlob);
 					showNotify?.('Borrador restaurado. Los precios se validarán de nuevo.', 'info');
@@ -512,10 +521,13 @@ const ManualOrderModal = ({
 			status === 'completed' ? 'Listo' :
 			status === 'picked_up' ? 'Entregado' :
 			status;
-		const refundWarning = '\n\nSi el pedido tiene venta registrada en caja, se aplicará una devolución automática.';
-		const ok = typeof window !== 'undefined'
-			? window.confirm(`Cancelar pedido #${editOrder.id} (estado: ${stageLabel})?${refundWarning}`)
-			: true;
+		const ok = await confirmDialog({
+			title: `¿Cancelar el pedido #${editOrder.id}?`,
+			text: `Estado actual: ${stageLabel}.\n\nSi el pedido tiene venta registrada en caja, se aplicará una devolución automática.`,
+			confirmLabel: 'Cancelar pedido',
+			cancelLabel: 'Volver',
+			danger: true,
+		});
 		if (!ok) return;
 		try {
 			await moveOrder(editOrder.id, 'cancelled');
@@ -524,6 +536,9 @@ const ManualOrderModal = ({
 			// moveOrder ya notifica errores
 		}
 	};
+
+	// El gesto "atrás" del teléfono cierra el pedido manual (pregunta si hay cambios)
+	useHistoryBack(Boolean(isOpen), requestClose);
 
 	if (!isOpen) return null;
 

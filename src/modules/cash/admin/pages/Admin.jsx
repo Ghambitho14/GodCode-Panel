@@ -12,6 +12,7 @@ import TenantTicketsPanel from '../../components/TenantTicketsPanel';
 import AdminErrorBoundary from '../../components/AdminErrorBoundary';
 import AdminCommandPalette from '../../components/AdminCommandPalette';
 import AdminShortcutsModal from '../../components/AdminShortcutsModal';
+import { AdminConfirmDialog, AdminConfirmDialogHost } from '../../components/AdminConfirmDialog';
 import AdminTabFallback from '../../components/AdminTabFallback';
 import AdminBroadcastsBanner from '../../components/AdminBroadcastsBanner';
 import AdminMenuChannelBanner from '../../components/AdminMenuChannelBanner';
@@ -181,6 +182,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
     return maxOrder + 1;
   }, [categories]);
 
+  const productToDeleteName = React.useMemo(
+    () => (productToDelete ? products.find((p) => String(p.id) === String(productToDelete))?.name : null) || null,
+    [products, productToDelete],
+  );
+
   const companyIdForClients = React.useMemo(() => {
     if (selectedBranch && selectedBranch.id !== 'all' && selectedBranch.company_id) {
       return selectedBranch.company_id;
@@ -264,7 +270,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
     ];
     if (activeTab === 'inventory' && canAccessTab('inventory')) {
       base.push(
-        { keys: '1 · 2 · 3 · 4', description: 'Resumen, Artículos, Movimientos, Recetas / Consumo', group: 'Inventario' },
+        { keys: '1 · 2 · 3', description: 'Artículos, Recetas, Movimientos', group: 'Inventario' },
       );
     }
     return base;
@@ -360,29 +366,25 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
         )}
 
       <div className="admin-layout">
-        {productToDelete && (
-        <div className="admin-modal-overlay" onClick={() => setProductToDelete(null)}>
-          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
-            <p>¿Eliminar producto?</p>
-            <div className="admin-confirm-modal__actions">
-              <Button variant="secondary" type="button" className="admin-btn secondary" onClick={() => setProductToDelete(null)}>Cancelar</Button>
-              <Button variant="destructive" type="button" className="admin-btn danger" onClick={confirmDeleteProduct}>Eliminar</Button>
-            </div>
-          </div>
-        </div>
-      )}
+        <AdminConfirmDialog
+          open={Boolean(productToDelete)}
+          title={productToDeleteName ? `¿Eliminar "${productToDeleteName}"?` : '¿Eliminar este producto?'}
+          text="Esta acción no se puede deshacer."
+          confirmLabel="Eliminar"
+          danger
+          onCancel={() => setProductToDelete(null)}
+          onConfirm={confirmDeleteProduct}
+        />
 
-      {categoryToDelete && (
-        <div className="admin-modal-overlay" onClick={() => setCategoryToDelete(null)}>
-          <div className="admin-confirm-modal" onClick={e => e.stopPropagation()}>
-            <p>¿Eliminar categoría &quot;{categoryToDelete.name}&quot;? Los productos quedarán sin categoría.</p>
-            <div className="admin-confirm-modal__actions">
-              <Button variant="secondary" type="button" className="admin-btn secondary" onClick={() => setCategoryToDelete(null)}>Cancelar</Button>
-              <Button variant="destructive" type="button" className="admin-btn danger" onClick={confirmDeleteCategory}>Eliminar</Button>
-            </div>
-          </div>
-        </div>
-      )}
+        <AdminConfirmDialog
+          open={Boolean(categoryToDelete)}
+          title={`¿Eliminar la categoría "${categoryToDelete?.name ?? ''}"?`}
+          text="Los productos quedarán sin categoría."
+          confirmLabel="Eliminar"
+          danger
+          onCancel={() => setCategoryToDelete(null)}
+          onConfirm={confirmDeleteCategory}
+        />
 
       <AdminSidebar
         activeTab={activeTab}
@@ -800,6 +802,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
           ready={!loading && branches.length > 0 && hasAccessibleTab}
           account={getCurrentUser()?.id || userEmail || initialEmail}
         />
+        <AdminConfirmDialogHost />
       </main>
 
       {/* PANEL CLIENTE LATERAL (MODULARIZADO) */}

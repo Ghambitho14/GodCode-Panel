@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { X, Loader2, Image as ImageIcon, Upload, Calendar, DollarSign, Package, TrendingUp, Clock, Eye } from 'lucide-react';
 import { getOrderPaymentDisplayLabel, isOnlineOrder } from '@/shared/utils/orderUtils';
 import { useOrderMoney } from '@/modules/cash/hooks/useOrderMoney';
@@ -17,6 +18,7 @@ const ClientDetailsPanel = ({
     orderDetailOpen = false,
     formCountry = 'CL',
 }) => {
+    useHistoryBack(Boolean(selectedClient), () => setSelectedClient?.(null));
     const { formatMoney, formatOrderAmount } = useOrderMoney();
     const { locale } = useBranchMoney();
 

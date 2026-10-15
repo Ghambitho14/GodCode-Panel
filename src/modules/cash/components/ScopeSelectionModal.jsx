@@ -1,76 +1,79 @@
-import React from 'react';
+import React, { useEffect, useId } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { X, Globe, MapPin, AlertTriangle } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
+import '../styles/ScopeSelectionModal.css';
 
+/**
+ * Al activar o desactivar un producto: ¿solo en esta sucursal o en todas?
+ * Esc y clic fuera cierran sin aplicar nada.
+ */
 const ScopeSelectionModal = ({ isOpen, onClose, onConfirm, branchName, actionType = 'change' }) => {
+  const titleId = useId();
+  useLockBodyScroll(Boolean(isOpen));
+  useHistoryBack(Boolean(isOpen), onClose);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
+  const verb = actionType === 'activate' ? 'activar' : 'desactivar';
+  const canPickLocal = branchName !== 'Todas las sucursales';
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1200 }}>
-      <div className="modal-content glass animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
+    <div className="modal-overlay scope-modal__overlay" onClick={onClose}>
+      <div
+        className="modal-content glass animate-scale-in scope-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h3 className="fw-700">Confirmar cambio</h3>
-          <Button variant="default" onClick={onClose} className="btn-close"><X size={24} /></Button>
+          <button type="button" className="btn-close" onClick={onClose} aria-label="Cerrar">
+            <X size={22} aria-hidden />
+          </button>
         </div>
-        
-        <div className="modal-body" style={{ padding: '20px 0' }}>
-          <div style={{ textAlign: 'center', marginBottom: 25 }}>
-            <div style={{ 
-              width: 60, height: 60, borderRadius: '50%', background: 'rgba(244, 162, 97, 0.1)', 
-              color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' 
-            }}>
-              <AlertTriangle size={32} />
-            </div>
-            <h4 style={{ fontSize: '1.1rem', marginBottom: 8 }}>¿Dónde quieres aplicar este cambio?</h4>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              Estás a punto de <b>{actionType === 'activate' ? 'activar' : 'desactivar'}</b> un elemento.
+
+        <div className="modal-body scope-modal__body">
+          <div className="scope-modal__intro">
+            <span className="scope-modal__badge" aria-hidden>
+              <AlertTriangle size={26} strokeWidth={1.75} />
+            </span>
+            <h4 id={titleId} className="scope-modal__question">¿Dónde quieres aplicar este cambio?</h4>
+            <p className="scope-modal__hint">
+              Estás a punto de <strong>{verb}</strong> un elemento.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gap: 12 }}>
-            {/* Opción Local */}
-            {branchName !== 'Todas las sucursales' && (
-              <Button variant="default" 
-                className="btn-scope-option"
-                onClick={() => onConfirm('local')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 15, padding: 15,
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-              >
-                <div style={{ background: 'rgba(59, 130, 246, 0.2)', padding: 10, borderRadius: 8, color: '#60a5fa' }}>
+          <div className="scope-modal__options">
+            {canPickLocal && (
+              <button type="button" className="scope-option" onClick={() => onConfirm('local')} autoFocus>
+                <span className="scope-option__icon scope-option__icon--local" aria-hidden>
                   <MapPin size={20} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Solo en {branchName}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No afectará a otros locales</div>
-                </div>
-              </Button>
+                </span>
+                <span className="scope-option__text">
+                  <span className="scope-option__title">Solo en {branchName}</span>
+                  <span className="scope-option__desc">No afectará a otros locales</span>
+                </span>
+              </button>
             )}
-
-            {/* Opción Global */}
-            <Button variant="default" 
-              className="btn-scope-option"
-              onClick={() => onConfirm('global')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 15, padding: 15,
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-            >
-              <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: 10, borderRadius: 8, color: '#34d399' }}>
+            <button type="button" className="scope-option" onClick={() => onConfirm('global')} autoFocus={!canPickLocal}>
+              <span className="scope-option__icon scope-option__icon--global" aria-hidden>
                 <Globe size={20} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>En todos los locales</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Se aplicará a toda la cadena</div>
-              </div>
-            </Button>
+              </span>
+              <span className="scope-option__text">
+                <span className="scope-option__title">En todos los locales</span>
+                <span className="scope-option__desc">Se aplicará a toda la cadena</span>
+              </span>
+            </button>
           </div>
         </div>
       </div>

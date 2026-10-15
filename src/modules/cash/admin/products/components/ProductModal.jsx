@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
+import { alertDialog, confirmDialog } from '../../utils/confirmDialog';
 import { X, Save, Image as ImageIcon, Loader2, Trash2, Star, Tag, Ruler } from 'lucide-react';
 import '../../../styles/AdminMenuCarousel.css';
 import { Button } from "@/components/ui/button";
@@ -259,16 +261,18 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
     [inventoryItems],
   );
 
-  const handleSafeClose = useCallback(() => {
+  const handleSafeClose = useCallback(async () => {
     if (busy) return;
     if (isDirty) {
-      if (window.confirm('Tienes cambios sin guardar. ¿Seguro quieres cerrar?')) {
+      if (await confirmDialog({ title: 'Tienes cambios sin guardar', text: '¿Seguro que quieres cerrar? Los cambios se perderán.', confirmLabel: 'Cerrar sin guardar', cancelLabel: 'Seguir editando', danger: true })) {
         onClose();
       }
     } else {
       onClose();
     }
   }, [isDirty, busy, onClose]);
+
+  useHistoryBack(true, handleSafeClose);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -282,7 +286,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
   const processFile = (file) => {
     if (file && file.type.startsWith('image/')) {
       if (file.size > 20 * 1024 * 1024) {
-        alert('La imagen es muy pesada (Máx 20MB)');
+        void alertDialog({ title: 'La imagen es muy pesada', text: 'El máximo es 20 MB. Elige una imagen más liviana.' });
         return;
       }
       setLocalFile(file);
@@ -306,9 +310,9 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
     }
   };
 
-  const clearImage = (e) => {
+  const clearImage = async (e) => {
     e.stopPropagation();
-    if (window.confirm('¿Eliminar la imagen actual?')) {
+    if (await confirmDialog({ title: '¿Eliminar la imagen actual?', confirmLabel: 'Eliminar imagen', danger: true })) {
       setLocalFile(null);
       setPreviewUrl('');
       setFormData((prev) => ({ ...prev, image_url: '' }));

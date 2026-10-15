@@ -552,7 +552,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</label>
 								<input
 									id="adm-del-minfee"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -569,7 +569,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</label>
 								<input
 									id="adm-del-maxfee"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -586,7 +586,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</label>
 								<input
 									id="adm-del-maxkm"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -603,7 +603,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</label>
 								<input
 									id="adm-del-free"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -622,7 +622,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 								</label>
 								<input
 									id="adm-del-minorder"
-									type="number"
+									type="number" inputMode="decimal"
 									min={0}
 									step="any"
 									className="form-input"
@@ -723,7 +723,7 @@ export default function AdminMenuDeliverySection({ showNotify, selectedBranch, o
 						<label className="admin-menu-options-field admin-delivery-ve-exchange__field">
 							<span className="admin-menu-options-field-label">Tasa manual</span>
 							<input
-								type="number"
+								type="number" inputMode="decimal"
 								min="0"
 								step="0.001"
 								className="form-input"

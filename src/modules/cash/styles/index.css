@@ -95,7 +95,7 @@ html, body, #app {
 .page-wrapper {
   padding-top: 20px;
   padding-bottom: 100px;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-wrapper {

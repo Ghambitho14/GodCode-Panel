@@ -16,6 +16,7 @@ import {
 	type RefObject,
 	type SetStateAction,
 } from "react";
+import { confirmDialog } from "@/modules/cash/admin/utils/confirmDialog";
 import {
 	AlignCenter,
 	AlignLeft,
@@ -894,8 +895,8 @@ export default function HojaCalculo({
 		resetSelection();
 	};
 
-	const deleteSheet = (id: string, name: string) => {
-		if (!window.confirm(`¿Borrar la hoja «${name}» y todo lo que tiene?`)) return;
+	const deleteSheet = async (id: string, name: string) => {
+		if (!(await confirmDialog({ title: `¿Borrar la hoja «${name}»?`, text: "Se borrará todo lo que tiene.", confirmLabel: "Borrar hoja", danger: true }))) return;
 		setEditing(null);
 		change((b) => removeSheet(b, id));
 		resetSelection();

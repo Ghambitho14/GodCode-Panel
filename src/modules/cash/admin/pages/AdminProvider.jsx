@@ -204,6 +204,18 @@ const normalizePanelAccess = (raw) => {
 	return cleanTabs;
 };
 
+/** La pestaña que viene en el hash de la URL (#caja), o null. */
+function readTabFromHash() {
+	if (typeof window === 'undefined') return null;
+	const raw = window.location.hash.replace(/^#/, '');
+	if (!raw) return null;
+	try {
+		return normalizeStoredNavTabId(decodeURIComponent(raw));
+	} catch {
+		return null;
+	}
+}
+
 export const AdminContext = createContext(null);
 
 export const useAdmin = () => {
@@ -255,6 +267,7 @@ export const AdminProvider = ({
 	const navigate = useCallback((path) => navigateFn(getAppScopedPath(pathname || '/', path)), [pathname, navigateFn]);
 
 	const [activeTab, setActiveTab] = useState('orders');
+	const hashSyncedRef = useRef(false);
 	const [products, setProducts] = useState([]);
 	const [categories, setCategories] = useState([]);
 	const [orders, setOrders] = useState([]);
@@ -423,7 +436,8 @@ export const AdminProvider = ({
 		if (sessionRestoredRef.current) return;
 		if (branches.length === 0) return;
 		try {
-			const storedTab = localStorage.getItem(`godcode-panel:${companyId}:activeTab`);
+			// La pestaña del enlace (#caja) manda sobre la última guardada
+			const storedTab = readTabFromHash() || localStorage.getItem(`godcode-panel:${companyId}:activeTab`);
 			if (storedTab && canAccessTab(storedTab)) {
 				setActiveTab(storedTab);
 			}
@@ -452,6 +466,33 @@ export const AdminProvider = ({
 			/* ignore */
 		}
 	}, [activeTab, companyId, userRole]);
+
+	// La pestaña va en el hash de la URL (#caja): el gesto "atrás" del teléfono
+	// vuelve a la pestaña anterior y el enlace se puede compartir.
+	useEffect(() => {
+		if (!userRole || typeof window === 'undefined') return;
+		// Hasta restaurar la pestaña guardada no se toca el historial (si no, quedaba una entrada de más)
+		if (!sessionRestoredRef.current) return;
+		if (readTabFromHash() === activeTab) return;
+		const url = `${window.location.pathname}${window.location.search}#${encodeURIComponent(activeTab)}`;
+		try {
+			if (hashSyncedRef.current) window.history.pushState(window.history.state, '', url);
+			else window.history.replaceState(window.history.state, '', url);
+		} catch {
+			/* ignore */
+		}
+		hashSyncedRef.current = true;
+	}, [activeTab, userRole]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return undefined;
+		const onPop = () => {
+			const tab = readTabFromHash();
+			if (tab && tab !== activeTab && canAccessTab(tab)) setActiveTab(tab);
+		};
+		window.addEventListener('popstate', onPop);
+		return () => window.removeEventListener('popstate', onPop);
+	}, [activeTab, canAccessTab]);
 
 	useEffect(() => {
 		const mq = window.matchMedia(ADMIN_SHELL_COMPACT_MQ);
