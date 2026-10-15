@@ -492,7 +492,7 @@ const NetResultCard = memo(({ net, prevNet, hasComparison, comparisonLabel, tren
         }
     }
     return (
-        <Card className="p-5 sm:p-6">
+        <Card className="p-5 sm:p-6" data-tour="reportes-utilidad">
             <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
                 <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Utilidad neta · {periodLabel}</p>
@@ -1437,7 +1437,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             : 'area';
 
     const reportPeriodHeader = (
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <header data-tour="reportes-periodo" className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h2 className="text-base font-bold tracking-tight text-[#1a1a1a] sm:text-lg">Resumen</h2>
                 <p className="text-xs font-medium text-[var(--admin-text-muted,#64748b)] sm:text-sm">
@@ -1560,7 +1560,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                     ) : null}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2" data-tour="gastos-movimientos">
                     <div className="flex items-baseline justify-between gap-3">
                         <h4 className="text-sm font-bold text-[#1a1a1a]">Movimientos recientes</h4>
                         <span className="text-xs font-semibold text-[var(--admin-text-muted,#64748b)]">Últimos 80</span>
@@ -1644,7 +1644,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
     );
 
     const monthlyExportBlock = (
-        <Card>
+        <Card data-tour="gastos-mensual">
             <CardHeader>
                 <CardTitle as="h2" className="text-lg">Descargar Reporte Mensual</CardTitle>
                 <CardDescription>{MONTHLY_EXPORT_DISCLAIMER}</CardDescription>
@@ -1748,7 +1748,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
             />
 
             {/* 3 columnas en xl (antes 4 -> fila huérfana de 2 tarjetas) */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+            <div data-tour="reportes-kpis" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 {KPI_META.map((meta) => {
                     const value = meta.key === 'clients' ? newClientsInfo.count : meta.key === 'expenses' ? expensesData.total : kpis[meta.key];
                     const trendKey = meta.key === 'clients' ? null : resolveKpiTrendKey(meta.key);
@@ -1781,7 +1781,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
 
             <div className="grid min-w-0 items-start gap-5 md:grid-cols-1 lg:grid-cols-[1fr_minmax(280px,320px)] xl:grid-cols-[1fr_minmax(300px,380px)]">
                 <div className="flex min-w-0 flex-col gap-5">
-                    <Card className="flex h-fit min-w-0 flex-col">
+                    <Card className="flex h-fit min-w-0 flex-col" data-tour="reportes-ventas">
                         <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                             <CardTitle as="h2" className="shrink-0 text-base font-semibold text-[#14161a]">{salesChartTitle}</CardTitle>
                             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
@@ -1883,7 +1883,7 @@ const AdminAnalytics = ({ orders, clients, branches, showNotify, companyId, sele
                         </Card>
                     )}
 
-                    <Card>
+                    <Card data-tour="reportes-top">
                         <CardHeader className="pb-2">
                             <CardTitle as="h2" className="flex items-center gap-2 text-base font-semibold text-[#14161a]">
                                 <Package size={20} className="text-[var(--admin-accent,#2563eb)]" />

@@ -54,7 +54,7 @@ export default function LocalExpensesToolbar({
 	return (
 		/* El titulo de la pestana ya lo pone la cabecera del panel: repetirlo aqui
 		   con su icono solo robaba una fila entera a los filtros. */
-		<div className="flex flex-col gap-3 2xl:flex-row 2xl:flex-wrap 2xl:items-end 2xl:gap-4">
+		<div data-tour="gastos-filtros" className="flex flex-col gap-3 2xl:flex-row 2xl:flex-wrap 2xl:items-end 2xl:gap-4">
 			<div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end 2xl:min-w-0 2xl:flex-1">
 				<FilterField label="Período">
 					<div className="flex flex-wrap items-center gap-2">
@@ -115,7 +115,7 @@ export default function LocalExpensesToolbar({
 
 			<ToolbarDivider />
 
-			<div className="mb-0.5 flex w-full items-center gap-2 2xl:ml-auto 2xl:w-auto 2xl:flex-wrap">
+			<div data-tour="gastos-registrar" className="mb-0.5 flex w-full items-center gap-2 2xl:ml-auto 2xl:w-auto 2xl:flex-wrap">
 				<Button
 					variant="default"
 					type="button"

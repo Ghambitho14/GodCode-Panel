@@ -19,6 +19,7 @@ import AdminTopBar from '../../components/AdminTopBar';
 import AdminNotificationCenter from '../../components/AdminNotificationCenter';
 import AdminBranchSelector from '../../components/AdminBranchSelector';
 import AdminHeaderClock from '../../components/AdminHeaderClock';
+import { AdminTour, AdminGuideButton } from '../../components/AdminTour';
 import OrderIntakePauseControl from '../../components/OrderIntakePauseControl';
 import OrderNotificationSoundControl from '../../components/OrderNotificationSoundControl';
 import PaymentReceiptPanel from '../../components/PaymentReceiptPanel';
@@ -48,7 +49,7 @@ const ManualOrderModal = React.lazy(() => import('../../components/ManualOrderMo
 const ProductModal = React.lazy(() => import('../products/components/ProductModal'));
 const CategoryModal = React.lazy(() => import('../products/components/CategoryModal'));
 const ClientDetailsPanel = React.lazy(() => import('../../components/ClientDetailsPanel'));
-import {  } from '@/integrations/supabase';
+import { getCurrentUser } from '@/integrations/supabase';
 import { useAdmin } from './AdminProvider';
 import { Toaster } from 'sileo';
 import 'sileo/styles.css';
@@ -427,6 +428,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
                 canAccessProducts={canAccessTab('products')}
               />
               <OrderNotificationSoundControl />
+              {hasAccessibleTab ? <AdminGuideButton activeTab={activeTab} /> : null}
               {adminShortcutsEnabled ? (
                 <Button variant="default"
                   type="button"
@@ -792,6 +794,11 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
           open={shortcutsHelpOpen}
           onClose={() => setShortcutsHelpOpen(false)}
           rows={shortcutRows}
+        />
+        <AdminTour
+          activeTab={activeTab}
+          ready={!loading && branches.length > 0 && hasAccessibleTab}
+          account={getCurrentUser()?.id || userEmail || initialEmail}
         />
       </main>
 

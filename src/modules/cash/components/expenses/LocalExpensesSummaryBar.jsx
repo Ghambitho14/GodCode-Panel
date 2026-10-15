@@ -47,7 +47,7 @@ export default function LocalExpensesSummaryBar({
 	const fmt = typeof formatMoney === 'function' ? formatMoney : (n) => String(n);
 
 	return (
-		<div className="rounded-2xl border border-[#ededf0] bg-[#f5f5f7] px-3 py-3 sm:px-4 sm:py-4">
+		<div data-tour="gastos-resumen" className="rounded-2xl border border-[#ededf0] bg-[#f5f5f7] px-3 py-3 sm:px-4 sm:py-4">
 			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
 				<SummaryStat label="Total período" value={fmt(total)} />
 				<SummaryStat

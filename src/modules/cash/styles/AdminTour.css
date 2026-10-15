@@ -1,0 +1,214 @@
+/**
+ * Guía por pestaña (AdminTour): sombra con un hueco sobre lo que se explica y
+ * una tarjeta con el paso. Va sobre la barra inferior del teléfono (z-index
+ * 1000) y los modales del panel (2000), bajo los menús en portal (13000).
+ */
+
+.admin-tour {
+	position: fixed;
+	inset: 0;
+	z-index: 12000;
+}
+
+.admin-tour__spot {
+	position: absolute;
+	border-radius: 16px;
+	pointer-events: none;
+	box-shadow:
+		0 0 0 200vmax rgba(15, 23, 42, 0.72),
+		0 0 0 3px var(--accent-primary, #4f5bff);
+	transition:
+		top 0.3s ease-out,
+		left 0.3s ease-out,
+		width 0.3s ease-out,
+		height 0.3s ease-out;
+}
+
+/* Paso sin elemento: toda la pantalla en sombra */
+.admin-tour__spot--none {
+	top: 50%;
+	left: 50%;
+	width: 0;
+	height: 0;
+	box-shadow: 0 0 0 200vmax rgba(15, 23, 42, 0.72);
+}
+
+.admin-tour__backdrop {
+	position: absolute;
+	inset: 0;
+}
+
+.admin-tour__card {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 18px;
+	border-radius: 20px;
+	background: var(--admin-card-bg, #fff);
+	color: var(--admin-text, #0f172a);
+	border: 1px solid var(--admin-border, #e2e8f0);
+	box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+	animation: admin-tour-pop 0.22s ease-out;
+}
+
+.admin-tour__head {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.admin-tour__avatar {
+	flex-shrink: 0;
+	width: 44px;
+	height: 44px;
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+.admin-tour__avatar img {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.admin-tour__text {
+	flex: 1;
+	min-width: 0;
+}
+
+.admin-tour__title {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 800;
+	line-height: 1.3;
+}
+
+.admin-tour__body {
+	margin: 4px 0 0;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-tour__close {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: 32px;
+	height: 32px;
+	margin: -4px -4px 0 0;
+	padding: 0;
+	border: none;
+	border-radius: 10px;
+	background: none;
+	color: var(--admin-text-muted, #64748b);
+	cursor: pointer;
+}
+
+.admin-tour__close:hover {
+	background: var(--admin-icon-bg, #f1f5f9);
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-tour__close:focus-visible {
+	outline: 2px solid var(--accent-primary, #4f5bff);
+	outline-offset: 2px;
+}
+
+.admin-tour__foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.admin-tour__dots {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	min-width: 0;
+}
+
+.admin-tour__dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: var(--admin-border, #e2e8f0);
+	transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.admin-tour__dot.is-active {
+	width: 20px;
+	background: var(--accent-primary, #4f5bff);
+}
+
+.admin-tour__actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.admin-tour__back,
+.admin-tour__next {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 40px;
+	border: none;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: 700;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.admin-tour__back {
+	padding: 0 12px;
+	background: none;
+	color: var(--admin-text-muted, #64748b);
+}
+
+.admin-tour__back:hover {
+	color: var(--admin-text, #0f172a);
+}
+
+.admin-tour__next {
+	padding: 0 20px;
+	background: var(--accent-primary, #4f5bff);
+	color: #fff;
+}
+
+.admin-tour__next:hover {
+	background: color-mix(in srgb, var(--accent-primary, #4f5bff) 86%, #000);
+}
+
+.admin-tour__back:focus-visible,
+.admin-tour__next:focus-visible {
+	outline: 3px solid color-mix(in srgb, var(--accent-primary, #4f5bff) 30%, transparent);
+	outline-offset: 1px;
+}
+
+@keyframes admin-tour-pop {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.admin-tour__spot,
+	.admin-tour__dot {
+		transition: none;
+	}
+
+	.admin-tour__card {
+		animation: none;
+	}
+}
