@@ -22,6 +22,7 @@ import { flattenDeliveryAddress, isOrderDelivery, isLocalOpenSessionOrder, resol
 import { ordersService } from '../admin/orders/services/orders';
 import { manualOrderV2Service } from '../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
+import { reprintKitchenTicketAfterEdit } from '../admin/printing/kitchenReprint';
 import { normalizeManualOrderSettings } from '../domain/manual-order-settings';
 import { queuePaymentEvidence, uploadQueuedPaymentEvidence } from '../services/paymentEvidenceOutbox';
 import { supabase, TABLES } from '@/integrations/supabase';
@@ -33,6 +34,7 @@ import {
 	buildCartLineFields,
 	buildOrderItemLineIds,
 	getLineProductId,
+	hasPaidChangeLines,
 	hasSizeOrVariantLines,
 } from './manual-order/cartLines';
 import { deliveryFieldsFromClientRecord, maybeSaveClientDefaultDeliveryAddress } from '../services/clientService';
@@ -80,6 +82,30 @@ function buildV3DeliveryPatch(form, branchDeliveryCfg, fulfillment) {
 	return {
 		...base,
 		fee: Number(form.delivery_fee) || 0,
+	};
+}
+
+/** Línea del carrito tal como va a la RPC al guardar (y como se compara para saber si cambió). */
+function toOrderItemPayload(item) {
+	return {
+		...item,
+		// A la RPC va el producto; el tamaño viaja en `size_id` (ya en `...item`).
+		id: getLineProductId(item),
+		line_id: item.line_id ?? item.lineId ?? null,
+		name: String(item.name ?? ''),
+		quantity: Number(item.quantity) || 1,
+		price: Number(item.price) || 0,
+		has_discount: Boolean(item.has_discount),
+		discount_price:
+			item.has_discount && item.discount_price != null
+				? Number(item.discount_price)
+				: null,
+		description: item.description ? String(item.description) : null,
+		// Persistimos `note` en el items jsonb. Lo lee SOLO el ticket
+		// de cocina; el resync de inventario no lo usa.
+		note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
+		manual_order_source: item.manual_order_source || null,
+		is_extra: Boolean(item.is_extra),
 	};
 }
 
@@ -301,8 +327,10 @@ export const useOrderEdit = (
 	const [receiptFile, setReceiptFile] = useState(null);
 	const [receiptPreview, setReceiptPreview] = useState(null);
 
+	// Misma forma que se manda a guardar: si no, el id de línea contra el de producto
+	// (o la nota '' contra null) hacía que «cambiaron los productos» fuera siempre verdad.
 	const initialItemsSnapshot = useMemo(
-		() => JSON.stringify(initialState.items),
+		() => JSON.stringify((initialState.items || []).map(toOrderItemPayload)),
 		[initialState],
 	);
 
@@ -785,26 +813,7 @@ export const useOrderEdit = (
 					),
 				)
 				: sanitizeManualOrderInput(manualOrder.client_name);
-			const itemsForOrder = (manualOrder.items || []).map((item) => ({
-				...item,
-				// A la RPC va el producto; el tamaño viaja en `size_id` (ya en `...item`).
-				id: getLineProductId(item),
-				line_id: item.line_id ?? item.lineId ?? null,
-				name: String(item.name ?? ''),
-				quantity: Number(item.quantity) || 1,
-				price: Number(item.price) || 0,
-				has_discount: Boolean(item.has_discount),
-				discount_price:
-					item.has_discount && item.discount_price != null
-						? Number(item.discount_price)
-						: null,
-				description: item.description ? String(item.description) : null,
-				// Persistimos `note` en el items jsonb. Lo lee SOLO el ticket
-				// de cocina; el resync de inventario no lo usa.
-				note: item.note ? sanitizeManualOrderInput(String(item.note)).slice(0, 140) : null,
-				manual_order_source: item.manual_order_source || null,
-				is_extra: Boolean(item.is_extra),
-			}));
+			const itemsForOrder = (manualOrder.items || []).map(toOrderItemPayload);
 
 			const deliveryFeeAmt =
 				manualOrder.order_type === 'delivery' ? (Number(manualOrder.delivery_fee) || 0) : 0;
@@ -878,10 +887,11 @@ export const useOrderEdit = (
 			if (useLifecycleV3) {
 				const previousTotalMinor = Number(initialOrder.total_minor ?? majorToMinor(initialOrder.total, currency, fractionDigits));
 				let expectedTotalMinor = checkoutMinor;
-				// La cotización V2 no tiene verificados tamaños ni variantes: con esas líneas
-				// vale el total local (ya usa el precio de cada línea) y `update_order_v3`
-				// lo revalida con `validate_and_normalize_order_items`.
-				if (branch?.id && !hasSizeOrVariantLines(itemsForOrder)) {
+				// La cotización V2 no tiene verificados tamaños ni variantes, y no suma los
+				// cambios cobrados de cada línea: con esas líneas vale el total local (ya usa
+				// el precio y los cambios de cada línea) y `update_order_v3` lo revalida con
+				// `validate_and_normalize_order_items`.
+				if (branch?.id && !hasSizeOrVariantLines(itemsForOrder) && !hasPaidChangeLines(itemsForOrder)) {
 					try {
 						const quote = await manualOrderV2Service.quote({
 							branchId: branch.id,
@@ -930,17 +940,22 @@ export const useOrderEdit = (
 				updated = await ordersService.updateOrder(initialOrder.id, sanitizedPatch, {
 				itemsChanged,
 				prevTotal: Number(initialOrder.total) || 0,
-				prevStatus: String(initialOrder.status ?? ''),
 				prevCouponCode: initialOrder.coupon_code,
 				companyId: branch.company_id,
 				branchSettings: branchDeliveryCfg,
-				branchName: branch.name,
-				branch,
-				logoUrl: null,
 				showNotify,
 				callerRole: userRole,
 				});
 			}
+
+			// Los dos caminos de edición: si el pedido está en cocina y cambió el tipo o
+			// los productos, la cocina recibe otra comanda marcada «MODIFICADO».
+			await reprintKitchenTicketAfterEdit({
+				previousOrder: initialOrder,
+				updatedOrder: updated,
+				itemsChanged,
+				branch,
+			});
 
 			let evidencePending = false;
 			if (receiptFile) {

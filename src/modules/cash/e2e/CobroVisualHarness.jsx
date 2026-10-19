@@ -149,7 +149,7 @@ export default function CobroVisualHarness() {
 	};
 
 	return (
-		<AdminContext.Provider value={{ companyProfile, userRole: 'owner', branchExchangeRate: null }}>
+		<AdminContext.Provider value={{ companyProfile, userRole: 'ceo', branchExchangeRate: null }}>
 			<LocationContext.Provider value={{ selectedBranch: scenario.branch }}>
 				<OrderMoneyContext.Provider value={money}>
 					<main data-testid="cobro-visual-harness" style={{ minHeight: '100dvh', padding: 24, background: '#eef1f6', fontFamily: 'var(--font-sans)' }}>

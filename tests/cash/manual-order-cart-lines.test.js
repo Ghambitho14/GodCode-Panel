@@ -10,6 +10,7 @@ import {
 	cartHasSizedLines,
 	countProductInCart,
 	getLineProductId,
+	hasPaidChangeLines,
 	hasSizeOrVariantLines,
 	minProductSizePrice,
 	productHasSizes,
@@ -128,6 +129,10 @@ describe('líneas de un pedido guardado (edición)', () => {
 		expect(cartHasSizedLines([{ id: 'a' }])).toBe(false);
 		expect(hasSizeOrVariantLines([{ id: 'a', variant_ids: ['v'] }])).toBe(true);
 		expect(hasSizeOrVariantLines([{ id: 'a', variant_ids: [] }])).toBe(false);
+		expect(hasPaidChangeLines([{ id: 'a', extras: [{ name: 'Cambiar proteína', price: 1000, quantity: 1 }] }])).toBe(true);
+		expect(hasPaidChangeLines([{ id: 'a', extras_total: 1000 }])).toBe(true);
+		expect(hasPaidChangeLines([{ id: 'a', extras: [{ name: 'Cambiar plátano por palta', price: 0, quantity: 1 }], extras_total: 0 }])).toBe(false);
+		expect(hasPaidChangeLines([{ id: 'a' }, { id: 'salsa', manual_order_source: 'extras', is_extra: true, price: 1000 }])).toBe(false);
 	});
 });
 

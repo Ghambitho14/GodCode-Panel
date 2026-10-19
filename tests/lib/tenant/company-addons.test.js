@@ -43,7 +43,7 @@ describe('company-addons', () => {
 
 describe('extras a medida en el menú', () => {
 	const module = (id, extra = {}) => ({ id, label: id, Component: () => null, ...extra });
-	const resolve = (id) => (id === 'cuadre-caja' ? module('cuadre-caja', { navGroup: 'sales', allowedRoles: ['owner', 'ceo'] }) : null);
+	const resolve = (id) => (id === 'cuadre-caja' ? module('cuadre-caja', { navGroup: 'sales', allowedRoles: ['admin', 'ceo'] }) : null);
 
 	it('una pestaña por extra vigente cuyo módulo trae el panel', () => {
 		const addons = activeCompanyAddons(
@@ -64,7 +64,7 @@ describe('extras a medida en el menú', () => {
 				description: '',
 				navGroup: 'sales',
 				navOrder: 90,
-				allowedRoles: ['owner', 'ceo'],
+				allowedRoles: ['admin', 'ceo'],
 				isActive: true,
 			},
 		]);

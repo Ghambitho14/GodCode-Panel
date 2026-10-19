@@ -57,6 +57,7 @@ import { manualOrderV2Service } from '../services/manualOrderV2Service';
 import { orderLifecycleV3Service } from '../services/orderLifecycleV3Service';
 import { parseMoneyInput, formatMinor, isoFractionDigits } from '@/lib/money/minor-units';
 import { useRevealedOrderContact } from '@/modules/cash/hooks/useRevealedOrderContact';
+import { canRole, ROLE_ACTIONS } from '@/modules/cash/utils/rolePermissions';
 
 const STATUS_LABELS = {
     pending: 'Pendiente',
@@ -77,7 +78,7 @@ const OrderDetailModal = ({
     setReceiptModalOrder,
     onMarkPaid = null,
 }) => {
-	const { companyProfile, userRole, upsertOrder } = useAdmin();
+	const { companyProfile, userRole, rolePermissions, upsertOrder } = useAdmin();
 	const { locale } = useBranchMoney();
     const orderMoney = useOrderMoney();
     const fmt = orderMoney.formatMoney;
@@ -314,7 +315,7 @@ const OrderDetailModal = ({
         });
     };
 
-	const canRefund = ['ceo', 'owner', 'admin'].includes(String(userRole || '').toLowerCase())
+	const canRefund = canRole(userRole, rolePermissions?.actions, ROLE_ACTIONS.ORDERS_REFUND)
 		&& paymentLedger.some((line) => line.refundableMinor > 0);
 
 	const handleRefund = async () => {

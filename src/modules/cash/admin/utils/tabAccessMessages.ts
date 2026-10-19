@@ -20,13 +20,27 @@ export interface TabAccessMenuCapabilities {
 	planProductMode?: string | null;
 }
 
+/** Ven todas las pestañas siempre; lo que diga `role_definitions.nav_tabs` no les aplica. */
+const FULL_ACCESS_ROLE_KEYS = new Set(["admin", "ceo"]);
+const PANEL_TAB_ID_SET = new Set<string>(ADMIN_PANEL_TAB_IDS);
+
 /**
  * Pestañas que el rol puede ver, antes de cruzarlas con `panelAccess` y el canal del menú.
  * Con «solo menú digital» no hay caja que operar: todo rol, cajero incluido, ve el
  * catálogo (si no, el cajero se quedaba sin ninguna pestaña).
+ * `roleNavTabs` son las que el super admin le dio al rol (Configuración → Roles); sin
+ * ellas rige `DEFAULT_ROLE_NAV_PERMISSIONS`.
  */
-export function resolveRoleAllowedTabIds(roleKey: string, planProductMode?: string | null): string[] {
+export function resolveRoleAllowedTabIds(
+	roleKey: string,
+	planProductMode?: string | null,
+	roleNavTabs?: readonly string[] | null,
+): string[] {
 	if (planProductMode === "menu_only") return [...MENU_ONLY_PANEL_TABS];
+	if (!FULL_ACCESS_ROLE_KEYS.has(roleKey) && Array.isArray(roleNavTabs)) {
+		const tabs = roleNavTabs.map((id) => normalizeStoredNavTabId(id)).filter((id) => PANEL_TAB_ID_SET.has(id));
+		return [...new Set(tabs)];
+	}
 	const fallback = DEFAULT_ROLE_NAV_PERMISSIONS[roleKey] ?? DEFAULT_ROLE_NAV_PERMISSIONS.cashier;
 	return Array.isArray(fallback) ? [...fallback] : [...DEFAULT_ROLE_NAV_PERMISSIONS.cashier];
 }
@@ -54,6 +68,8 @@ export interface TabAccessContext {
 	normalizedPanelAccess: string[] | null;
 	menuCapabilities: TabAccessMenuCapabilities;
 	dynamicModules?: TabAccessDynamicModule[];
+	/** Pestañas del rol según el super admin (`role_definitions.nav_tabs`); null = las del código. */
+	roleNavTabs?: readonly string[] | null;
 }
 
 function getMenuRestrictedTabs(menuCapabilities: TabAccessMenuCapabilities): Set<string> {
@@ -77,7 +93,7 @@ export function resolveAllowedPanelTabIds(ctx: Omit<TabAccessContext, "tabId" | 
 	const companyAllowedTabs = new Set<string>(ctx.normalizedPanelAccess ?? ADMIN_PANEL_TAB_IDS);
 	const menuRestrictedTabs = getMenuRestrictedTabs(ctx.menuCapabilities);
 	const candidates = roleKey
-		? resolveRoleAllowedTabIds(roleKey, ctx.menuCapabilities.planProductMode)
+		? resolveRoleAllowedTabIds(roleKey, ctx.menuCapabilities.planProductMode, ctx.roleNavTabs)
 		: [...companyAllowedTabs];
 	return candidates.filter((tab) => companyAllowedTabs.has(tab) && !menuRestrictedTabs.has(tab));
 }
@@ -107,7 +123,7 @@ export function resolveTabAccessDenialReason(ctx: TabAccessContext): TabAccessDe
 	const planProductMode = ctx.menuCapabilities.planProductMode ?? null;
 	const roleAllowedTabs = new Set(
 		roleKey
-			? resolveRoleAllowedTabIds(roleKey, planProductMode)
+			? resolveRoleAllowedTabIds(roleKey, planProductMode, ctx.roleNavTabs)
 			: [...companyAllowedTabs].filter((tab) => !menuRestrictedTabs.has(tab)),
 	);
 

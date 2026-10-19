@@ -30,4 +30,6 @@ export const TABLES = Object.freeze({
   discount_coupon_redemptions: "discount_coupon_redemptions",
   loyalty_rewards: "loyalty_rewards",
   loyalty_redemptions: "loyalty_redemptions",
+  role_definitions: "role_definitions",
+  company_roles: "company_roles",
 });

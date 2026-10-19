@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 import { createMoneyFormatter } from '@/shared/utils/money';
 import { useManualOrder } from '../hooks/useManualOrder';
 import { useOrderEdit } from '../hooks/useOrderEdit';
-import { buildDeliveryAddressRecord, isLocalOpenSessionOrder, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
+import { buildDeliveryAddressRecord, isLocalOpenSessionOrder, isOrderPaymentDeferred, orderDisplayNumber } from '@/shared/utils/orderUtils';
 import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
@@ -51,9 +51,10 @@ const ManualOrderModal = ({
 	openMesaMode = false,
 	localOrderChannels = null,
 }) => {
-	const { userRole, userEmail, markOrderSessionPaid, orders, companyProfile, branchExchangeRate, setPendingTableSessionOrderId, pendingSeatReservation, setPendingSeatReservation } = useAdmin();
+	const { userRole, rolePermissions, userEmail, markOrderSessionPaid, orders, companyProfile, branchExchangeRate, setPendingTableSessionOrderId, pendingSeatReservation, setPendingSeatReservation } = useAdmin();
 	useLockBodyScroll(isOpen);
-	const canEditDeliveryFee = canOverrideDeliveryFee(userRole);
+	const roleActions = rolePermissions?.actions ?? null;
+	const canEditDeliveryFee = canOverrideDeliveryFee(userRole, roleActions);
 	const isEditMode = Boolean(editOrder?.id);
 	const liveEditOrder = useMemo(() => {
 		if (!editOrder?.id) return editOrder;
@@ -90,6 +91,7 @@ const ManualOrderModal = ({
 		manualOrderSettings,
 		paymentMethods,
 		branchConfigError,
+		roleActions,
 	);
 
 	const editHook = useOrderEdit(
@@ -522,7 +524,7 @@ const ManualOrderModal = ({
 			status === 'picked_up' ? 'Entregado' :
 			status;
 		const ok = await confirmDialog({
-			title: `¿Cancelar el pedido #${editOrder.id}?`,
+			title: `¿Cancelar el pedido #${orderDisplayNumber(editOrder)}?`,
 			text: `Estado actual: ${stageLabel}.\n\nSi el pedido tiene venta registrada en caja, se aplicará una devolución automática.`,
 			confirmLabel: 'Cancelar pedido',
 			cancelLabel: 'Volver',

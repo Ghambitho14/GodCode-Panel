@@ -27,7 +27,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.4
 
 import { createPiiOpener, isSealedPii, type PiiOpener } from "../_shared/pii.ts";
 
-const STAFF_ROLES = new Set(["owner", "admin", "ceo", "cashier", "staff"]);
+const STAFF_ROLES = new Set(["admin", "ceo", "cashier", "staff"]);
 const MAX_ORDERS_PER_REQUEST = 50;
 const MAX_ADDRESSES_PER_CLIENT = 10;
 

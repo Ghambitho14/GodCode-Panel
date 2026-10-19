@@ -23,6 +23,9 @@ import {
 	whereLabelForKitchenTicket,
 } from './ticketFormatters';
 
+/** Aviso de la comanda que reemplaza a una ya impresa (ver kitchenReprint.js). */
+export const KITCHEN_MODIFIED_LABEL = 'MODIFICADO';
+
 /**
  * @param {Record<string, unknown>} order
  * @param {string} branchName
@@ -36,7 +39,9 @@ import {
  *   branch?: object | null;
  *   company?: object | null;
  *   exchangeRate?: unknown;
- * }} [printOptions]
+ *   modified?: boolean;
+ * }} [printOptions] `modified`: la comanda reemplaza a otra ya impresa (cambió el
+ *   tipo o los productos); solo se marca en la de cocina.
  */
 export function buildTicketHtml(order, branchName, logoUrl, variant, printOptions = {}) {
 	const fmt = createFmtOrder(printOptions);
@@ -106,6 +111,9 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 		const footerRaw = printOptions.ticketFooterLine != null ? String(printOptions.ticketFooterLine).trim() : '';
 		const footerKitchen = footerRaw || 'panel administrativo GodCode';
 		const footerHtml = escapeHtml(footerKitchen);
+		const modifiedHtml = printOptions.modified === true
+			? `<p class="k-modified">${KITCHEN_MODIFIED_LABEL}</p>`
+			: '';
 
 		return `
 		<html>
@@ -133,6 +141,15 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 					font-size: 10pt;
 					margin: 0;
 					letter-spacing: 0.04em;
+				}
+				.k-modified {
+					margin: 0 0 2.5mm;
+					padding: 1.5mm 0;
+					border: 2px solid #000;
+					text-align: center;
+					font-size: 13pt;
+					font-weight: 700;
+					letter-spacing: 0.08em;
 				}
 				.k-list {
 					margin-top: 0;
@@ -200,6 +217,7 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 			</style>
 		</head>
 		<body>
+			${modifiedHtml}
 			<div class="k-band">
 				<p class="k-band-time">${dateDash}</p>
 				<p class="k-band-order">${orderBandLine}</p>
@@ -673,7 +691,10 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 
 	// La comanda lleva «COCINA» donde el ticket de caja lleva logo, empresa y dirección.
 	const headHtml = kitchen
-		? '<h1 class="ticket-brand c-brand">COCINA</h1>'
+		? `<h1 class="ticket-brand c-brand">COCINA</h1>${printOptions.modified === true
+			? `
+				<p class="c-modified">${KITCHEN_MODIFIED_LABEL}</p>`
+			: ''}`
 		: `${safeLogoUrl ? `<img src="${safeLogoUrl}" class="c-logo" alt="" />` : ''}
 				<h1 class="ticket-brand c-brand">${safeBranchName}</h1>
 				${addressHtml}`;
@@ -700,6 +721,14 @@ export function buildTicketHtml(order, branchName, logoUrl, variant, printOption
 				.c-mod,
 				.c-item-note {
 					font-size: 10.5pt;
+				}
+				.c-modified {
+					margin: 1.5mm 0 0;
+					padding: 1.2mm 0;
+					border: 2px solid #000;
+					font-size: 13pt;
+					font-weight: 700;
+					letter-spacing: 0.08em;
 				}
 				.c-foot {
 					margin-top: 2mm;

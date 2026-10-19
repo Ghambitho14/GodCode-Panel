@@ -12,6 +12,7 @@ import {
 	filterOpenOrderSessions,
 	isOrderPaymentDeferred,
 	summarizeOrderLinesDelivery,
+	orderDisplayNumber,
 } from '@/shared/utils/orderUtils';
 
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
@@ -483,7 +484,7 @@ export default function AdminTablesGrid({
 
 	const handleCancel = async (order) => {
 		const ok = await confirmDialog({
-			title: `¿Cancelar el pedido #${order.shift_sequence ?? order.id}?`,
+			title: `¿Cancelar el pedido #${orderDisplayNumber(order)}?`,
 			text: 'Si el pedido tiene venta registrada en caja, se aplicará una devolución automática.',
 			confirmLabel: 'Cancelar pedido',
 			cancelLabel: 'Volver',
@@ -598,8 +599,6 @@ export default function AdminTablesGrid({
 				/>
 
 			) : null}
-
-
 
 			{detailOpen && activeOrder ? (
 

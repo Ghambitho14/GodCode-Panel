@@ -5,6 +5,8 @@ import { Gift, Plus, Loader2, Pencil, Ban, CircleCheck, RefreshCw, X, Trash2, St
 import { supabase, TABLES } from "@/integrations/supabase";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { fetchMenuClientAccountsCached } from "@/modules/cash/services/menuAccountsService";
+import { useAdmin } from "@/modules/cash/admin/pages/AdminProvider";
+import { canManageLoyaltyRewards } from "@/modules/cash/utils/loyaltyRewardPermissions";
 import { Button } from "@/components/ui/button";
 import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
 
@@ -16,6 +18,10 @@ import CouponFormSelect from "@/modules/cash/components/CouponFormSelect";
  *
  * Los cupones no se pueden atar a un producto: una recompensa de producto entrega un
  * cupón de monto fijo por su precio, con ese mismo mínimo de compra.
+ *
+ * CEO y admin crean o cambian recompensas; otro rol, solo si el super admin le dio
+ * `loyalty_rewards.manage` (Configuración → Roles). Sin eso ve la carta y los canjes sin
+ * acciones. La base pone la misma regla (GodCode, sql/2026-10-16_role_permissions.sql).
  */
 
 const REDEMPTIONS_LIMIT = 50;
@@ -59,6 +65,8 @@ function redemptionStatus(row) {
 
 export default function AdminLoyaltyRewards({ showNotify, companyId, products = [] }) {
 	const { formatMoney, locale } = useBranchMoney();
+	const { userRole, rolePermissions } = useAdmin();
+	const canManage = canManageLoyaltyRewards(userRole, rolePermissions?.actions);
 	const [rows, setRows] = useState([]);
 	const [redemptions, setRedemptions] = useState([]);
 	const [accounts, setAccounts] = useState([]);
@@ -156,12 +164,14 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 	}, [formOpen, saving]);
 
 	const startCreate = () => {
+		if (!canManage) return;
 		setDraft(emptyDraft());
 		setProductQuery("");
 		setFormOpen(true);
 	};
 
 	const startEdit = (row) => {
+		if (!canManage) return;
 		setDraft({
 			id: row.id,
 			title: String(row.title ?? ""),
@@ -239,7 +249,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 	};
 
 	const submit = async () => {
-		if (!cid) return;
+		if (!cid || !canManage) return;
 		setSaving(true);
 		try {
 			const payload = buildPayload();
@@ -262,6 +272,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 	};
 
 	const toggleActive = async (row) => {
+		if (!canManage) return;
 		setSaving(true);
 		try {
 			const { error } = await supabase
@@ -279,6 +290,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 	};
 
 	const deleteReward = async (row) => {
+		if (!canManage) return;
 		if (!(await confirmDialog({ title: `¿Eliminar la recompensa "${row.title}"?`, text: "Los cupones ya canjeados siguen valiendo.", confirmLabel: "Eliminar", danger: true }))) return;
 		setSaving(true);
 		try {
@@ -584,20 +596,28 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 						<RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
 						Actualizar
 					</Button>
-					<Button variant="default" type="button" size="sm" disabled={saving || formOpen} onClick={startCreate}>
-						<Plus size={16} aria-hidden />
-						Nueva recompensa
-					</Button>
+					{canManage ? (
+						<Button variant="default" type="button" size="sm" disabled={saving || formOpen} onClick={startCreate}>
+							<Plus size={16} aria-hidden />
+							Nueva recompensa
+						</Button>
+					) : null}
 				</div>
 			</div>
 
-			<p className="admin-toolbar-hint loyalty-rewards__rule-hint">
-				Cómo ganan puntos tus clientes (por gasto, por compra, por producto o por categoría) se define en tu{" "}
-				<a href={ACCOUNT_MENU_URL} target="_blank" rel="noopener noreferrer">
-					cuenta GodCode › Mi menú
-				</a>
-				.
-			</p>
+			{canManage ? (
+				<p className="admin-toolbar-hint loyalty-rewards__rule-hint">
+					Cómo ganan puntos tus clientes (por gasto, por compra, por producto o por categoría) se define en tu{" "}
+					<a href={ACCOUNT_MENU_URL} target="_blank" rel="noopener noreferrer">
+						cuenta GodCode › Mi menú
+					</a>
+					.
+				</p>
+			) : (
+				<p className="admin-toolbar-hint loyalty-rewards__rule-hint">
+					Tu rol puede ver las recompensas, pero no crearlas ni cambiarlas.
+				</p>
+			)}
 
 			{modal}
 
@@ -610,10 +630,12 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 					<div className="admin-coupons__empty">
 						<Gift size={36} strokeWidth={1.4} aria-hidden />
 						<p>Todavía no hay recompensas.</p>
-						<Button variant="default" type="button" size="sm" onClick={startCreate}>
-							<Plus size={16} aria-hidden />
-							Crear primera recompensa
-						</Button>
+						{canManage ? (
+							<Button variant="default" type="button" size="sm" onClick={startCreate}>
+								<Plus size={16} aria-hidden />
+								Crear primera recompensa
+							</Button>
+						) : null}
 					</div>
 				) : (
 					<div className="staff-table-wrapper admin-staff-table-wrap">
@@ -625,7 +647,7 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 									<th>Entrega</th>
 									<th>Vence</th>
 									<th>Estado</th>
-									<th />
+									{canManage ? <th /> : null}
 								</tr>
 							</thead>
 							<tbody>
@@ -653,35 +675,37 @@ export default function AdminLoyaltyRewards({ showNotify, companyId, products = 
 												{row.is_active ? "Activa" : "Inactiva"}
 											</span>
 										</td>
-										<td className="admin-coupons__actions-cell">
-											<button
-												type="button"
-												className="admin-icon-btn admin-icon-btn--sm"
-												title="Editar"
-												disabled={saving}
-												onClick={() => startEdit(row)}
-											>
-												<Pencil size={14} aria-hidden />
-											</button>
-											<button
-												type="button"
-												className="admin-icon-btn admin-icon-btn--sm"
-												title={row.is_active ? "Desactivar" : "Activar"}
-												disabled={saving}
-												onClick={() => void toggleActive(row)}
-											>
-												{row.is_active ? <Ban size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
-											</button>
-											<button
-												type="button"
-												className="admin-icon-btn admin-icon-btn--sm"
-												title="Eliminar"
-												disabled={saving}
-												onClick={() => void deleteReward(row)}
-											>
-												<Trash2 size={14} className="text-red-500" aria-hidden />
-											</button>
-										</td>
+										{canManage ? (
+											<td className="admin-coupons__actions-cell">
+												<button
+													type="button"
+													className="admin-icon-btn admin-icon-btn--sm"
+													title="Editar"
+													disabled={saving}
+													onClick={() => startEdit(row)}
+												>
+													<Pencil size={14} aria-hidden />
+												</button>
+												<button
+													type="button"
+													className="admin-icon-btn admin-icon-btn--sm"
+													title={row.is_active ? "Desactivar" : "Activar"}
+													disabled={saving}
+													onClick={() => void toggleActive(row)}
+												>
+													{row.is_active ? <Ban size={14} aria-hidden /> : <CircleCheck size={14} aria-hidden />}
+												</button>
+												<button
+													type="button"
+													className="admin-icon-btn admin-icon-btn--sm"
+													title="Eliminar"
+													disabled={saving}
+													onClick={() => void deleteReward(row)}
+												>
+													<Trash2 size={14} className="text-red-500" aria-hidden />
+												</button>
+											</td>
+										) : null}
 									</tr>
 								))}
 							</tbody>

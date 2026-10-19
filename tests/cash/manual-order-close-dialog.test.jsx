@@ -34,8 +34,8 @@ const hookResult = {
 
 vi.mock('@/modules/cash/admin/pages/AdminProvider', () => ({
 	useAdmin: () => ({
-		userRole: 'owner',
-		userEmail: 'owner@example.com',
+		userRole: 'ceo',
+		userEmail: 'ceo@example.com',
 		markOrderSessionPaid: null,
 		orders: [],
 		companyProfile: { country: 'CL', currency: 'CLP' },

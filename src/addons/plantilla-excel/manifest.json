@@ -3,5 +3,5 @@
 	"label": "Hoja de cálculo",
 	"description": "Una hoja tipo Excel en el panel: columnas con letra, filas con número y fórmulas para sumar, restar, multiplicar y dividir.",
 	"navGroup": "root",
-	"allowedRoles": ["owner", "admin", "ceo"]
+	"allowedRoles": ["admin", "ceo"]
 }

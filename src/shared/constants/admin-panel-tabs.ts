@@ -3,7 +3,7 @@
  * Contrato con Supabase (`public.companies.theme_config`): `panelAccess`, `roleNavPermissions`.
  */
 
-export const ADMIN_PANEL_PRIVILEGED_NAV_ROLES = ["owner", "admin", "ceo"] as const;
+export const ADMIN_PANEL_PRIVILEGED_NAV_ROLES = ["admin", "ceo"] as const;
 
 export const ADMIN_PANEL_TAB_OPTIONS = [
   { id: "orders", label: "Cocina / Pedidos" },
@@ -35,7 +35,6 @@ const ALL_TABS = ADMIN_PANEL_TAB_IDS as unknown as string[];
  * el catálogo (`resolveRoleAllowedTabIds` en `admin/utils/tabAccessMessages.ts`).
  */
 export const DEFAULT_ROLE_NAV_PERMISSIONS: Record<string, string[]> = {
-  owner: [...ALL_TABS],
   admin: [...ALL_TABS],
   ceo: [...ALL_TABS],
   cashier: ["orders", "caja", "local_expenses"],

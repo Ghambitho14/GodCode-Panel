@@ -16,8 +16,7 @@ import { useAdmin } from '@/modules/cash/admin/pages/AdminProvider';
 import { resolveEffectiveCountry } from '@/lib/geo/tenant-locale';
 import { getFormStrategy } from '@/lib/geo/country-forms';
 import { Button } from "@/components/ui/button";
-
-const COUPON_EMAIL_ROLES = new Set(['owner', 'admin', 'ceo']);
+import { canRole, ROLE_ACTIONS } from '@/modules/cash/utils/rolePermissions';
 
 /** Sin login no hay correo; dada de baja, no se le manda. `null` = no se sabe: lo decide el servidor. */
 const accountCanGetCoupon = (account) => Boolean(account) && account.isActive !== false
@@ -25,9 +24,9 @@ const accountCanGetCoupon = (account) => Boolean(account) && account.isActive !=
 
 const AdminClients = ({ clients, orders, onSelectClient, onClientCreated, onClientDeleted, showNotify, companyId }) => {
     const { formatMoney, locale } = useBranchMoney();
-    const { companyProfile, selectedBranch, userRole } = useAdmin();
-    /** Cupones por correo: los mismos roles que ven la pestaña Cupones. */
-    const canSendCoupons = COUPON_EMAIL_ROLES.has(String(userRole || '').toLowerCase());
+    const { companyProfile, selectedBranch, userRole, rolePermissions } = useAdmin();
+    /** Cupones por correo: admin/ceo, u otro rol con `coupons.send_email` (la Edge Function repite la regla). */
+    const canSendCoupons = canRole(userRole, rolePermissions?.actions, ROLE_ACTIONS.COUPONS_SEND_EMAIL);
     /** Cuentas elegidas para mandarles un cupón (pestaña Cuentas). */
     const [selectedAccountIds, setSelectedAccountIds] = useState(() => new Set());
     /** Destinatarios del modal abierto; null = cerrado. */

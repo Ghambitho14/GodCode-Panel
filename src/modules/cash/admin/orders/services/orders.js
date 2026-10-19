@@ -24,7 +24,6 @@ import { atomicOrderTransactionService } from '@/modules/cash/services/atomicOrd
 import { buildDeliveryAddressRecord, sanitizeOrder, normalizePaymentBreakdown, isOrderPaymentDeferred } from '@/shared/utils/orderUtils';
 import { canOverrideDeliveryFee } from '@/modules/cash/utils/deliveryFeePermissions';
 import { buildGoogleMapsDirectionsUrl } from '@/lib/geo';
-import { printOrderTicket } from '@/modules/cash/admin/utils/receiptPrinting';
 import { normalizeManualPhone } from '@/modules/cash/services/clientService';
 import { branchSettingsService } from '@/modules/cash/services/branchSettingsService';
 import { orderLifecycleV3Service } from '@/modules/cash/services/orderLifecycleV3Service';
@@ -530,7 +529,7 @@ export const ordersService = {
 
                 const callerRole = orderData.caller_role ?? orderData.user_role ?? null;
                 if (
-                    canOverrideDeliveryFee(callerRole)
+                    canOverrideDeliveryFee(callerRole, orderData.caller_actions)
                     && typeof orderData.manual_delivery_fee === 'number'
                     && orderData.manual_delivery_fee >= 0
                 ) {
@@ -819,22 +818,8 @@ export const ordersService = {
             }
         }
 
-        // Reimpresion automatica de ticket cocina si el pedido ya esta en
-        // cocina y cambiaron los items.
-        const status = String(updated?.status ?? options.prevStatus ?? '').toLowerCase();
-        if (options.itemsChanged && status === 'active') {
-            try {
-                printOrderTicket(updated, options.branchName ?? null, options.logoUrl ?? null, {
-                    variant: 'kitchen',
-                    branchAddress: options.branchAddress ?? null,
-                    // Con la sucursal la comanda sale en el diseño que eligió.
-                    branch: options.branch ?? null,
-                });
-            } catch (printErr) {
-                console.warn('[updateOrder] reimpresion cocina fallo:', printErr);
-            }
-        }
-
+        // La comanda «MODIFICADO» la saca quien edita (useOrderEdit → kitchenReprint),
+        // igual para este camino y para update_order_v3.
         return sanitizeOrder(updated);
     },
 };

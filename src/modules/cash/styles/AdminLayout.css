@@ -785,6 +785,34 @@
 	flex-wrap: wrap;
 }
 
+/* AdminConfirmDialog: puede abrirse encima de la sesión de mesa (10050), el
+   detalle del pedido (10070) y el pedido manual (11050). */
+.admin-layout .admin-modal-overlay.admin-modal-overlay--stacked {
+	z-index: 11200;
+}
+
+.admin-layout .admin-confirm-dialog__title {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	margin: 0 0 8px;
+	font-size: 1.0625rem;
+	font-weight: 700;
+	line-height: 1.35;
+	color: var(--admin-text);
+}
+
+.admin-layout .admin-confirm-dialog__title svg {
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: var(--admin-danger);
+}
+
+.admin-layout .admin-confirm-modal .admin-confirm-dialog__description {
+	font-size: 0.9375rem;
+	color: var(--admin-text-muted);
+}
+
 .admin-layout .admin-panel-overlay {
 	background: var(--admin-overlay-scrim) !important;
 	-webkit-backdrop-filter: blur(6px);

@@ -94,7 +94,7 @@ export type AddonDynamicModule = {
 	isActive: boolean;
 };
 
-const DEFAULT_ADDON_ROLES = ["owner", "admin", "ceo"];
+const DEFAULT_ADDON_ROLES = ["admin", "ceo"];
 
 /**
  * Una pestaña del menú por cada extra vigente que abre un módulo de `src/addons/`. Si el

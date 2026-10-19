@@ -13,6 +13,7 @@ import {
 import { panelNotify } from '../utils/panelNotify';
 import { getTabAccessDenialMessageForTab, resolveAllowedPanelTabIds } from '../utils/tabAccessMessages';
 import { useAdminAuth } from '../hooks/useAdminAuth';
+import { useRolePermissions } from '../hooks/useRolePermissions';
 import { useAdminBranchLoadEffects } from '../hooks/useAdminBranchLoad';
 import { useAdminOrdersRealtime } from '../hooks/useAdminOrdersRealtime';
 import { useAdminBranchSettings } from '../hooks/useAdminBranchSettings';
@@ -380,6 +381,10 @@ export const AdminProvider = ({
 		onForceReloadAfterLogin,
 	});
 
+	/** Pestañas y acciones del rol según el super admin; `null` = lo del código. */
+	const { permissions: rolePermissions, ready: rolePermissionsReady } = useRolePermissions(userRole);
+	const roleNavTabs = rolePermissions?.navTabs ?? null;
+
 	useEffect(() => installPaymentEvidenceOnlineRetry(), []);
 
 	const signOutAndClearDrafts = useCallback(async () => {
@@ -403,7 +408,8 @@ export const AdminProvider = ({
 		userRole,
 		normalizedPanelAccess,
 		menuCapabilities,
-	})), [normalizedPanelAccess, userRole, menuCapabilities]);
+		roleNavTabs,
+	})), [normalizedPanelAccess, userRole, menuCapabilities, roleNavTabs]);
 
 	const dynamicModuleTabs = useMemo(() => {
 		const roleKey = String(userRole || '').toLowerCase() === 'staff'
@@ -435,6 +441,8 @@ export const AdminProvider = ({
 		if (!userRole || typeof window === 'undefined') return;
 		if (sessionRestoredRef.current) return;
 		if (branches.length === 0) return;
+		// La pestaña guardada puede ser una que el super admin le dio al rol: esperar sus permisos.
+		if (!rolePermissionsReady) return;
 		try {
 			// La pestaña del enlace (#caja) manda sobre la última guardada
 			const storedTab = readTabFromHash() || localStorage.getItem(`godcode-panel:${companyId}:activeTab`);
@@ -456,7 +464,7 @@ export const AdminProvider = ({
 			/* ignore */
 		}
 		sessionRestoredRef.current = true;
-	}, [userRole, branches, companyId, canAccessTab, isBranchLocked, locationSelectedBranch, selectBranch]);
+	}, [userRole, rolePermissionsReady, branches, companyId, canAccessTab, isBranchLocked, locationSelectedBranch, selectBranch]);
 
 	useEffect(() => {
 		if (!userRole || typeof window === 'undefined') return;
@@ -507,7 +515,8 @@ export const AdminProvider = ({
 		normalizedPanelAccess,
 		menuCapabilities,
 		dynamicModules: normalizedDynamicModules,
-	}), [userRole, normalizedPanelAccess, menuCapabilities, normalizedDynamicModules]);
+		roleNavTabs,
+	}), [userRole, normalizedPanelAccess, menuCapabilities, normalizedDynamicModules, roleNavTabs]);
 
 	const getTabAccessDeniedMessage = useCallback((tabId) => (
 		getTabAccessDenialMessageForTab({ ...tabAccessContext, tabId })
@@ -572,14 +581,14 @@ export const AdminProvider = ({
 	}, [activeTab, assignedBranchId, branches, locationSelectedBranch, isAllBranchView, selectBranch]);
 
 	useEffect(() => {
-		if (!userRole) return;
+		if (!userRole || !rolePermissionsReady) return;
 		if (canAccessTab(activeTab)) return;
 
 		const [firstAllowedTab] = Array.from(new Set([...allowedTabs, ...dynamicModuleTabs]));
 		const targetTab = firstAllowedTab || 'products';
 		if (targetTab === activeTab || !canAccessTab(targetTab)) return;
 		setActiveTab(targetTab);
-	}, [activeTab, allowedTabs, canAccessTab, dynamicModuleTabs, userRole]);
+	}, [activeTab, allowedTabs, canAccessTab, dynamicModuleTabs, userRole, rolePermissionsReady]);
 
 	const selectedBranchId = selectedBranch?.id ?? null;
 
@@ -1050,6 +1059,7 @@ export const AdminProvider = ({
 		selectedClientOrders, setSelectedClientOrders,
 		clientHistoryLoading, setClientHistoryLoading,
 		userRole,
+		rolePermissions,
 		showNotify,
 		signOut: signOutAndClearDrafts,
 		cashSystem,
@@ -1108,7 +1118,7 @@ export const AdminProvider = ({
 		historyPeriod, historyOrders, historyLoading, ordersViewMode, ordersViewModeSaving, saveOrdersPanelSettings, localOrderChannels, ordersPanelSettingsReady, isOpenMesaModal, manualOrderMode, pendingTableSessionOrderId, setPendingTableSessionOrderId, pendingSeatReservation, setPendingSeatReservation,
 		loading, refreshing, isMobile, isModalOpen, editingProduct, isCategoryModalOpen, editingCategory,
 		receiptModalOrder, receiptPreview, uploadingReceipt,
-		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, showNotify, signOutAndClearDrafts, cashSystem,
+		selectedClient, selectedClientOrders, clientHistoryLoading, userRole, rolePermissions, showNotify, signOutAndClearDrafts, cashSystem,
 		loadData, refreshAllData, refreshOrders, upsertOrder, refreshClients, refreshCatalog, refreshCatalogAndInventory, refreshBranches, hydrateOrderItems, handleSelectClient, moveOrder, closeOrderSession, markOrderSessionPaid, uploadReceiptToOrder, handleReceiptFileChange,
 		handleSaveProduct, deleteProduct, toggleProductActive, scopeModal, handleScopeConfirm, handleSaveCategory,
 		deleteCategory, categoryToDelete, confirmDeleteCategory, toggleCategoryActive, reorderCategories,

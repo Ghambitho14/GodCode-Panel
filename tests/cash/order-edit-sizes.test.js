@@ -142,3 +142,68 @@ describe('editar un pedido con tamaños', () => {
 		expect(updateOrder.mock.calls[0][0].patch.expectedTotalMinor).toBe(19000);
 	});
 });
+
+/*
+ * La cotización V2 no suma los cambios cobrados de una línea y `update_order_v3` sí:
+ * si el total esperado salía de ella, el servidor respondía `quote_changed` y no se
+ * podía agregar nada (caso real: 60 piezas con cambio de proteína +$1.000 y una salsa).
+ */
+describe('editar un pedido con cambios cobrados', () => {
+	const SALSA = {
+		id: 'a1111111-1111-4111-8111-111111111101',
+		name: 'Salsa extra',
+		price: 1000,
+		has_discount: false,
+		discount_price: null,
+		manual_order_source: 'extras',
+	};
+
+	it('agrega una salsa con el total local, que incluye los cambios, sin pasar por la cotización V2', async () => {
+		quote.mockResolvedValue({ totalMinor: 31000 });
+		const { result, showNotify } = renderEdit(savedOrder([
+			{
+				id: 'prod-60', name: '60 Piezas', price: 30000, quantity: 1, line_id: 'line-1',
+				extras: [
+					{ name: 'Cambiar proteina de kanikama por salmon', price: 1000, quantity: 1 },
+					{ name: 'Cambiar plaqueta de platano por palta', price: 0, quantity: 1 },
+				],
+				extras_total: 1000,
+			},
+		]));
+		await waitFor(() => expect(result.current.couponPreview.loading).toBe(false));
+		expect(result.current.manualOrder.total).toBe(31000);
+
+		act(() => result.current.addItem(SALSA));
+		expect(result.current.manualOrder.total).toBe(32000);
+
+		await act(async () => { await result.current.submitOrder(); });
+
+		expect(quote).not.toHaveBeenCalled();
+		expect(updateOrder).toHaveBeenCalledTimes(1);
+		const { patch } = updateOrder.mock.calls[0][0];
+		expect(patch.expectedTotalMinor).toBe(32000);
+		expect(patch.items.map((item) => [item.id, item.price, item.extras_total ?? 0, item.is_extra])).toEqual([
+			['prod-60', 30000, 1000, false],
+			[SALSA.id, 1000, 0, true],
+		]);
+		expect(showNotify).toHaveBeenCalledWith('Pedido actualizado.', 'success');
+	});
+
+	it('con cambios sin costo sigue usando la cotización V2', async () => {
+		quote.mockResolvedValue({ totalMinor: 31000 });
+		const { result } = renderEdit(savedOrder([
+			{
+				id: 'prod-60', name: '60 Piezas', price: 30000, quantity: 1, line_id: 'line-1',
+				extras: [{ name: 'Cambiar plaqueta de platano por palta', price: 0, quantity: 1 }],
+				extras_total: 0,
+			},
+		]));
+		await waitFor(() => expect(result.current.couponPreview.loading).toBe(false));
+
+		act(() => result.current.addItem(SALSA));
+		await act(async () => { await result.current.submitOrder(); });
+
+		expect(quote).toHaveBeenCalledTimes(1);
+		expect(updateOrder.mock.calls[0][0].patch.expectedTotalMinor).toBe(31000);
+	});
+});

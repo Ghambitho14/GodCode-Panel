@@ -56,7 +56,7 @@ const DEFAULT_DYNAMIC_MODULES = [
     description: "Los extras de tu negocio y lo que desbloquean.",
     navGroup: "root" as const,
     navOrder: 80,
-    allowedRoles: ["owner", "admin", "ceo", "cashier", "staff"],
+    allowedRoles: ["admin", "ceo", "cashier", "staff"],
     isActive: true,
   },
   {
@@ -66,7 +66,7 @@ const DEFAULT_DYNAMIC_MODULES = [
     description: "Crea y da seguimiento a tickets de soporte.",
     navGroup: "root" as const,
     navOrder: 85,
-    allowedRoles: ["owner", "admin", "ceo", "cashier", "staff"],
+    allowedRoles: ["admin", "ceo", "cashier", "staff"],
     isActive: true,
   },
 ];

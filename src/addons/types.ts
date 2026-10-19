@@ -12,7 +12,7 @@ export type AddonManifest = {
 	description?: string;
 	/** Dónde va en el menú: suelto, dentro de Ventas o dentro de Menú. */
 	navGroup?: "root" | "sales" | "menu";
-	/** Roles que lo ven. Sin definir: owner, admin y ceo. */
+	/** Roles que lo ven. Sin definir: admin y ceo. */
 	allowedRoles?: string[];
 };
 

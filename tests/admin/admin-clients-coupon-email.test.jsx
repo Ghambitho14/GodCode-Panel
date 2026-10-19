@@ -7,6 +7,7 @@ import AdminClients from '@/modules/cash/components/AdminClients';
 
 const fetchMenuClientAccounts = vi.fn();
 let role = 'ceo';
+let roleActions = [];
 
 vi.mock('@/modules/cash/services/menuAccountsService', () => ({
 	fetchMenuClientAccounts: (...args) => fetchMenuClientAccounts(...args),
@@ -28,7 +29,12 @@ vi.mock('@/modules/cash/hooks/useBranchMoney', () => ({
 }));
 
 vi.mock('@/modules/cash/admin/pages/AdminProvider', () => ({
-	useAdmin: () => ({ companyProfile: { country_code: 'CL' }, selectedBranch: null, userRole: role }),
+	useAdmin: () => ({
+		companyProfile: { country_code: 'CL' },
+		selectedBranch: null,
+		userRole: role,
+		rolePermissions: { navTabs: null, actions: roleActions },
+	}),
 }));
 
 vi.mock('@/integrations/supabase', () => ({
@@ -61,6 +67,7 @@ let root;
 
 beforeEach(() => {
 	role = 'ceo';
+	roleActions = [];
 	container = document.createElement('div');
 	container.className = 'admin-layout';
 	document.body.appendChild(container);
@@ -157,5 +164,14 @@ describe('AdminClients: enviar cupón por correo', () => {
 		expect(buttonByText('Enviar cupón')).toBeUndefined();
 		// Sin ficha y sin cupones no hay acciones: no se muestra el ⋮.
 		expect(rowOf('Bea Nueva').querySelector('[data-clients-kebab-id]')).toBeNull();
+	});
+
+	it('un cajero con «cupones por correo» del super admin sí los envía', async () => {
+		role = 'cashier';
+		roleActions = ['coupons.send_email'];
+		await render();
+
+		expect(rowOf('Bea Nueva').querySelector('.clients-row-select')).not.toBeNull();
+		expect(buttonByText('Enviar cupón')).toBeDefined();
 	});
 });

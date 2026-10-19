@@ -135,7 +135,7 @@ describe('plan «solo menú digital»', () => {
 
 	it('dueño y cajero ven lo mismo, dentro del panelAccess del local', () => {
 		const ctx = { normalizedPanelAccess: panelAccess(['orders', 'products', 'carousel']), menuCapabilities: menuOnly(false) };
-		expect(resolveAllowedPanelTabIds({ ...ctx, userRole: 'owner' })).toEqual(['products', 'menu_carousel']);
+		expect(resolveAllowedPanelTabIds({ ...ctx, userRole: 'ceo' })).toEqual(['products', 'menu_carousel']);
 		expect(resolveAllowedPanelTabIds({ ...ctx, userRole: 'cashier' })).toEqual(['products', 'menu_carousel']);
 	});
 
@@ -169,5 +169,47 @@ describe('plan «solo menú digital»', () => {
 			title: 'No tienes secciones habilitadas',
 			text: 'Pide a un administrador que habilite tu acceso a este panel.',
 		});
+	});
+});
+
+describe('pestañas del rol según el super admin (role_definitions.nav_tabs)', () => {
+	const full = resolvePanelCapabilities({ cartEnabled: true, orderChannel: 'both' });
+
+	it('el cajero ve las que le dieron, con los ids viejos traducidos', () => {
+		const roleNavTabs = ['orders', 'caja', 'coupons', 'beverages', 'users', 'inventada'];
+		expect(resolveRoleAllowedTabIds('cashier', 'full', roleNavTabs))
+			.toEqual(['orders', 'caja', 'coupons', 'menu_beverages']);
+		expect(resolveAllowedPanelTabIds({
+			userRole: 'staff',
+			normalizedPanelAccess: null,
+			menuCapabilities: full,
+			roleNavTabs,
+		})).toEqual(['orders', 'caja', 'coupons', 'menu_beverages']);
+		expect(resolveTabAccessDenialReason({
+			userRole: 'cashier', normalizedPanelAccess: null, menuCapabilities: full, roleNavTabs, tabId: 'coupons',
+		})).toBeNull();
+		// Lo que le sacaron, aunque estaba en los valores del código, ya no lo ve.
+		expect(resolveTabAccessDenialReason({
+			userRole: 'cashier', normalizedPanelAccess: null, menuCapabilities: full, roleNavTabs, tabId: 'local_expenses',
+		})).toBe('role');
+	});
+
+	it('igual se cruza con lo que incluye el plan de la empresa', () => {
+		expect(resolveAllowedPanelTabIds({
+			userRole: 'cashier',
+			normalizedPanelAccess: ['orders', 'caja'],
+			menuCapabilities: full,
+			roleNavTabs: ['orders', 'coupons'],
+		})).toEqual(['orders']);
+	});
+
+	it('sin permisos guardados (o sin leerlos) rige lo del código', () => {
+		expect(resolveRoleAllowedTabIds('cashier', 'full', null)).toEqual(['orders', 'caja', 'local_expenses']);
+	});
+
+	it('admin y ceo ven todo aunque haya permisos guardados', () => {
+		for (const role of ['admin', 'ceo']) {
+			expect(resolveRoleAllowedTabIds(role, 'full', ['orders'])).toContain('coupons');
+		}
 	});
 });

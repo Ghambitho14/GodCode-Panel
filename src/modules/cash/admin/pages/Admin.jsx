@@ -106,6 +106,7 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
     confirmDeleteCategory,
     kanbanColumns,
     userRole,
+    rolePermissions,
     userEmail,
     signOut,
     dynamicModules,
@@ -128,12 +129,14 @@ export const AdminPage = ({ companyName, logoUrl, userEmail: initialEmail, store
   const { locale } = useBranchMoney();
 
   const tabLabels = React.useMemo(() => resolvedTabLabels || {}, [resolvedTabLabels]);
+  const roleNavTabs = rolePermissions?.navTabs ?? null;
   const sidebarTabAccessContext = React.useMemo(() => ({
     userRole,
     normalizedPanelAccess: panelAccess,
     menuCapabilities,
     dynamicModules,
-  }), [userRole, panelAccess, menuCapabilities, dynamicModules]);
+    roleNavTabs,
+  }), [userRole, panelAccess, menuCapabilities, dynamicModules, roleNavTabs]);
   const [clientOrderDetail, setClientOrderDetail] = React.useState(null);
   const [manualOrderOpeningMode, setManualOrderOpeningMode] = React.useState(null);
 

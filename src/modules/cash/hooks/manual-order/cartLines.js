@@ -140,6 +140,14 @@ export function hasSizeOrVariantLines(items) {
 		|| (Array.isArray(item?.variant_ids) && item.variant_ids.length > 0));
 }
 
+/**
+ * Líneas con cambios cobrados («Cambiar proteína por salmón +$1.000»): la cotización V2
+ * no suma `extras_total` y `update_order_v3` sí, así que con ellas el total no cuadra.
+ */
+export function hasPaidChangeLines(items) {
+	return (items || []).some((item) => getItemChangesTotal(item) > 0 || Number(item?.extras_total) > 0);
+}
+
 /** Ítems del carrito a `p_items` de las RPC: `id` es el producto y `size_id` va solo con tamaño. */
 export function buildOrderItemsPayload(items) {
 	return (items || []).map((item) => ({

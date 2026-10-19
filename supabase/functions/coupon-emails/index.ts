@@ -48,7 +48,9 @@ import {
 import { createSecretBox } from "../_shared/secret-box.ts";
 import { buildUnsubscribeUrl } from "../_shared/unsubscribe-token.ts";
 
-const STAFF_ROLES = new Set(["owner", "admin", "ceo"]);
+/** Estos roles siempre pueden; el resto, si su rol tiene `coupons.send_email` (base: `role_can`). */
+const STAFF_ROLES = new Set(["admin", "ceo"]);
+const SEND_COUPONS_ACTION = "coupons.send_email";
 const RESEND_API = "https://api.resend.com/emails";
 /** Resend acepta 2 envíos por segundo en el plan base: se espacian un poco más. */
 const RESEND_SPACING_MS = 550;
@@ -91,6 +93,21 @@ function optionalEnv(name: string): string {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * El resto pregunta con su propia sesión a `session_role_can`, que mira su rol propio del
+ * negocio si lo tiene (/cuenta › Equipo). Si la base aún no tiene esa función, `role_can`;
+ * si la consulta falla, solo pasan admin/ceo.
+ */
+async function roleCanSendCoupons(userClient: SupabaseClient, admin: SupabaseClient, role: string): Promise<boolean> {
+	if (STAFF_ROLES.has(role)) return true;
+	if (!role) return false;
+	const own = await userClient.rpc("session_role_can", { p_role: role, p_action: SEND_COUPONS_ACTION });
+	if (!own.error) return own.data === true;
+	if (own.error.code !== "PGRST202") return false;
+	const { data, error } = await admin.rpc("role_can", { p_role: role, p_action: SEND_COUPONS_ACTION });
+	return !error && data === true;
+}
+
 async function getStaffContext(authHeader: string | null): Promise<StaffContext | ContextError> {
 	if (!authHeader) return { error: "No autenticado", status: 401 };
 
@@ -114,7 +131,7 @@ async function getStaffContext(authHeader: string | null): Promise<StaffContext 
 	if (userError) return { error: userError.message, status: 500 };
 
 	const role = String(row?.role ?? "").trim().toLowerCase();
-	if (!row?.company_id || row.is_active === false || !STAFF_ROLES.has(role)) {
+	if (!row?.company_id || row.is_active === false || !(await roleCanSendCoupons(userClient, admin, role))) {
 		return { error: "No tienes permisos para enviar cupones", status: 403 };
 	}
 	return {

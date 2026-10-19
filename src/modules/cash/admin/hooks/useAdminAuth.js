@@ -13,7 +13,7 @@ import { clearCompanyIntegrationCache } from '../../services/branchSettingsServi
 
 
 
-const ALLOWED_ROLES = ['owner', 'admin', 'ceo', 'cashier'];
+const ALLOWED_ROLES = ['admin', 'ceo', 'cashier'];
 
 
 

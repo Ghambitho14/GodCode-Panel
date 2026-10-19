@@ -186,7 +186,7 @@ export default function ManualOrderCheckoutVisualHarness() {
 	};
 
 	return (
-		<AdminContext.Provider value={{ companyProfile, userRole: 'owner' }}>
+		<AdminContext.Provider value={{ companyProfile, userRole: 'ceo' }}>
 			<LocationContext.Provider value={{ selectedBranch: branch }}>
 				<OrderMoneyContext.Provider value={money}>
 					{catalogMode ? (

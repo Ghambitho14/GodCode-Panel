@@ -79,6 +79,8 @@ export const useManualOrder = (
 	manualSettingsRaw = null,
 	branchPaymentMethods = null,
 	branchConfigError = null,
+	/** Acciones que el super admin le dio al rol (`role_definitions.actions`). */
+	roleActions = null,
 ) => {
 	const formCountry = useMemo(() => resolveEffectiveCountry(branch, companyProfile), [branch, companyProfile]);
 	const currency = useMemo(() => resolveEffectiveCurrency(branch, companyProfile), [branch, companyProfile]);
@@ -434,8 +436,8 @@ export const useManualOrder = (
 					branch_id: branch.id, company_id: branch.company_id, branch_name: branch.name, order_type: form.order_type,
 					delivery_address: form.order_type === 'delivery' ? deliveryPayload.address : null,
 					delivery_reference: deliveryPayload.reference, delivery_km: deliveryPayload.km, delivery_named_area_id: deliveryPayload.zoneId,
-					caller_role: userRole, coupon_code: sanitizeManualOrderInput(form.coupon_code), delivery_fee: deliveryFee,
-					...(canOverrideDeliveryFee(userRole) && form.order_type === 'delivery' ? { manual_delivery_fee: deliveryFee } : {}),
+					caller_role: userRole, caller_actions: roleActions, coupon_code: sanitizeManualOrderInput(form.coupon_code), delivery_fee: deliveryFee,
+					...(canOverrideDeliveryFee(userRole, roleActions) && form.order_type === 'delivery' ? { manual_delivery_fee: deliveryFee } : {}),
 				};
 				const quickSaleHasPayment = createMode === 'quick_sale' && hasManualOrderPaymentIntent({
 					...form,
@@ -513,7 +515,7 @@ export const useManualOrder = (
 			submitInFlightRef.current = false;
 			setLoading(false);
 		}
-	}, [validateContext, showNotify, items, v2Enabled, quote, quoteError, openMesaMode, form, fulfillment, paymentMethods, currency, fractionDigits, countryProfile.countryCode, branch, deliveryPayload, receiptFile, couponPreview, syncDeliveryFeeFromForm, userRole, resetOrder, onOrderSaved, onClose, includePhone, includeDocument]);
+	}, [validateContext, showNotify, items, v2Enabled, quote, quoteError, openMesaMode, form, fulfillment, paymentMethods, currency, fractionDigits, countryProfile.countryCode, branch, deliveryPayload, receiptFile, couponPreview, syncDeliveryFeeFromForm, userRole, roleActions, resetOrder, onOrderSaved, onClose, includePhone, includeDocument]);
 
 	const restoreOrder = useCallback((draft) => {
 		if (!draft || typeof draft !== 'object') return;
