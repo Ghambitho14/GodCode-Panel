@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { useHistoryBack } from '@/modules/cash/hooks/useHistoryBack';
 import { AlertTriangle, Info } from 'lucide-react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';
@@ -62,9 +63,10 @@ export function AdminConfirmDialog({
 				return;
 			}
 			if (e.key !== 'Tab') return;
-			// El foco se queda dentro de la ventana
+			// El foco se queda dentro de la ventana (y la trampa de foco de un modal de abajo no lo roba)
 			const items = [cancelRef.current, confirmRef.current].filter(Boolean);
 			e.preventDefault();
+			e.stopPropagation();
 			if (items.length < 2) return;
 			const i = items.indexOf(document.activeElement);
 			const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i >= items.length - 1 ? 0 : i + 1);
@@ -77,56 +79,61 @@ export function AdminConfirmDialog({
 		};
 	}, [open, danger, alertOnly, busy, dismiss]);
 
-	if (!open) return null;
+	if (!open || typeof document === 'undefined') return null;
 
-	return (
-		<div
-			className="admin-confirm-dialog__overlay"
-			onMouseDown={(e) => {
-				if (e.target === e.currentTarget && !busy) dismiss?.();
-			}}
-		>
+	// En document.body: dentro de la capa del panel (z-index 1) quedaba debajo de los
+	// modales que también van al body, como el pedido manual.
+	return createPortal(
+		<div className="admin-confirm-dialog-scope">
 			<div
-				className="admin-confirm-dialog"
-				role={alertOnly ? 'alertdialog' : 'dialog'}
-				aria-modal="true"
-				aria-labelledby={title ? titleId : undefined}
-				aria-describedby={text ? textId : undefined}
+				className="admin-confirm-dialog__overlay"
+				onMouseDown={(e) => {
+					if (e.target === e.currentTarget && !busy) dismiss?.();
+				}}
 			>
-				<div className="admin-confirm-dialog__head">
-					<span className={`admin-confirm-dialog__icon${danger ? ' admin-confirm-dialog__icon--danger' : ''}`} aria-hidden>
-						{danger ? <AlertTriangle size={20} strokeWidth={2} /> : <Info size={20} strokeWidth={2} />}
-					</span>
-					<div className="admin-confirm-dialog__copy">
-						{title ? <h2 id={titleId} className="admin-confirm-dialog__title">{title}</h2> : null}
-						{text ? <p id={textId} className="admin-confirm-dialog__text">{text}</p> : null}
+				<div
+					className="admin-confirm-dialog"
+					role={alertOnly ? 'alertdialog' : 'dialog'}
+					aria-modal="true"
+					aria-labelledby={title ? titleId : undefined}
+					aria-describedby={text ? textId : undefined}
+				>
+					<div className="admin-confirm-dialog__head">
+						<span className={`admin-confirm-dialog__icon${danger ? ' admin-confirm-dialog__icon--danger' : ''}`} aria-hidden>
+							{danger ? <AlertTriangle size={20} strokeWidth={2} /> : <Info size={20} strokeWidth={2} />}
+						</span>
+						<div className="admin-confirm-dialog__copy">
+							{title ? <h2 id={titleId} className="admin-confirm-dialog__title">{title}</h2> : null}
+							{text ? <p id={textId} className="admin-confirm-dialog__text">{text}</p> : null}
+						</div>
+					</div>
+					<div className="admin-confirm-dialog__actions">
+						{!alertOnly ? (
+							<button
+								ref={cancelRef}
+								type="button"
+								className="admin-confirm-dialog__btn admin-confirm-dialog__btn--cancel"
+								onClick={onCancel}
+								disabled={busy}
+							>
+								{cancelLabel}
+							</button>
+						) : null}
+						<button
+							ref={confirmRef}
+							type="button"
+							className={`admin-confirm-dialog__btn ${danger ? 'admin-confirm-dialog__btn--danger' : 'admin-confirm-dialog__btn--confirm'}`}
+							onClick={onConfirm}
+							disabled={busy}
+							aria-busy={busy || undefined}
+						>
+							{busy ? 'Un momento…' : confirmLabel}
+						</button>
 					</div>
 				</div>
-				<div className="admin-confirm-dialog__actions">
-					{!alertOnly ? (
-						<button
-							ref={cancelRef}
-							type="button"
-							className="admin-confirm-dialog__btn admin-confirm-dialog__btn--cancel"
-							onClick={onCancel}
-							disabled={busy}
-						>
-							{cancelLabel}
-						</button>
-					) : null}
-					<button
-						ref={confirmRef}
-						type="button"
-						className={`admin-confirm-dialog__btn ${danger ? 'admin-confirm-dialog__btn--danger' : 'admin-confirm-dialog__btn--confirm'}`}
-						onClick={onConfirm}
-						disabled={busy}
-						aria-busy={busy || undefined}
-					>
-						{busy ? 'Un momento…' : confirmLabel}
-					</button>
-				</div>
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 }
 

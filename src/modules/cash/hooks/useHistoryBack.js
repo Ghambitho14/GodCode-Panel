@@ -18,16 +18,29 @@ const STATE_KEY = 'gcModal';
 export function useHistoryBack(open, onBack) {
 	const onBackRef = useRef(onBack);
 	onBackRef.current = onBack;
+	/** Entrada cuyo `history.back()` está por ejecutarse (ver cleanup). */
+	const pendingRemovalRef = useRef(null);
 
 	useEffect(() => {
 		if (!open || typeof window === 'undefined' || !window.history?.pushState) return undefined;
-		const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-		const entry = { [STATE_KEY]: token };
-		try {
-			window.history.pushState(entry, '');
-		} catch {
-			return undefined;
+		let entry;
+		const pending = pendingRemovalRef.current;
+		if (pending) {
+			// StrictMode (desarrollo) desmonta y vuelve a montar al instante: se reutiliza la
+			// entrada; si se quitara y se pusiera otra, el back() tardío cerraría la ventana.
+			pending.cancelled = true;
+			pendingRemovalRef.current = null;
+			entry = pending.entry;
+		} else {
+			const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+			entry = { [STATE_KEY]: token };
+			try {
+				window.history.pushState(entry, '');
+			} catch {
+				return undefined;
+			}
 		}
+		const token = entry[STATE_KEY];
 		const isOurs = () => window.history.state?.[STATE_KEY] === token;
 		const onPop = () => {
 			if (isOurs()) return;
@@ -40,7 +53,13 @@ export function useHistoryBack(open, onBack) {
 		window.addEventListener('popstate', onPop);
 		return () => {
 			window.removeEventListener('popstate', onPop);
-			if (isOurs()) window.history.back();
+			const removal = { entry, cancelled: false };
+			pendingRemovalRef.current = removal;
+			queueMicrotask(() => {
+				if (removal.cancelled) return;
+				if (pendingRemovalRef.current === removal) pendingRemovalRef.current = null;
+				if (isOurs()) window.history.back();
+			});
 		};
 	}, [open]);
 }
