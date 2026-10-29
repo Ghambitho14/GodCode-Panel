@@ -5,7 +5,9 @@ FROM node:22.23.4-alpine AS builder
 WORKDIR /app
 
 # Copiar manifiestos primero para cachear las dependencias.
+# patches/ va antes de npm ci: el postinstall (patch-package) los aplica ahí.
 COPY package.json package-lock.json ./
+COPY patches ./patches
 RUN npm ci
 
 # Copiar el resto del código y generar el build de producción.
