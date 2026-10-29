@@ -247,7 +247,7 @@ export default function ManualOrderChangesModal({ item, formatMoney, onSave, onC
 	const crumbs = [node?.group.name, action?.label, changeFrom?.option.name].filter(Boolean);
 	const stepTitle = ['¿Qué parte?', '¿Qué hacer?', action?.key === 'cambiar' ? '¿Cuál cambiar?' : '¿Cuál?', '¿Por cuál?'][level];
 
-	let rows = null;
+	let rows;
 	if (level === 0) {
 		rows = tree.map(({ group }) => {
 			const count = countInGroup(group.id);

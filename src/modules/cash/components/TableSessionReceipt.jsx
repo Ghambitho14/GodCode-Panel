@@ -51,8 +51,8 @@ async function markLineFullyServed(orderId, line) {
 		const pending = Math.max(0, ordered - preparing - prepared - served - voided);
 
 		/** @type {'preparing' | 'ready' | 'served' | null} */
-		let targetStatus = null;
-		let quantity = 0;
+		let targetStatus;
+		let quantity;
 		if (pending > 0) {
 			targetStatus = 'preparing';
 			quantity = pending;

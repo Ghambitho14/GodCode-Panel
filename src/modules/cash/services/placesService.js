@@ -98,7 +98,7 @@ function labelFromProps(p) {
 	const city = String(p.city ?? p.district ?? p.locality ?? '').trim();
 	const state = String(p.state ?? p.county ?? '').trim();
 
-	let primary = '';
+	let primary;
 	if (street) {
 		const streetLine = [housenumber, street].filter(Boolean).join(' ').trim();
 		primary =

@@ -754,7 +754,7 @@ export default function AdminMenuCartUpsellSection({
 										);
 										let stockStatTone = "muted";
 										let stockStatMain = "—";
-										let stockStatSub = "Sin inventario";
+										let stockStatSub;
 										if (item.inventoryItemId) {
 											if (!invMeta) {
 												stockStatMain = "—";
