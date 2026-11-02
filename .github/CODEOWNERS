@@ -1,0 +1,3 @@
+# Todo cambio pide la revisión del dueño del repo. Para que bloquee el merge hay
+# que activar "Require review from Code Owners" en la protección de `main`.
+* @Ghambitho14

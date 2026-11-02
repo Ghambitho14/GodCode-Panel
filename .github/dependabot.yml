@@ -1,0 +1,34 @@
+# Actualizaciones de dependencias. Cada PR pasa por la CI como cualquier otro;
+# ninguna se mergea sola.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Parches y menores juntos para no llenar la lista de PRs.
+      npm-minor:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+
+  # Mueve el digest de `node:22.x-alpine` en el Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
