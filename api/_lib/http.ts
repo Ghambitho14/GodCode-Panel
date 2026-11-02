@@ -12,7 +12,7 @@ function isProd(): boolean {
 
 function serializeCookie(value: string, maxAgeSeconds: number): string {
   const parts = [
-    `${REFRESH_COOKIE}=${value}`,
+    `${REFRESH_COOKIE}=${encodeURIComponent(value)}`,
     "HttpOnly",
     "Path=/",
     "SameSite=Lax",

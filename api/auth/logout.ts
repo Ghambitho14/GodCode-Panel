@@ -25,12 +25,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (refreshToken) {
     try {
       const supabase = createServerSupabaseClient();
-      // Establece la sesion solo para poder revocarla; no persiste nada.
-      await supabase.auth.setSession({
-        access_token: "",
+      // `setSession` con access token vacío lo rechaza supabase-js y el refresh
+      // token seguía vivo. Se canjea por una sesión real y se cierra esa; `local`
+      // para no sacar a las otras cajas que comparten la cuenta.
+      const { data, error } = await supabase.auth.refreshSession({
         refresh_token: refreshToken,
       });
-      await supabase.auth.signOut();
+      if (!error && data.session) {
+        await supabase.auth.signOut({ scope: "local" });
+      }
     } catch {
       /* best-effort: igual limpiamos la cookie abajo */
     }

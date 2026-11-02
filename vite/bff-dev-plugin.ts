@@ -74,24 +74,52 @@ function wrapResponse(res: ServerResponse) {
   return shim;
 }
 
+/**
+ * Mismas rutas que deja pasar `server.js` en producción. Repetidas aquí para que
+ * lo que se bloquea allá también falle en desarrollo y no aparezca recién en el
+ * deploy.
+ */
+const SUPABASE_PROXY_PREFIXES = ["/rest/v1/", "/storage/v1/", "/functions/v1/", "/realtime/v1/"];
+
+function allowedSupabasePath(rawUrl: string | undefined): string | null {
+  const raw = String(rawUrl || "");
+  if (/%2e|%5c/i.test(raw)) return null;
+  const url = new URL(raw, "http://localhost");
+  const path = url.pathname.replace(/^\/api\/supabase/, "");
+  if (!SUPABASE_PROXY_PREFIXES.some((prefix) => path.startsWith(prefix))) return null;
+  return path + url.search;
+}
+
 function proxyToSupabaseDev(req: IncomingMessage, res: ServerResponse) {
-  const url = new URL(req.url || "/", "http://localhost");
+  // Dentro de `middlewares.use("/api/supabase")` connect deja `req.url` sin el
+  // prefijo; `originalUrl` conserva la ruta completa.
+  const fullUrl = (req as IncomingMessage & { originalUrl?: string }).originalUrl || req.url;
+  const targetPath = allowedSupabasePath(fullUrl);
+  if (!targetPath) {
+    console.warn("[gc-bff-dev] proxy bloqueado:", String(fullUrl).split("?")[0]);
+    res.statusCode = 403;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ error: "Ruta no permitida." }));
+    return;
+  }
   const targetUrl =
     process.env.SUPABASE_INTERNAL_URL?.trim() ||
     process.env.SUPABASE_URL?.trim() ||
     "http://127.0.0.1:54321";
   const target = new URL(targetUrl);
-  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
   const isHttps = target.protocol === "https:";
   const port = target.port || (isHttps ? "443" : "80");
   const transport = isHttps ? httpsRequest : httpRequest;
+  const headers = { ...req.headers, host: target.hostname };
+  delete headers.cookie;
+  delete headers["x-gc-auth"];
   const proxyReq = transport(
     {
       hostname: target.hostname,
       port,
       path: targetPath,
       method: req.method,
-      headers: { ...req.headers, host: target.hostname },
+      headers,
     },
     (proxyRes) => {
       res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
@@ -119,17 +147,23 @@ function proxyToSupabaseUpgradeDev(
     return false;
   }
 
-  const url = new URL(rawUrl, "http://localhost");
+  const targetPath = allowedSupabasePath(rawUrl);
+  if (!targetPath || !targetPath.startsWith("/realtime/v1/")) {
+    console.warn("[gc-bff-dev] ws bloqueado:", rawUrl.split("?")[0]);
+    socket.destroy();
+    return true;
+  }
   const targetUrl =
     process.env.SUPABASE_INTERNAL_URL?.trim() ||
     process.env.SUPABASE_URL?.trim() ||
     "http://127.0.0.1:54321";
   const target = new URL(targetUrl);
-  const targetPath = url.pathname.replace(/^\/api\/supabase/, "") + url.search;
   const isHttps = target.protocol === "https:";
   const port = target.port || (isHttps ? "443" : "80");
   const headers = { ...req.headers, host: target.hostname };
+  delete headers.cookie;
   delete headers["proxy-connection"];
+  delete headers["x-gc-auth"];
 
   const transport = isHttps ? httpsRequest : httpRequest;
   const proxyReq = transport({
