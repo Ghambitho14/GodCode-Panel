@@ -14,11 +14,20 @@ const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PANEL_URL = process.env.GODCODE_PANEL_URL || 'https://godcode-panel.me';
+const DEFAULT_PANEL_URL = 'https://godcode-panel.me';
+// El instalador siempre abre el panel de producción: si `GODCODE_PANEL_URL`
+// valiera también ahí, una variable de entorno puesta en el PC de la caja
+// bastaría para cargar otro sitio con el puente de impresión y los permisos
+// del panel. Para apuntar a otro servidor está `npm start` (sin empaquetar).
+const PANEL_URL = app.isPackaged ? DEFAULT_PANEL_URL : process.env.GODCODE_PANEL_URL || DEFAULT_PANEL_URL;
 const PANEL_ORIGIN = new URL(PANEL_URL).origin;
 const APP_ID = 'me.godcode-panel.caja';
 
-const EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:', 'tel:', 'whatsapp:']);
+// Sin `http:`: un enlace sin cifrar del panel no se abre fuera.
+const EXTERNAL_PROTOCOLS = new Set(['https:', 'mailto:', 'tel:', 'whatsapp:']);
+// Lo que el panel usa de verdad: copiar (teléfono, dirección), notificaciones y
+// pantalla completa. Cámara, micrófono, ubicación y el resto se niegan.
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'notifications', 'fullscreen']);
 const MAX_TICKET_HTML = 2 * 1024 * 1024;
 const PRINT_TIMEOUT_MS = 30000;
 
@@ -309,9 +318,12 @@ if (!app.requestSingleInstanceLock()) {
 	app.whenReady().then(() => {
 		app.setAppUserModelId(APP_ID);
 		Menu.setApplicationMenu(null);
-		// Permisos (notificaciones, portapapeles…) solo para el panel.
-		session.defaultSession.setPermissionRequestHandler((webContents, _permission, callback) => {
-			callback(isPanelUrl(webContents.getURL()));
+		// Permisos (notificaciones, portapapeles…) solo para el panel y solo los de la lista.
+		session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+			callback(isPanelUrl(webContents.getURL()) && ALLOWED_PERMISSIONS.has(permission));
+		});
+		session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
+			return requestingOrigin === PANEL_ORIGIN && ALLOWED_PERMISSIONS.has(permission);
 		});
 		registerIpc();
 		createMainWindow();
