@@ -18,7 +18,7 @@
  *  en su cuenta GodCode (/cuenta › Correo de cupones) o el super admin.
  *
  * Auth: igual que `client-pii`. `verify_jwt=true`; el usuario se resuelve en `users`
- * por `auth_user_id` y todo se filtra por su `company_id`. El correo de un cliente
+ * por `auth_user_id` (`_shared/staff-auth.ts`) y todo se filtra por su `company_id`. El correo de un cliente
  * se lee de `auth.users` con service role y nunca vuelve al navegador.
  *
  * Secretos: RESEND_API_KEY y COUPON_EMAIL_FROM (el Resend de GodCode),
@@ -28,7 +28,15 @@
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+
+import { withCors } from "../_shared/cors.ts";
+import {
+	resolveStaff,
+	staffLog,
+	type StaffContext as SharedStaffContext,
+	type StaffContextError,
+} from "../_shared/staff-auth.ts";
 
 import {
 	companyDisplayName,
@@ -60,25 +68,22 @@ const COMPANY_SELECT =
 	"id, name, email, public_slug, custom_domain, subscription_status, subscription_ends_at, currency, theme_config";
 const SENDER_SELECT = "api_key_sealed, api_key_last4, from_email, from_name, reply_to, verified_at, last_error";
 
-type StaffContext = {
-	admin: SupabaseClient;
-	companyId: string;
-	role: string;
-	userEmail: string | null;
-};
-type ContextError = { error: string; status: number };
-
-const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+type StaffContext = SharedStaffContext & { userEmail: string | null };
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body ?? {}), {
 		status,
-		headers: { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "no-store" },
+		headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
 	});
+}
+
+/** El detalle de Postgres va al log; al navegador, nada que describa la base. */
+function dbError(where: string, error: unknown, status = 500): Response {
+	staffLog("error", "coupon-emails.error", {
+		where,
+		error: error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error),
+	});
+	return jsonResponse({ error: "Error interno" }, status);
 }
 
 function getEnv(name: string): string {
@@ -108,38 +113,14 @@ async function roleCanSendCoupons(userClient: SupabaseClient, admin: SupabaseCli
 	return !error && data === true;
 }
 
-async function getStaffContext(authHeader: string | null): Promise<StaffContext | ContextError> {
-	if (!authHeader) return { error: "No autenticado", status: 401 };
-
-	const userClient = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"), {
-		global: { headers: { Authorization: authHeader } },
-		auth: { persistSession: false, autoRefreshToken: false },
+async function getStaffContext(authHeader: string | null): Promise<StaffContext | StaffContextError> {
+	const staff = await resolveStaff(authHeader, {
+		roles: STAFF_ROLES,
+		forbiddenMessage: "No tienes permisos para enviar cupones",
+		extraRoleCheck: (role, userClient, admin) => roleCanSendCoupons(userClient, admin, role),
 	});
-	const { data, error } = await userClient.auth.getUser();
-	if (error || !data.user?.id) return { error: "No autenticado", status: 401 };
-
-	const admin = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-		auth: { persistSession: false, autoRefreshToken: false },
-	});
-
-	const { data: row, error: userError } = await admin
-		.from("users")
-		.select("company_id, role, is_active")
-		.eq("auth_user_id", data.user.id)
-		.limit(1)
-		.maybeSingle();
-	if (userError) return { error: userError.message, status: 500 };
-
-	const role = String(row?.role ?? "").trim().toLowerCase();
-	if (!row?.company_id || row.is_active === false || !(await roleCanSendCoupons(userClient, admin, role))) {
-		return { error: "No tienes permisos para enviar cupones", status: 403 };
-	}
-	return {
-		admin,
-		companyId: String(row.company_id),
-		role,
-		userEmail: data.user.email ? data.user.email.trim().toLowerCase() : null,
-	};
+	if ("error" in staff) return staff;
+	return { ...staff, userEmail: staff.email || null };
 }
 
 async function loadCompany(ctx: StaffContext): Promise<CompanyForEmail> {
@@ -308,7 +289,7 @@ async function handleSendCoupon(body: Record<string, unknown>, ctx: StaffContext
 		.select("id, auth_user_id, is_active, marketing_email_opt_out_at")
 		.eq("company_id", ctx.companyId)
 		.in("id", accountIds);
-	if (accountsError) return jsonResponse({ error: accountsError.message }, 500);
+	if (accountsError) return dbError("load-accounts", accountsError);
 	const accounts = new Map((accountRows ?? []).map((row) => [String(row.id).toLowerCase(), row]));
 
 	const results: SendResult[] = [];
@@ -371,7 +352,8 @@ async function handleSendCoupon(body: Record<string, unknown>, ctx: StaffContext
 			if (claimError.code === "23505") {
 				results.push({ accountId, status: "skipped", reason: "Ya se le envió en este envío" });
 			} else {
-				results.push({ accountId, status: "failed", reason: claimError.message });
+				staffLog("error", "coupon-emails.error", { where: "claim-delivery", error: claimError.message });
+				results.push({ accountId, status: "failed", reason: "No se pudo registrar el envío" });
 			}
 			continue;
 		}
@@ -471,8 +453,7 @@ async function handleSendCoupon(body: Record<string, unknown>, ctx: StaffContext
 	});
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-	if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+Deno.serve(withCors("POST, OPTIONS", async (req: Request): Promise<Response> => {
 	if (req.method !== "POST") return jsonResponse({ error: "Metodo no permitido" }, 405);
 
 	try {
@@ -498,6 +479,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 			return jsonResponse({ error: "email_sender_key_missing" }, 503);
 		}
 		if (message === "unsubscribe_secret_invalid") return jsonResponse({ error: "email_unsubscribe_secret_missing" }, 503);
-		return jsonResponse({ error: message }, 500);
+		return dbError("serve", err);
 	}
-});
+}));

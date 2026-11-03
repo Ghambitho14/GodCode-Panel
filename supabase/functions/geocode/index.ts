@@ -23,8 +23,9 @@
  *
  * Auth model:
  *  - `verify_jwt=true` en el deploy: Supabase rechaza el request si el JWT no es valido.
- *  - Para resolver email -> users.company_id/role y leer companies/branches se usa
- *    SUPABASE_SERVICE_ROLE_KEY (mismo modelo que `tenant-broadcasts`/`tenant-tickets`).
+ *  - El usuario se resuelve con `_shared/staff-auth.ts` (por `auth_user_id`, exige
+ *    `is_active`) y SUPABASE_SERVICE_ROLE_KEY lee companies/branches (mismo
+ *    modelo que `tenant-broadcasts`/`tenant-tickets`).
  *  - Tenant guard: el branchId solicitado debe pertenecer a la company del JWT.
  *
  * Provider de geocoding: Photon (Komoot/OSM), publico, sin API key.
@@ -33,16 +34,15 @@
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
+import { withCors } from "../_shared/cors.ts";
+import { resolveStaff, staffLog, type StaffContext } from "../_shared/staff-auth.ts";
+
+const METHODS = "POST, OPTIONS";
 const PHOTON_URL = "https://photon.komoot.io/api/";
 const MIN_ADDRESS_LEN = 8;
 
-type TenantContext = {
-	admin: SupabaseClient;
-	companyId: string;
-	email: string;
-};
+type TenantContext = StaffContext;
 
 type ContextError = { error: string; status: number };
 
@@ -54,88 +54,28 @@ type DeliveryNamedArea = {
 
 const TENANT_ALLOWED_ROLES = new Set(["admin", "ceo", "cashier", "staff"]);
 
-const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers":
-		"authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body ?? {}), {
 		status,
-		headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json" },
 	});
 }
 
-function getEnv(name: string): string {
-	const value = Deno.env.get(name);
-	if (!value) {
-		throw new Error(`Falta variable de entorno: ${name}`);
-	}
-	return value;
+/** El detalle de Postgres va al log; al navegador, nada que describa la base. */
+function dbError(where: string, error: unknown, status = 500): Response {
+	staffLog("error", "geocode.error", {
+		where,
+		error: error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error),
+	});
+	return jsonResponse({ ok: false, error: "Error interno" }, status);
 }
 
-function getAdminClient(): SupabaseClient {
-	return createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-		{ auth: { persistSession: false, autoRefreshToken: false } },
-	);
-}
-
-async function resolveAuthEmail(
-	authHeader: string | null,
-): Promise<{ email: string } | ContextError> {
-	if (!authHeader) {
-		return { error: "No autenticado", status: 401 };
-	}
-	const userClient = createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_ANON_KEY"),
-		{
-			global: { headers: { Authorization: authHeader } },
-			auth: { persistSession: false, autoRefreshToken: false },
-		},
-	);
-	const { data, error } = await userClient.auth.getUser();
-	if (error || !data.user?.email) {
-		return { error: "No autenticado", status: 401 };
-	}
-	return { email: data.user.email.trim().toLowerCase() };
-}
-
-async function getTenantContext(
-	authHeader: string | null,
-): Promise<TenantContext | ContextError> {
-	const auth = await resolveAuthEmail(authHeader);
-	if ("error" in auth) return auth;
-
-	const admin = getAdminClient();
-
-	const { data: rows, error: usersError } = await admin
-		.from("users")
-		.select("id, company_id, role")
-		.eq("email", auth.email);
-
-	if (usersError) {
-		return { error: usersError.message, status: 500 };
-	}
-
-	const userRow = (rows ?? []).find(
-		(row: { role: string | null; company_id: string | null }) =>
-			TENANT_ALLOWED_ROLES.has(String(row.role || "").toLowerCase()),
-	);
-
-	if (!userRow?.company_id) {
-		return { error: "No tienes permisos de panel tenant", status: 403 };
-	}
-
-	return {
-		admin,
-		companyId: String(userRow.company_id),
-		email: auth.email,
-	};
+function resolveTenantStaff(authHeader: string | null): Promise<StaffContext | ContextError> {
+	return resolveStaff(authHeader, {
+		roles: TENANT_ALLOWED_ROLES,
+		forbiddenMessage: "No tienes permisos de panel tenant",
+		allowEmailFallback: true,
+	});
 }
 
 /* ============================================================
@@ -333,7 +273,7 @@ async function handleGeocode(
 		.maybeSingle();
 
 	if (branchError) {
-		return jsonResponse({ ok: false, error: branchError.message }, 500);
+		return dbError("branch", branchError, 500);
 	}
 	if (!branch) {
 		return jsonResponse(
@@ -464,23 +404,18 @@ async function handleGeocode(
 	});
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-	if (req.method === "OPTIONS") {
-		return new Response(null, { status: 204, headers: CORS_HEADERS });
-	}
-
+Deno.serve(withCors(METHODS, async (req: Request): Promise<Response> => {
 	if (req.method !== "POST") {
 		return jsonResponse({ ok: false, error: "Metodo no permitido" }, 405);
 	}
 
 	try {
-		const ctx = await getTenantContext(req.headers.get("Authorization"));
+		const ctx = await resolveTenantStaff(req.headers.get("Authorization"));
 		if ("error" in ctx) {
 			return jsonResponse({ ok: false, error: ctx.error }, ctx.status);
 		}
 		return await handleGeocode(req, ctx);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "Error interno";
-		return jsonResponse({ ok: false, error: message }, 500);
+		return dbError("serve", err);
 	}
-});
+}));

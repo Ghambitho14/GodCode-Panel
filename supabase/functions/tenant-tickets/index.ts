@@ -16,8 +16,9 @@
  *
  * Auth model:
  *  - `verify_jwt=true`: Supabase rechaza requests sin JWT valido.
- *  - SUPABASE_SERVICE_ROLE_KEY para resolver email -> users.company_id/role
- *    y para escribir saas_tickets/saas_ticket_messages (mismo modelo del SaaS).
+ *  - El usuario se resuelve con `_shared/staff-auth.ts` (por `auth_user_id`,
+ *    exige `is_active`) y SUPABASE_SERVICE_ROLE_KEY escribe
+ *    saas_tickets/saas_ticket_messages (mismo modelo del SaaS).
  *
  * Tablas tocadas (NO accesibles por RLS desde el cliente):
  *   - saas_tickets
@@ -26,7 +27,10 @@
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+
+import { withCors } from "../_shared/cors.ts";
+import { resolveStaff, staffLog, type StaffContext } from "../_shared/staff-auth.ts";
 
 type TicketStatus =
 	| "open"
@@ -67,11 +71,7 @@ type MessageRow = {
 	created_at: string;
 };
 
-type TenantContext = {
-	admin: SupabaseClient;
-	companyId: string;
-	email: string;
-};
+type TenantContext = StaffContext;
 
 type ContextError = { error: string; status: number };
 
@@ -104,88 +104,28 @@ const TICKET_SELECT =
 const MESSAGE_SELECT =
 	"id, ticket_id, author_type, author_email, is_internal, message, created_at";
 
-const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers":
-		"authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body ?? {}), {
 		status,
-		headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json" },
 	});
 }
 
-function getEnv(name: string): string {
-	const value = Deno.env.get(name);
-	if (!value) {
-		throw new Error(`Falta variable de entorno: ${name}`);
-	}
-	return value;
+/** El detalle de Postgres va al log; al navegador, nada que describa la base. */
+function dbError(where: string, error: unknown, status = 500): Response {
+	staffLog("error", "tenant-tickets.error", {
+		where,
+		error: error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error),
+	});
+	return jsonResponse({ error: "Error interno" }, status);
 }
 
-function getAdminClient(): SupabaseClient {
-	return createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-		{ auth: { persistSession: false, autoRefreshToken: false } },
-	);
-}
-
-async function resolveAuthEmail(
-	authHeader: string | null,
-): Promise<{ email: string } | ContextError> {
-	if (!authHeader) {
-		return { error: "No autenticado", status: 401 };
-	}
-	const userClient = createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_ANON_KEY"),
-		{
-			global: { headers: { Authorization: authHeader } },
-			auth: { persistSession: false, autoRefreshToken: false },
-		},
-	);
-	const { data, error } = await userClient.auth.getUser();
-	if (error || !data.user?.email) {
-		return { error: "No autenticado", status: 401 };
-	}
-	return { email: data.user.email.trim().toLowerCase() };
-}
-
-async function getTenantContext(
-	authHeader: string | null,
-): Promise<TenantContext | ContextError> {
-	const auth = await resolveAuthEmail(authHeader);
-	if ("error" in auth) return auth;
-
-	const admin = getAdminClient();
-
-	const { data: rows, error: usersError } = await admin
-		.from("users")
-		.select("id, company_id, role")
-		.eq("email", auth.email);
-
-	if (usersError) {
-		return { error: usersError.message, status: 500 };
-	}
-
-	const userRow = (rows ?? []).find(
-		(row: { role: string | null; company_id: string | null }) =>
-			TENANT_ALLOWED_ROLES.has(String(row.role || "").toLowerCase()),
-	);
-
-	if (!userRow?.company_id) {
-		return { error: "No tienes permisos de panel tenant", status: 403 };
-	}
-
-	return {
-		admin,
-		companyId: userRow.company_id as string,
-		email: auth.email,
-	};
+function getTenantContext(authHeader: string | null): Promise<TenantContext | ContextError> {
+	return resolveStaff(authHeader, {
+		roles: TENANT_ALLOWED_ROLES,
+		forbiddenMessage: "No tienes permisos de panel tenant",
+		allowEmailFallback: true,
+	});
 }
 
 function ticketToDto(row: TicketRow) {
@@ -227,8 +167,12 @@ async function verifyTicketOwnership(
 		.eq("id", ticketId)
 		.maybeSingle();
 
-	if (error || !data) {
-		return { error: error?.message || "Ticket no encontrado", status: 404 };
+	if (error) {
+		staffLog("error", "tenant-tickets.error", { where: "verify-ownership", error: error.message });
+		return { error: "Error interno", status: 500 };
+	}
+	if (!data) {
+		return { error: "Ticket no encontrado", status: 404 };
 	}
 	if (data.company_id !== companyId) {
 		return { error: "No autorizado para este ticket", status: 403 };
@@ -244,7 +188,7 @@ async function handleListTickets(ctx: TenantContext): Promise<Response> {
 		.order("last_message_at", { ascending: false })
 		.order("created_at", { ascending: false });
 
-	if (error) return jsonResponse({ error: error.message }, 400);
+	if (error) return dbError("list-tickets", error, 400);
 
 	return jsonResponse({
 		tickets: ((data ?? []) as TicketRow[]).map(ticketToDto),
@@ -295,12 +239,8 @@ async function handleCreateTicket(
 		.select(TICKET_SELECT)
 		.single();
 
-	if (error || !data) {
-		return jsonResponse(
-			{ error: error?.message || "No se pudo crear el ticket" },
-			400,
-		);
-	}
+	if (error) return dbError("create-ticket", error, 400);
+	if (!data) return jsonResponse({ error: "No se pudo crear el ticket" }, 400);
 
 	const ticket = data as TicketRow;
 	const { error: msgError } = await ctx.admin
@@ -314,7 +254,7 @@ async function handleCreateTicket(
 		});
 
 	if (msgError) {
-		return jsonResponse({ error: msgError.message }, 400);
+		return dbError("create-ticket-message", msgError, 400);
 	}
 
 	return jsonResponse({ success: true, ticket: ticketToDto(ticket) });
@@ -336,7 +276,7 @@ async function handleListMessages(
 		.eq("is_internal", false)
 		.order("created_at", { ascending: true });
 
-	if (error) return jsonResponse({ error: error.message }, 400);
+	if (error) return dbError("list-messages", error, 400);
 
 	return jsonResponse({ messages: (data ?? []) as MessageRow[] });
 }
@@ -369,7 +309,7 @@ async function handleSendMessage(
 		});
 
 	if (insertError) {
-		return jsonResponse({ error: insertError.message }, 400);
+		return dbError("send-message", insertError, 400);
 	}
 
 	const { error: updateError } = await ctx.admin
@@ -383,17 +323,13 @@ async function handleSendMessage(
 		.eq("id", ticketId);
 
 	if (updateError) {
-		return jsonResponse({ error: updateError.message }, 400);
+		return dbError("send-message-update", updateError, 400);
 	}
 
 	return jsonResponse({ success: true });
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-	if (req.method === "OPTIONS") {
-		return new Response(null, { status: 204, headers: CORS_HEADERS });
-	}
-
+Deno.serve(withCors("POST, OPTIONS", async (req: Request): Promise<Response> => {
 	if (req.method !== "POST") {
 		return jsonResponse({ error: "Metodo no permitido" }, 405);
 	}
@@ -439,7 +375,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 		return jsonResponse({ error: "Accion desconocida" }, 400);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "Error interno";
-		return jsonResponse({ error: message }, 500);
+		return dbError("serve", err);
 	}
-});
+}));

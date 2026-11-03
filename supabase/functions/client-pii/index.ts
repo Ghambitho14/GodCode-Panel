@@ -13,38 +13,31 @@
  *
  * Auth model:
  *  - `verify_jwt=true`: Supabase rechaza requests sin JWT válido.
- *  - El usuario se resuelve en `users` por `auth_user_id`, igual que
- *    `current_user_company_id()` en las políticas RLS: la función nunca muestra
- *    datos de un pedido o una cuenta que ese usuario no pueda ya ver.
+ *  - El usuario se resuelve en `users` por `auth_user_id` (`_shared/staff-auth.ts`),
+ *    igual que `current_user_company_id()` en las políticas RLS: la función nunca
+ *    muestra datos de un pedido o una cuenta que ese usuario no pueda ya ver.
  *  - Lo que ya está en claro (compradores rápidos, datos antiguos) pasa tal cual.
+ *  - Cada descifrado deja un evento `pii.access` en el log (quién, qué empresa,
+ *    cuántos registros). Cuando exista `audit_log` en la base, va también ahí.
  *
  * Secretos: `MENU_ACCOUNT_PII_KEY` (la misma del Portal; si se pierde, los datos
  * cifrados no se recuperan).
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
 
+import { withCors } from "../_shared/cors.ts";
 import { createPiiOpener, isSealedPii, type PiiOpener } from "../_shared/pii.ts";
+import { resolveStaff, staffLog, type StaffContext } from "../_shared/staff-auth.ts";
 
 const STAFF_ROLES = new Set(["admin", "ceo", "cashier", "staff"]);
 const MAX_ORDERS_PER_REQUEST = 50;
 const MAX_ADDRESSES_PER_CLIENT = 10;
 
-type StaffContext = { admin: SupabaseClient; companyId: string };
-type ContextError = { error: string; status: number };
-
-const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body ?? {}), {
 		status,
 		headers: {
-			...CORS_HEADERS,
 			"Content-Type": "application/json",
 			// Datos personales: que nada en el camino los guarde.
 			"Cache-Control": "no-store",
@@ -52,10 +45,24 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-function getEnv(name: string): string {
-	const value = Deno.env.get(name);
-	if (!value) throw new Error(`Falta variable de entorno: ${name}`);
-	return value;
+/** El detalle de Postgres va al log; al navegador, nada que describa la base. */
+function internalError(where: string, error: unknown): Response {
+	staffLog("error", "client-pii.error", {
+		where,
+		error: error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error),
+	});
+	return jsonResponse({ error: "Error interno" }, 500);
+}
+
+function logPiiAccess(ctx: StaffContext, action: string, count: number, extra: Record<string, unknown> = {}): void {
+	staffLog("info", "pii.access", {
+		action,
+		company_id: ctx.companyId,
+		auth_user_id: ctx.authUserId,
+		role: ctx.role,
+		count,
+		...extra,
+	});
 }
 
 let openerPromise: Promise<PiiOpener> | null = null;
@@ -67,35 +74,6 @@ function getOpener(): Promise<PiiOpener> {
 		});
 	}
 	return openerPromise;
-}
-
-async function getStaffContext(authHeader: string | null): Promise<StaffContext | ContextError> {
-	if (!authHeader) return { error: "No autenticado", status: 401 };
-
-	const userClient = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"), {
-		global: { headers: { Authorization: authHeader } },
-		auth: { persistSession: false, autoRefreshToken: false },
-	});
-	const { data, error } = await userClient.auth.getUser();
-	if (error || !data.user?.id) return { error: "No autenticado", status: 401 };
-
-	const admin = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-		auth: { persistSession: false, autoRefreshToken: false },
-	});
-
-	const { data: row, error: userError } = await admin
-		.from("users")
-		.select("company_id, role, is_active")
-		.eq("auth_user_id", data.user.id)
-		.limit(1)
-		.maybeSingle();
-	if (userError) return { error: userError.message, status: 500 };
-
-	const role = String(row?.role ?? "").trim().toLowerCase();
-	if (!row?.company_id || row.is_active === false || !STAFF_ROLES.has(role)) {
-		return { error: "No tienes permisos para ver datos de clientes", status: 403 };
-	}
-	return { admin, companyId: String(row.company_id) };
 }
 
 /** Un valor que no abre (llave cambiada, dato alterado) sale como null, no rompe el lote. */
@@ -135,9 +113,10 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
 		)
 		.eq("company_id", ctx.companyId)
 		.order("created_at", { ascending: false });
-	if (error) return jsonResponse({ error: error.message }, 500);
+	if (error) return internalError("list-accounts", error);
 
 	const open = await getOpener();
+	logPiiAccess(ctx, "list-accounts", data?.length ?? 0);
 	const accounts = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -174,9 +153,10 @@ async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffCo
 		.eq("client_id", clientId)
 		.order("last_used_at", { ascending: false, nullsFirst: false })
 		.limit(MAX_ADDRESSES_PER_CLIENT);
-	if (error) return jsonResponse({ error: error.message }, 500);
+	if (error) return internalError("client-addresses", error);
 
 	const open = await getOpener();
+	logPiiAccess(ctx, "client-addresses", data?.length ?? 0, { client_id: clientId });
 	const addresses = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -204,9 +184,10 @@ async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffConte
 		.select("id, client_phone, client_rut, delivery_address")
 		.eq("company_id", ctx.companyId)
 		.in("id", ids);
-	if (error) return jsonResponse({ error: error.message }, 500);
+	if (error) return internalError("reveal-orders", error);
 
 	const open = await getOpener();
+	logPiiAccess(ctx, "reveal-orders", data?.length ?? 0, { order_ids: (data ?? []).map((row) => row.id) });
 	const orders = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -218,12 +199,14 @@ async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffConte
 	return jsonResponse({ orders });
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-	if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+Deno.serve(withCors("POST, OPTIONS", async (req: Request): Promise<Response> => {
 	if (req.method !== "POST") return jsonResponse({ error: "Metodo no permitido" }, 405);
 
 	try {
-		const ctx = await getStaffContext(req.headers.get("Authorization"));
+		const ctx = await resolveStaff(req.headers.get("Authorization"), {
+			roles: STAFF_ROLES,
+			forbiddenMessage: "No tienes permisos para ver datos de clientes",
+		});
 		if ("error" in ctx) return jsonResponse({ error: ctx.error }, ctx.status);
 
 		let body: Record<string, unknown>;
@@ -242,6 +225,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 		const message = err instanceof Error ? err.message : "Error interno";
 		// Sin llave válida se falla cerrado y se dice por qué, sin mostrar nada cifrado.
 		if (message === "pii_key_invalid") return jsonResponse({ error: "pii_key_missing" }, 503);
-		return jsonResponse({ error: message }, 500);
+		return internalError("serve", err);
 	}
-});
+}));

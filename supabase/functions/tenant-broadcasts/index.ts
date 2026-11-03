@@ -14,17 +14,23 @@
  * Auth model:
  *  - `verify_jwt=true` en el deploy: Supabase rechaza el request si el JWT no es valido
  *    antes de invocar la function.
- *  - Para resolver email -> users.company_id/role y leer companies/saas_broadcasts/
- *    saas_broadcast_reads se usa SUPABASE_SERVICE_ROLE_KEY (mismo modelo que el
- *    endpoint del SaaS), porque:
+ *  - El usuario se resuelve con `_shared/staff-auth.ts` (por `auth_user_id`, exige
+ *    `is_active`). Para leer companies/saas_broadcasts/saas_broadcast_reads se usa
+ *    SUPABASE_SERVICE_ROLE_KEY (mismo modelo que el endpoint del SaaS), porque:
  *      * `users` no permite leer otros perfiles via RLS;
  *      * `saas_broadcast_reads` no tiene policy INSERT para autenticados.
  *
- * Cero dependencia de cookies del SaaS, cero CORS cross-domain con el SaaS.
+ * Cero dependencia de cookies del SaaS. CORS solo para los orígenes del panel
+ * (`_shared/cors.ts`).
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.45.0";
+
+import { withCors } from "../_shared/cors.ts";
+import { resolveStaff, staffLog, type StaffContext } from "../_shared/staff-auth.ts";
+
+const METHODS = "GET, POST, OPTIONS";
 
 type BroadcastRow = {
 	id: string;
@@ -55,102 +61,56 @@ type ContextError = { error: string; status: number };
 
 const TENANT_ALLOWED_ROLES = new Set(["admin", "ceo", "cashier", "staff"]);
 
-const CORS_HEADERS = {
-	"Access-Control-Allow-Origin": "*",
-	"Access-Control-Allow-Headers":
-		"authorization, x-client-info, apikey, content-type",
-	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
-
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body ?? {}), {
 		status,
-		headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json" },
 	});
 }
 
-function getEnv(name: string): string {
-	const value = Deno.env.get(name);
-	if (!value) {
-		throw new Error(`Falta variable de entorno: ${name}`);
-	}
-	return value;
+/** El detalle de Postgres va al log; al navegador, nada que describa la base. */
+function dbError(where: string, error: unknown, status = 500): Response {
+	staffLog("error", "tenant-broadcasts.error", {
+		where,
+		error: error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error),
+	});
+	return jsonResponse({ error: "Error interno" }, status);
 }
 
-function getAdminClient(): SupabaseClient {
-	return createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-		{ auth: { persistSession: false, autoRefreshToken: false } },
-	);
-}
-
-async function resolveAuthEmail(
-	authHeader: string | null,
-): Promise<{ email: string } | ContextError> {
-	if (!authHeader) {
-		return { error: "No autenticado", status: 401 };
-	}
-	const userClient = createClient(
-		getEnv("SUPABASE_URL"),
-		getEnv("SUPABASE_ANON_KEY"),
-		{
-			global: { headers: { Authorization: authHeader } },
-			auth: { persistSession: false, autoRefreshToken: false },
-		},
-	);
-	const { data, error } = await userClient.auth.getUser();
-	if (error || !data.user?.email) {
-		return { error: "No autenticado", status: 401 };
-	}
-	return { email: data.user.email.trim().toLowerCase() };
+function resolveTenantStaff(authHeader: string | null): Promise<StaffContext | ContextError> {
+	return resolveStaff(authHeader, {
+		roles: TENANT_ALLOWED_ROLES,
+		forbiddenMessage: "No tienes permisos de panel tenant",
+		allowEmailFallback: true,
+	});
 }
 
 async function getTenantContext(
 	authHeader: string | null,
 ): Promise<TenantContext | ContextError> {
-	const auth = await resolveAuthEmail(authHeader);
-	if ("error" in auth) return auth;
+	const staff = await resolveTenantStaff(authHeader);
+	if ("error" in staff) return staff;
 
-	const admin = getAdminClient();
-
-	const { data: rows, error: usersError } = await admin
-		.from("users")
-		.select("id, company_id, role")
-		.eq("email", auth.email);
-
-	if (usersError) {
-		return { error: usersError.message, status: 500 };
-	}
-
-	const userRow = (rows ?? []).find(
-		(row: { role: string | null; company_id: string | null }) =>
-			TENANT_ALLOWED_ROLES.has(String(row.role || "").toLowerCase()),
-	);
-
-	if (!userRow?.company_id) {
-		return { error: "No tienes permisos de panel tenant", status: 403 };
-	}
-
-	const { data: company, error: companyError } = await admin
+	const { data: company, error: companyError } = await staff.admin
 		.from("companies")
 		.select("id, plan_id, public_slug")
-		.eq("id", userRow.company_id)
+		.eq("id", staff.companyId)
 		.maybeSingle();
 
-	if (companyError || !company) {
-		return {
-			error: companyError?.message || "No se encontro la empresa",
-			status: 404,
-		};
+	if (companyError) {
+		staffLog("error", "tenant-broadcasts.error", { where: "company", error: companyError.message });
+		return { error: "Error interno", status: 500 };
+	}
+	if (!company) {
+		return { error: "No se encontro la empresa", status: 404 };
 	}
 
 	return {
-		admin,
+		admin: staff.admin,
 		companyId: company.id as string,
 		companyPlanId: (company.plan_id ?? null) as string | null,
 		companySlug: String(company.public_slug || "").toLowerCase(),
-		email: auth.email,
+		email: staff.email,
 	};
 }
 
@@ -203,7 +163,7 @@ async function handleGet(ctx: TenantContext): Promise<Response> {
 		.order("starts_at", { ascending: false });
 
 	if (error) {
-		return jsonResponse({ error: error.message }, 400);
+		return dbError("list", error, 400);
 	}
 
 	const visible = ((data ?? []) as BroadcastRow[]).filter((item) =>
@@ -261,11 +221,9 @@ async function handlePost(req: Request, ctx: TenantContext): Promise<Response> {
 		.eq("id", broadcastId)
 		.maybeSingle();
 
-	if (broadcastError || !broadcast) {
-		return jsonResponse(
-			{ error: broadcastError?.message || "Comunicado no encontrado" },
-			404,
-		);
+	if (broadcastError) return dbError("read-broadcast", broadcastError, 500);
+	if (!broadcast) {
+		return jsonResponse({ error: "Comunicado no encontrado" }, 404);
 	}
 
 	if (!shouldIncludeBroadcast(broadcast as BroadcastRow, ctx)) {
@@ -288,17 +246,13 @@ async function handlePost(req: Request, ctx: TenantContext): Promise<Response> {
 		);
 
 	if (upsertError) {
-		return jsonResponse({ error: upsertError.message }, 400);
+		return dbError("mark-read", upsertError, 400);
 	}
 
 	return jsonResponse({ success: true });
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
-	if (req.method === "OPTIONS") {
-		return new Response(null, { status: 204, headers: CORS_HEADERS });
-	}
-
+Deno.serve(withCors(METHODS, async (req: Request): Promise<Response> => {
 	if (req.method !== "GET" && req.method !== "POST") {
 		return jsonResponse({ error: "Metodo no permitido" }, 405);
 	}
@@ -315,7 +269,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 		return await handlePost(req, ctx);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "Error interno";
-		return jsonResponse({ error: message }, 500);
+		return dbError("serve", err);
 	}
-});
+}));
