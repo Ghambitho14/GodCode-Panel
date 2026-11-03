@@ -8,13 +8,16 @@ type MemoryEntry = { count: number; expiresAt: number };
 
 const memoryStore = new Map<string, MemoryEntry>();
 
+/**
+ * El primer valor de X-Forwarded-For lo escribe el cliente y se puede inventar
+ * en cada intento; el último lo agrega el proxy que tenemos delante.
+ */
 function getClientIp(req: VercelRequest): string {
 	const xff = req.headers["x-forwarded-for"];
-	if (typeof xff === "string" && xff.trim()) {
-		return xff.split(",")[0].trim();
-	}
-	if (Array.isArray(xff) && xff[0]) {
-		return String(xff[0]).split(",")[0].trim();
+	const raw = Array.isArray(xff) ? xff.join(",") : xff;
+	if (typeof raw === "string" && raw.trim()) {
+		const hops = raw.split(",").map((part) => part.trim()).filter(Boolean);
+		if (hops.length) return hops[hops.length - 1];
 	}
 	const realIp = req.headers["x-real-ip"];
 	if (typeof realIp === "string" && realIp.trim()) {
@@ -23,8 +26,20 @@ function getClientIp(req: VercelRequest): string {
 	return "unknown";
 }
 
+let lastSweep = 0;
+
+/** Borra contadores vencidos; sin esto el Map crecía con cada IP para siempre. */
+function sweepMemoryStore(now: number): void {
+	if (now - lastSweep < 60_000) return;
+	lastSweep = now;
+	for (const [key, entry] of memoryStore) {
+		if (entry.expiresAt <= now) memoryStore.delete(key);
+	}
+}
+
 function memoryIncrement(key: string, windowSeconds: number): number {
 	const now = Date.now();
+	sweepMemoryStore(now);
 	const existing = memoryStore.get(key);
 	if (!existing || existing.expiresAt <= now) {
 		memoryStore.set(key, { count: 1, expiresAt: now + windowSeconds * 1000 });
