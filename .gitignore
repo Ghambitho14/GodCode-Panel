@@ -44,8 +44,6 @@ dev-dist/
 scripts/*
 !scripts/e2e-server.mjs
 !scripts/run-e2e.mjs
-# Scripts de despliegue: sin secretos (los leen de archivos en el VPS).
-!scripts/deploy/
 
 # Test artifacts
 coverage
