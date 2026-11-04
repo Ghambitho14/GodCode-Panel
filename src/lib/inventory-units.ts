@@ -66,10 +66,6 @@ export function normalizeUnit(raw: unknown): string {
 	return s.slice(0, 16);
 }
 
-export function getUnitDef(unitId: string): InventoryUnitDef | undefined {
-	return UNIT_BY_ID.get(normalizeUnit(unitId));
-}
-
 export function getUnitLabel(unitId: string, opts?: { short?: boolean }): string {
 	const id = normalizeUnit(unitId);
 	const def = UNIT_BY_ID.get(id);

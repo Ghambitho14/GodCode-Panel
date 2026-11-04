@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
  * @param {{ id: string; label: string; group?: string }[]} props.items
  * @param {(id: string) => void} props.onSelect
  */
-export function AdminCommandPalette({ open, onClose, items, onSelect }) {
+function AdminCommandPalette({ open, onClose, items, onSelect }) {
 	const [q, setQ] = useState("");
 	const inputRef = useRef(null);
 
