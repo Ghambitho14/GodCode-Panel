@@ -3,7 +3,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { monitor } from '@/shared/monitor';
 import { Button } from "@/components/ui/button";
 
-export class AdminErrorBoundary extends React.Component {
+class AdminErrorBoundary extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = { error: null };

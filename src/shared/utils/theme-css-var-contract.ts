@@ -52,9 +52,6 @@ export const PORTAL_ONLY_THEME_CSS_VARS = [
 	"--tenant-bg-layer-filter",
 ] as const;
 
-export type SharedThemeCssVar = (typeof SHARED_THEME_CSS_VARS)[number];
-export type PortalOnlyThemeCssVar = (typeof PORTAL_ONLY_THEME_CSS_VARS)[number];
-
 /** Extrae los nombres `--token` declarados en un bloque CSS, en orden de aparición. */
 export function extractCssVarNames(css: string): string[] {
 	const names: string[] = [];

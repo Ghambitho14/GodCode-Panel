@@ -1,7 +1,3 @@
-import { initialBranchLoadScope, resolvePanelDataScope, resolveStaleRefreshScope } from './panelDataScopes';
-
-export { initialBranchLoadScope, resolvePanelDataScope, resolveStaleRefreshScope };
-
 /**
  * Ejecuta cargas de panel según scope (menos DB en arranque).
  * @param {{

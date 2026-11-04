@@ -2,10 +2,6 @@ import { normalizeInternationalPhone, validateProfileDocument } from '@/lib/geo/
 import { requirementsFor } from './manual-order-settings';
 import { validatePaymentLines } from './payment-methods';
 
-export const MANUAL_ORDER_PHASES = Object.freeze([
-	'config', 'catalog', 'context', 'quote', 'payment', 'confirm', 'submitting', 'success', 'recoverable_error',
-]);
-
 export function createManualOrderState(options = {}) {
 	const mode = options.mode === 'session' ? 'session' : 'quick_sale';
 	return {
@@ -120,15 +116,4 @@ export function validateManualOrderState(state, context = {}) {
 		if (!payment.valid) errors.payment = payment.errors;
 	}
 	return { valid: Object.keys(errors).length === 0, errors };
-}
-
-export function firstManualOrderError(validation) {
-	const values = Object.values(validation?.errors ?? {});
-	const first = values[0];
-	if (typeof first === 'string') return first;
-	if (Array.isArray(first)) {
-		const code = first[0]?.code;
-		return code === 'total_mismatch' ? 'Los pagos deben sumar exactamente el total.' : 'Revisa las líneas de pago.';
-	}
-	return null;
 }
