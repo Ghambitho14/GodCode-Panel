@@ -74,4 +74,18 @@ describe('gastos del local con coma decimal', () => {
 		await submitWith('abc');
 		expect(onConfirmOperating).not.toHaveBeenCalled();
 	});
+
+	it('el gasto se registra con tarjeta si no se cambia el método', async () => {
+		await submitWith('10');
+		await waitFor(() => expect(onConfirmOperating).toHaveBeenCalled());
+		expect(onConfirmOperating.mock.calls[0][3]).toBe('card');
+	});
+
+	it('se puede cambiar a efectivo', async () => {
+		const cashButton = [...document.querySelectorAll('button')].find((b) => /Efectivo/.test(b.textContent));
+		fireEvent.click(cashButton);
+		await submitWith('10');
+		await waitFor(() => expect(onConfirmOperating).toHaveBeenCalled());
+		expect(onConfirmOperating.mock.calls[0][3]).toBe('cash');
+	});
 });

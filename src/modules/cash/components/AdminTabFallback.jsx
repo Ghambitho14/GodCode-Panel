@@ -5,7 +5,7 @@ import React from 'react';
  * tres tarjetas, en los grises del panel claro (los estilos van en
  * AdminShared.css, `.admin-tab-skeleton`).
  */
-export function AdminTabFallback() {
+function AdminTabFallback() {
 	return (
 		<div className="admin-tab-skeleton" role="status" aria-label="Cargando…">
 			<div className="admin-tab-skeleton__toolbar">

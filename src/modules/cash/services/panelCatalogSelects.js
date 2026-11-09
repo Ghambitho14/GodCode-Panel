@@ -17,8 +17,6 @@ export const PRODUCT_SIZES_BRANCH_SELECT = 'id, product_id, name, price, sort_or
 export const CLIENTS_PANEL_SELECT =
 	'id, name, phone, phone_normalized, rut, total_orders, total_spent, is_frequent, first_order_at, last_order_at, created_at, updated_at, company_id, default_delivery_address';
 
-export const COMPANY_ADMIN_SELECT = 'id, name, legal_rut, address, phone, email';
-
 export const DISCOUNT_COUPONS_PANEL_SELECT =
 	'id, company_id, code, discount_type, discount_value, scope, restricted_account_id, restricted_client_id, ' +
 	'min_order_subtotal, max_redemptions, redemptions_count, max_redemptions_per_client, ' +

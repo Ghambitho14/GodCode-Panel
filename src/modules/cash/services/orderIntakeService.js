@@ -75,10 +75,3 @@ export async function setOrderIntakePaused(branchId, { paused, message = null, u
 	if (error) throw error;
 	return mapOrderIntakeFromBranch(data);
 }
-
-export const orderIntakeService = {
-	DEFAULT_ORDER_INTAKE_PAUSE_MESSAGE,
-	mapOrderIntakeFromBranch,
-	getOrderIntakeStatus,
-	setOrderIntakePaused,
-};

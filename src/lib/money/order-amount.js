@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-import { normalizeDeliverySettings } from '@/lib/delivery-settings';
 import {
 	isVenezuelaCountry,
 	resolveEffectiveCountry,
@@ -182,26 +180,4 @@ export function createOrderMoneyFormatter(params = {}) {
 			});
 		},
 	};
-}
-
-/**
- * @param {{
- *   branch?: { country?: string | null; currency?: string | null; delivery_settings?: unknown } | null;
- *   company?: { country?: string | null; currency?: string | null } | null;
- * }} params
- */
-export function useOrderMoney(params = {}) {
-	const branch = params.branch ?? null;
-	const company = params.company ?? null;
-
-	return useMemo(() => createOrderMoneyFormatter({ branch, company }), [branch, company]);
-}
-
-/**
- * @param {unknown} raw
- * @returns {number | null}
- */
-export function resolveExchangeRateForBranch(raw) {
-	const normalized = normalizeDeliverySettings(raw);
-	return normalized.exchangeRate ?? null;
 }

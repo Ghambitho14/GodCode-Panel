@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
  * @param {() => void} props.onClose
  * @param {{ keys: string; description: string; group?: string }[]} props.rows
  */
-export function AdminShortcutsModal({ open, onClose, rows }) {
+function AdminShortcutsModal({ open, onClose, rows }) {
 	if (!open) return null;
 
 	const grouped = rows.reduce((acc, row) => {

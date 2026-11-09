@@ -9,10 +9,6 @@ export function getInputUnitOptions(nativeUnit: string): string[] {
 	return getConvertibleUnitOptions(nativeUnit);
 }
 
-export function recipeUnitSelectLabel(unit: string): string {
-	return getUnitLabel(unit);
-}
-
 /** Convierte cantidad en unidad de entrada a cantidad en unidad nativa del insumo. */
 export function toNativeQty(qty: number, inputUnit: string, nativeUnit: string): number {
 	const q = Number(qty) || 0;
