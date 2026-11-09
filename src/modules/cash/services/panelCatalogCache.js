@@ -73,13 +73,3 @@ export function clearPanelSessionStorage() {
 export function invalidateAll() {
 	cache.clearAll();
 }
-
-/** Solo para tests. */
-export function resetPanelCatalogCacheForTests() {
-	cache.clearAll();
-}
-
-/** Solo para tests: simula F5 (RAM vacía, sessionStorage intacto). */
-export function clearRamPanelCatalogCacheForTests() {
-	cache.clearRam();
-}

@@ -2,8 +2,6 @@ import { useEffect, useRef } from 'react';
 import { bumpLoadGeneration } from './loadGeneration';
 import { resolvePanelDataScope } from '../orders/panelDataScopes';
 
-export { useAdminPanelLoad } from './useAdminPanelLoad';
-
 /**
  * Efectos de carga por sucursal/tab: generation guard, reset de estado y delta scope.
  */

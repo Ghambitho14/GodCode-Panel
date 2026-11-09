@@ -637,6 +637,24 @@ export const useOrderEdit = (
 		}));
 	}, []);
 
+	// Cambios del armador "Agregar cambios" (quitar/agregar/cambiar), igual que en el
+	// carrito nuevo: aplican a todas las unidades de la línea y entran en el total.
+	const updateItemChanges = useCallback(
+		(itemId, changes) => {
+			const extras = Array.isArray(changes) ? changes : [];
+			setManualOrder((prev) => {
+				const newItems = prev.items.map((i) => (
+					i.id === itemId
+						? { ...i, extras, extras_total: getItemChangesTotal({ extras }) }
+						: i
+				));
+				const newTotal = totalItemsMajor(newItems, currency, fractionDigits);
+				return { ...prev, items: newItems, total: newTotal };
+			});
+		},
+		[currency, fractionDigits],
+	);
+
 	/** No reseteamos a defaults: el modal de edicion no se reusa con otro pedido. */
 	const resetOrder = useCallback(() => {
 		const rut = String(initialState.client_rut ?? '');
@@ -1115,6 +1133,7 @@ export const useOrderEdit = (
 		updateQuantity,
 		removeItem,
 		updateItemNote,
+		updateItemChanges,
 		updateOrderType,
 		updateLocalFulfillmentMode,
 		updateMesaPartyMode,

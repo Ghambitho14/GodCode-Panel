@@ -63,5 +63,3 @@ export function useHistoryBack(open, onBack) {
 		};
 	}, [open]);
 }
-
-export default useHistoryBack;
