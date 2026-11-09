@@ -3,8 +3,6 @@
  * Contrato con Supabase (`public.companies.theme_config`): `panelAccess`, `roleNavPermissions`.
  */
 
-export const ADMIN_PANEL_PRIVILEGED_NAV_ROLES = ["admin", "ceo"] as const;
-
 export const ADMIN_PANEL_TAB_OPTIONS = [
   { id: "orders", label: "Cocina / Pedidos" },
   { id: "caja", label: "Caja" },
@@ -26,8 +24,6 @@ export const ADMIN_PANEL_TAB_OPTIONS = [
 
 export const ADMIN_PANEL_TAB_IDS = ADMIN_PANEL_TAB_OPTIONS.map((t) => t.id);
 
-export type AdminPanelTabId = (typeof ADMIN_PANEL_TAB_OPTIONS)[number]["id"];
-
 const ALL_TABS = ADMIN_PANEL_TAB_IDS as unknown as string[];
 
 /**
@@ -39,10 +35,6 @@ export const DEFAULT_ROLE_NAV_PERMISSIONS: Record<string, string[]> = {
   ceo: [...ALL_TABS],
   cashier: ["orders", "caja", "local_expenses"],
 };
-
-export function getDefaultRoleNavPermissions(): Record<string, string[]> {
-  return { ...DEFAULT_ROLE_NAV_PERMISSIONS };
-}
 
 /** Alinea el rol de `public.users` con las claves de permisos del panel. */
 export function normalizePanelUserRole(role: string | null | undefined): string | null {
@@ -83,8 +75,4 @@ export function buildResolvedTabLabels(tabLabelsFromTheme?: Record<string, strin
     }
   }
   return base;
-}
-
-export function getCashierDefaultAllowedTabIds(): string[] {
-  return [...DEFAULT_ROLE_NAV_PERMISSIONS.cashier];
 }

@@ -67,15 +67,11 @@ export const confirmBtnClass = cn(
 );
 export const checkoutColBase =
 	'manual-order-checkout-col flex min-h-0 min-w-0 flex-col';
-export const checkoutColCard =
-	'rounded-[18px] border border-gc-border bg-gc-card shadow-sm';
 export const openMesaPaymentCardClass =
 	'manual-order-step-card flex min-h-0 flex-col overflow-visible rounded-[18px] border border-gc-border bg-gc-card p-4 shadow-sm sm:p-5';
 export const openMesaToggleClass = toggleBaseClass;
 export const openMesaHintClass =
 	`mt-3 rounded-[12px] border border-gc-accent/20 bg-gc-accent/10 px-3 py-2.5 ${textScale.body} leading-relaxed text-gc-text-muted`;
-export const checkoutActionsClass =
-	`manual-order-checkout-actions flex w-full min-w-0 flex-shrink-0 flex-col ${spacing.compact} border-t border-gc-border bg-gc-card pt-3`;
 export const checkoutBackBtnClass =
 	`manual-order-checkout-actions__back flex min-h-[44px] w-full min-w-0 items-center justify-center rounded-[12px] border border-gc-border bg-gc-muted px-3 py-3 ${textScale.body} font-bold text-gc-text transition-colors`;
 

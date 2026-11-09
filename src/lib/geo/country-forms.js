@@ -140,24 +140,6 @@ export function getFormStrategy(country) {
 }
 
 /**
- * @param {{
- *   branchCountry?: unknown;
- *   businessCountry?: unknown;
- *   cartCountry?: unknown;
- * }} opts
- * @returns {string}
- */
-export function resolveCheckoutCountryCode(opts = {}) {
-	const branch = opts.branchCountry;
-	if (branch != null && String(branch).trim()) return String(branch).trim();
-	const business = opts.businessCountry;
-	if (business != null && String(business).trim()) return String(business).trim();
-	const cart = opts.cartCountry;
-	if (cart != null && String(cart).trim()) return String(cart).trim();
-	return '';
-}
-
-/**
  * @param {unknown} methodKey
  * @returns {boolean}
  */

@@ -1,8 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/main.tsx", "src/app.tsx"],
-  "project": ["src/**/*.{js,jsx,ts,tsx}", "tests/**/*.{js,jsx,ts,tsx}"],
-  "ignore": ["src/vite-env.d.ts", "src/modules/cash/admin/pages/Admin.d.ts"],
+  "entry": ["src/app.tsx"],
+  "project": ["src/**/*.{js,jsx,ts,tsx,css}", "tests/**/*.{js,jsx,ts,tsx}"],
   "ignoreDependencies": ["@vercel/node"],
   "ignoreExportsUsedInFile": true,
   "vite": {

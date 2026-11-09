@@ -2,7 +2,7 @@ import React from "react";
 import { useBranchMoney } from "@/modules/cash/hooks/useBranchMoney";
 import { Button } from "@/components/ui/button";
 
-export function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId, onAcknowledge }) {
+function AdminBroadcastsBanner({ broadcasts, broadcastsLoading, ackingId, onAcknowledge }) {
 	const { locale } = useBranchMoney();
 	return (
 		<>

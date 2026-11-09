@@ -71,39 +71,6 @@ export const buildSpreadsheetHtml = (data) => {
 };
 
 /**
- * Genera y descarga un archivo CSV compatible con Excel (BOM + Separador punto y coma).
- * @param {Array} data - Array de objetos a exportar
- * @param {string} filename - Nombre del archivo
- */
-export const downloadCSV = (data, filename = 'reporte.csv') => {
-	if (!data || !data.length) {
-		return;
-	}
-
-	const headers = Object.keys(data[0]);
-	const csvRows = [headers.join(';')];
-
-	for (const row of data) {
-		const values = headers.map((header) => {
-			const stringVal = sanitizeSpreadsheetCell(row[header]).replace(/"/g, '""');
-			return `"${stringVal}"`;
-		});
-		csvRows.push(values.join(';'));
-	}
-
-	const csvString = csvRows.join('\r\n');
-	const bom = '\uFEFF';
-	const blob = new Blob([bom + csvString], { type: 'text/csv;charset=utf-8;' });
-	const link = document.createElement('a');
-	link.setAttribute('href', URL.createObjectURL(blob));
-	link.setAttribute('download', filename);
-	link.style.visibility = 'hidden';
-	document.body.appendChild(link);
-	link.click();
-	document.body.removeChild(link);
-};
-
-/**
  * Genera y descarga un archivo Excel (.xls) basado en HTML.
  * Soluciona definitivamente el problema de columnas unidas en Excel.
  * @param {Array} data - Array de objetos a exportar
