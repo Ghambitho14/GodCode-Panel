@@ -169,8 +169,3 @@ export function formatMinor(minor, options = {}) {
 		.map((part) => part.type === 'fraction' ? fraction : part.value)
 		.join('');
 }
-
-export function minorAmountsEqual(left, right, toleranceMinor = 0) {
-	const tolerance = Math.max(0, Number(toleranceMinor) || 0);
-	return Math.abs(assertSafeMinor(Number(left)) - assertSafeMinor(Number(right))) <= tolerance;
-}

@@ -209,9 +209,9 @@ jobs:
     name: Dead code (Knip)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Informativo: hoy Knip reporta exports sin usar y duplicados que aún no se
-    # han limpiado. No bloquea el merge; sirve para que la deuda sea visible.
-    continue-on-error: true
+    # Bloquea: Knip quedó en cero, así que el código muerto (exports, archivos y
+    # dependencias sin usar) no puede volver. `css` está en `project` para que
+    # Knip lea el `@import "tailwindcss"` y no marque esa dependencia.
 
     steps:
       - name: Checkout

@@ -156,5 +156,3 @@ export function AdminConfirmDialogHost() {
 		/>
 	);
 }
-
-export default AdminConfirmDialog;

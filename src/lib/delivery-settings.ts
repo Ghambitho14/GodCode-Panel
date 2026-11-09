@@ -381,8 +381,6 @@ export type DeliverySettingsNormalized = {
 	exchangeRate: number | null;
 };
 
-export type DeliverySettingsPublic = DeliverySettingsNormalized;
-
 const DEFAULTS: DeliverySettingsNormalized = {
 	enabled: true,
 	allowedPaymentMethodsForDelivery: null,
@@ -773,28 +771,6 @@ export function normalizeDeliverySettings(raw: unknown): DeliverySettingsNormali
 	};
 }
 
-export function deliverySettingsToPublic(
-	s: DeliverySettingsNormalized,
-): DeliverySettingsPublic {
-	return { ...s };
-}
-
-/**
- * Texto que debe mostrarse en el checkout en lugar de un monto de envío (Uber Direct, etc.).
- * Si hay notas propias en la sucursal, sustituyen al texto por defecto.
- */
-export const EXTERNAL_DELIVERY_DEFAULT_DISPLAY = "Consultar con la tienda";
-
-export function externalDeliveryCheckoutHint(
-	settings: DeliverySettingsNormalized,
-): string {
-	const display = settings.externalDeliveryDisplayText?.trim();
-	if (display) return display;
-	const n = settings.customerNotes?.trim();
-	if (n) return n;
-	return EXTERNAL_DELIVERY_DEFAULT_DISPLAY;
-}
-
 /** Merge parcial guardando solo claves conocidas; preserva el resto del JSON previo. */
 export function mergeDeliverySettingsJson(
 	prev: unknown,
@@ -1059,21 +1035,6 @@ export function parseLocalOrderChannels(raw: unknown): LocalOrderChannels {
 	return pick(o);
 }
 
-/** Primer canal local habilitado (fallback mesa → retiro → delivery). */
-export function firstEnabledLocalChannel(
-	channels: LocalOrderChannels = DEFAULT_LOCAL_ORDER_CHANNELS,
-): LocalOrderChannelId {
-	if (channels.mesa) return "mesa";
-	if (channels.retiro) return "retiro";
-	if (channels.delivery) return "delivery";
-	return "mesa";
-}
-
-/** Al menos un canal debe estar activo para guardar configuración. */
-export function hasEnabledLocalChannel(channels: LocalOrderChannels): boolean {
-	return channels.mesa || channels.retiro || channels.delivery;
-}
-
 /**
  * Control de stock en ventas por sucursal (JSONB `delivery_settings`).
  * `true` (default): bloquea venta sin stock y puede pausar productos; `false`: permite vender en configuración.
@@ -1221,18 +1182,4 @@ export function computeDeliveryFee(
 	if (settings.maxFee != null) fee = Math.min(fee, settings.maxFee);
 	if (!Number.isFinite(fee) || fee < 0) fee = 0;
 	return { fee: Math.round(fee * 100) / 100, waivedFreeShipping: false };
-}
-
-/** Suma ítems del pedido (precio efectivo × cantidad). */
-export function orderItemsSubtotalFromPayload(
-	items: Array<{ price?: unknown; quantity?: unknown }>,
-): number {
-	if (!Array.isArray(items)) return 0;
-	let sum = 0;
-	for (const it of items) {
-		const p = Number(it.price) || 0;
-		const q = Math.max(1, Number(it.quantity) || 1);
-		sum += p * q;
-	}
-	return Math.round(sum * 100) / 100;
 }

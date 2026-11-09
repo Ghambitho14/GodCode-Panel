@@ -329,11 +329,6 @@ export function isMenuOrder(order) {
 	return spec.length > 0;
 }
 
-/** Pedido creado en panel/caja (p. ej. Pedido Manual), no menú público online. */
-export function isPanelManualOrder(order) {
-	return Boolean(order) && !isMenuOrder(order);
-}
-
 /**
  * Extrae el segmento "Nota: ..." de la descripción de un ítem (menú digital).
  * @param {string | null | undefined} description
@@ -596,61 +591,6 @@ export function buildOrderDeliveryDriverPack(order, branchName, branchAddress = 
 		lines.push(`Nota: ${String(order.note).trim()}`);
 	}
 	return lines.join('\n');
-}
-
-/**
- * Slug de método de pago para CSS y desglose: 'cash' | 'card' | 'transfer'.
- * @param {{ payment_type?: string; payment_method_specific?: string | null }} order
- * @returns {'cash' | 'card' | 'transfer'}
- */
-export function getPaymentSlug(order) {
-	if (!order) return 'cash';
-	const specific = String(order.payment_method_specific ?? '').trim().toLowerCase();
-	if (specific.length > 0) {
-		if (specific === 'efectivo') return 'cash';
-		if (['tarjeta', 'stripe', 'mercadopago', 'paypal', 'card'].includes(specific)) {
-			return 'card';
-		}
-		if (['transferencia_bancaria', 'pago_movil', 'zelle'].includes(specific)) {
-			return 'transfer';
-		}
-		return 'cash';
-	}
-	const pt = String(order.payment_type ?? '').toLowerCase();
-	if (pt === 'tarjeta' || pt === 'card') return 'card';
-	if (pt === 'online' || pt === 'transferencia') return 'transfer';
-	return 'cash';
-}
-
-/**
- * Método de pago para movimientos de caja (`cash` | `card` | `online`).
- * Si ya hay venta registrada, usa el mismo método para que venta y devolución cuadren.
- * @param {Record<string, unknown> | null | undefined} order
- * @param {Array<{ type?: string; payment_method?: string | null }>} [existingMovements]
- * @returns {'cash' | 'card' | 'online'}
- */
-export function getCashMovementPaymentMethod(order, existingMovements = []) {
-	const sale = (existingMovements || []).find((m) => m?.type === 'sale');
-	const fromSale = sale?.payment_method;
-	if (fromSale === 'cash' || fromSale === 'card' || fromSale === 'online') {
-		return fromSale;
-	}
-	if (!order) return 'cash';
-	const specific = String(order.payment_method_specific ?? '').trim().toLowerCase();
-	if (specific.length > 0) {
-		if (specific === 'efectivo') return 'cash';
-		if (['tarjeta', 'stripe', 'mercadopago', 'paypal', 'card'].includes(specific)) {
-			return 'card';
-		}
-		if (['transferencia_bancaria', 'pago_movil', 'zelle'].includes(specific)) {
-			return 'online';
-		}
-		return 'cash';
-	}
-	const pt = String(order.payment_type ?? '').toLowerCase();
-	if (pt === 'online' || pt === 'transferencia') return 'online';
-	if (pt === 'tarjeta' || pt === 'card') return 'card';
-	return 'cash';
 }
 
 /**
@@ -1401,15 +1341,9 @@ export const ORDERS_PANEL_SELECT = `${ORDERS_PANEL_COLUMNS}, discount_coupons(co
 /** Lista bulk sin items (kanban, historial, clientes). */
 export const ORDERS_LIST_SELECT = `${ORDERS_LIST_COLUMNS}, discount_coupons(code)`;
 
-/** Alias histórico para lecturas bulk; sin items JSONB. */
-export const ORDERS_SELECT_WITH_COUPON = ORDERS_LIST_SELECT;
-
 /** Analytics: métricas escalares sin items (hasta 5000 filas). */
 export const ORDERS_ANALYTICS_METRICS_SELECT =
 	'id, company_id, branch_id, status, created_at, total, total_minor, currency, delivery_fee, delivery_fee_minor, payment_type, payment_method_specific, payment_breakdown, payment_lines';
-
-/** @deprecated Usar ORDERS_ANALYTICS_METRICS_SELECT */
-export const ORDERS_ANALYTICS_SELECT = ORDERS_ANALYTICS_METRICS_SELECT;
 
 /** Export Excel: solo columnas del reporte. */
 export const ORDERS_EXPORT_SELECT =
@@ -1418,10 +1352,6 @@ export const ORDERS_EXPORT_SELECT =
 /** Join embebido en movimientos de caja. */
 export const ORDERS_MOVEMENT_JOIN_SELECT =
 	'id, payment_type, payment_method_specific, payment_breakdown, payment_lines, client_name, total, total_minor, currency, status, shift_sequence, channel, delivery_fee, delivery_fee_minor, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status';
-
-/** Relectura tras mover pedido en kanban (registro de venta en caja). */
-export const ORDERS_CASH_REGISTER_SELECT =
-	'id, total, total_minor, currency, payment_type, payment_breakdown, payment_lines, payment_method_specific, client_name, branch_id, status, delivery_fee, delivery_fee_minor, manual_order_mode, payment_timing, payment_status, payment_balance_minor, payment_evidence_status';
 
 /** Búsqueda fuzzy por número de pedido (scan liviano). */
 export const ORDERS_ID_SCAN_SELECT = 'id';
@@ -1611,13 +1541,6 @@ export function mergeOrderInMemory(prevOrder, rawRow) {
    caja/CashOrderDetailPanel. Los dos ya compartian OrderDetailMetaCards,
    asi que esto termina una extraccion que el repo habia empezado.
    ========================================================================= */
-
-/** Referencia corta de pedido para mostrar: ultimos 6 caracteres en mayuscula. */
-export function formatOrderRef(orderId) {
-	const raw = String(orderId ?? '').replace(/-/g, '');
-	if (!raw) return '—';
-	return raw.slice(-6).toUpperCase();
-}
 
 /** Items del pedido, que en BD pueden venir como array o como JSON en texto. */
 export function parseOrderItems(raw) {

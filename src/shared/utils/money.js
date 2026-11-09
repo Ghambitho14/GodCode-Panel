@@ -6,9 +6,6 @@ export {
 	parseMoneyInput,
 	majorToMinor,
 	minorToMajor,
-	sumMinor,
-	formatMinor,
-	minorAmountsEqual,
 } from '@/lib/money/minor-units';
 
 /** @typedef {{ currency?: string | null, country?: string | null }} BranchMoneySource */
@@ -126,17 +123,6 @@ export function formatMoneyCompact(amount) {
 	if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
 	if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
 	return `${sign}${Math.round(abs)}`;
-}
-
-/**
- * @param {unknown} amount
- * @param {string} [freeLabel]
- * @returns {string}
- */
-export function formatMoneyOrFree(amount, freeLabel = 'GRATIS') {
-	const n = safeNumber(amount, 0);
-	if (n <= 0) return freeLabel;
-	return formatMoney(n);
 }
 
 /**

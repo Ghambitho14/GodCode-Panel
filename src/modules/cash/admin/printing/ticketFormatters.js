@@ -1,4 +1,3 @@
-import { normalizeCurrencyCode } from '@/shared/utils/money';
 import { formatOrderAmount } from '@/lib/money/order-amount';
 import { escapeHtml } from './thermalUtils';
 import { maskSealedPii } from '@/shared/utils/sealedPii';
@@ -14,10 +13,6 @@ import {
 	resolveItemKitchenNote,
 	getOrderItemLineTotal,
 } from '@/shared/utils/orderUtils';
-
-export function orderCurrency(order) {
-	return normalizeCurrencyCode(order?.currency);
-}
 
 /**
  * @param {{
