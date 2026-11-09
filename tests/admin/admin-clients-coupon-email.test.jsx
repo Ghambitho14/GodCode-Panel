@@ -38,7 +38,8 @@ vi.mock('@/modules/cash/admin/pages/AdminProvider', () => ({
 }));
 
 vi.mock('@/integrations/supabase', () => ({
-	supabase: { from: () => ({}) },
+	// `rpc` cubre el efecto de puntos (`loyalty_balances`) de AdminClients.
+	supabase: { from: () => ({}), rpc: async () => ({ data: [], error: null }) },
 	TABLES: { clients: 'clients' },
 }));
 

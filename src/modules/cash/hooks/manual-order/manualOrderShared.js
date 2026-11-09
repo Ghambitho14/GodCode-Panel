@@ -1,6 +1,5 @@
 import { computeDeliveryFee, effectiveDeliveryPricingMode } from '@/lib/delivery-settings';
 import {
-	buildPaymentBreakdownForOrder,
 	getOrderFulfillmentKind,
 	isCajaGenericIdentity,
 	isLegacySalonClientName,
@@ -95,20 +94,6 @@ export function hasManualOrderPaymentIntent(form) {
 		return Boolean(form?.receiptFile || form?.payment_ref);
 	}
 	return type === 'tarjeta';
-}
-
-/**
- * Detecta si el operador ya eligió un método de pago (sin exigir cobro cerrado).
- * Distinto de hasManualOrderPaymentIntent: aquí basta con la selección.
- */
-export function hasManualOrderPaymentMethodSelected(form) {
-	if (form?.v2Enabled) {
-		const lines = Array.isArray(form.payment_lines) ? form.payment_lines : [];
-		return lines.length > 0;
-	}
-	if (form?.payment_mode === 'mixed') return true;
-	const type = String(form?.payment_type ?? '').toLowerCase();
-	return type === 'tienda' || type === 'tarjeta' || type === 'online';
 }
 
 /** Resuelve el modo local desde el formulario de pedido manual. */
@@ -471,23 +456,6 @@ export const OPEN_ORDER_SESSION_STATUSES = new Set(['pending', 'active', 'comple
 
 export function isOpenOrderSessionStatus(status) {
 	return OPEN_ORDER_SESSION_STATUSES.has(String(status ?? '').toLowerCase());
-}
-
-/** Pago al abrir sesión local: pendiente o cobro inmediato (charge_now). */
-export function resolveOpenMesaCheckoutPayment(form, checkoutTotal) {
-	if (!form?.charge_now) {
-		return { payment_type: 'pendiente', payment_breakdown: null };
-	}
-	return {
-		payment_type: form.payment_type,
-		payment_breakdown: buildPaymentBreakdownForOrder({
-			payment_mode: form.payment_mode,
-			payment_type: form.payment_type,
-			cash_amount: form.cash_amount,
-			card_amount: form.card_amount,
-			total: checkoutTotal,
-		}),
-	};
 }
 
 /** Sanitiza texto libre del formulario de pedido manual. */

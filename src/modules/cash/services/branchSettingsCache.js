@@ -68,8 +68,3 @@ export function invalidateAllBranchSettings() {
 	entries.clear();
 	inFlight.clear();
 }
-
-/** Solo para tests. */
-export function resetBranchSettingsCacheForTests() {
-	invalidateAllBranchSettings();
-}

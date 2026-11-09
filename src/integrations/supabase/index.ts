@@ -4,8 +4,6 @@ export {
   login,
   logout,
   bootstrapSession,
-  getAccessToken,
   getCurrentUser,
   onAuthEvent,
-  type SessionUser,
 } from "./auth-session";

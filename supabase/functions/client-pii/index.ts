@@ -17,8 +17,9 @@
  *    igual que `current_user_company_id()` en las políticas RLS: la función nunca
  *    muestra datos de un pedido o una cuenta que ese usuario no pueda ya ver.
  *  - Lo que ya está en claro (compradores rápidos, datos antiguos) pasa tal cual.
- *  - Cada descifrado deja un evento `pii.access` en el log (quién, qué empresa,
- *    cuántos registros). Cuando exista `audit_log` en la base, va también ahí.
+ *  - Cada descifrado deja un evento `pii.access` en el log y una fila `pii.decrypt`
+ *    en `public.audit_log` (quién, qué empresa, cuántos registros, IP y navegador).
+ *    Si la fila no se puede escribir, la respuesta sigue: queda el aviso en el log.
  *
  * Secretos: `MENU_ACCOUNT_PII_KEY` (la misma del Portal; si se pierde, los datos
  * cifrados no se recuperan).
@@ -54,15 +55,51 @@ function internalError(where: string, error: unknown): Response {
 	return jsonResponse({ error: "Error interno" }, 500);
 }
 
-function logPiiAccess(ctx: StaffContext, action: string, count: number, extra: Record<string, unknown> = {}): void {
+type PiiTarget = { type: string; ids?: string[] };
+
+/**
+ * La cadena entera de x-forwarded-for, no el primer valor (ese lo escribe el cliente).
+ * Mismo criterio que `logAuditEvent` de GodCode y el trigger de `audit_log`.
+ */
+function forwardedChain(req: Request): string | null {
+	const chain = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "";
+	return chain.trim().slice(0, 200) || null;
+}
+
+async function logPiiAccess(
+	ctx: StaffContext,
+	req: Request,
+	action: string,
+	count: number,
+	target: PiiTarget,
+): Promise<void> {
+	const ids = (target.ids ?? []).slice(0, MAX_ORDERS_PER_REQUEST);
 	staffLog("info", "pii.access", {
 		action,
 		company_id: ctx.companyId,
 		auth_user_id: ctx.authUserId,
 		role: ctx.role,
 		count,
-		...extra,
+		target_ids: ids,
 	});
+	try {
+		const { error } = await ctx.admin.from("audit_log").insert({
+			company_id: ctx.companyId,
+			actor_auth_user_id: ctx.authUserId,
+			actor_role: ctx.role,
+			action: "pii.decrypt",
+			target_type: target.type,
+			target_count: count,
+			target_ids: ids.length ? ids : null,
+			ip: forwardedChain(req),
+			user_agent: req.headers.get("user-agent")?.slice(0, 300) ?? null,
+			request_id: req.headers.get("x-request-id")?.slice(0, 100) ?? null,
+			metadata: { operation: action },
+		});
+		if (error) staffLog("warn", "pii.audit_failed", { action, error: error.message });
+	} catch (err) {
+		staffLog("warn", "pii.audit_failed", { action, error: err instanceof Error ? err.message : String(err) });
+	}
 }
 
 let openerPromise: Promise<PiiOpener> | null = null;
@@ -105,7 +142,7 @@ async function openDeliveryAddress(open: PiiOpener, raw: unknown): Promise<unkno
 	}
 }
 
-async function handleListAccounts(ctx: StaffContext): Promise<Response> {
+async function handleListAccounts(ctx: StaffContext, req: Request): Promise<Response> {
 	const { data, error } = await ctx.admin
 		.from("menu_client_accounts")
 		.select(
@@ -116,7 +153,7 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
 	if (error) return internalError("list-accounts", error);
 
 	const open = await getOpener();
-	logPiiAccess(ctx, "list-accounts", data?.length ?? 0);
+	await logPiiAccess(ctx, req, "list-accounts", data?.length ?? 0, { type: "menu_client_accounts" });
 	const accounts = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -142,7 +179,7 @@ async function handleListAccounts(ctx: StaffContext): Promise<Response> {
  * Direcciones guardadas de una ficha con cuenta, la más usada primero. El Portal
  * las cifra al guardarlas; la zona y los km quedan en claro porque son operativos.
  */
-async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffContext): Promise<Response> {
+async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffContext, req: Request): Promise<Response> {
 	const clientId = String(body.clientId ?? "").trim();
 	if (!/^[0-9a-f-]{36}$/i.test(clientId)) return jsonResponse({ error: "Falta clientId" }, 400);
 
@@ -156,7 +193,7 @@ async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffCo
 	if (error) return internalError("client-addresses", error);
 
 	const open = await getOpener();
-	logPiiAccess(ctx, "client-addresses", data?.length ?? 0, { client_id: clientId });
+	await logPiiAccess(ctx, req, "client-addresses", data?.length ?? 0, { type: "clients", ids: [clientId] });
 	const addresses = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -170,7 +207,7 @@ async function handleClientAddresses(body: Record<string, unknown>, ctx: StaffCo
 	return jsonResponse({ addresses: addresses.filter((a) => String(a.address ?? "").trim()) });
 }
 
-async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffContext): Promise<Response> {
+async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffContext, req: Request): Promise<Response> {
 	const ids = Array.isArray(body.orderIds)
 		? [...new Set(body.orderIds.map((id) => String(id ?? "").trim()).filter((id) => /^\d+$/.test(id)))]
 		: [];
@@ -187,7 +224,10 @@ async function handleRevealOrders(body: Record<string, unknown>, ctx: StaffConte
 	if (error) return internalError("reveal-orders", error);
 
 	const open = await getOpener();
-	logPiiAccess(ctx, "reveal-orders", data?.length ?? 0, { order_ids: (data ?? []).map((row) => row.id) });
+	await logPiiAccess(ctx, req, "reveal-orders", data?.length ?? 0, {
+		type: "orders",
+		ids: (data ?? []).map((row) => String(row.id)),
+	});
 	const orders = await Promise.all(
 		(data ?? []).map(async (row) => ({
 			id: row.id,
@@ -217,9 +257,9 @@ Deno.serve(withCors("POST, OPTIONS", async (req: Request): Promise<Response> => 
 		}
 
 		const action = String(body.action ?? "").trim().toLowerCase();
-		if (action === "list-accounts") return await handleListAccounts(ctx);
-		if (action === "reveal-orders") return await handleRevealOrders(body, ctx);
-		if (action === "client-addresses") return await handleClientAddresses(body, ctx);
+		if (action === "list-accounts") return await handleListAccounts(ctx, req);
+		if (action === "reveal-orders") return await handleRevealOrders(body, ctx, req);
+		if (action === "client-addresses") return await handleClientAddresses(body, ctx, req);
 		return jsonResponse({ error: "Accion desconocida" }, 400);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Error interno";
