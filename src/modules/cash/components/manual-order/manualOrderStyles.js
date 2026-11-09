@@ -54,11 +54,5 @@ export const catalogGridGapClass = 'gap-3 sm:gap-4 lg:gap-5';
 /** Radio para tarjetas grandes (ProductCard, paneles de checkout). */
 export const cardRadiusClass = 'rounded-[22px]';
 
-/** Radio para tiles chicos (método de pago, chip de categoría). */
-export const tileRadiusClass = 'rounded-[16px]';
-
 /** Radio para elementos alargados/capsula (search bar, tags de categoría). */
 export const pillRadiusClass = 'rounded-full';
-
-/** Estado activo/seleccionado sólido negro/blanco (reemplaza el acento violeta en toggles). */
-export const activeStateClass = 'bg-gc-text text-white';

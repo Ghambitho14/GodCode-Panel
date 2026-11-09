@@ -117,7 +117,8 @@ const LocalExpenseModal = ({
     const [categoryId, setCategoryId] = useState('mercaderia');
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('cash');
+    // Tarjeta por defecto; el operador elige Efectivo cuando el gasto sale de la caja física.
+    const [paymentMethod, setPaymentMethod] = useState('card');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -135,7 +136,7 @@ const LocalExpenseModal = ({
         setCategoryId('mercaderia');
         setAmount('');
         setDescription('');
-        setPaymentMethod('cash');
+        setPaymentMethod('card');
         setError('');
         setSubmitting(false);
         setOrderQuery('');
