@@ -79,6 +79,46 @@ describe("hoja: pegar, formato y deshacer", () => {
 		expect(screen.getByLabelText<HTMLInputElement>("Contenido de la celda").value).toBe("=A2*2");
 	});
 
+	it("copiar y pegar funcionan aunque el navegador mande el evento al <body>", () => {
+		// En un navegador real, con la hoja enfocada no hay texto marcado dentro de ella, así que
+		// Ctrl+C / Ctrl+V llegan al <body> y no a la hoja.
+		const book = emptyWorkbook();
+		render(<Harness initial={setCell(book, book.activeSheetId, "A1", "Caja")} />);
+		const clipboard = fakeClipboard();
+		clickCell("A1");
+		expect(document.activeElement).toBe(grid());
+		fireEvent.copy(document.body, { clipboardData: clipboard });
+		expect(clipboard.getData("text/plain")).toBe("Caja");
+
+		clickCell("B2");
+		fireEvent.paste(document.body, { clipboardData: fakeClipboard({ "text/plain": "1\t2\r\n" }) });
+		expect(cell("B2").textContent).toBe("1");
+		expect(cell("C2").textContent).toBe("2");
+	});
+
+	it("si la hoja no tiene el foco, copiar no la toca", () => {
+		const book = emptyWorkbook();
+		render(<Harness initial={setCell(book, book.activeSheetId, "A1", "Caja")} />);
+		const clipboard = fakeClipboard();
+		clickCell("A1");
+		grid().blur();
+		fireEvent.copy(document.body, { clipboardData: clipboard });
+		expect(clipboard.getData("text/plain")).toBe("");
+	});
+
+	it("el ⋯ de la pestaña duplica la hoja con todo y la abre", () => {
+		const book = emptyWorkbook();
+		render(<Harness initial={setCell(book, book.activeSheetId, "B2", "62.500")} />);
+		fireEvent.click(screen.getByRole("button", { name: "Opciones de la hoja Hoja 1" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Duplicar" }));
+		expect(screen.getByRole("button", { name: "Hoja 1 (copia)", pressed: true })).toBeTruthy();
+		expect(cell("B2").textContent).toBe("62.500");
+		expect(screen.queryByRole("menu")).toBeNull();
+		// Con una sola hoja no se ofrece borrar; con dos, sí.
+		fireEvent.click(screen.getByRole("button", { name: "Opciones de la hoja Hoja 1 (copia)" }));
+		expect(screen.getByRole("menuitem", { name: "Borrar hoja" })).toBeTruthy();
+	});
+
 	it("cortar deja el portapapeles y borra el origen", () => {
 		const book = emptyWorkbook();
 		render(<Harness initial={setCell(book, book.activeSheetId, "A1", "mover")} />);

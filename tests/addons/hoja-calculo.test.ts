@@ -8,6 +8,7 @@ import {
 	clearCells,
 	columnLabel,
 	columnRange,
+	duplicateSheet,
 	emptyWorkbook,
 	evaluateSheet,
 	growSheet,
@@ -442,6 +443,36 @@ describe("libro y hojas", () => {
 		expect(book.sheets).toHaveLength(1);
 		expect(book.activeSheetId).toBe(first);
 		expect(removeSheet(book, first)).toBe(book);
+	});
+
+	it("duplica una hoja igual, al lado y con nombre libre", () => {
+		let book = emptyWorkbook();
+		const first = book.sheets[0].id;
+		book = renameSheet(book, first, "Enero");
+		book = setCell(book, first, "A1", "62.500");
+		book = setCell(book, first, "A2", "=SUMA(A1:A1)");
+		book = setStyle(book, first, ["A1"], { bold: true });
+		book = growSheet(book, first, { rows: 10 });
+		book = addSheet(book);
+
+		book = duplicateSheet(book, first);
+		expect(book.sheets.map((s) => s.name)).toEqual(["Enero", "Enero (copia)", "Hoja 2"]);
+		const original = book.sheets[0];
+		const copy = book.sheets[1];
+		expect(book.activeSheetId).toBe(copy.id);
+		expect(copy.id).not.toBe(original.id);
+		expect(copy).toMatchObject({ cells: original.cells, styles: original.styles, rows: original.rows, cols: original.cols });
+
+		// Cambiar la copia no toca el original.
+		book = setStyle(book, copy.id, ["A1"], { italic: true });
+		expect(book.sheets[0].styles.A1?.italic).toBeFalsy();
+
+		book = duplicateSheet(book, first);
+		expect(book.sheets[1].name).toBe("Enero (copia 2)");
+		expect(duplicateSheet(book, "no-existe")).toBe(book);
+
+		const long = renameSheet(emptyWorkbook(), emptyWorkbook().sheets[0].id, "x".repeat(31));
+		expect(duplicateSheet(long, long.sheets[0].id).sheets[1].name.length).toBeLessThanOrEqual(31);
 	});
 
 	it("escribe y borra celdas, y exporta CSV con los resultados", () => {

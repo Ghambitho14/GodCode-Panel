@@ -864,6 +864,25 @@ export function addSheet(book: Workbook): Workbook {
 	return { ...book, sheets: [...book.sheets, sheet], activeSheetId: sheet.id };
 }
 
+/**
+ * Copia exacta de una hoja (contenido, formato, filas y columnas) justo a su derecha, con el nombre
+ * «Enero (copia)» —o «(copia 2)», «(copia 3)»… si ya existe— y la deja abierta.
+ */
+export function duplicateSheet(book: Workbook, sheetId: string): Workbook {
+	const index = book.sheets.findIndex((s) => s.id === sheetId);
+	if (index < 0) return book;
+	const source = book.sheets[index];
+	const taken = new Set(book.sheets.map((s) => s.name.toLowerCase()));
+	let name = "";
+	for (let n = 1; !name || taken.has(name.toLowerCase()); n += 1) {
+		const suffix = n === 1 ? " (copia)" : ` (copia ${n})`;
+		name = source.name.slice(0, MAX_SHEET_NAME - suffix.length).trimEnd() + suffix;
+	}
+	const copy: Sheet = { ...structuredClone(source), id: newId(), name };
+	const sheets = [...book.sheets.slice(0, index + 1), copy, ...book.sheets.slice(index + 1)];
+	return { ...book, sheets, activeSheetId: copy.id };
+}
+
 /** Cambia el nombre; vacío o repetido (sin importar mayúsculas) no cambia nada. */
 export function renameSheet(book: Workbook, sheetId: string, name: string): Workbook {
 	const clean = name.trim().slice(0, MAX_SHEET_NAME);

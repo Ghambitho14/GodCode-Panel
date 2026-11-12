@@ -615,7 +615,7 @@
 	color: var(--hoja-accent);
 }
 
-.hoja__tab-del {
+.hoja__tab-more {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -629,7 +629,29 @@
 	cursor: pointer;
 }
 
-.hoja__tab-del:hover {
+.hoja__tab-more:hover,
+.hoja__tab-more[aria-expanded="true"] {
+	background: var(--hoja-head-bg);
+	color: var(--hoja-accent);
+}
+
+/* Menú ⋯ de la pestaña: fijo para que la fila de pestañas (con scroll) no lo recorte */
+.hoja-pestana__panel {
+	position: fixed;
+	z-index: 40;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 180px;
+	padding: 6px;
+	border: 1px solid var(--hoja-grid);
+	border-radius: 12px;
+	background: var(--admin-card-bg, #fff);
+	box-shadow: 0 10px 30px rgb(15 23 42 / 0.16);
+}
+
+.hoja-pestana__panel .hoja-pestana__danger:hover,
+.hoja-pestana__panel .hoja-pestana__danger:focus-visible {
 	background: color-mix(in srgb, var(--hoja-bad) 12%, transparent);
 	color: var(--hoja-bad);
 }

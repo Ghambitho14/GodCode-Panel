@@ -14,7 +14,9 @@ cliente (`referencia/2026 f.ods.zip`, con datos reales; no se sube a git, está 
   misma), `#ERROR!` (fórmula mal escrita).
 - Teclado como en Excel: flechas, Enter, Tab; escribir reemplaza, doble clic o F2 edita, Esc cancela,
   Supr borra. Mientras se escribe una fórmula, un clic en otra celda pone su nombre.
-- Varias hojas con pestañas abajo: **+** agrega, doble clic renombra, la × borra (nunca la última).
+- Varias hojas con pestañas abajo: **+** agrega, doble clic renombra. El **⋯** de la pestaña abierta
+  tiene **Duplicar** (copia exacta —contenido, formato, filas y columnas— al lado, como «Enero
+  (copia)», para armar el mes siguiente), **Cambiar nombre** y **Borrar hoja** (nunca la última).
   Las fórmulas solo miran su propia hoja.
 - «+10 filas» y «+1 columna» (hasta 1000 filas y 52 columnas, AZ). «CSV» baja la hoja abierta con
   los resultados, separada por `;` para Excel en español.
@@ -60,7 +62,7 @@ vez que se abre. Si dos personas editan la misma hoja a la vez, gana el último 
 - `HojaCalculo.tsx` + `HojaCalculo.css`: la cuadrícula, la selección, la barra de formato y la de
   fórmula, copiar/pegar, deshacer y las pestañas (probado en `tests/addons/hoja-calculo-ui.test.tsx`).
 - `ColorMenu.tsx` + `colores.ts`: el botón con la paleta y los colores de la paleta. `BordesMenu.tsx`:
-  el menú de bordes. Los dos abren y cierran con `usePopover.ts`.
+  el menú de bordes. `PestanaMenu.tsx`: el ⋯ de la pestaña. Los tres abren y cierran con `usePopover.ts`.
 - `hoja-calculo.ts`: las fórmulas, el formato y el libro (sin React), probados en
   `tests/addons/hoja-calculo.test.ts`.
 - `portapapeles.ts`: leer lo copiado (texto con tabulaciones y HTML de Excel, Sheets y LibreOffice) y

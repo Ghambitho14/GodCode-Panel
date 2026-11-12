@@ -31,13 +31,13 @@ import {
 	Strikethrough,
 	Underline,
 	Undo2,
-	X,
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
 
 import BordesMenu from "./BordesMenu";
 import ColorMenu from "./ColorMenu";
+import PestanaMenu from "./PestanaMenu";
 import { FILL_COLORS, TEXT_COLORS, TEXT_ON_FILL } from "./colores";
 import {
 	activeSheet,
@@ -61,6 +61,7 @@ import {
 	pasteBlock,
 	rangeFrom,
 	rangeLabel,
+	duplicateSheet,
 	removeSheet,
 	renameSheet,
 	reviveZoom,
@@ -626,10 +627,9 @@ export default function HojaCalculo({
 	 * Ctrl+C / Ctrl+X con la hoja enfocada: deja el último bloque marcado como texto (con los
 	 * resultados) y como tabla HTML (con el formato), para pegarlo en Excel. Cortar lo borra de aquí.
 	 */
-	const copySelection = (event: ClipboardEvent<HTMLDivElement>, cut: boolean) => {
-		if (event.target !== event.currentTarget) return;
+	const copySelection = (event: globalThis.ClipboardEvent, cut: boolean) => {
 		const last = sel.ranges[sel.ranges.length - 1];
-		if (!last) return;
+		if (!last || !event.clipboardData) return;
 		event.preventDefault();
 		const whole = sel.kind !== "cell" || (last.c0 === 0 && last.r0 === 0 && last.c1 >= sheet.cols - 1 && last.r1 >= sheet.rows - 1);
 		const range = whole ? trimToUsed(sheet, last) : last;
@@ -648,13 +648,43 @@ export default function HojaCalculo({
 	};
 
 	/** Ctrl+V con la hoja enfocada: pega desde la celda activa (o llena lo marcado con una sola celda). */
-	const onGridPaste = (event: ClipboardEvent<HTMLDivElement>) => {
-		if (event.target !== event.currentTarget) return;
+	const onGridPaste = (event: globalThis.ClipboardEvent) => {
+		if (!event.clipboardData) return;
 		const block = blockFromClipboard(event.clipboardData);
 		if (!block) return;
 		event.preventDefault();
 		pasteInto(block, sel.ranges);
 	};
+
+	/*
+	 * Ctrl+C / Ctrl+X / Ctrl+V se escuchan en todo el documento: con la hoja enfocada no queda texto
+	 * marcado dentro de ella (las celdas no se seleccionan), y el navegador manda el evento al <body>
+	 * o al último texto marcado de la página, nunca a la hoja. Basta con que la hoja tenga el foco.
+	 */
+	const clipboardRef = useRef({ copySelection, onGridPaste });
+	useLayoutEffect(() => {
+		clipboardRef.current = { copySelection, onGridPaste };
+	});
+	useEffect(() => {
+		const gridHasFocus = () => gridRef.current !== null && document.activeElement === gridRef.current;
+		const onCopy = (event: globalThis.ClipboardEvent) => {
+			if (gridHasFocus()) clipboardRef.current.copySelection(event, false);
+		};
+		const onCut = (event: globalThis.ClipboardEvent) => {
+			if (gridHasFocus()) clipboardRef.current.copySelection(event, true);
+		};
+		const onPaste = (event: globalThis.ClipboardEvent) => {
+			if (gridHasFocus()) clipboardRef.current.onGridPaste(event);
+		};
+		document.addEventListener("copy", onCopy);
+		document.addEventListener("cut", onCut);
+		document.addEventListener("paste", onPaste);
+		return () => {
+			document.removeEventListener("copy", onCopy);
+			document.removeEventListener("cut", onCut);
+			document.removeEventListener("paste", onPaste);
+		};
+	}, []);
 
 	/** Teclas de la hoja cuando no se está editando. */
 	const onGridKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -1142,9 +1172,6 @@ export default function HojaCalculo({
 				aria-label={`Hoja ${sheet.name}`}
 				style={{ "--hoja-zoom": zoom / 100 } as CSSProperties}
 				onKeyDown={onGridKeyDown}
-				onCopy={(event) => copySelection(event, false)}
-				onCut={(event) => copySelection(event, true)}
-				onPaste={onGridPaste}
 			>
 				<table className="hoja__table">
 					<thead>
@@ -1209,16 +1236,21 @@ export default function HojaCalculo({
 							>
 								{s.name}
 							</button>
-							{isActive && book.sheets.length > 1 ? (
-								<button
-									type="button"
-									className="hoja__tab-del"
-									aria-label={`Borrar la hoja ${s.name}`}
-									title="Borrar hoja"
-									onClick={() => deleteSheet(s.id, s.name)}
-								>
-									<X size={12} aria-hidden="true" />
-								</button>
+							{isActive ? (
+								<PestanaMenu
+									name={s.name}
+									canDelete={book.sheets.length > 1}
+									onDuplicate={() => {
+										commitEdit();
+										change((b) => duplicateSheet(b, s.id));
+										resetSelection();
+									}}
+									onRename={() => {
+										commitEdit();
+										setRenamingId(s.id);
+									}}
+									onDelete={() => deleteSheet(s.id, s.name)}
+								/>
 							) : null}
 						</div>
 					);
