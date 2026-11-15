@@ -456,12 +456,12 @@
   from {
       opacity: 0;
       transform: translateY(-10px);
-      max-height: 0;
   }
+  /* Sin max-height: con `forwards` el tope quedaba fijo y recortaba la
+     lista de tamaños (solo se veían 2 y no aparecía «Agregar tamaño»). */
   to {
       opacity: 1;
       transform: translateY(0);
-      max-height: 100px;
   }
 }
 
