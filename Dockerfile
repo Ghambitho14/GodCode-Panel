@@ -4,7 +4,7 @@
 # digest no. Dependabot (`.github/dependabot.yml`) propone el cambio.
 
 # ---------- Build stage ----------
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS builder
+FROM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS builder
 WORKDIR /app
 
 # Copiar manifiestos primero para cachear las dependencias.
@@ -21,13 +21,13 @@ RUN npm run build
 # Solo `dependencies`: vite, eslint, playwright y compañía no llegan a la imagen
 # final. `--ignore-scripts` porque el postinstall (patch-package) es de
 # desarrollo y los parches solo tocan el bundle, que ya se armó arriba.
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS prod-deps
+FROM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --omit=optional --ignore-scripts && npm cache clean --force
 
 # ---------- Production stage ----------
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+FROM node:26.13.1-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 WORKDIR /app
 ENV NODE_ENV=production
 
