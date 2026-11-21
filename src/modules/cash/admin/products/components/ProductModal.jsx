@@ -216,7 +216,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
         setSizesEnabled(rows.length > 0);
       } catch (e) {
         console.warn('product sizes', e);
-        if (!cancelled) setSizesLoadError('No se pudieron cargar los tamaños. El producto se guardará sin tocarlos.');
+        if (!cancelled) setSizesLoadError('No se pudieron cargar las opciones. El producto se guardará sin tocarlas.');
       } finally {
         if (!cancelled) setSizesLoading(false);
       }
@@ -522,11 +522,11 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                         min="0"
                         aria-label={`Precio en ${currency}`}
                         disabled={sizesActive}
-                        title={sizesActive ? 'Con tamaños, el precio es el del tamaño más barato' : undefined}
+                        title={sizesActive ? 'Con opciones, el precio es el de la opción más barata' : undefined}
                       />
                     </div>
                     {sizesActive ? (
-                      <span className="product-form__field-hint">Desde: el tamaño más barato</span>
+                      <span className="product-form__field-hint">Desde: la opción más barata</span>
                     ) : null}
                     {errors.price && <span className="error-text">{errors.price}</span>}
                   </div>
@@ -584,13 +584,13 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                   <div className={`product-form__option${sizesActive ? ' is-on' : ''}`}>
                     <span className="product-form__option-icon" aria-hidden><Ruler size={16} strokeWidth={1.75} /></span>
                     <div className="switch-content">
-                      <span className="switch-title">Varios tamaños</span>
+                      <span className="switch-title">Opciones de productos</span>
                       <span className="switch-desc">
                         {sizesLoading
-                          ? 'Cargando tamaños…'
+                          ? 'Cargando opciones…'
                           : sizesLoadError
                             ? sizesLoadError
-                            : 'Ej: pizza familiar, mediana y pequeña, cada una con su precio'}
+                            : 'Ej: pizza familiar o mediana, roll de 10 o 20 piezas, cada una con su precio'}
                       </span>
                     </div>
                     <Button variant="default"
@@ -598,7 +598,7 @@ const ProductModal = React.memo(({ onClose, onSave, product, categories, company
                       className={`menu-carousel-switch menu-carousel-switch--sm${sizesActive ? ' is-on' : ''}`}
                       role="switch"
                       aria-checked={sizesActive}
-                      aria-label={sizesActive ? 'Quitar tamaños' : 'Usar varios tamaños'}
+                      aria-label={sizesActive ? 'Quitar opciones' : 'Usar opciones de productos'}
                       onClick={toggleSizes}
                       disabled={sizesLoading || Boolean(sizesLoadError)}
                     >

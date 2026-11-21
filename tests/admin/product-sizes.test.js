@@ -24,9 +24,9 @@ describe('tamaños de producto (editor del modal)', () => {
   });
 
   it('valida lista vacía, nombres vacíos o repetidos y precios', () => {
-    expect(validateSizeRows([])).toMatch(/al menos un tamaño/);
+    expect(validateSizeRows([])).toMatch(/al menos una opción/);
     expect(validateSizeRows([newSizeRow('', '10')])).toMatch(/nombre/);
-    expect(validateSizeRows([newSizeRow('Familiar', '10'), newSizeRow(' familiar ', '12')])).toMatch(/repetido/);
+    expect(validateSizeRows([newSizeRow('Familiar', '10'), newSizeRow(' familiar ', '12')])).toMatch(/repetida/);
     expect(validateSizeRows([newSizeRow('Familiar', '0')])).toMatch(/precio/);
     expect(validateSizeRows(Array.from({ length: MAX_PRODUCT_SIZES + 1 }, (_, i) => newSizeRow(`T${i}`, 1)))).toMatch(/Máximo/);
     expect(validateSizeRows([newSizeRow('Familiar', '15000'), newSizeRow('Pequeña', '8000')])).toBeNull();
@@ -82,26 +82,26 @@ describe('precio base y oferta con tamaños (lo que guarda useAdminCatalog)', ()
 
 describe('errores de admin_set_product_sizes', () => {
   const cases = [
-    [{ code: '22000', message: 'duplicate_size_name' }, 'Hay dos tamaños con el mismo nombre'],
-    [{ code: '22000', message: 'invalid_size_name' }, 'Un tamaño no tiene nombre'],
-    [{ code: '22000', message: 'invalid_size_price' }, 'El precio de un tamaño no es válido'],
-    [{ code: '22000', message: 'too_many_sizes' }, 'Son demasiados tamaños'],
-    [{ code: '42501', message: 'branch_not_allowed' }, 'No puedes editar tamaños en esta sucursal'],
-    [{ code: '42501', message: 'not_allowed' }, 'No tienes permiso para editar tamaños'],
-    [{ code: '42501', message: 'permission denied for function admin_set_product_sizes' }, 'No tienes permiso para editar tamaños'],
+    [{ code: '22000', message: 'duplicate_size_name' }, 'Hay dos opciones con el mismo nombre'],
+    [{ code: '22000', message: 'invalid_size_name' }, 'Una opción no tiene nombre'],
+    [{ code: '22000', message: 'invalid_size_price' }, 'El precio de una opción no es válido'],
+    [{ code: '22000', message: 'too_many_sizes' }, 'Son demasiadas opciones'],
+    [{ code: '42501', message: 'branch_not_allowed' }, 'No puedes editar opciones en esta sucursal'],
+    [{ code: '42501', message: 'not_allowed' }, 'No tienes permiso para editar opciones'],
+    [{ code: '42501', message: 'permission denied for function admin_set_product_sizes' }, 'No tienes permiso para editar opciones'],
     [
       {
         code: 'PGRST202',
         message: 'Could not find the function public.admin_set_product_sizes(p_apply_to_all_branches, p_branch_id, p_product_id, p_sizes) in the schema cache',
         hint: null,
       },
-      'La base todavía no tiene la función de tamaños; avisa al equipo de Gcode',
+      'La base todavía no tiene la función de opciones; avisa al equipo de Gcode',
     ],
-    [{ message: 'Could not find the function public.admin_set_product_sizes without code' }, 'La base todavía no tiene la función de tamaños; avisa al equipo de Gcode'],
-    [{ code: '42883', message: 'function public.admin_set_product_sizes(uuid, uuid, jsonb, boolean) does not exist' }, 'La base todavía no tiene la función de tamaños; avisa al equipo de Gcode'],
-    [{ code: '22000', message: 'product_not_found' }, 'No se pudieron guardar los tamaños'],
-    [{ message: 'Failed to fetch' }, 'No se pudieron guardar los tamaños'],
-    [null, 'No se pudieron guardar los tamaños'],
+    [{ message: 'Could not find the function public.admin_set_product_sizes without code' }, 'La base todavía no tiene la función de opciones; avisa al equipo de Gcode'],
+    [{ code: '42883', message: 'function public.admin_set_product_sizes(uuid, uuid, jsonb, boolean) does not exist' }, 'La base todavía no tiene la función de opciones; avisa al equipo de Gcode'],
+    [{ code: '22000', message: 'product_not_found' }, 'No se pudieron guardar las opciones'],
+    [{ message: 'Failed to fetch' }, 'No se pudieron guardar las opciones'],
+    [null, 'No se pudieron guardar las opciones'],
   ];
 
   it.each(cases)('%j se dice como «%s»', (error, expected) => {
@@ -110,9 +110,9 @@ describe('errores de admin_set_product_sizes', () => {
 
   it('el aviso nunca muestra el texto crudo y va en minúscula tras los dos puntos', () => {
     expect(productSizesSaveWarning({ code: '22000', message: 'duplicate_size_name' }))
-      .toBe('los tamaños no se guardaron: hay dos tamaños con el mismo nombre');
+      .toBe('las opciones no se guardaron: hay dos opciones con el mismo nombre');
     const missing = productSizesSaveWarning({ code: 'PGRST202', message: 'Could not find the function public.admin_set_product_sizes' });
-    expect(missing).toBe('los tamaños no se guardaron: la base todavía no tiene la función de tamaños; avisa al equipo de Gcode');
+    expect(missing).toBe('las opciones no se guardaron: la base todavía no tiene la función de opciones; avisa al equipo de Gcode');
     expect(missing).not.toMatch(/could not find|PGRST|admin_set/i);
   });
 });

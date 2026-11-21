@@ -49,7 +49,7 @@ function renderCatalog(props = {}) {
 }
 
 const pizzaCard = () => screen.getByRole('button', { name: /^Pizza Napolitana/ });
-const sizeOptions = (dialog) => within(within(dialog).getByRole('group', { name: 'Tamaños de Pizza Napolitana' })).getAllByRole('button');
+const sizeOptions = (dialog) => within(within(dialog).getByRole('group', { name: 'Opciones de Pizza Napolitana' })).getAllByRole('button');
 
 afterEach(() => cleanup());
 
@@ -60,17 +60,17 @@ describe('tamaños en el pedido manual', () => {
 		expect(within(card).getByText('Desde')).toBeInTheDocument();
 		expect(within(card).getByText('$6000')).toBeInTheDocument();
 		expect(within(card).queryByText('Oferta')).not.toBeInTheDocument();
-		const plus = within(card).getByRole('button', { name: 'Elegir tamaño de Pizza Napolitana' });
+		const plus = within(card).getByRole('button', { name: 'Elegir opción de Pizza Napolitana' });
 		expect(plus).toHaveAttribute('aria-haspopup', 'dialog');
 	});
 
 	it('al tocar «+» pide el tamaño, agrega el elegido y devuelve el foco', async () => {
 		const { addItem, user } = renderCatalog();
-		const plus = within(pizzaCard()).getByRole('button', { name: 'Elegir tamaño de Pizza Napolitana' });
+		const plus = within(pizzaCard()).getByRole('button', { name: 'Elegir opción de Pizza Napolitana' });
 		await user.click(plus);
 
 		const dialog = screen.getByRole('dialog', { name: 'Pizza Napolitana' });
-		expect(dialog).toHaveAccessibleDescription('Elige el tamaño');
+		expect(dialog).toHaveAccessibleDescription('Elige una opción');
 		const options = sizeOptions(dialog);
 		expect(options.map((option) => option.textContent)).toEqual(['Personal$6000', 'Mediana$9000', 'Familiar$12000']);
 		expect(options[0]).toHaveFocus();
@@ -166,7 +166,7 @@ describe('tamaños en el pedido manual', () => {
 	it('si el pedido no admite tamaños, avisa en vez de abrir el selector', async () => {
 		const onSizedProductBlocked = vi.fn();
 		const { addItem, user } = renderCatalog({ onSizedProductBlocked });
-		await user.click(within(pizzaCard()).getByRole('button', { name: 'Elegir tamaño de Pizza Napolitana' }));
+		await user.click(within(pizzaCard()).getByRole('button', { name: 'Elegir opción de Pizza Napolitana' }));
 		expect(onSizedProductBlocked).toHaveBeenCalledWith(PIZZA);
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 		expect(addItem).not.toHaveBeenCalled();

@@ -181,7 +181,7 @@ describe('p_items de la RPC', () => {
 	});
 
 	it('el aviso de tamaños no disponibles es el acordado', () => {
-		expect(SIZES_NOT_SUPPORTED_MESSAGE).toBe('Este producto tiene tamaños: cóbralo desde el menú online por ahora.');
+		expect(SIZES_NOT_SUPPORTED_MESSAGE).toBe('Este producto tiene opciones: cóbralo desde el menú online por ahora.');
 	});
 });
 

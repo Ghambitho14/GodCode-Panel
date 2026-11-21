@@ -142,8 +142,8 @@ export default function ProductVariantsEditor({
           <h4 className="pv__title">Variantes</h4>
           <p className="pv__hint">
             Opciones que cambian el producto principal (proteína, masa, punto de cocción…). El cliente elige una por
-            grupo; la primera viene marcada. El precio del producto, o el del tamaño, suma la diferencia de la opción
-            elegida. Para tamaños con precio propio usa «Varios tamaños».
+            grupo; la primera viene marcada. El precio del producto, o el de su opción de producto, suma la diferencia
+            de la opción elegida. Para opciones con precio propio usa «Opciones de productos».
           </p>
         </div>
       </div>

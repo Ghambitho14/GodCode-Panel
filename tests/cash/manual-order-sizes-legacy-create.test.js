@@ -120,7 +120,7 @@ describe('pedido manual clásico con tamaños', () => {
 		const items = buildOrderItemsPayload([
 			{ ...buildCartLineFields(PIZZA, { id: 'size-borrado', name: 'Gigante', price: 15000 }), quantity: 1 },
 		]);
-		await expect(ordersService.createOrder(orderData(items))).rejects.toThrow('El tamaño elegido ya no existe en esta sucursal');
+		await expect(ordersService.createOrder(orderData(items))).rejects.toThrow('La opción elegida ya no existe en esta sucursal');
 		expect(atomicCreate).not.toHaveBeenCalled();
 	});
 });

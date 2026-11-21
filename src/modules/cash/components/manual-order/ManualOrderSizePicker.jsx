@@ -106,7 +106,7 @@ export default function ManualOrderSizePicker({ product, onPick, onClose }) {
 						<h2 id={titleId} className={cn(textScale.emphasis, 'truncate font-bold text-gc-text')}>
 							{product.name}
 						</h2>
-						<p id={hintId} className={cn(textScale.micro, 'text-gc-text-muted')}>Elige el tamaño</p>
+						<p id={hintId} className={cn(textScale.micro, 'text-gc-text-muted')}>Elige una opción</p>
 					</div>
 					<Button
 						variant="ghost"
@@ -122,7 +122,7 @@ export default function ManualOrderSizePicker({ product, onPick, onClose }) {
 				<div
 					className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
 					role="group"
-					aria-label={`Tamaños de ${product.name}`}
+					aria-label={`Opciones de ${product.name}`}
 				>
 					{sizes.map((size) => (
 						<button

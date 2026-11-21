@@ -30,9 +30,9 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
               className="form-input product-form__size-name"
               value={row.name}
               onChange={(e) => update(index, 'name', e.target.value)}
-              placeholder={index === 0 ? 'Ej: Familiar' : 'Ej: Mediana'}
+              placeholder={index === 0 ? 'Ej: Familiar' : 'Ej: 20 piezas'}
               maxLength={40}
-              aria-label={`Nombre del tamaño ${index + 1}`}
+              aria-label={`Nombre de la opción ${index + 1}`}
               disabled={disabled}
             />
             <div className="product-form__money product-form__size-price">
@@ -45,7 +45,7 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
                 onChange={(e) => update(index, 'price', e.target.value)}
                 placeholder="0"
                 min="0"
-                aria-label={`Precio del tamaño ${index + 1} en ${currency}`}
+                aria-label={`Precio de la opción ${index + 1} en ${currency}`}
                 disabled={disabled}
               />
             </div>
@@ -55,7 +55,7 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
                 className="product-form__size-btn"
                 onClick={() => move(index, -1)}
                 disabled={disabled || index === 0}
-                aria-label="Subir tamaño"
+                aria-label="Subir opción"
                 title="Subir"
               >
                 <ArrowUp size={14} aria-hidden />
@@ -65,7 +65,7 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
                 className="product-form__size-btn"
                 onClick={() => move(index, 1)}
                 disabled={disabled || index === rows.length - 1}
-                aria-label="Bajar tamaño"
+                aria-label="Bajar opción"
                 title="Bajar"
               >
                 <ArrowDown size={14} aria-hidden />
@@ -75,7 +75,7 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
                 className="product-form__size-btn product-form__size-btn--danger"
                 onClick={() => remove(index)}
                 disabled={disabled}
-                aria-label={`Quitar tamaño ${row.name || index + 1}`}
+                aria-label={`Quitar opción ${row.name || index + 1}`}
                 title="Quitar"
               >
                 <Trash2 size={14} aria-hidden />
@@ -92,12 +92,12 @@ export default function ProductSizesPanel({ rows, onChange, currency, error = nu
           onClick={() => onChange([...rows, newSizeRow()])}
           disabled={disabled}
         >
-          <Plus size={16} aria-hidden /> Agregar tamaño
+          <Plus size={16} aria-hidden /> Agregar opción
         </Button>
       ) : null}
       <p className="product-form__sizes-hint">
         El menú online muestra «Desde» con el más barato y el cliente elige al agregar. El orden de esta lista es
-        el del menú online. Los tamaños son de esta sucursal.
+        el del menú online. Las opciones son de esta sucursal.
       </p>
       {error ? <span className="error-text">{error}</span> : null}
     </div>

@@ -100,7 +100,7 @@ const ProductCard = ({
             type="button"
             onClick={handleAddClick}
             className="manual-order-tap-44 flex aspect-square h-8 w-8 min-h-8 min-w-8 items-center justify-center !rounded-full bg-gc-accent p-0 text-lg leading-none text-white shadow-sm transition-[background,transform] duration-150 hover:bg-gc-accent-hover active:scale-[0.93]"
-            aria-label={hasSizes ? `Elegir tamaño de ${product.name}` : `Agregar ${product.name}`}
+            aria-label={hasSizes ? `Elegir opción de ${product.name}` : `Agregar ${product.name}`}
             aria-haspopup={hasSizes ? 'dialog' : undefined}
         >
             +

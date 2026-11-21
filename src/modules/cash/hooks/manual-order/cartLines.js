@@ -19,7 +19,7 @@ const LINE_SEPARATORS = [LINE_SIZE_SEPARATOR, LINE_VARIANTS_SEPARATOR, LINE_COPY
  * Aviso cuando el pedido no puede llevar tamaños: la cotización V2 de la caja
  * (`quote_manual_order_v2` / `create_manual_order_v2`) no tiene verificado `size_id`.
  */
-export const SIZES_NOT_SUPPORTED_MESSAGE = 'Este producto tiene tamaños: cóbralo desde el menú online por ahora.';
+export const SIZES_NOT_SUPPORTED_MESSAGE = 'Este producto tiene opciones: cóbralo desde el menú online por ahora.';
 
 export const normalizeLineId = (id) => (id == null ? '' : String(id));
 

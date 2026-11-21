@@ -77,20 +77,20 @@ describe('modal de producto: editar tamaños', () => {
 		renderModal();
 		expect(await screen.findByDisplayValue('Familiar')).toBeTruthy();
 		expect(screen.getByDisplayValue('Personal')).toBeTruthy();
-		expect(screen.getByRole('switch', { name: 'Quitar tamaños' }).getAttribute('aria-checked')).toBe('true');
-		expect(screen.getByLabelText('Nombre del tamaño 1').disabled).toBe(false);
-		expect(screen.getByLabelText('Precio del tamaño 2 en CLP').disabled).toBe(false);
+		expect(screen.getByRole('switch', { name: 'Quitar opciones' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByLabelText('Nombre de la opción 1').disabled).toBe(false);
+		expect(screen.getByLabelText('Precio de la opción 2 en CLP').disabled).toBe(false);
 	});
 
 	it('renombrar, cambiar un precio, agregar y quitar viajan al guardar con los ids de los que ya existían', async () => {
 		const onSave = renderModal();
 		await screen.findByDisplayValue('Familiar');
 
-		fireEvent.change(screen.getByLabelText('Nombre del tamaño 1'), { target: { value: 'Individual' } });
-		fireEvent.change(screen.getByLabelText('Precio del tamaño 2 en CLP'), { target: { value: '15000' } });
-		fireEvent.click(screen.getByRole('button', { name: /Agregar tamaño/ }));
-		fireEvent.change(screen.getByLabelText('Nombre del tamaño 3'), { target: { value: 'Mediana' } });
-		fireEvent.change(screen.getByLabelText('Precio del tamaño 3 en CLP'), { target: { value: '11000' } });
+		fireEvent.change(screen.getByLabelText('Nombre de la opción 1'), { target: { value: 'Individual' } });
+		fireEvent.change(screen.getByLabelText('Precio de la opción 2 en CLP'), { target: { value: '15000' } });
+		fireEvent.click(screen.getByRole('button', { name: /Agregar opción/ }));
+		fireEvent.change(screen.getByLabelText('Nombre de la opción 3'), { target: { value: 'Mediana' } });
+		fireEvent.change(screen.getByLabelText('Precio de la opción 3 en CLP'), { target: { value: '11000' } });
 		fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/ }));
 
 		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -108,7 +108,7 @@ describe('modal de producto: editar tamaños', () => {
 		cleanup();
 		const onSaveAgain = renderModal();
 		await screen.findByDisplayValue('Familiar');
-		fireEvent.click(screen.getByRole('button', { name: 'Quitar tamaño Personal' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Quitar opción Personal' }));
 		fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/ }));
 		await waitFor(() => expect(onSaveAgain).toHaveBeenCalledTimes(1));
 		expect(onSaveAgain.mock.calls[0][0].sizes).toEqual([{ id: 'size-familiar', name: 'Familiar', price: 14000 }]);
@@ -118,15 +118,15 @@ describe('modal de producto: editar tamaños', () => {
 	it('un producto sin tamaños puede pasar a tenerlos', async () => {
 		db.tables.product_sizes = [];
 		const onSave = renderModal();
-		const toggle = await screen.findByRole('switch', { name: 'Usar varios tamaños' });
+		const toggle = await screen.findByRole('switch', { name: 'Usar opciones de productos' });
 		await waitFor(() => expect(toggle.disabled).toBe(false));
 		fireEvent.click(toggle);
 
 		// Arranca con una fila con el precio actual, para no empezar en blanco.
-		fireEvent.change(screen.getByLabelText('Nombre del tamaño 1'), { target: { value: 'Personal' } });
-		fireEvent.click(screen.getByRole('button', { name: /Agregar tamaño/ }));
-		fireEvent.change(screen.getByLabelText('Nombre del tamaño 2'), { target: { value: 'Familiar' } });
-		fireEvent.change(screen.getByLabelText('Precio del tamaño 2 en CLP'), { target: { value: '14000' } });
+		fireEvent.change(screen.getByLabelText('Nombre de la opción 1'), { target: { value: 'Personal' } });
+		fireEvent.click(screen.getByRole('button', { name: /Agregar opción/ }));
+		fireEvent.change(screen.getByLabelText('Nombre de la opción 2'), { target: { value: 'Familiar' } });
+		fireEvent.change(screen.getByLabelText('Precio de la opción 2 en CLP'), { target: { value: '14000' } });
 		fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/ }));
 
 		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -139,8 +139,8 @@ describe('modal de producto: editar tamaños', () => {
 	it('si la base no tiene la tabla, lo dice y guarda el producto sin tocar los tamaños', async () => {
 		db.failOn = 'product_sizes';
 		const onSave = renderModal();
-		expect(await screen.findByText(/No se pudieron cargar los tamaños/)).toBeTruthy();
-		expect(screen.getByRole('switch', { name: 'Usar varios tamaños' }).disabled).toBe(true);
+		expect(await screen.findByText(/No se pudieron cargar las opciones/)).toBeTruthy();
+		expect(screen.getByRole('switch', { name: 'Usar opciones de productos' }).disabled).toBe(true);
 
 		fireEvent.click(screen.getByRole('button', { name: /Guardar cambios/ }));
 		await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

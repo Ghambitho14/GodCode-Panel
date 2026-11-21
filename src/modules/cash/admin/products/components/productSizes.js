@@ -17,17 +17,17 @@ export function minSizeRowPrice(rows) {
 
 /** Errores de la lista: nombre vacío o repetido, precio inválido, lista vacía. */
 export function validateSizeRows(rows) {
-  if (rows.length === 0) return 'Agrega al menos un tamaño o desactiva "Varios tamaños".';
-  if (rows.length > MAX_PRODUCT_SIZES) return `Máximo ${MAX_PRODUCT_SIZES} tamaños por producto.`;
+  if (rows.length === 0) return 'Agrega al menos una opción o desactiva "Opciones de productos".';
+  if (rows.length > MAX_PRODUCT_SIZES) return `Máximo ${MAX_PRODUCT_SIZES} opciones por producto.`;
   const seen = new Set();
   for (const row of rows) {
     const name = String(row.name ?? '').trim();
-    if (!name) return 'Cada tamaño necesita un nombre (Ej: Familiar).';
-    if (name.length > 40) return 'El nombre de un tamaño admite hasta 40 caracteres.';
+    if (!name) return 'Cada opción necesita un nombre (Ej: Familiar).';
+    if (name.length > 40) return 'El nombre de una opción admite hasta 40 caracteres.';
     const key = name.toLowerCase();
-    if (seen.has(key)) return `El tamaño "${name}" está repetido.`;
+    if (seen.has(key)) return `La opción "${name}" está repetida.`;
     seen.add(key);
-    if (!(Number(row.price) > 0)) return `El tamaño "${name}" necesita un precio mayor que 0.`;
+    if (!(Number(row.price) > 0)) return `La opción "${name}" necesita un precio mayor que 0.`;
   }
   return null;
 }
@@ -67,17 +67,17 @@ export function applySizesToProductPayload(payload, {
 /* Códigos que lanza `admin_set_product_sizes`; el orden importa porque
    `not_allowed` también está dentro de `branch_not_allowed`. */
 const SIZES_RPC_MESSAGES = [
-  ['duplicate_size_name', 'Hay dos tamaños con el mismo nombre'],
-  ['invalid_size_name', 'Un tamaño no tiene nombre'],
-  ['invalid_size_price', 'El precio de un tamaño no es válido'],
-  ['too_many_sizes', 'Son demasiados tamaños'],
-  ['branch_not_allowed', 'No puedes editar tamaños en esta sucursal'],
-  ['not_allowed', 'No tienes permiso para editar tamaños'],
+  ['duplicate_size_name', 'Hay dos opciones con el mismo nombre'],
+  ['invalid_size_name', 'Una opción no tiene nombre'],
+  ['invalid_size_price', 'El precio de una opción no es válido'],
+  ['too_many_sizes', 'Son demasiadas opciones'],
+  ['branch_not_allowed', 'No puedes editar opciones en esta sucursal'],
+  ['not_allowed', 'No tienes permiso para editar opciones'],
 ];
 
-const SIZES_RPC_MISSING = 'La base todavía no tiene la función de tamaños; avisa al equipo de Gcode';
-const SIZES_RPC_FORBIDDEN = 'No tienes permiso para editar tamaños';
-const SIZES_RPC_FALLBACK = 'No se pudieron guardar los tamaños';
+const SIZES_RPC_MISSING = 'La base todavía no tiene la función de opciones; avisa al equipo de Gcode';
+const SIZES_RPC_FORBIDDEN = 'No tienes permiso para editar opciones';
+const SIZES_RPC_FALLBACK = 'No se pudieron guardar las opciones';
 
 /**
  * Error de `admin_set_product_sizes` (o de PostgREST) a una frase para el aviso del
@@ -107,5 +107,5 @@ export function describeProductSizesSaveError(error) {
 /** Trozo del aviso al guardar el producto: «los tamaños no se guardaron: hay dos…». */
 export function productSizesSaveWarning(error) {
   const reason = describeProductSizesSaveError(error);
-  return `los tamaños no se guardaron: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;
+  return `las opciones no se guardaron: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;
 }

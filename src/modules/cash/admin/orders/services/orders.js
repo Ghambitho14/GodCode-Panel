@@ -366,7 +366,7 @@ export const ordersService = {
                 if (requested.sizeId) {
                     const sizeRow = sizesById.get(requested.sizeId);
                     if (!sizeRow || String(sizeRow.product_id) !== productId) {
-                        throw new Error('El tamaño elegido ya no existe en esta sucursal. Actualiza el menú e intenta de nuevo.');
+                        throw new Error('La opción elegida ya no existe en esta sucursal. Actualiza el menú e intenta de nuevo.');
                     }
                     const sizePrice = Number(sizeRow.price);
                     if (!Number.isFinite(sizePrice) || sizePrice <= 0) continue;
